@@ -1,0 +1,18 @@
+{
+  "color": {
+    "primary": { "value": "#00d1b2" },
+    "secondary": { "value": "#3273dc" },
+    "danger": { "value": "#ff3860" },
+    "background": { "value": "#ffffff" },
+    "text": { "value": "#363636" }
+  },
+  "typography": {
+    "fontFamily": { "main": "Inter, sans-serif", "mono": "JetBrains Mono, monospace" },
+    "fontSize": { "small": "0.875rem", "medium": "1rem", "large": "1.5rem" },
+    "fontWeight": { "bold": "700", "regular": "400" }
+  },
+  "spacing": {
+    "unit": "4px",
+    "scale": { "1": "4px", "2": "8px", "3": "16px", "4": "32px" }
+  }
+}
