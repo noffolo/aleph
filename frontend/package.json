@@ -1,0 +1,42 @@
+{
+  "name": "aleph-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@connectrpc/connect": "1.4.0",
+    "@connectrpc/connect-web": "1.4.0",
+    "d3": "7.9.0",
+    "leaflet": "1.9.4",
+    "lucide-react": "0.300.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-leaflet": "4.2.1",
+    "y-webrtc": "10.3.0",
+    "yjs": "13.6.8",
+    "zustand": "4.5.2"
+  },
+  "devDependencies": {
+    "@bufbuild/protoc-gen-es": "1.10.0",
+    "@connectrpc/protoc-gen-connect-es": "1.4.0",
+    "@types/d3": "7.4.3",
+    "@types/leaflet": "1.9.0",
+    "@types/node": "20.11.0",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "@vitejs/plugin-react": "4.3.1",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.10",
+    "tailwindcss": "^3.4.1",
+    "typescript": "5.5.3",
+    "vite": "5.3.4"
+  },
+  "overrides": {
+    "esbuild": "0.25.0"
+  }
+}

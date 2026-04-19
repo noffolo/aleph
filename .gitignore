@@ -1,0 +1,22 @@
+# Build directories
+dist/
+node_modules/
+venv/
+aleph
+
+# Databases and data
+*.duckdb
+data/projects/
+data/raw/
+data/ontologies/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+
+# Logs
+*.log
