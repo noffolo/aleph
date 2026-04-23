@@ -1,4 +1,4 @@
-# 🌌 Aleph-v2: Decision Intelligence System
+# 🌌 Aleph-v2: Decision Intelligence System (beta)
 
 *«Il dato è solo il battito cardiaco della realtà. Aleph è il sistema che gli conferisce un significato, trasformando il caos informativo in strategia azionabile.»*
 
@@ -21,6 +21,12 @@ Aleph-v2 è un ecosistema di intelligenza strategica che trasforma flussi di dat
 1. `git clone <repo>`
 2. Crea il tuo `.env` basato su `.env.example`.
 3. `docker compose up --build -d`
+
+## 🔬 Avvertenze (beta)
+- Le predizioni sono fornite a scopo esplorativo e **non costituiscono consiglio decisionale**.
+- I punteggi di confidenza e i valori di sentimento riflettono stime statistiche con margini di incertezza.
+- I dati contrassegnati come _sintetici_ sono generati per default e non derivano da fonti osservazionali.
+- Il sistema è in fase beta attiva: funzionalità, API e accuratezza possono cambiare.
 
 ## 🚀 Uso
 Accedi all'interfaccia su `http://localhost:5173`.

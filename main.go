@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"flag"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ff3300/aleph-v2/internal/app"
 	"github.com/ff3300/aleph-v2/internal/config"
@@ -35,11 +37,14 @@ func main() {
 		}
 	}()
 
-	// Graceful Shutdown Handler
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
 	log.Println("[Aleph] Shutting down gracefully...")
-	// Cleanup operations would go here if needed via an app.Close() method
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := aleph.Close(ctx); err != nil {
+		log.Printf("[Aleph] Shutdown error: %v", err)
+	}
 }

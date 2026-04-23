@@ -2,22 +2,25 @@ services:
   aleph-backend:
     build:
       context: .
-      dockerfile: cmd/aleph-server/Dockerfile
+      dockerfile: Dockerfile
     container_name: aleph-backend
     environment:
-      REGISTRY_DB_PATH: /app/aleph_registry.duckdb
+      POSTGRES_DSN: "${POSTGRES_DSN}"
+      DUCKDB_PATH: /app/aleph_registry.duckdb
       PYTHON_CMD: python3
       GO_CMD: go
-      SERVER_ADDRESS: :8080
-      ALEPH_API_KEY_SECRET_BACKEND: "dev_backend_secret_key"
+      SERVER_ADDRESS: ":8080"
+      ALEPH_API_KEY_SECRET_BACKEND: "${ALEPH_API_KEY_SECRET_BACKEND}"
+      NLP_ADDR: "aleph-nlp-sidecar:8001"
     ports:
       - "8080:8080"
     volumes:
-      # - ./aleph_registry.duckdb:/app/aleph_registry.duckdb
       - ./aleph_tools:/app/aleph_tools
+      - aleph-data:/app/data
+      - aleph-duckdb:/app/aleph_registry.duckdb
     depends_on:
-      aleph-registry-db:
-        condition: service_started
+      aleph-db:
+        condition: service_healthy
 
   aleph-python-sidecar:
     build:
@@ -26,7 +29,7 @@ services:
     container_name: aleph-nlp-sidecar
     environment:
       GRPC_SERVER_ADDRESS: 0.0.0.0:8001
-      ALEPH_API_KEY_SECRET: "dev_sidecar_secret_key"
+      ALEPH_API_KEY_SECRET: "${ALEPH_API_KEY_SECRET}"
     ports:
       - "8001:8001"
     volumes:
@@ -49,12 +52,27 @@ services:
       aleph-backend:
         condition: service_started
 
-  aleph-registry-db:
-    image: alpine:latest
-    container_name: aleph-registry-db
-    command: ["tail", "-f", "/dev/null"]
+  aleph-db:
+    image: postgres:16-alpine
+    container_name: aleph-db
+    environment:
+      POSTGRES_DB: aleph
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    ports:
+      - "5432:5432"
     volumes:
-      - ./aleph_registry.duckdb:/data/aleph_registry.duckdb
+      - aleph-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aleph"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  aleph-pgdata:
+  aleph-data:
+  aleph-duckdb:
 
 networks:
   default:

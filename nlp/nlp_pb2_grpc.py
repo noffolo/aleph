@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-import nlp_pb2 as nlp__pb2
+from aleph.nlp.v1 import nlp_pb2 as aleph_dot_nlp_dot_v1_dot_nlp__pb2
 
 GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in nlp_pb2_grpc.py depends on'
+        + ' but the generated code in aleph/nlp/v1/nlp_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -36,18 +36,18 @@ class NLPServiceStub(object):
         """
         self.AnalyzeSentiment = channel.unary_unary(
                 '/aleph.nlp.v1.NLPService/AnalyzeSentiment',
-                request_serializer=nlp__pb2.AnalyzeSentimentRequest.SerializeToString,
-                response_deserializer=nlp__pb2.AnalyzeSentimentResponse.FromString,
+                request_serializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.AnalyzeSentimentRequest.SerializeToString,
+                response_deserializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.AnalyzeSentimentResponse.FromString,
                 _registered_method=True)
         self.StreamPredictions = channel.unary_stream(
                 '/aleph.nlp.v1.NLPService/StreamPredictions',
-                request_serializer=nlp__pb2.PredictiveRequest.SerializeToString,
-                response_deserializer=nlp__pb2.PredictiveResponse.FromString,
+                request_serializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.StreamPredictionsRequest.SerializeToString,
+                response_deserializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.StreamPredictionsResponse.FromString,
                 _registered_method=True)
         self.RecordFeedback = channel.unary_unary(
                 '/aleph.nlp.v1.NLPService/RecordFeedback',
-                request_serializer=nlp__pb2.FeedbackRequest.SerializeToString,
-                response_deserializer=nlp__pb2.FeedbackResponse.FromString,
+                request_serializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.RecordFeedbackRequest.SerializeToString,
+                response_deserializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.RecordFeedbackResponse.FromString,
                 _registered_method=True)
 
 
@@ -79,18 +79,18 @@ def add_NLPServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'AnalyzeSentiment': grpc.unary_unary_rpc_method_handler(
                     servicer.AnalyzeSentiment,
-                    request_deserializer=nlp__pb2.AnalyzeSentimentRequest.FromString,
-                    response_serializer=nlp__pb2.AnalyzeSentimentResponse.SerializeToString,
+                    request_deserializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.AnalyzeSentimentRequest.FromString,
+                    response_serializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.AnalyzeSentimentResponse.SerializeToString,
             ),
             'StreamPredictions': grpc.unary_stream_rpc_method_handler(
                     servicer.StreamPredictions,
-                    request_deserializer=nlp__pb2.PredictiveRequest.FromString,
-                    response_serializer=nlp__pb2.PredictiveResponse.SerializeToString,
+                    request_deserializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.StreamPredictionsRequest.FromString,
+                    response_serializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.StreamPredictionsResponse.SerializeToString,
             ),
             'RecordFeedback': grpc.unary_unary_rpc_method_handler(
                     servicer.RecordFeedback,
-                    request_deserializer=nlp__pb2.FeedbackRequest.FromString,
-                    response_serializer=nlp__pb2.FeedbackResponse.SerializeToString,
+                    request_deserializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.RecordFeedbackRequest.FromString,
+                    response_serializer=aleph_dot_nlp_dot_v1_dot_nlp__pb2.RecordFeedbackResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -118,8 +118,8 @@ class NLPService(object):
             request,
             target,
             '/aleph.nlp.v1.NLPService/AnalyzeSentiment',
-            nlp__pb2.AnalyzeSentimentRequest.SerializeToString,
-            nlp__pb2.AnalyzeSentimentResponse.FromString,
+            aleph_dot_nlp_dot_v1_dot_nlp__pb2.AnalyzeSentimentRequest.SerializeToString,
+            aleph_dot_nlp_dot_v1_dot_nlp__pb2.AnalyzeSentimentResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -145,8 +145,8 @@ class NLPService(object):
             request,
             target,
             '/aleph.nlp.v1.NLPService/StreamPredictions',
-            nlp__pb2.PredictiveRequest.SerializeToString,
-            nlp__pb2.PredictiveResponse.FromString,
+            aleph_dot_nlp_dot_v1_dot_nlp__pb2.StreamPredictionsRequest.SerializeToString,
+            aleph_dot_nlp_dot_v1_dot_nlp__pb2.StreamPredictionsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -172,8 +172,8 @@ class NLPService(object):
             request,
             target,
             '/aleph.nlp.v1.NLPService/RecordFeedback',
-            nlp__pb2.FeedbackRequest.SerializeToString,
-            nlp__pb2.FeedbackResponse.FromString,
+            aleph_dot_nlp_dot_v1_dot_nlp__pb2.RecordFeedbackRequest.SerializeToString,
+            aleph_dot_nlp_dot_v1_dot_nlp__pb2.RecordFeedbackResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -3,9 +3,10 @@ package handler
 import (
 	"context"
 	"encoding/json"
+
+	"connectrpc.com/connect"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/repository"
-	"connectrpc.com/connect"
 )
 
 type SkillHandler struct {
@@ -22,17 +23,18 @@ func (h *SkillHandler) ListSkills(
 	req *connect.Request[v1.ListSkillsRequest],
 ) (*connect.Response[v1.ListSkillsResponse], error) {
 	projectID := req.Msg.ProjectId
-	rows, err := h.metaRepo.DB().Query("SELECT id, name, description FROM system_skills WHERE project_id = $1", projectID)
+	skills, err := h.metaRepo.ListSkills(projectID)
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-	defer rows.Close()
 
-	var skills []*v1.Skill
-	for rows.Next() {
-		var s v1.Skill
-		rows.Scan(&s.Id, &s.Name, &s.Description)
-		skills = append(skills, &s)
+	var result []*v1.Skill
+	for _, s := range skills {
+		skill := &v1.Skill{Id: s.ID, Name: s.Name, Description: s.Description}
+		if s.ToolIDsJSON != "" {
+			json.Unmarshal([]byte(s.ToolIDsJSON), &skill.ToolIds)
+		}
+		result = append(result, skill)
 	}
-	return connect.NewResponse(&v1.ListSkillsResponse{Skills: skills}), nil
+	return connect.NewResponse(&v1.ListSkillsResponse{Skills: result}), nil
 }
 
 func (h *SkillHandler) CreateSkill(
@@ -41,13 +43,12 @@ func (h *SkillHandler) CreateSkill(
 ) (*connect.Response[v1.CreateSkillResponse], error) {
 	projectID := req.Msg.ProjectId
 	skill := req.Msg.Skill
-	
 	toolIDs, _ := json.Marshal(skill.ToolIds)
-	
-	_, err := h.metaRepo.DB().Exec(
-		"INSERT INTO system_skills (id, project_id, name, description, tool_ids) VALUES ($1, $2, $3, $4, $5)",
-		skill.Id, projectID, skill.Name, skill.Description, string(toolIDs),
-	)
+
+	err := h.metaRepo.CreateSkill(&repository.SkillRecord{
+		ID: skill.Id, ProjectID: projectID, Name: skill.Name,
+		Description: skill.Description, ToolIDsJSON: string(toolIDs),
+	})
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
 	return connect.NewResponse(&v1.CreateSkillResponse{Skill: skill}), nil
 }
@@ -56,9 +57,7 @@ func (h *SkillHandler) DeleteSkill(
 	ctx context.Context,
 	req *connect.Request[v1.DeleteSkillRequest],
 ) (*connect.Response[v1.DeleteSkillResponse], error) {
-	projectID := req.Msg.ProjectId
-	id := req.Msg.Id
-	_, err := h.metaRepo.DB().Exec("DELETE FROM system_skills WHERE project_id = $1 AND id = $2", projectID, id)
+	err := h.metaRepo.DeleteSkill(req.Msg.Id, req.Msg.ProjectId)
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
 	return connect.NewResponse(&v1.DeleteSkillResponse{Success: true}), nil
 }

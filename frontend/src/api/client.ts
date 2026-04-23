@@ -22,6 +22,6 @@ const authInterceptor: Interceptor = (next) => async (req) => {
 };
 
 export const transport = createConnectTransport({
-  baseUrl: "http://localhost:8080",
+  baseUrl: "",
   interceptors: [authInterceptor],
 });

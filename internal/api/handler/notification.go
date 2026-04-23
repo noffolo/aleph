@@ -22,11 +22,18 @@ func (h *NotificationHandler) SendWebhook(
 	ctx context.Context,
 	req *connect.Request[v1.SendWebhookRequest],
 ) (*connect.Response[v1.SendWebhookResponse], error) {
-	err := h.svc.SendWebhook(req.Msg.Url, map[string]string{
+	payload := map[string]string{
 		"payload": req.Msg.PayloadJson,
-	})
+	}
+	if req.Msg.Secret != "" {
+		payload["secret"] = req.Msg.Secret
+	}
+	err := h.svc.SendWebhook(req.Msg.Url, payload)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return connect.NewResponse(&v1.SendWebhookResponse{
+			Success: false,
+			Error:   err.Error(),
+		}), nil
 	}
 
 	return connect.NewResponse(&v1.SendWebhookResponse{

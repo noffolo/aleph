@@ -1,0 +1,1101 @@
+# Piano Assemblea Cooperativa — Aleph-v2
+
+> **Principio**: Ogni istanza da ogni persona viene preservata integralmente. Nessuna sintesi, nessuna fusione, nessuna omissione. Il piano è organizzato per ONDA di priorità, ogni item è attribuito alla fonte originale.
+
+---
+
+## ONDA 0 — Sicurezza Critica (P0 tutte le persone)
+
+### W0-01 — Iniezione SQL in ExecuteQuery
+- **Fonte**: P1, P2
+- **Severità**: CRITICA
+- **File**: `handler/query.go:128-136, 167-168, 228, 246-257`; `engine.go` 6+ siti
+- **Descrizione**: `fmt.Sprintf` con nomi tabella/colonna derivati dall'utente. L'utente può iniettare SQL arbitrario tramite `read_text_auto` e altre chiamate. P2 identifica 6+ siti vulnerabili in `engine.go` per nomi tabella di ingestion.
+- **Criteri di accettazione**:
+  - Tutti i nomi tabella/colonna passati attraverso whitelist o identificatore quotato
+  - Zero usanze di `fmt.Sprintf` per costruire SQL dinamico con input utente
+  - Test di penetration con payload di iniezione su ogni endpoint query
+
+### W0-02 — Sandbox senza isolamento di rete
+- **Fonte**: P1, P2
+- **Severità**: CRITICA
+- **File**: `exec_sandbox.go`
+- **Descrizione**: Lo sandbox Python non ha restrizioni di import. Il sandbox Go blocca solo 4 import (`os`, `runtime`, `unsafe`, `reflect`) — mancano `syscall`, `net`, `os/exec`, e decine di altri. Usa PATH dell'host, nessun chroot/seccomp/cgroups. Qualsiasi utente autenticato può eseguire codice arbitrario con accesso completo al filesystem e alla rete dell'host.
+- **Criteri di accettazione**:
+  - Sandbox Go: blocklist estesa a tutti i package pericolosi (syscall, net, os/exec, os/user, crypto/*, database/sql, etc.)
+  - Sandbox Python: implementare restrizioni di import simili
+  - Esecuzione in contenitore isolato con network disabled
+  - Test: tentativi di import bloccati ritornano errore
+
+### W0-03 — Segreti hardcoded in docker-compose
+- **Fonte**: P1
+- **Severità**: CRITICA
+- **File**: `docker-compose.yml`
+- **Descrizione**: Credenziali `postgres:postgres`, `dev_backend_secret_key`, `dev_sidecar_secret_key` sono hardcoded nel file di configurazione versionato.
+- **Criteri di accettazione**:
+  - Tutti i segreti letti da variabili d'ambiente o Docker secrets
+  - Nessun segreto in chiaro in file versionati
+  - `.env.example` con valori placeholder, `.env` in `.gitignore`
+
+### W0-04 — Chiavi API in chiaro nella tabella system_agents
+- **Fonte**: P1, P4
+- **Severità**: CRITICA
+- **File**: `handler/agent.go:37`
+- **Descrizione**: Le chiavi API sono memorizzate in chiaro in PostgreSQL nella tabella `system_agents`. Qualsiasi accesso al DB compromette tutte le chiavi. P4 lo classifica come CRITICO dal punto di vista epistemologico.
+- **Criteri di accettazione**:
+  - Chiavi API memorizzate con crittografia a riposo (AES-256-GCM con KMS)
+  - Chiavi API mai ritornate nelle risposte gRPC/protobuf (P1: rimuovere `apiKey` dalla risposta `Agent list`)
+  - Rotazione chiavi supportata senza downtime
+
+### W0-05 — Confusione entrypoint duale
+- **Fonte**: P1, P8
+- **Severità**: CRITICA (blocca deploy)
+- **File**: `main.go` vs `cmd/aleph-server/main.go`
+- **Descrizione**: Esistono due entrypoint. `cmd/aleph-server/main.go` è un duplicato incompleto. Questo causa confusione sul punto di ingresso corretto per il build e il deploy.
+- **Criteri di accettazione**:
+  - Eliminare `cmd/aleph-server/main.go`
+  - Singolo entrypoint `main.go` alla radice delmodulo Go
+  - Dockerfile e documentazione aggiornati
+
+### W0-06 — Autenticazione chat fallisce sempre
+- **Fonte**: P2
+- **Severità**: CRITICA
+- **File**: `query.go:314, 421`
+- **Descrizione**: `Chat()` usa l'hash SHA-256 memorizzato come chiave API. L'autenticazione fallisce sistematicamente perché il confronto è tra l'hash e la chiave originale, non tra due hash.
+- **Criteri di accettazione**:
+  - Autenticazione chat confronta hash SHA-256 dell'input con l'hash memorizzato
+  - Test unitario che verifica successo autenticazione con chiave valida
+  - Test unitario che verifica fallimento con chiave invalida
+
+### W0-07 — Y.js sicurezza room
+- **Fonte**: P1, P2
+- **Severità**: CRITICA
+- **File**: Frontend room naming; `simpleHash` API key
+- **Descrizione**: P1: il nome della room Y.js è `simpleHash(apiKey)` — la chiave API è esposta nel nome della room. P2: `simpleHash` usa DJB2 a 32 bit (collision-prone). Nessuna autenticazione sul canale di signaling.
+- **Criteri di accettazione**:
+  - Eliminare `simpleHash(apiKey)` come nome room
+  - Generare token JWT server-side per autenticazione room
+  - Implementare signaling auth (cfr. piano frontend FASE 2.4)
+  - Collision testing per il nuovo schema di naming
+
+### W0-08 — SSRF bypass in engine.go
+- **Fonte**: P2
+- **Severità**: CRITICA
+- **File**: `engine.go:60-83`
+- **Descrizione**: La validazione URL per SSRF può essere bypassata tramite DNS rebinding, IPv6 (`[::1]`), rappresentazione ottale (`0177.0.0.1`), e `0.0.0.0`. Il webhook SSRF ha lo stesso problema.
+- **Criteri di accettazione**:
+  - Validazione robusta che blocca DNS rebinding (risoluzione DNS dopo validazione)
+  - Blocco IPv6 loopback, rappresentazioni ottali, `0.0.0.0`
+  - Test che coprono tutti i vettori di bypass noti
+  - Stessa correzione applicata al webhook endpoint
+
+### W0-09 — Data leakage cross-project DuckDB
+- **Fonte**: P5
+- **Severità**: CRITICA
+- **File**: `storage/duckdb.go`
+- **Descrizione**: Lo schema `main` è condiviso. Qualsiasi utente autenticato può interrogare i dati di qualsiasi progetto senza restrizioni.
+- **Criteri di accettazione**:
+  - Ogni progetto usa schema DuckDB isolato (`project_{id}`)
+  - Le query sono sempre限定 allo schema del progetto autenticato
+  - Test verifica che utente del progetto A non può leggere dati del progetto B
+
+### W0-10 — Chiamate DuckDB bypassano la concorrenza
+- **Fonte**: P2
+- **Severità**: ALTA
+- **File**: `duckdb.go:102`
+- **Descrizione**: Il metodo `DB()` restituisce la connessione grezza, permettendo a tutto il codice di bypassare il controllo di concorrenza triple (semaphore + RWMutex + pool). P1 richiede anche di forzare tutte le chiamate attraverso `QueryContext`.
+- **Criteri di accettazione**:
+  - Rendere il metodo `DB()` privato (`db`)
+  - Tutte le query passano attraverso `QueryContext` o `ExecContext`
+  - Verificare che nessuna chiamata diretta rimanga nel codebase
+
+### W0-11 — Iniezione SQL tramite ingestion table names
+- **Fonte**: P2
+- **Severità**: CRITICA
+- **File**: `engine.go` 6+ siti
+- **Descrizione**: I nomi tabella durante l'ingestion non sono sanitizzati, permettendo iniezione SQL attraverso nomi tabella controllati dall'utente.
+- **Criteri di accettazione**:
+  - Sanitizzazione rigorosa dei nomi tabella (regex `^[a-zA-Z_][a-zA-Z0-9_]*$`)
+  - Quoting identificatori con sintassi DuckDB
+  - Test penetration per ogni sito di ingestion
+
+### W0-12 — CORS permissivo
+- **Fonte**: P1
+- **Severità**: ALTA
+- **File**: `app.go:182-187`
+- **Descrizione**: Le intestazioni CORS sono troppo permissive, permettendo richieste da qualsiasi origine.
+- **Criteri di accettazione**:
+  - CORS ristretto a domini configurabili (variabili d'ambiente)
+  - In sviluppo: `localhost:5173`; in produzione: dominio configurato
+  - Credenziali e metodi HTTP specificati esplicitamente
+
+---
+
+## ONDA 1 — Indurimento Architetturale
+
+### W1-01 — Decomporre monolite Zustand
+- **Fonte**: P1, P9
+- **Severità**: ALTA (blocca sviluppo frontend)
+- **File**: Frontend store (~60 campi, 330+ righe)
+- **Descrizione**: Il store Zustand monolitico (~60 campi) impedisce development parallelo e causa re-render non necessari. P1 propone: `useUIStore`, `useProjectStore`, `useDataStore`, `useAgentStore`, `useKnowledgeStore`. P9 conferma necessità di slices pattern.
+- **Criteri di accettazione**:
+  - Store decomposto in 5+ slices con responsabilità dominio
+  - Ogni slice ha interfaccia tipizzata propria
+  - Nessun re-render cross-slice non necessari
+  - `activeTab` marcato `@deprecated` e rimosso progressivamente (cfr. frontend review FASE 1)
+
+### W1-02 — Aggiungere migrazioni database
+- **Fonte**: P1
+- **Severità**: ALTA
+- **File**: Nuovo tooling
+- **Descrizione**: Nessun sistema di migrazione. Lo schema viene creato all'avvio senza versionamento, rendendo impossibili rollback e evoluzione dello schema.
+- **Criteri di accettazione**:
+  - Integrare `golang-migrate` o `goose`
+  - Tutte le modifiche schema sono migrate versionate
+  - Migrazione up/down testata
+  - Documentazione su come creare nuove migrazioni
+
+### W1-03 — Estrarre logica provider LLM in interfaccia
+- **Fonte**: P1, P8
+- **Severità**: ALTA
+- **File**: Codice provider LLM attuale
+- **Descrizione**: Logica provider LLM monolitica senza astrazione. P1 propone interfaccia + implementazioni (`OllamaProvider`, `OpenAIProvider`, `AnthropicProvider`). P8 concorda sulla necessità architetturale.
+- **Criteri di accettazione**:
+  - Interfaccia `LLMProvider` con metodi `Complete`, `Stream`, `Embed`
+  - Implementazioni separate per ogni provider
+  - Factory pattern per selezione runtime
+  - Nessuna logica provider nel codice chiamante
+
+### W1-04 — Goroutine staccate con context.Background()
+- **Fonte**: P2
+- **Severità**: ALTA
+- **File**: `ingestion.go:95-97`
+- **Descrizione**: Goroutine lanciate con `context.Background()` non possono essere cancellate. In caso di shutdown, queste goroutine continuano l'esecuzione o vengono assassinate senza cleanup.
+- **Criteri di accettazione**:
+  - Tutte le goroutine usano contesti derivati dal contesto della richiesta o da un contesto di applicazione cancellabile
+  - Shutdown graceful che aspetta le goroutine in corso con timeout
+  - Nessun `context.Background()` in goroutine di business logic
+
+### W1-05 — Leak connessione gRPC NLP
+- **Fonte**: P1, P2
+- **Severità**: ALTA
+- **File**: `app.go:232-253`
+- **Descrizione**: La connessione gRPC al sidecar NLP non viene chiusa correttamente. P2 segnala anche che l'errore di `enrichPredictiveMetadata` non viene propagato e tutti gli errori sidecar sono mappati a `CodeUnavailable`.
+- **Criteri di accettazione**:
+  - Connessione gRPC chiusa in `Close()` dell'applicazione
+  - Errori sidecar mappati a codici gRPC appropriati (non tutti `Unavailable`)
+  - Propagazione errori da funzioni di arricchimento predittivo
+  - Test di chiusura connessione
+
+### W1-06 — Chat streaming continua 2 min dopo disconnessione client
+- **Fonte**: P2
+- **Severità**: MEDIA
+- **File**: Codice streaming chat
+- **Descrizione**: Lo streaming chat continua per ~2 minuti dopo che il client si disconnette, sprecando risorse LLM e banda.
+- **Criteri di accettazione**:
+  - Rilevamento disconnessione client (context cancellation) con timeout di 5 secondi
+  - Abort immediato dello streaming LLM quando il client si disconnette
+  - Test con simulated disconnessione
+
+### W1-07 — Mappa programmi senza bound (memory leak)
+- **Fonte**: P2
+- **Severità**: MEDIA
+- **File**: Codice gestione programmi
+- **Descrizione**: La mappa `programs` cresce senza limite, causando memory leak a lungo termine.
+- **Criteri di accettazione**:
+  - LRU eviction o TTL per programma nella mappa
+  - Limite massimo configurabile
+  - Metriche su dimensione mappa esposte a monitoring
+
+### W1-08 — Agent ListModels senza timeout
+- **Fonte**: P2
+- **Severità**: MEDIA
+- **File**: Codice `agent.ListModels`
+- **Descrizione**: `agent.ListModels` usa `http.Get` senza timeout, permettendo richieste bloccate indefinite.
+- **Criteri di accettazione**:
+  - Usare `http.Client` con timeout configurabile (default 10s)
+  - Context con cancel per ogni richiesta
+  - Test con server lento che verifica timeout
+
+### W1-09 — Starvation writer sotto carico read alto
+- **Fonte**: P2
+- **Severità**: MEDIA
+- **File**: Sistema concurrency DuckDB
+- **Descrizione**: Il sistema di concurrency triple (semaphore + RWMutex + pool) causa starvation dei writer sotto carico read elevato.
+- **Criteri di accettazione**:
+  - Implementare fairness policy per writer (write-preferring RWMutex o priority queue)
+  - Benchmark che verifica che i writer completano entro timeout ragionevole anche sotto carico read
+  - Considerare semplificazione a singolo meccanismo di concurrency (P5: critica che è premature optimization)
+
+### W1-10 — PRAGMA DuckDB specifici per SQLite
+- **Fonte**: P2
+- **Severità**: BASSA
+- **File**: `storage/duckdb.go`
+- **Descrizione**: I PRAGMA WAL configurati sono specifici di SQLite e vengono ignorati silenziosamente da DuckDB.
+- **Criteri di accettazione**:
+  - Rimuovere PRAGMA SQLite-specifici
+  - Sostituire con PRAGMA DuckDB appropriati per concurrency e performance
+  - Documentare i PRAGMA supportati da DuckDB
+
+### W1-11 — Rimuovere apiKey dalla risposta proto Agent list
+- **Fonte**: P1
+- **Severità**: ALTA
+- **File**: `handler/agent.go:37-43`
+- **Descrizione**: La response protobuf `Agent list` include il campo `apiKey`, esponendo la chiave API nella risposta gRPC anche dopo la correzione della memorizzazione.
+- **Criteri di accettazione**:
+  - Campo `apiKey` rimosso dal messaggio proto `Agent` o mascherato
+  - La chiave API non è mai inclusa nelle risposte list/get
+  - Test che verifica assenza di `apiKey` nella risposta serializzata
+
+### W1-12 — Architettura esagonale raccomandata
+- **Fonte**: Librarian (Go)
+- **Severità**: MEDIA
+- **File**: Struttura progetto
+- **Descrizione**: La ricerca raccomanda architettura esagonale con `cmd/` + `internal/` + `pkg/`. Attualmente il progetto ha una struttura meno organizzata.
+- **Criteri di accettazione**:
+  - Piano di migrazione verso struttura `cmd/aleph-server/`, `internal/{handler,service,repository}/`, `pkg/`
+  - Nessuna dipendenza circolare tra layer
+  - Build e test passano dopo ogni fase di migrazione
+
+---
+
+## ONDA 2 — Integrità Epistemica
+
+### W2-01 — Feature sentiment fantasma (sempre 0.0)
+- **Fonte**: P4
+- **Severità**: CRITICA
+- **File**: `engine.go:275-279`
+- **Descrizione**: Le feature di sentiment nel modello predittivo sono sempre 0.0, rendendo il modello di fatto non sensibile al sentimento. Il sistema affera "Decision Intelligence" ma le predizioni sono decorative.
+- **Criteri di accettazione**:
+  - Se il sentiment è implementato: verificare pipeline end-to-end con test
+  - Se è placeholder: rimuovere e documentare come futuro enhancement
+  - Non affermere "sentiment analysis" nella UI se il valore è sempre 0
+
+### W2-02 — Dati sintetici di fallback non etichettati
+- **Fonte**: P4
+- **Severità**: CRITICA
+- **File**: `main.py:168` (sidecar NLP)
+- **Descrizione**: Il fallback a dati sintetici non è etichettato come tale. L'utente non sa se la predizione deriva da dati reali o sintetici.
+- **Criteri di accettazione**:
+  - Flag `is_synthetic` nei risultati predittivi
+  - UI mostra indicatore quando i dati sono sintetici
+  - Documentazione chiara sulla natura dei dati
+
+### W2-03 — Stringhe di ragionamento LLM fabbricate
+- **Fonte**: P4
+- **Severità**: CRITICA
+- **File**: `query.go:522`
+- **Descrizione**: Il campo "Ragionamento" nelle risposte contiene stringhe hardcoded, non output LLM reale. Il sistema mente sulla provenienza del ragionamento.
+- **Criteri di accettazione**:
+  - Se LLM è disponibile: usare output LLM reale con attribuzione
+  - Se LLM non è disponibile: indicare chiaramente "Ragionamento non disponibile" non "Ragionamento" fittizio
+  - Mai generare testo che simula ragionamento umano senza fonte LLM reale
+
+### W2-04 — Brier score mai persistiti
+- **Fonte**: P4
+- **Severità**: ALTA
+- **File**: `algedonic_monitor.go:17-25`
+- **Descrizione**: I Brier score sono calcolati ma mai scritti. P5 aggiunge che il Brier scoring non ha consumer — è premature optimization.
+- **Criteri di accettazione**:
+  - Se il Brier scoring ha un consumer: persistere i risultati in DuckDB
+  - Se non ha consumer: rimuovere il calcolo (premature optimization secondo P5)
+  - Se rimosso: eliminare il codice morto e il commento che suggerisce funzionalità
+
+### W2-05 — Trust score mai scritti
+- **Fonte**: P4
+- **Severità**: ALTA
+- **File**: `duckdb_registry.go`
+- **Descrizione**: I trust score sono calcolati ma il registro DuckDB non ha metodo `Write` per essi. I valori sono persi.
+- **Criteri di accettazione**:
+  - Implementare `WriteTrustScore` nel registro
+  - Trust score persistiti e leggibili per il successivo ciclo di calcolo
+  - API endpoint per consultare trust score storici
+
+### W2-06 — Nessuna provenienza dati su ingestion
+- **Fonte**: P4
+- **Severità**: ALTA
+- **File**: Codice ingestion
+- **Descrizione**: I dati ingeriti non hanno metadata di provenienza (fonte, timestamp, trasformazioni applicate, versione). Impossibile tracciare la lineage dei dati.
+- **Criteri di accettazione**:
+  - Ogni record ingerito ha metadata di provenienza (source, ingested_at, transform_version, quality_score)
+  - API per interrogare la lineage di un dato
+  - UI mostra provenienza quando disponibile
+
+### W2-07 — Feedback è pozzo nero (write-only)
+- **Fonte**: P4
+- **Severità**: ALTA
+- **File**: `main.py:138-152` (sidecar NLP)
+- **Descrizione**: Il feedback utenti viene scritto ma mai letto dal sistema per aggiornare predizioni o trust score.
+- **Criteri di accettazione**:
+  - Feedback viene consumato per aggiornare trust score e pesi modello
+  - Pipeline che legge feedback e lo integra nel ciclo di miglioramento
+  - Se il feedback non è consumato ora: disabilitare la raccolta o etichettare chiaramente come "futura integrazione"
+
+### W2-08 — Sigmoid arbitraria non calibrata
+- **Fonte**: P4
+- **Severità**: ALTA
+- **File**: `ensemble.py:38-48`
+- **Descrizione**: La funzione sigmoid per i pesi dell'ensemble ha parametri non calibrati. Le probabilità di output non sono probabilità calibrate.
+- **Criteri di accettazione**:
+  - Calibrare la sigmoid con Platt Scaling o Isotonic Regression su dati di validazione
+  - Se non ci sono dati di validazione: usare la media semplice senza sigmoid
+  - Documentare il metodo di calibrazione e le metriche
+
+### W2-09 — UI terminale presenta output stocastico come deterministico
+- **Fonte**: P4
+- **Severità**: ALTA
+- **File**: Frontend terminale
+- **Descrizione**: La UI mostra probabilità predittive come numeri deterministici senza intervalli di confidenza o indicazioni di incertezza.
+- **Criteri di accettazione**:
+  - Mostrare intervalli di confidenza (es. "72% ±8%")
+  - Indicare il livello di incertezza con colori o indicatori
+  - P10: aggiungere citazioni, chain-of-thought, e data provenance
+
+### W2-10 — Troncamento JSON distrugge semantica
+- **Fonte**: P4
+- **Severità**: MEDIA
+- **File**: `query.go:542-543`
+- **Descrizione**: Il troncamento JSON produce JSON malformato che distrugge la semantica del messaggio.
+- **Criteri di accettazione**:
+  - Troncare a livello di oggetto completo (non a carattere arbitrario)
+  - Se il messaggio è troppo lungo: inviare fino all'ultimo oggetto JSON completo + indicatore di troncamento
+  - Test con payload di varie dimensioni
+
+### W2-11 — GNN addestrato solo su link positivi
+- **Fonte**: P4
+- **Severità**: MEDIA
+- **File**: Modello GNN
+- **Descrizione**: Il GNN è addestrato solo su link positivi, senza esempi negativi. Il modello non può distinguere relazioni reali da casuali.
+- **Criteri di acettazione**:
+  - Aggiungere esempi negativi (negative sampling) al dataset di training
+  - Metriche di valutazione su link prediction (AUC, MRR) con set negativo
+  - Se non implementabile ora: documentare la limitazione e aggiungere warning nella UI
+
+### W2-12 — StreamPredictions non chiama recordSuccess()
+- **Fonte**: P2
+- **Severità**: MEDIA
+- **File**: Codice circuit breaker
+- **Descrizione**: `StreamPredictions` non registra mai il successo (solo i fallimenti). Il circuit breaker rimane bloccato aperto dopo un singolo fallimento.
+- **Criteri di accettazione**:
+  - `StreamPredictions` chiama `recordSuccess()` su completamento con successo
+  - Il circuit breaker transiziona correttamente da open a half-open a closed
+  - Test del ciclo completo open→half-open→closed
+
+### W2-13 — Errori json.Unmarshal inghiottiti silenziosamente
+- **Fonte**: P2
+- **Severità**: MEDIA
+- **File**: `query.go:471, 480`
+- **Descrizione**: Errori di `json.Unmarshal` sono ignorati, rendendo impossibile il debug di dati malformati.
+- **Criteri di accettazione**:
+  - Tutti gli errori di `json.Unmarshal` sono loggati con contesto
+  - Return error al chiamante quando i dati sono critici
+  - Test con payload malformati
+
+### W2-14 — Watcher service no-op
+- **Fonte**: P2
+- **Severità**: BASSA
+- **File**: Codice watcher
+- **Descrizione**: Il watcher service non aggiunge mai directory. È implementato ma non funziona.
+- **Criteri di accettazione**:
+  - Se il watcher è necessario: implementare la logica di aggiunta directory
+  - Se non è necessario: rimuovere il codice morto
+  - Documentare la decisione
+
+### W2-15 — Argomento filosofico: il sistema non è "Decision Intelligence"
+- **Fonte**: P4
+- **Severità»: ALTA (epistemologica)
+- **File**: README, UI, marketing
+- **Descrizione**: P4 sostiene che il sistema claima "Decision Intelligence" ma è di fatto "Data Query + LLM Chat + Prediction Decoration". Le predizioni sono decorative (sentiment fantasma, ragionamento fabbricato, sigmoid non calibrata, GNN senza negativi, feedback write-only). Questo è il problema epistemologico centrale.
+- **Criteri di accettazione**:
+  - Rimuovere o qualificare il claim "Decision Intelligence" nella UI e documentazione
+  - Ogni funzione predittiva deve avere metriche di accuratezza visibili all'utente
+  - Se una funzione è placeholder, etichettarla come tale nella UI
+  - Aggiungere disclaimer onestà: "Le predizioni sono stime con livelli di incertezza indicati"
+
+---
+
+## ONDA 3 — Developer Experience & Infrastruttura
+
+### W3-01 — Pipeline CI/CD
+- **Fonte**: P1
+- **Severità**: ALTA
+- **File**: Nuovo `.github/workflows/`
+- **Descrizione**: Nessuna CI/CD. I merge avvengono senza verifica automatica.
+- **Criteri di accettazione**:
+  - GitHub Actions con: lint Go + lint Frontend + test Go + test Frontend + build Docker
+  - Protezione branch main: review required + CI verde
+  - Deploy automatico su merge su main (staging)
+
+### W3-02 — Linting e formattazione
+- **Fonte**: P1
+- **Severità**: ALTA
+- **File**: Configurazione progetto
+- **Descrizione**: Nessun linting automatizzato. `golangci-lint` per Go, `eslint` + `prettier` per frontend.
+- **Criteri di accettazione**:
+  - `golangci-lint` configurato e passato in CI
+  - `eslint` + `prettier` configurati e passati in CI
+  - Pre-commit hooks con linting
+  - Zero warning iniziali (errori esistenti fixati o suppressi con commento)
+
+### W3-03 — Unit test per moduli critici
+- **Fonte**: P1
+- **Severità**: ALTA
+- **File**: Nuovi file test
+- **Descrizione**: Solo 5 file di test esistono, la maggior parte stub. P1 richiede test per: auth, query, chat, circuit breaker.
+- **Criteri di accettazione**:
+  - `auth_service_test.go`: validazione chiave, hash, errori
+  - `query_test.go`: injection prevention, parametri, edge cases
+  - `chat_test.go`: autenticazione, streaming, disconnessione
+  - `circuit_breaker_test.go`: stati open/closed/half-open, recordSuccess
+  - Copertura minima 50% per i moduli critici
+
+### W3-04 — OpenTelemetry e logging strutturato
+- **Fonte**: P1
+- **Severità**: MEDIA
+- **File**: Codice Go e frontend
+- **Descrizione**: Nessuna osservabilità. Logging basato su `fmt.Println`.
+- **Criteri di accettazione**:
+  - OpenTelemetry SDK integrato con traces + metrics
+  - Logging strutturato con `slog` o `zerolog`
+  - Endpoint di tracing configurabile (Jaeger/Zipkin/OTLP)
+  - Frontend: error boundary con contesto inviato a monitoring
+
+### W3-05 — Standardizzare messaggi errore in inglese
+- **Fonte**: P1
+- **Severità**: MEDIA
+- **File**: Multipli
+- **Descrizione**: Messaggi errore sono misti italiano/inglese. Per un sistema tecnico, coerenza è essenziale.
+- **Criteri di accettazione**:
+  - Audit di tutti i messaggi errore
+  - Standardizzare a inglese per errori tecnici (gRPC, log)
+  - Italiano riservato a messaggi UI rivolti all'utente finale
+  - Glossario di traduzione per messaggi utente
+
+### W3-06 — Air hot reload per Go backend
+- **Fonte**: P1
+- **Severità**: BASSA
+- **File**: Configurazione sviluppo
+- **Descrizione**: Nessun hot reload per il backend Go. Il ciclo di development è lento.
+- **Criteri di accettazione**:
+  - `air` configurato con `.air.toml`
+  - Restart automatico su modifica file Go
+  - Documentazione nel README
+
+### W3-07 — Nessun budget di timeout
+- **Fonte**: P5
+- **Severità**: ALTA
+- **File**: Multipli
+- **Descrizione**: P5 identifica assenza di: timeout budgets, retry/backoff, fallback per PG down, bulkhead. Il circuit breaker è solo per NLP.
+- **Criteri di accettazione**:
+  - Timeout budgets per ogni chiamata esterna (5s DB, 30s LLM, 10s NLP)
+  - Retry con exponential backoff per operazioni idempotenti
+  - Fallback per PostgreSQL down (cache locale per metadata essenziali)
+  - Bulkhead per isolare pool di connessioni per dominio
+
+### W3-08 — Nessun audit logging
+- **Fonte**: P5
+- **Severità**: ALTA
+- **File**: Nuovo middleware
+- **Descrizione**: Nessun audit log per operazioni mutanti (create, update, delete). Impossibile tracciare chi ha fatto cosa e quando.
+- **Criteri di accettazione**:
+  - Middleware di audit per tutte le operazioni mutanti
+  - Log strutturati con: user_id, action, resource_type, resource_id, timestamp, diff
+  - Query di audit in DuckDB (tabella `audit_log`)
+
+### W3-09 — Nessun checksum dati
+- **Fonte**: P5
+- **Severità**: MEDIA
+- **File**: Codice ingestion
+- **Descrizione**: Nessun checksum sui dati ingeriti. Impossibile verificare integrità dei dati.
+- **Criteri di accettazione**:
+  - SHA-256 checksum calcolato e memorizzato per ogni file ingerito
+  - Verifica checksum su lettura
+  - API per checksum di un dataset
+
+### W3-10 — Testing: testify + dockertest + mockery
+- **Fonte**: Librarian (Go)
+- **Severità**: ALTA
+- **File**: Nuovi file test
+- **Descrizione**: La ricerca raccomanda testify per assertions, dockertest per integration test con container, e mockery per mock generation.
+- **Criteri di accettazione**:
+  - `testify` integrato per assertions e suite
+  - `dockertest` per test integration con PostgreSQL e DuckDB reali
+  - `mockery` per generare mock delle interfacce Go
+  - CI esegue unit + integration test
+
+### W3-11 — Connect RPC per API type-safe
+- **Fonte**: Librarian (Go)
+- **Severità**: MEDIA
+- **File**: Proto e handler esistenti
+- **Descrizione**: Il progetto usa già Connect RPC. La ricerca raccomanda di sfruttarlo pienamente per API type-safe con error handling strutturato.
+- **Criteri di accettazione**:
+  - Structured `APIError` type con codice, messaggio, dettagli
+  - Middleware chain per error wrapping
+  - Error handling middleware che converte errori Go in risposte gRPC appropriate
+  - Nessun `fmt.Errorf` in handler — tutti gli errori wrappati con contesto
+
+---
+
+## ONDA 4 — Trasformazione UX/UI
+
+### W4-01 — Intento tipografico assente
+- **Fonte**: P6
+- **Severità**: ALTA (design system)
+- **File**: `tailwind.config.js`, componenti UI
+- **Descrizione**: P6 identifica mancanza di intento tipografico. Body dovrebbe essere 13px JetBrains Mono. Meta 11px. Mancano tabular-nums per allineamento dati. Ritmo verticale erratico (`py-3` vs `py-0.5`).
+- **Criteri di accettazione**:
+  - Font body: JetBrains Mono 13px / line-height 1.25
+  - Font meta: JetBrains Mono 11px
+  - `font-variant-numeric: tabular-nums` per alignment dati numerici
+  - Spaziatura verticale su griglia 8px uniforme
+  - `font-variant-ligatures: none` per output terminale
+
+### W4-02 — Select element → command palette
+- **Fonte**: P6
+- **Severità**: MEDIA
+- **File**: Componenti select
+- **Descrizione**: I `<select>` HTML nativi non sono coerenti con il paradigma terminale. Devono diventare command palette con ricerca fuzzy.
+- **Criteri di accettazione**:
+  - Tutti i `<select>` sostituiti con componenti command palette
+  - Ricerca fuzzy con highlight
+  - Navigazione tastiera completa (freccie, Enter, Escape)
+
+### W4-03 — border-radius: 0 per componenti terminale
+- **Fonte**: P6
+- **Severità**: MEDIA
+- **File**: Componenti terminale
+- **Descrizione**: `rounded-lg` crea un look "card" non "terminal". I componenti del terminale devono avere `border-radius: 0`.
+- **Criteri di accettazione**:
+  - Componenti terminale: `border-radius: 0`
+  - Card/slide-over: `border-radius: 8px` (compound radius)
+  - Regola P7: raggio esterno = raggio interno + padding
+
+### W4-04 — Animazione cursore CRT-style
+- **Fonte**: P6
+- **Severità**: BASSA
+- **File**: Animazioni CSS
+- **Descrizione**: Il cursore usa linear fade invece di animazione stepped CRT-style. P6 raccomanda animazione stepped (non linear) per authenticità terminale.
+- **Criteri di accettazione**:
+  - Cursore: animazione `steps(2, end)` non `linear`
+  - Scanlines: opacity 0.02-0.04, scrolling lento (10s), respects `prefers-reduced-motion`
+  - Glow: solo su λ, cursore attivo, e input focus
+
+### W4-05 — Densità contenitore output
+- **Fonte**: P6
+- **Severità**: MEDIA
+- **File**: Layout output
+- **Descrizione**: P6 raccomanda +20% character-per-square-inch con `line-height: 1.25` e max-width container per area output.
+- **Criteri di accettazione**:
+  - Max-width container per area output (evita linee troppo lunghe)
+  - `line-height: 1.25` nel flusso terminale
+  - Verifica aumento densità di almeno 20% rispetto al layout attuale
+
+### W4-06 — Modalità Command vs Input
+- **Fonte**: P6
+- **Severità**: ALTA (UX)
+- **File**: TerminalPrompt, Input handling
+- **Descrizione**: Non esiste distinzione tra Command Mode (slash commands) e Input Mode (conversazione libera). L'utente non sa in che modalità si trova.
+- **Criteri di accettazione**:
+  - Indicatore visivo della modalità (es. prefisso `:` per command mode)
+  - Transizione chiara tra modalità
+  - Escape da command mode con `Escape`
+
+### W4-07 — Design system — mancano token fondamentali
+- **Fonte**: P7
+- **Severità**: ALTA (design system)
+- **File**: Design system tokens
+- **Descrizione**: P7 identifica tokens mancanti: elevation/z-index, shadow, transition, border tiers. Il design system è uno "starter kit" non un sistema completo.
+- **Criteri di accettazione**:
+  - Token di elevation/z-index (4 livelli: base, dropdown, modal, toast)
+  - Token shadow (3 livelli: subtle, medium, prominent)
+  - Token transition (standard: 150ms, slide: 250ms, emphasis: 300ms)
+  - Token border (3 tiers: subtle, default, prominent)
+  - Tutti i token in `design-tokens.json` e Tailwind config
+
+### W4-08 — Palette dark — shift di calore
+- **Fonte**: P7
+- **Severità**: ALTA
+- **File**: `design-tokens.json`, `tailwind.config.js`
+- **Descrizione**: P7 raccomanda sfondo `#080810` (warm brown-black come Notion `#37352F`) invece del grigio freddo attuale.
+- **Criteri di accettazione**:
+  - Sfondo base: `#080810`
+  - Surface: `#0e0e18`
+  - Surface-alt: `#141420`
+  - Verifica contrasto WCAG AA per tutti i text su sfondo
+  - Test con utenti per confermare leggibilità
+
+### W4-09 — Glassmorphism panels
+- **Fonte**: P7
+- **Severità**: MEDIA
+- **File**: SlideOverPanel, card components
+- **Descrizione**: P7 raccomanda `backdrop-filter: blur(12px)` per panel glassmorphism con sfondo semi-trasparente.
+- **Criteri di accettazione**:
+  - SlideOverPanel con `backdrop-filter: blur(12px)` e sfondo semi-trasparente
+  - Card interne con sfondo solido per leggibilità
+  - Fallback per browser senza backdrop-filter support
+
+### W4-10 — Layer per volatilità
+- **Fonte**: P7
+- **Severità**: MEDIA
+- **File**: Architettura CSS
+- **Descrizione**: P7 raccomanda stratificazione per volatilità: Static → Structural → Interactive → Signal. Ogni layer ha animazioni e comportamento diversi.
+- **Criteri di accettazione**:
+  - Static: nessuna animazione (layout, sfondo)
+  - Structural: transizione su mount (fade-in, slide-in)
+  - Interactive: transizione su hover/focus (glow, color shift)
+  - Signal: animazione su evento (pulse, staggered entry)
+  - Documentazione del layer system
+
+### W4-11 — Spring physics per movimenti
+- **Fonte**: P7
+- **Severità**: MEDIA
+- **File**: Animazioni
+- **Descrizione**: P7 raccomanda spring physics per movimento, staggered entry per linee terminale. NOTA: contradice P9/F6 (frontend review FASE 9) che dice "no bounce, no elastic, no spring — il terminale è deterministico". **RISOLUZIONE**: P7 spring physics per transazioni strutturali (slide-over), stepped deterministic per output terminale.
+- **Criteri di accettazione**:
+  - Slide-over e modali: spring physics (`cubic-bezier(0.16, 1, 0.3, 1)`)
+  - Output terminale: stepped, deterministic (nessun bounce/spring)
+  - Linee terminale: staggered entry 50ms per blocco
+  - Rispetta `prefers-reduced-motion`
+
+### W4-12 — Sistema icone
+- **Fonte**: P7
+- **Severità**: MEDIA
+- **File**: Componenti UI
+- **Descrizione**: P7 raccomanda sistema icone 16px/1.5px body, 20px/2px headers. Griglia base 8px.
+- **Criteri di accettazione**:
+  - Icone body: 16px con stroke 1.5px
+  - Icone headers/sidebar: 20px con stroke 2px
+  - Set di icone coerente (Lucide o Phosphor)
+  - Griglia 8px rispettata in tutti i componenti
+
+### W4-13 — Stati vuoti
+- **Fonte**: P7
+- **Severità**: MEDIA
+- **File**: Componenti lista vuota
+- **Descrizione**: P7 raccomanda ghost command prompt `aleph-v2 ❯ _` per stati vuoti.
+- **Criteri di accettazione**:
+  - Ogni lista vuota mostra ghost command prompt con suggerimento contestuale
+  - Es: Agent vuoto → `aleph-v2 ❯ /agent create`
+  - Animazione blink cursore nel ghost prompt
+
+### W4-14 — Stati errore
+- **Fonte**: P7
+- **Severità**: MEDIA
+- **File**: Componenti errore
+- **Descrizione**: P7 raccomanda 4px left border + subtle red tint (`rgba(255,68,102,0.05)`) per stati errore.
+- **Criteri di accettazione**:
+  - Errori inline: `border-l-4 border-danger bg-danger/5`
+  - Errori toast: icona + messaggio + azione "Riprova"
+  - Null full-screen errors (usare inline)
+
+### W4-15 — Riduzione rumore visivo in navigazione
+- **Fonte**: P7
+- **Severità**: MEDIA
+- **File**: Sidebar, navigation
+- **Descrizione**: P7 raccomanda di ridurre il rumore visivo nella navigazione e aumentare gerarchia e densità.
+- **Criteri di accettazione**:
+  - Sidebar: icona + label, nessun badge decorativo
+  - Attivo: indicatore sottile (2px left border, colore primario)
+  - Hover: background `surface-alt`, nessuna ombra
+  - Densità: gap-1 tra items, gap-0.5 tra sezioni
+
+### W4-16 — Migrare stato in Zustand store (Piano Frontend)
+- **Fonte**: Piano frontend esistente
+- **Severità**: ALTA
+- **File**: `App.tsx`, store
+- **Descrizione**: Il piano frontend FASE 1-3 richiede: deprecare `activeTab`, aggiungere `slideOverContent`/`sandboxResult`/`sandboxInput`, `terminalMode`. P9 conferma necessità di slices.
+- **Criteri di accettazione**:
+  - `activeTab` marcato `@deprecated`, rimosso da `SYNCED_KEYS`
+  - Effetto one-time che esegue `yMap.delete('activeTab')`
+  - `slideOverContent`, `sandboxResult`, `sandboxInput` inizializzati nel store
+  - `terminalMode: 'copilot'` aggiunto
+  - Build OK senza `activeTab` attivo
+
+### W4-17 — App.tsx riscrittura radicale (Piano Frontend)
+- **Fonte**: Piano frontend esistente
+- **Severità**: ALTA
+- **File**: `App.tsx`
+- **Descrizione**: Eliminare tutti gli import statici tranne CopilotView. Lazy loading per tutte le altre viste. `renderMain()` sparisce. CopilotView è l'unica vista principale.
+- **Criteri di accettazione**:
+  - Solo CopilotView import statico
+  - Tutte le altre viste `React.lazy`
+  - `renderMain()` eliminato
+  - `prefetchView(viewId)` utility per hover prefetch
+  - Vite manual chunks configurati, budget 150KB gzipped entry
+
+### W4-18 — Sidebar refactor (Piano Frontend)
+- **Fonte**: Piano frontend esistente
+- **Severità**: ALTA
+- **File**: Sidebar component
+- **Descrizione**: Click icona → dispatch slash command. Highlight attivo basato su `inlineContent?.type` o `slideOverContent?.type`.
+- **Criteri di accettazione**:
+  - Prop `activeTab` e `setActiveTab` rimosse
+  - Click icona → `store.setInput('/explore')` + auto-submit
+  - Highlight basato su contenuto attivo, non tab state
+
+### W4-19 — StatusBar refactor (Piano Frontend)
+- **Fonte**: Piano frontend esistente
+- **Severità**: MEDIA
+- **File**: StatusBar component
+- **Descrizione**: Layout: `ALEPH │ {projectID || 'NO PROJECT'} │ {slideOverContext || 'READY'}`. Indicatori servizio con dot colorato.
+- **Criteri di accettazione**:
+  - Prop `activeTab` rimossa
+  - Layout: `ALEPH │ project │ context`
+  - Dot colorato per Ollama e NLP
+  - Context dinamico basato su slideOver aperto
+
+---
+
+## ONDA 5 — Completamento Funzionalità
+
+### W5-01 — Form creazione agenti mancanti
+- **Fonte**: P10
+- **Severità**: CRITICA (blocca utente)
+- **File**: Frontend `AgentsView`
+- **Descrizione**: P10 identifica che le form di creazione agenti sono vuote (nessun caso 'agent-form'). Il pulsante "Crea Agente" è morto. È uno showstopper.
+- **Criteri di accettazione**:
+  - Form completo di creazione agente con tutti i campi necessari
+  - Validazione client-side e server-side
+  - Tipo, nome, descrizione, modello, API key (mascherata)
+  - Integrato con SlideOver panel (cfr. frontend review FASE 8)
+
+### W5-02 — Form creazione data source mancanti
+- **Fonte**: P10
+- **Severità**: ALTA
+- **File**: Frontend `DataSourcesView`
+- **Descrizione**: La UI di monitoring è solida, ma il flusso di creazione non esiste. Nessuna form di configurazione per aggiungere fonti dati.
+- **Criteri di accettazione**:
+  - Form multi-step per aggiunta fonte dati
+  - Upload file, connessione DB, URL con validazione
+  - Integrato con SlideOver panel
+
+### W5-03 — Nessuna schermata di benvenuto
+- **Fonte**: P10
+- **Severità**: ALTA
+- **File**: Frontend onboarding
+- **Descrizione**: P10 descrive primo accesso come "ostile": nessuna schermata di benvenuto, wizard in 3 passi in italiano, dropdown agent vuoto, nessun dato demo, slide-over vuoti.
+- **Criteri di accettazione**:
+  - Schermata di benvenuto per nuovi utenti
+  - SetupWizard localizzato (multilingue, non solo italiano)
+  - Dati demo precaricati (es. dataset "auto" per test)
+  - Agent di default preconfigurati
+  - Guide contestuale per primi comandi
+
+### W5-04 — Nessuna vista split, ricerca chat, esportazione
+- **Fonte**: P10
+- **Severità**: MEDIA
+- **File**: Frontend shell
+- **Descrizione**: Il loop query→chat→esplora funziona, ma mancano: vista split, ricerca nella chat, esportazione risultati, bookmark.
+- **Criteri di accettazione**:
+  - Vista split: query a sinistra, risultati a destra (opzionale)
+  - Ricerca full-text nella cronologia chat
+  - Esportazione risultati in CSV/JSON
+  - Bookmark di query e risultati
+
+### W5-05 — Esperienza errore ostile
+- **Fonte**: P10
+- **Severità**: ALTA
+- **File**: Frontend error display
+- **Descrizione**: Errori in gergo tecnico, toast di 5 secondi, fallimenti silenziosi, nessun retry, indicatori salute illeggibili (1.5px).
+- **Criteri di accettazione**:
+  - Errori in linguaggio umano (italiano/inglese a seconda impostazione)
+  - Toast con azione "Riprova" e 15s durata minima
+  - Nessun fallimento silenzioso — ogni errore visibile
+  - Indicatori salute almeno 8px con tooltip
+
+### W5-06 — Effetti terminale causano affaticamento
+- **Fonte**: P10
+- **Severità**: MEDIA
+- **File**: Terminal effects
+- **Descrizione**: Scanlines e flicker causano affaticamento visivo. Nessun toggle per disabilitare gli effetti.
+- **Criteri di accettazione**:
+  - Toggle setting per effetti terminale (scanlines, flicker)
+  - Disabilitati di default (scanline opacity 0.02-0.04, flicker off)
+  - `prefers-reduced-motion` rispettato
+  - P9/F6: nessun bounce, elastic, spring per output terminale
+
+### W5-07 — Command palette — solo ricerca, nessuna esecuzione
+- **Fonte**: P10
+- **Severità**: MEDIA
+- **File**: `CommandPalette` component
+- **Descrizione**: Cmd+K funziona per ricerca ma non per esecuzione comandi. Nessun supporto slash commands.
+- **Criteri di accettazione**:
+  - Slash commands integrati nel command palette
+  - Comandi mutanti richiedono conferma (cfr. frontend review FASE 2)
+  - Autocompletamento con `Tab` (cfr. frontend review FASE 6)
+
+### W5-08 — Y.js collaboration limitata
+- **Fonte**: P10
+- **Severità**: MEDIA
+- **File**: Y.js integration
+- **Descrizione**: Y.js sincronizza solo 2 campi. Nessuna presenza, chat sync, o risoluzione conflitti.
+- **Criteri di accettazione**:
+  - Presenza utenti online (avatar + cursore colorato)
+  - Chat inline per discussione contestuale
+  - Risoluzione conflitti per editing concorrente
+  - Notifica quando un altro utente sta modificando lo stesso elemento
+
+### W5-09 — Trust: singolo numero probabilità senza contesto
+- **Fonte**: P10, P4, P2
+- **Severità**: ALTA
+- **File**: Frontend + backend
+- **Descrizione**: P10: singolo numero probabilità senza citazioni, chain-of-thought, range di incertezza, o provenienza dati. P4: ragionamento fabbricato, sentiment fantasma. P2: JSON truncation distrugge semantica.
+- **Criteri di accettazione**:
+  - Mostrare intervallo di confidenza (es. "72% ±8%")
+  - Citazioni ai dati sorgente
+  - Chain-of-thought visibile (non fabbricato)
+  - Indicatore di provenienza dei dati
+  - Badge "sintetico" quando i dati sono di fallback
+
+### W5-10 — fromProto → mappers + Zod schemas
+- **Fonte**: P1, P9
+- **Severità**: ALTA
+- **File**: Frontend proto conversion
+- **Descrizione**: P1 raccomanda di sostituire `fromProto` con mappers propri e Zod schemas. P9 identifica pattern type-unsafe nel frontend.
+- **Criteri di accettazione**:
+  - Zod schemas per ogni tipo proto in arrivo
+  - Mappers tipizzati con validation runtime
+  - Nessun `any` nei tipi di ritorno
+  - Test per ogni mapper con dati validi e invalidi
+
+### W5-11 — TypeScript interfaces per tipi `any`
+- **Fonte**: P1, P9
+- **Severità**: MEDIA
+- **File**: Frontend tipi
+- **Descrizione**: P1 raccomanda di aggiungere TypeScript interfaces per tutti i tipi `any`. P9 conferma pattern type-unsafe.
+- **Criteri di accettazione**:
+  - Eliminare tutti gli `any` dal codebase frontend
+  - Type-safe adapters per ogni punto di contatto con il backend
+  - `npm run typecheck` passa senza errori
+
+### W5-12 — Ottimizzare GetDataStats
+- **Fonte**: P1
+- **Severità**: MEDIA
+- **File**: Backend query GetDataStats
+- **Descrizione**: `GetDataStats` esegue 40-60 query separate. Dovrebbe usare query batch.
+- **Criteri di accettazione**:
+  - Ridurre a ≤5 query batch usando `INFORMATION_SCHEMA`
+  - Tempo di risposta ≤200ms per dataset medio
+  - Test di performance con dataset di 1M+ righe
+
+### W5-13 — Eliminare design-system.styles.ts duplicato
+- **Fonte**: Piano frontend esistente
+- **Severità**: BASSA
+- **File**: `design-system.styles.ts`
+- **Descrizione**: Il file `design-system.styles.ts` è duplicato con `design-tokens.json`. Va eliminato.
+- **Criteri di accettazione**:
+  - `design-system.styles.ts` eliminato
+  - Tutti i riferimenti migrati a `design-tokens.json` + Tailwind config
+  - Build OK
+
+### W5-14 — Unificare error handling frontend
+- **Fonte**: Piano frontend esistente, Librarian (React)
+- **Severità**: ALTA
+- **File**: Frontend error handling
+- **Descrizione**: Piano frontend FASE 12 + Librarian raccomandano error handling centralizzato con `APIError` strutturato.
+- **Criteri di accettazione**:
+  - `handleError` centralizzato che logga a monitoring + mostra toast nel terminale
+  - `AlephErrorBoundary` globale
+  - `AlephErrorBoundary` per `InlineRenderer` (isola crash delle view lazy)
+  - `AlephErrorBoundary` per `SlideOverPanel`
+
+---
+
+## ONDA 6 — Polish e Ottimizzazione
+
+### W6-01 — Circuit breaker per processo locale (premature optimization)
+- **Fonte**: P5
+- **Severità**: MEDIA
+- **File**: Circuit breaker NLP
+- **Descrizione**: P5 identifica il circuit breaker per NLP come premature optimization — un retry semplice sarebbe sufficiente per un processo locale. P2 nota anche che StreamPredictions non chiama recordSuccess(), tenendo il breaker aperto.
+- **Criteri di accettazione**:
+  - Valutare se semplificare a retry con backoff
+  - Se mantenere circuit breaker: fix recordSuccess() (W2-12)
+  - health check con backoff (non polling senza backoff)
+  - Metriche per decidere se il circuit breaker è giustificato dal traffico
+
+### W6-02 — Concurrency DuckDB triple (premature optimization)
+- **Fonte**: P5, P2
+- **Severità**: MEDIA
+- **File**: Sistema concurrency DuckDB
+- **Descrizione**: P5 classifica la triple concurrency (semaphore + RWMutex + pool) come premature optimization. P2 identifica starvation writer. P1 vuole forzare tutto attraverso QueryContext.
+- **Criteri di accettazione**:
+  - Valutare se un singolo RWMutex write-preferring è sufficiente
+  - Benchmark prima e dopo semplificazione
+  - Se la triple concurrency è giustificata: aggiungere fairness per writer
+  - Se no: semplificare e rimuovere codice morto
+
+### W6-03 — Bias: Anchoring, Availability, Confirmation, Optimism
+- **Fonte**: P5
+- **Severità**: BASSA (meta)
+- **File**: N/A (processo)
+- **Descrizione**: P5 identifica bias nel processo di sviluppo: Anchoring sul backend, Availability bias (feature ricche, infra povera), Confirmation bias (solo test happy-path), Optimism bias (Chat 267 linee, loop di 5 turni senza gestione errori).
+- **Criteri di accettazione**:
+  - Revisione del processo di sviluppo per includere test negativi
+  - Prioritizzare infrastruttura prima di nuove feature
+  - Code review con checklist di bias
+  - Documentare i bias identificati come avvertimento per il team
+
+### W6-04 — Eliminare App.css
+- **Fonte**: Piano frontend esistente
+- **Severità**: BASSA
+- **File**: `App.css`
+- **Descrizione**: `App.css` è residuo e va eliminato.
+- **Criteri di accettazione**:
+  - `App.css` eliminato
+  - Tutti gli stili migrati a Tailwind o CSS modules
+  - Build OK
+
+### W6-05 — Fix import order in SetupWizard e LibraryView
+- **Fonte**: Piano frontend esistente
+- **Severità**: BASSA
+- **File**: `SetupWizard.tsx`, `LibraryView.tsx`
+- **Descrizione**: Import order non corretto causa warning lint.
+- **Criteri di accettazione**:
+  - Import order corretto secondo regole eslint
+  - Nessun warning lint
+
+### W6-06 — i18n: correggere stringhe miste
+- **Fonte**: Piano frontend esistente (FASE 10), P1
+- **File**: Multipli componenti frontend
+- **Descrizione**: Stringhe UI in inglese e italiano miste. P1 raccomanda standardizzazione. Piano frontend specifica: "Visual Glossary" → "Glossario Visivo", "Code Preview" → "Anteprima Codice", etc.
+- **Criteri di accettazione**:
+  - UI utente: italiano (con termini tecnici in inglese: API, JWT, JSON)
+  - Errori tecnici (gRPC, log): inglese
+  - Traduzioni specifiche del piano frontend: "Visual Glossary" → "Glossario Visivo", "Execution Output" → "Output Esecuzione", "Code Preview" → "Anteprima Codice", "Exec" → "Esecuzione"
+  - `font-sans` → `font-mono` in LibraryView
+
+### W6-07 — useViewActions refactor
+- **Fonte**: Piano frontend esistente (FASE 11)
+- **Severità**: MEDIA
+- **File**: `useViewActions.ts`
+- **Descrizione**: Decomporre `useViewActions` monolite in `useExplorerActions`, `useAgentActions`, `useOntologyActions`, etc. con facade per backward compat.
+- **Criteri di accettazione**:
+  - Ogni dominio ha il proprio hook
+  - `useViewActions` facade compone i domini
+  - `onRunSkill` → `setSlideOverContent({ type: 'skill', data: skill })`
+  - `onExecuteTool` → `setSlideOverContent({ type: 'tool', data: tool })`
+  - Gestione errori centralizzata in `handleError`
+
+### W6-08 — Yjs cleanup and command history
+- **Fonte**: Piano frontend esistente (FASE 13)
+- **Severità**: MEDIA
+- **File**: Store Y.js, sessionStorage
+- **Descrizione**: Cleanup Y.js `activeTab`, persistenza command history in sessionStorage (max 50, no API keys), storage audit.
+- **Criteri di accettazione**:
+  - `yMap.delete('activeTab')` eseguito one-time
+  - `commandHistory` in `sessionStorage`, max 50 entries
+  - Nessun API key o segreto nella history
+  - `localStorage` audit: no API keys, tokens, o dati progetto
+
+### W6-09 — shadcn/ui + Radix primitives
+- **Fonte**: Librarian (React)
+- **Severità**: MEDIA
+- **File**: Frontend componenti
+- **Descrizione**: La ricerca raccomanda shadcn/ui con Radix primitives e CVA (class-variance-authority) per componenti accessibili e composabili.
+- **Criteri di accettazione**:
+  - shadcn/ui integrato per componenti base (Button, Input, Select, Dialog, etc.)
+  - Radix primitives per accessibilità (keyboard nav, ARIA)
+  - CVA per varianti stilistiche
+  - Tutti i componenti esistenti migrati gradualmente
+
+### W6-10 — Cursor-based pagination
+- **Fonte**: Librarian (React)
+- **Severità**: MEDIA
+- **File**: API handlers, frontend
+- **Descrizione**: La ricerca raccomanda cursor-based pagination per dataset grandi. Attualmente nessuna paginazione.
+- **Criteri di accettazione**:
+  - API supporta cursor-based pagination (`after` cursor, `limit`)
+  - Frontend usa TanStack Query per caching e infinite scroll
+  - Nessun offset-based pagination per dataset grandi
+
+### W6-11 — SSE per server→client streaming
+- **Fonte**: Librarian (React)
+- **Severità**: MEDIA
+- **File**: API, frontend
+- **Descrizione**: La ricerca raccomanda Server-Sent Events per push dal server. Attualmente Connect RPC gestisce streaming ma SSE potrebbe semplificare il flusso per alcuni use case.
+- **Criteri di accettazione**:
+  - Valutare dove SSE è più appropriato di gRPC streaming
+  - Se adottato: endpoint SSE per notifiche e aggiornamenti stato
+  - Frontend gestisce SSE con `EventSource` o TanStack Query
+
+### W6-12 — URL state per filtri condivisibili
+- **Fonte**: Librarian (React)
+- **Severità**: MEDIA
+- **File**: Frontend routing
+- **Descrizione**: La ricerca raccomanda URL state per filtri shareable. Attualmente lo stato è solo in Zustand.
+- **Criteri di accettazione**:
+  - Filtri attivi riflessi nell'URL (es. `?view=explore&filter=active`)
+  - URL condivisibili che ripristinano lo stesso stato
+  - `nuqs` o libreria simile per sincronizzazione URL↔store
+
+### W6-13 — Bundle budget e performance
+- **Fonte**: Piano frontend esistente (FASE 12)
+- **Severità**: MEDIA
+- **File**: Vite config
+- **Descrizione**: Budget di 150KB gzipped per entry chunk. Lighthouse CI per performance.
+- **Criteri di accettazione**:
+  - Vite manual chunks configurati (viste correlate in bundle logici)
+  - Entry budget 150KB gzipped
+  - CI fallisce se superato
+  - Lighthouse CI integrato
+
+### W6-14 — Playwright E2E suite
+- **Fonte**: Piano frontend esistente (FASE 12)
+- **Severità**: ALTA
+- **File**: Nuovi test E2E
+- **Descrizione**: Piano frontend richiede test E2E per tutti i percorsi principali.
+- **Criteri di accettazione**:
+  - `parseCommand()` fuzzing con payload injection
+  - `TerminalOutput` sanitization HTML/ANSI
+  - `SlideOverPanel` apertura/chiusura/fullscreen
+  - Typing commands → assert output
+  - SlideOver flows → assert panel mount + chunk load
+  - Real-time sync → due browser contexts
+  - Security regression → XSS injection → assert testo non eseguito
+
+### W6-15 — Verdict P5: Indurire, non rifattorizzare
+- **Fonte**: P5
+- **Severità**: META (principio)
+- **File**: N/A
+- **Descrizione**: P5 conclude: "Harden, not refactor." Il progetto ha buon satisficing (filesystem, go:embed, dual DB). Il premature optimization (circuit breaker, triple concurrency, Brier scoring) va semplificato. I fondamentali mancanti (TIMEOUT, RETRY, BULKHEAD, AUDIT, CHECKSUM) vanno aggiunti PRIMA di nuove feature.
+- **Criteri di accettazione**:
+  - Nessuna nuova feature finché W0 e W1 non sono completati
+  - Semplificare premature optimizations identificate
+  - Aggiungere fondamentali mancanti (W3-07, W3-08, W3-09)
+  - Ogni simplificazione è confermata da benchmark
+
+---
+
+## Ordine di Esecuzione Consigliato
+
+1. **W0** (Sicurezza Critica): W0-01 → W0-12 — blocca tutto finché non completato
+2. **W1** (Architettura): W1-01 → W1-12 — sblocca development parallelo
+3. **W2** (Integrità Epistemica): W2-01 → W2-15 — rende il sistema onesto
+4. **W3** (DevEx & Infra): W3-01 → W3-11 — abilita sviluppo sostenibile
+5. **W4** (UX/UI): W4-01 → W4-19 — trasformazione terminale-first
+6. **W5** (Completamento): W5-01 → W5-14 — flussi rotti, form mancanti
+7. **W6** (Polish): W6-01 → W6-15 — performance, accessibilità, i18n
+
+---
+
+## Legenda
+
+- **P1**: Fullstack Developer (10+ anni)
+- **P2**: Debug Reverse-Engineer (10+ anni)
+- **P3**: Senior Analyst
+- **P4**: Epistemological Philosopher
+- **P5**: Heuristic Philosopher
+- **P6**: UX/UI Designer (Microtipografia)
+- **P7**: Art Director Senior (10+ anni)
+- **P8**: Go+Python Dev Engineer
+- **P9**: React+API Dev Engineer
+- **P10**: End User
+- **Librarian**: Ricerca esterna (Go + React)
+- **Piano Frontend**: Documento di revisione frontend esistente
+
+**Severità**:
+- CRITICA: blocca il deploy o compromette la sicurezza
+- ALTA: blocca sviluppo parallelo o user experience critica
+- MEDIA: degrada qualità o manutenibilità
+- BASSA: nice-to-have o polish

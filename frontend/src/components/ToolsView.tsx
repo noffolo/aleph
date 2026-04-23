@@ -1,5 +1,6 @@
 import React from 'react';
-import { Terminal, Plus, Code } from 'lucide-react';
+import { Terminal, Plus, Code, Trash2, Play } from 'lucide-react';
+import { useStore } from '../store/useStore';
 
 interface Tool {
   id: string;
@@ -10,18 +11,26 @@ interface Tool {
 
 interface ToolsViewProps {
   tools: Tool[];
-  onCreateTool: () => void;
+  onCreateTool: (name: string, description: string, code: string) => void;
+  onEditTool: (tool: Tool) => void;
+  onDeleteTool: (id: string) => void;
+  onExecuteTool: (id: string) => void;
+  inline?: boolean;
 }
 
-export const ToolsView: React.FC<ToolsViewProps> = ({ tools, onCreateTool }) => {
+export const ToolsView: React.FC<ToolsViewProps> = ({ tools, onCreateTool, onEditTool, onDeleteTool, onExecuteTool, inline = false }) => {
+  const openCreate = () => {
+    useStore.getState().setSlideOverContent({ type: 'tool-form', title: 'Nuovo Strumento', data: undefined });
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className={(inline ? '' : 'max-w-6xl mx-auto ') + 'space-y-8'}>
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Strumenti Operativi</h2>
-          <p className="text-gray-500 text-sm mt-1">Definisci funzioni eseguibili dagli agenti (SQL, Python, API).</p>
+          <p className="text-textMuted text-sm mt-1">Definisci funzioni eseguibili dagli agenti (SQL, Python, API).</p>
         </div>
-        <button onClick={onCreateTool} className="flex items-center space-x-2 bg-gray-900 text-white px-6 py-3 rounded-2xl font-bold hover:bg-black transition-all shadow-lg">
+        <button onClick={openCreate} className="flex items-center space-x-2 bg-primary text-background px-6 py-3 rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg">
            <Plus size={20} />
            <span>Crea Strumento</span>
         </button>
@@ -29,17 +38,29 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tools, onCreateTool }) => 
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {tools.map(t => (
-          <div key={t.id} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all flex flex-col h-full">
+          <div key={t.id} className="bg-surface p-8 rounded-lg border border-border shadow-sm hover:shadow-lg shadow-primary/5 transition-all flex flex-col h-full group relative">
+             <button 
+                onClick={(e) => { e.stopPropagation(); if (confirm('Eliminare questo strumento?')) onDeleteTool(t.id); }}
+                className="absolute top-8 right-8 p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+             >
+                <Trash2 size={16} />
+             </button>
              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-500"><Terminal size={20} /></div>
+                <div className="w-10 h-10 bg-surface-alt rounded-xl flex items-center justify-center text-textMuted"><Terminal size={20} /></div>
                 <h3 className="text-xl font-bold">{t.name}</h3>
              </div>
-             <p className="text-sm text-gray-500 mb-6 flex-1">{t.description}</p>
-             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-6">
-                <div className="flex items-center space-x-2 mb-2"><Code size={12} className="text-gray-400" /><span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Code Preview</span></div>
-                <pre className="text-[10px] font-mono text-gray-400 line-clamp-3 overflow-hidden">{t.code}</pre>
+             <p className="text-sm text-textMuted mb-6 flex-1">{t.description}</p>
+             <div className="bg-surface-alt p-4 rounded-lg border border-border mb-6">
+                <div className="flex items-center space-x-2 mb-2"><Code size={12} className="text-textMuted" /><span className="text-[10px] font-bold text-textMuted uppercase tracking-widest">Anteprima Codice</span></div>
+                <pre className="text-[10px] font-mono text-textMuted line-clamp-3 overflow-hidden">{t.code}</pre>
              </div>
-             <button className="w-full py-3 bg-gray-50 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-100 transition-colors uppercase tracking-widest">Modifica Codice</button>
+              <div className="flex space-x-2">
+                <button onClick={() => onExecuteTool(t.id)} className="flex-1 py-3 bg-primary text-background rounded-lg text-xs font-bold hover:bg-primary/90 transition-colors uppercase tracking-widest flex items-center justify-center space-x-1">
+                  <Play size={12} />
+                  <span>Esegui</span>
+                </button>
+                <button onClick={() => onEditTool(t)} className="flex-1 py-3 bg-surface-alt text-textMuted rounded-lg text-xs font-bold hover:bg-border transition-colors uppercase tracking-widest">Dettagli</button>
+              </div>
           </div>
         ))}
       </div>

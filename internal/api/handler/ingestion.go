@@ -2,8 +2,11 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
+	"log/slog"
 	"os"
-	"path/filepath"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
@@ -29,9 +32,7 @@ func (h *IngestionHandler) GetProgress(
 	ctx context.Context,
 	req *connect.Request[v1.GetProgressRequest],
 ) (*connect.Response[v1.GetProgressResponse], error) {
-	taskID := req.Msg.TaskId
-	var progress int32
-	err := h.metaRepo.DB().QueryRow("SELECT progress FROM system_tasks WHERE id = $1", taskID).Scan(&progress)
+	progress, err := h.metaRepo.GetTaskProgress(req.Msg.TaskId)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
@@ -43,17 +44,18 @@ func (h *IngestionHandler) ListTasks(
 	req *connect.Request[v1.ListTasksRequest],
 ) (*connect.Response[v1.ListTasksResponse], error) {
 	projectID := req.Msg.ProjectId
-	var tasks []*v1.IngestionTask
-	rows, err := h.metaRepo.DB().Query("SELECT id, name, source_type, config_json, status, progress FROM system_tasks WHERE project_id = $1", projectID)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var t v1.IngestionTask
-			rows.Scan(&t.Id, &t.Name, &t.SourceType, &t.ConfigJson, &t.Status, &t.Progress)
-			tasks = append(tasks, &t)
-		}
+	tasks, err := h.metaRepo.ListTasks(projectID)
+	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+
+	var result []*v1.IngestionTask
+	for _, t := range tasks {
+		result = append(result, &v1.IngestionTask{
+			Id: t.ID, Name: t.Name, SourceType: t.SourceType,
+			ConfigJson: t.ConfigJSON, Schedule: t.Schedule,
+			Status: t.Status, Progress: t.Progress,
+		})
 	}
-	return connect.NewResponse(&v1.ListTasksResponse{Tasks: tasks}), nil
+	return connect.NewResponse(&v1.ListTasksResponse{Tasks: result}), nil
 }
 
 func (h *IngestionHandler) CreateTask(
@@ -62,11 +64,17 @@ func (h *IngestionHandler) CreateTask(
 ) (*connect.Response[v1.CreateTaskResponse], error) {
 	projectID := req.Msg.ProjectId
 	task := req.Msg.Task
+	if task.Id == "" {
+		b := make([]byte, 16)
+		rand.Read(b)
+		task.Id = fmt.Sprintf("%x", b)
+	}
 
-	_, err := h.metaRepo.DB().Exec(
-		"INSERT INTO system_tasks (id, project_id, name, source_type, config_json, status, progress) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-		task.Id, projectID, task.Name, task.SourceType, task.ConfigJson, "idle", 0,
-	)
+	err := h.metaRepo.CreateTask(&repository.IngestionTaskRecord{
+		ID: task.Id, ProjectID: projectID, Name: task.Name,
+		SourceType: task.SourceType, ConfigJSON: task.ConfigJson,
+		Schedule: task.Schedule, Status: "idle", Progress: 0,
+	})
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
 
 	return connect.NewResponse(&v1.CreateTaskResponse{Task: task}), nil
@@ -79,14 +87,18 @@ func (h *IngestionHandler) RunTask(
 	projectID := req.Msg.ProjectId
 	taskID := req.Msg.TaskId
 
-	var task v1.IngestionTask
-	err := h.metaRepo.DB().QueryRow("SELECT id, name, source_type, config_json FROM system_tasks WHERE id = $1", taskID).Scan(&task.Id, &task.Name, &task.SourceType, &task.ConfigJson)
+	t, err := h.metaRepo.GetTaskByID(taskID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
 
 	go func() {
-		h.engine.RunTask(context.Background(), projectID, &task)
+		v1Task := &v1.IngestionTask{Id: t.ID, Name: t.Name, SourceType: t.SourceType, ConfigJson: t.ConfigJSON}
+		taskCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+		defer cancel()
+		if err := h.engine.RunTask(taskCtx, projectID, v1Task); err != nil {
+			slog.Error("ingestion task failed", "projectID", projectID, "taskID", v1Task.Id, "error", err)
+		}
 	}()
 
 	return connect.NewResponse(&v1.RunTaskResponse{Status: "started"}), nil
@@ -98,7 +110,8 @@ func (h *IngestionHandler) GetTaskLogs(
 ) (*connect.Response[v1.GetTaskLogsResponse], error) {
 	projectID := req.Msg.ProjectId
 	taskID := req.Msg.TaskId
-	logPath := filepath.Join(h.projectsRoot, projectID, "logs", taskID+".log")
+	logPath, err := sanitizePath(h.projectsRoot, projectID, "logs", taskID+".log")
+	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
 	data, err := os.ReadFile(logPath)
 	if err != nil { return connect.NewResponse(&v1.GetTaskLogsResponse{Logs: "No logs found."}), nil }
 	return connect.NewResponse(&v1.GetTaskLogsResponse{Logs: string(data)}), nil
@@ -108,9 +121,7 @@ func (h *IngestionHandler) DeleteTask(
 	ctx context.Context,
 	req *connect.Request[v1.DeleteTaskRequest],
 ) (*connect.Response[v1.DeleteTaskResponse], error) {
-	projectID := req.Msg.ProjectId
-	id := req.Msg.Id
-	_, err := h.metaRepo.DB().Exec("DELETE FROM system_tasks WHERE project_id = $1 AND id = $2", projectID, id)
+	err := h.metaRepo.DeleteTask(req.Msg.Id, req.Msg.ProjectId)
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
 	return connect.NewResponse(&v1.DeleteTaskResponse{Success: true}), nil
 }

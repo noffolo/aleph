@@ -3,7 +3,6 @@ package ingestion
 import (
 	"context"
 	"fmt"
-	"net/http"
 )
 
 type ProbeResult struct {
@@ -18,7 +17,7 @@ type ProbeRunner struct {
 
 func (p *ProbeRunner) Probe(ctx context.Context, endpoint string) (*ProbeResult, error) {
 	// 1. Fetch cold sample
-	resp, err := http.Get(endpoint)
+	resp, err := safeHTTPClient.Get(endpoint)
 	if err != nil {
 		return nil, err
 	}

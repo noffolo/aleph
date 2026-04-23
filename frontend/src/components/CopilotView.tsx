@@ -1,93 +1,109 @@
-import React from 'react';
-import { Bot, Send } from 'lucide-react';
+import React, { useRef, useEffect } from 'react'
+import { useStore } from '../store/useStore'
+import { TerminalPrompt } from './terminal'
+import { TerminalOutput, escapeHtml } from './terminal'
+import { InlineRenderer } from './terminal/InlineRenderer'
+import { InlineErrorBoundary } from './InlineErrorBoundary'
 
 interface ChatMessage {
-  role: string;
-  content: string;
-  toolCall?: string;
+  role: string
+  content: string
+  toolCall?: string
+  requiresConfirmation?: boolean
+  createdAt?: number
 }
 
 interface Agent {
-  id: string;
-  name: string;
-  model: string;
+  id: string
+  name: string
+  model: string
 }
 
 interface CopilotViewProps {
-  agents: Agent[];
-  selectedAgent: string;
-  setSelectedAgent: (id: string) => void;
-  chat: ChatMessage[];
-  input: string;
-  setInput: (val: string) => void;
-  onSend: () => void;
-  isStreaming: boolean;
+  agents: Agent[]
+  selectedAgent: string
+  setSelectedAgent: (id: string) => void
+  chat: ChatMessage[]
+  input: string
+  setInput: (val: string) => void
+  onSend: () => void
+  isStreaming: boolean
+  onCancelStream: () => void
+  onConfirmAction: (approved: boolean) => void
+  onClearChat: () => void
 }
 
 export const CopilotView: React.FC<CopilotViewProps> = ({
   agents, selectedAgent, setSelectedAgent,
-  chat, input, setInput, onSend, isStreaming
+  chat, input, setInput, onSend, isStreaming, onCancelStream, onConfirmAction, onClearChat
 }) => {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)
+  }, [chat, isStreaming])
+
+  const terminalLines = chat.map((msg, i) => ({
+    id: i,
+    type: msg.role === 'user' ? 'input' as const : msg.toolCall ? 'tool' as const : 'output' as const,
+    content: escapeHtml(msg.content || msg.toolCall || ''),
+    timestamp: msg.createdAt,
+  }))
+
   return (
-    <div className="max-w-4xl mx-auto h-full flex flex-col">
-       <div className="mb-6 flex items-center space-x-3 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
-          <Bot size={20} className="text-blue-600" />
-          <select 
-            value={selectedAgent} 
-            onChange={(e) => setSelectedAgent(e.target.value)} 
-            className="flex-1 bg-transparent outline-none text-sm font-bold"
+    <div className="flex flex-col h-full bg-surface rounded-lg border border-border overflow-hidden">
+      <div className="h-9 flex items-center justify-between px-4 border-b border-border shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-primary text-xs font-bold">COPILOT</span>
+          <span className="text-textDim text-xs">│</span>
+          <select
+            value={selectedAgent}
+            onChange={(e) => setSelectedAgent(e.target.value)}
+            disabled={isStreaming}
+            className="bg-transparent text-text text-xs outline-none cursor-pointer disabled:opacity-50"
           >
-            <option value="">Scegli un collaboratore AI...</option>
-            {agents.map(a => <option key={a.id} value={a.id}>{a.name} ({a.model})</option>)}
+            <option value="" className="bg-surface text-text">seleziona agente...</option>
+            {agents.map(a => (
+              <option key={a.id} value={a.id} className="bg-surface text-text">{a.name} ({a.model})</option>
+            ))}
           </select>
-       </div>
+        </div>
+        {chat.length > 0 && (
+          <div className="flex items-center gap-4">
+            {isStreaming && (
+              <button onClick={onCancelStream} className="text-danger hover:text-danger-bright text-xs font-bold transition-colors" title="Interrompi streaming">
+                ⏹ STOP
+              </button>
+            )}
+            <button onClick={onClearChat} className="text-textMuted hover:text-danger text-xs transition-colors" title="Pulisci">
+              PULISCI
+            </button>
+          </div>
+        )}
+      </div>
 
-       <div className="flex-1 space-y-4 mb-6 overflow-auto pr-4 custom-scrollbar">
-          {chat.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className="flex flex-col space-y-1.5 max-w-[85%]">
-                {msg.role === 'assistant' && <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Copilot</div>}
-                <div className={`p-5 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-white border border-gray-100 text-gray-800 shadow-sm'}`}>
-                  <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                </div>
-                {msg.toolCall && (
-                  <div className="text-[10px] font-mono bg-amber-50 text-amber-700 p-2.5 rounded-xl border border-amber-100 flex items-center space-x-2">
-                     <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></span>
-                     <span>{msg.toolCall}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-          {isStreaming && (
-            <div className="flex items-center space-x-2 text-gray-400 text-xs animate-pulse ml-1">
-               <div className="flex space-x-1">
-                  <div className="w-1 h-1 bg-gray-300 rounded-full animate-bounce"></div>
-                  <div className="w-1 h-1 bg-gray-300 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                  <div className="w-1 h-1 bg-gray-300 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-               </div>
-               <span>L'Agente sta elaborando la risposta...</span>
-            </div>
-          )}
-       </div>
+      <div ref={scrollRef} className="flex-1 overflow-auto">
+        <TerminalOutput lines={terminalLines} isStreaming={isStreaming} />
+      </div>
 
-       <div className="relative pb-6">
-         <input 
-            value={input} 
-            onChange={(e) => setInput(e.target.value)} 
-            onKeyDown={(e) => e.key === 'Enter' && onSend()} 
-            disabled={isStreaming} 
-            className="w-full p-6 pr-16 bg-white border border-gray-200 rounded-3xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all shadow-xl text-lg placeholder:text-gray-300" 
-            placeholder="Assegna un compito o fai una domanda..." 
-         />
-         <button 
-            onClick={onSend} 
-            disabled={isStreaming || !input} 
-            className="absolute right-3.5 top-3.5 p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:grayscale"
-         >
-            <Send size={24} />
-         </button>
-       </div>
+      <InlineErrorBoundary label="inline-renderer">
+        <InlineRenderer />
+      </InlineErrorBoundary>
+
+      {chat.some(m => m.requiresConfirmation) && !isStreaming && (
+        <div className="flex items-center gap-2 px-4 py-2 border-t border-border">
+          <button onClick={() => onConfirmAction(true)} className="px-3 py-1 bg-success/10 text-success border border-success/30 rounded text-xs font-bold hover:bg-success/20 transition-colors">APPROVA</button>
+          <button onClick={() => onConfirmAction(false)} className="px-3 py-1 bg-danger/10 text-danger border border-danger/30 rounded text-xs font-bold hover:bg-danger/20 transition-colors">RIFIUTA</button>
+        </div>
+      )}
+
+      <TerminalPrompt
+        value={input}
+        onChange={setInput}
+        onSubmit={onSend}
+        disabled={isStreaming || !selectedAgent}
+        placeholder={selectedAgent ? 'scrivi un messaggio o /comando...' : 'seleziona un agente...'}
+      />
     </div>
-  );
-};
+  )
+}

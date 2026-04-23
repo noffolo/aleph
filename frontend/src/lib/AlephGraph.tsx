@@ -19,15 +19,31 @@ export const AlephGraph: React.FC<AlephGraphProps> = ({ rows, onRowClick }) => {
     const width = svgRef.current.clientWidth;
     const height = 500;
 
-    // Detect nodes and links from rows (simplified heuristic)
-    // Assume each row is a node, and look for ID-like references to other rows
-    const nodes: any[] = rows.map((r, i) => ({ id: i, label: r.values['oggetto'] || r.values['name'] || `Node ${i}`, data: r }));
+    const nodes: any[] = rows.map((r, i) => ({ id: i, label: r.values['oggetto'] || r.values['name'] || r.values['title'] || `Node ${i}`, data: r }));
     const links: any[] = [];
-    
-    // Fake links for visual demo of graph capability if no real relations found
-    for (let i = 1; i < nodes.length; i++) {
-        if (Math.random() > 0.5) links.push({ source: i, target: Math.floor(Math.random() * i) });
-    }
+
+    const idMap = new Map<string, number>();
+    const labelMap = new Map<string, number>();
+    nodes.forEach((n, i) => {
+      const rowVals = rows[i].values;
+      const rowId = rowVals['id'] || rowVals[n.label.toLowerCase() + '_id'] || '';
+      if (rowId) idMap.set(rowId, i);
+      labelMap.set(n.label.toLowerCase(), i);
+    });
+
+    rows.forEach((r, i) => {
+      const vals = r.values;
+      Object.entries(vals).forEach(([key, val]) => {
+        if (!val) return;
+        const lk = key.toLowerCase();
+        if (lk.endsWith('_id') || lk === 'parent' || lk === 'related' || lk === 'relation') {
+          const refIdx = idMap.get(val) ?? labelMap.get(val.toLowerCase());
+          if (refIdx !== undefined && refIdx !== i) {
+            links.push({ source: i, target: refIdx });
+          }
+        }
+      });
+    });
 
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
@@ -38,12 +54,12 @@ export const AlephGraph: React.FC<AlephGraphProps> = ({ rows, onRowClick }) => {
       .force("center", d3.forceCenter(width / 2, height / 2));
 
     const link = svg.append("g")
-      .attr("stroke", "#e2e8f0")
+      .attr("stroke", "#2a2a3a")
       .attr("stroke-opacity", 0.6)
       .selectAll("line")
       .data(links)
       .join("line")
-      .attr("stroke-width", 2);
+      .attr("stroke-width", 1);
 
     const node = svg.append("g")
       .selectAll("g")
@@ -62,19 +78,20 @@ export const AlephGraph: React.FC<AlephGraphProps> = ({ rows, onRowClick }) => {
       .on("click", (event: any, d: any) => onRowClick?.(d.data));
 
     node.append("circle")
-      .attr("r", 25)
-      .attr("fill", "#3b82f6")
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 3);
+      .attr("r", 20)
+      .attr("fill", "#00d4ff")
+      .attr("fill-opacity", 0.15)
+      .attr("stroke", "#00d4ff")
+      .attr("stroke-width", 1.5);
 
     node.append("text")
-      .text((d: any) => d.label.substring(0, 15) + "...")
+      .text((d: any) => d.label.length > 15 ? d.label.substring(0, 15) + "…" : d.label)
       .attr("x", 0)
-      .attr("y", 40)
+      .attr("y", 32)
       .attr("text-anchor", "middle")
       .attr("font-size", "10px")
-      .attr("font-weight", "bold")
-      .attr("fill", "#64748b");
+      .attr("font-family", "monospace")
+      .attr("fill", "#e4e4e7");
 
     simulation.on("tick", () => {
       link
@@ -86,15 +103,19 @@ export const AlephGraph: React.FC<AlephGraphProps> = ({ rows, onRowClick }) => {
       node.attr("transform", (d: any) => `translate(${d.x},${d.y})`);
     });
 
+    return () => {
+      simulation.stop();
+    };
+
   }, [rows]);
 
   return (
-    <div className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
-      <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-         <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Relational Force Graph</span>
+    <div className="bg-surface border border-border overflow-hidden">
+      <div className="h-9 flex items-center justify-between px-4 border-b border-border shrink-0">
+         <span className="text-[10px] font-mono font-bold text-textDim uppercase tracking-widest">Relational Force Graph</span>
          <div className="flex space-x-1">
-             <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-             <div className="w-2 h-2 rounded-full bg-blue-300"></div>
+             <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+             <div className="w-1.5 h-1.5 rounded-full bg-textDim"></div>
          </div>
       </div>
       <svg ref={svgRef} className="w-full h-[500px] cursor-move"></svg>

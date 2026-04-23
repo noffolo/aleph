@@ -2,6 +2,7 @@ package dsl
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -85,11 +86,52 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 		}
 	}
 
+	aggregateFields := make(map[string]bool)
+	for _, agg := range obj.Aggregates {
+		aggregateFields[agg.Field] = true
+		sqlFunc := strings.ToUpper(agg.Function)
+		selectClauses = append(selectClauses, fmt.Sprintf("%s(\"%s\".\"%s\") AS \"%s\"", sqlFunc, objName, agg.Field, agg.Alias))
+	}
+
+	var groupByClauses []string
+	if len(obj.Aggregates) > 0 {
+		for _, prop := range obj.Properties {
+			if !aggregateFields[prop.Name] {
+				groupByClauses = append(groupByClauses, fmt.Sprintf("\"%s\".\"%s\"", objName, prop.Name))
+			}
+		}
+	}
+
+	var whereClauses []string
+	for _, f := range obj.Filters {
+		opMap := map[string]string{
+			"eq": "=", "neq": "<>", "gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "like": "LIKE",
+		}
+		sqlOp := opMap[f.Op]
+		val := f.Value
+		if !isNumeric(val) {
+			val = fmt.Sprintf("'%s'", strings.ReplaceAll(val, "'", "''"))
+		}
+		whereClauses = append(whereClauses, fmt.Sprintf("\"%s\".\"%s\" %s %s", objName, f.Field, sqlOp, val))
+	}
+
+	whereClause := ""
+	if len(whereClauses) > 0 {
+		whereClause = " WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	groupByClause := ""
+	if len(groupByClauses) > 0 {
+		groupByClause = " GROUP BY " + strings.Join(groupByClauses, ", ")
+	}
+
 	sql := fmt.Sprintf(
-		"SELECT %s FROM read_parquet('%s/%s/latest/*.parquet') AS \"%s\" %s",
+		"SELECT %s FROM read_parquet('%s/%s/latest/*.parquet') AS \"%s\" %s%s%s",
 		strings.Join(selectClauses, ", "),
 		c.DataRoot, obj.FromSource, objName,
 		strings.Join(joinClauses, " "),
+		whereClause,
+		groupByClause,
 	)
 
 	return sql, nil
@@ -124,4 +166,14 @@ func (c *Compiler) CompileActions() ([]map[string]interface{}, error) {
 		}
 	}
 	return actionTools, nil
+}
+
+func isNumeric(s string) bool {
+	if _, err := strconv.Atoi(s); err == nil {
+		return true
+	}
+	if _, err := strconv.ParseFloat(s, 64); err == nil {
+		return true
+	}
+	return false
 }

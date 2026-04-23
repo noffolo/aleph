@@ -17,6 +17,7 @@ interface ExplorerViewProps {
   data: any;
   onRowClick: (row: any) => void;
   isLoading: boolean;
+  inline?: boolean;
 }
 
 export const ExplorerView: React.FC<ExplorerViewProps> = ({
@@ -25,13 +26,13 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
   data, onRowClick, isLoading
 }) => {
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center space-x-2 overflow-x-auto pb-2 no-scrollbar">
+    <div className="max-w-6xl mx-auto space-y-4">
+      <div className="flex items-center space-x-1 overflow-x-auto pb-2 no-scrollbar">
         {availableObjects.map(obj => (
           <button 
             key={obj} 
             onClick={() => setSelectedObject(obj)}
-            className={`px-4 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${selectedObject === obj ? 'bg-blue-600 text-white shadow-lg' : 'bg-white border text-gray-500 hover:border-blue-300'}`}
+            className={`px-3 py-1.5 text-xs font-mono font-bold transition-colors whitespace-nowrap border ${selectedObject === obj ? 'bg-primary/10 text-primary border-primary/30' : 'bg-surface text-textMuted border-border hover:text-text hover:border-textDim'}`}
           >
             {obj}
           </button>
@@ -40,20 +41,20 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
 
       <div className="flex flex-col md:flex-row items-center justify-between mb-4 gap-4">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-4 top-4 text-gray-400" size={20} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-textDim" size={16} />
           <input 
             type="text" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={`Cerca in ${selectedObject || '...'}...`} 
-            className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all text-lg shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border font-mono text-sm text-text placeholder:text-textDim focus:outline-none focus:border-primary/50 transition-colors"
           />
         </div>
-        <div className="flex bg-white p-1 rounded-2xl border border-gray-100 shadow-sm">
-           <button onClick={() => setActiveView('table')} className={`p-3 rounded-xl ${activeView === 'table' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`} title="Tabella"><TableIcon size={20} /></button>
-           <button onClick={() => setActiveView('map')} className={`p-3 rounded-xl ${activeView === 'map' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`} title="Mappa"><MapIcon size={20} /></button>
-           <button onClick={() => setActiveView('timeline')} className={`p-3 rounded-xl ${activeView === 'timeline' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`} title="Timeline"><Clock size={20} /></button>
-           <button onClick={() => setActiveView('graph')} className={`p-3 rounded-xl ${activeView === 'graph' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`} title="Grafo Relazionale"><GraphIcon size={20} /></button>
+        <div className="flex bg-surface p-0.5 border border-border">
+           <button onClick={() => setActiveView('table')} className={`px-2.5 py-1.5 ${activeView === 'table' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title="Tabella"><TableIcon size={16} /></button>
+           <button onClick={() => setActiveView('map')} className={`px-2.5 py-1.5 ${activeView === 'map' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title="Mappa"><MapIcon size={16} /></button>
+           <button onClick={() => setActiveView('timeline')} className={`px-2.5 py-1.5 ${activeView === 'timeline' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title="Timeline"><Clock size={16} /></button>
+           <button onClick={() => setActiveView('graph')} className={`px-2.5 py-1.5 ${activeView === 'graph' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title="Grafo Relazionale"><GraphIcon size={16} /></button>
         </div>
       </div>
 
@@ -71,16 +72,16 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
       </div>
       
       {data?.sql && (
-        <div className="mt-12 p-6 bg-gray-900 rounded-3xl overflow-hidden shadow-2xl border border-gray-800">
-           <div className="text-gray-400 text-[10px] font-mono mb-4 uppercase tracking-widest flex justify-between items-center">
+        <div className="mt-6 p-4 bg-surface overflow-hidden border border-border">
+           <div className="text-textDim text-[10px] font-mono mb-3 uppercase tracking-widest flex justify-between items-center">
              <span>DuckDB Engine • No-ETL Query</span>
              <div className="flex space-x-1">
-                <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-yellow-500"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
              </div>
            </div>
-           <code className="text-blue-300 font-mono text-xs break-all leading-relaxed">{data.sql}</code>
+           <code className="text-primary font-mono text-xs break-all leading-relaxed">{data.sql}</code>
         </div>
       )}
     </div>

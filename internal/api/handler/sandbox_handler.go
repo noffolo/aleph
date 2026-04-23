@@ -19,9 +19,49 @@ func NewSandboxServiceHandler(sbMgr sandbox.SandboxManager, logger *slog.Logger)
 }
 
 func (h *SandboxServiceHandler) ExecuteTool(ctx context.Context, req *connect.Request[v1.ExecuteToolRequest]) (*connect.Response[v1.ExecuteToolResponse], error) {
-	return connect.NewResponse(&v1.ExecuteToolResponse{}), nil
+	toolID := req.Msg.GetToolId()
+	var inputMap map[string]interface{}
+	if ip := req.Msg.GetInputParams(); ip != nil {
+		inputMap = ip.AsMap()
+	} else {
+		inputMap = map[string]interface{}{}
+	}
+
+	result, err := h.sandboxMgr.ExecuteTool(ctx, toolID, inputMap)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	pbResult := &v1.ExecutionResult{
+		Stdout:      result.Stdout,
+		Stderr:      result.Stderr,
+		ExitCode:    int32(result.ExitCode),
+		Error:       result.Error,
+		MetricsJson: result.Metrics,
+	}
+	return connect.NewResponse(&v1.ExecuteToolResponse{Result: pbResult}), nil
 }
 
 func (h *SandboxServiceHandler) RunSkill(ctx context.Context, req *connect.Request[v1.RunSkillRequest]) (*connect.Response[v1.RunSkillResponse], error) {
-	return connect.NewResponse(&v1.RunSkillResponse{}), nil
+	skillID := req.Msg.GetSkillId()
+	var inputMap map[string]interface{}
+	if ip := req.Msg.GetInputParams(); ip != nil {
+		inputMap = ip.AsMap()
+	} else {
+		inputMap = map[string]interface{}{}
+	}
+
+	result, err := h.sandboxMgr.RunSkill(ctx, skillID, inputMap)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	pbResult := &v1.ExecutionResult{
+		Stdout:      result.Stdout,
+		Stderr:      result.Stderr,
+		ExitCode:    int32(result.ExitCode),
+		Error:       result.Error,
+		MetricsJson: result.Metrics,
+	}
+	return connect.NewResponse(&v1.RunSkillResponse{Result: pbResult}), nil
 }

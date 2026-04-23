@@ -76,7 +76,7 @@ func (h *ProjectHandler) CreateProject(
 		os.WriteFile(ontFile, []byte("// Define your ontology here\n"), 0644)
 	}
 
-	p := &v1.Project{Id: id, Name: req.Msg.Name, CreatedAt: 0} // Simplify for now
+	p := &v1.Project{Id: id, Name: req.Msg.Name, CreatedAt: time.Now().Unix()}
 	return connect.NewResponse(&v1.CreateProjectResponse{Project: p}), nil
 }
 
@@ -85,7 +85,8 @@ func (h *ProjectHandler) GetOntology(
 	req *connect.Request[v1.GetOntologyRequest],
 ) (*connect.Response[v1.GetOntologyResponse], error) {
 	projectID := req.Msg.ProjectId
-	ontPath := filepath.Join(h.projectsRoot, projectID, "ontologies", "core.aleph")
+	ontPath, err := sanitizePath(h.projectsRoot, projectID, "ontologies", "core.aleph")
+	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
 	
 	content, err := os.ReadFile(ontPath)
 	if err != nil {
@@ -103,6 +104,19 @@ func (h *ProjectHandler) GetOntology(
 		}
 	}
 
+	if len(names) == 0 {
+		rows, err := h.db.Query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'main' AND table_name NOT LIKE 'system_%' ORDER BY table_name")
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var tn string
+				if rows.Scan(&tn) == nil {
+					names = append(names, tn)
+				}
+			}
+		}
+	}
+
 	return connect.NewResponse(&v1.GetOntologyResponse{
 		AlephDefinition: string(content),
 		ObjectNames:     names,
@@ -114,7 +128,8 @@ func (h *ProjectHandler) SaveOntology(
 	req *connect.Request[v1.SaveOntologyRequest],
 ) (*connect.Response[v1.SaveOntologyResponse], error) {
 	projectID := req.Msg.ProjectId
-	ontPath := filepath.Join(h.projectsRoot, projectID, "ontologies", "core.aleph")
+	ontPath, err := sanitizePath(h.projectsRoot, projectID, "ontologies", "core.aleph")
+	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
 	
 	// Atomic Backup
 	if _, err := os.Stat(ontPath); err == nil {
@@ -142,51 +157,56 @@ func (h *ProjectHandler) EmergeOntology(
 	ctx context.Context,
 	req *connect.Request[v1.EmergeOntologyRequest],
 ) (*connect.Response[v1.EmergeOntologyResponse], error) {
-	projectID := req.Msg.ProjectId
-	rawPath := filepath.Join(h.projectsRoot, projectID, "raw")
-
-	entries, err := os.ReadDir(rawPath)
+	rows, err := h.db.QueryContext(ctx, "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main' AND table_name NOT LIKE 'system_%' ORDER BY table_name")
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	defer rows.Close()
+
+	var tableNames []string
+	for rows.Next() {
+		var tn string
+		if rows.Scan(&tn) == nil {
+			tableNames = append(tableNames, tn)
+		}
+	}
 
 	var alephDef strings.Builder
-	for _, entry := range entries {
-		if entry.IsDir() {
-			datasetName := entry.Name()
-			parquetPattern := filepath.Join(rawPath, datasetName, "latest", "*.parquet")
-			
-			query := fmt.Sprintf("DESCRIBE SELECT * FROM read_parquet('%s')", parquetPattern)
-			
-			queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			rows, err := h.db.QueryContext(queryCtx, query)
-			if err != nil {
-				cancel()
+	for _, tableName := range tableNames {
+		colRows, err := h.db.QueryContext(ctx,
+			"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'main' AND table_name = ? ORDER BY ordinal_position",
+			tableName)
+		if err != nil {
+			continue
+		}
+
+		alephDef.WriteString(fmt.Sprintf("object %s\n", tableName))
+		alephDef.WriteString(fmt.Sprintf("  from dataset %s\n", tableName))
+
+		hasID := false
+		for colRows.Next() {
+			var colName, colType string
+			colRows.Scan(&colName, &colType)
+			mappedType := "text"
+			if strings.Contains(strings.ToUpper(colType), "INT") || strings.Contains(strings.ToUpper(colType), "DOUBLE") || strings.Contains(strings.ToUpper(colType), "FLOAT") || strings.Contains(strings.ToUpper(colType), "DECIMAL") {
+				mappedType = "number"
+			} else if strings.Contains(strings.ToUpper(colType), "TIMESTAMP") || strings.Contains(strings.ToUpper(colType), "DATE") || strings.Contains(strings.ToUpper(colType), "TIME") {
+				mappedType = "datetime"
+			} else if strings.Contains(strings.ToUpper(colType), "BOOLEAN") || strings.Contains(strings.ToUpper(colType), "BOOL") {
+				mappedType = "boolean"
+			}
+			if strings.EqualFold(colName, "id") && !hasID {
+				alephDef.WriteString("  id id\n")
+				hasID = true
 				continue
 			}
-
-			alephDef.WriteString(fmt.Sprintf("object %s\n", datasetName))
-			alephDef.WriteString(fmt.Sprintf("from dataset %s\n", datasetName))
-			alephDef.WriteString("id id\n")
-
-			for rows.Next() {
-				var colName, colType, colNull, colKey, colDefault, colExtra interface{}
-				rows.Scan(&colName, &colType, &colNull, &colKey, &colDefault, &colExtra)
-				mappedType := "text"
-				dt := fmt.Sprintf("%v", colType)
-				if strings.Contains(dt, "INT") || strings.Contains(dt, "DOUBLE") {
-					mappedType = "number"
-				} else if strings.Contains(dt, "TIMESTAMP") || strings.Contains(dt, "DATE") {
-					mappedType = "datetime"
-				}
-				alephDef.WriteString(fmt.Sprintf("property %v type %s from %v\n", colName, mappedType, colName))
-			}
-			
-			rows.Close()
-			cancel()
-			alephDef.WriteString("\n")
-			rows.Close()
+			alephDef.WriteString(fmt.Sprintf("  property %s type %s from %s\n", colName, mappedType, colName))
 		}
+		colRows.Close()
+		if !hasID {
+			alephDef.WriteString("  id id\n")
+		}
+		alephDef.WriteString("\n")
 	}
 
 	return connect.NewResponse(&v1.EmergeOntologyResponse{
@@ -203,7 +223,9 @@ func (h *ProjectHandler) DeleteProject(
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("project id is required"))
 	}
 
-	path := filepath.Join(h.projectsRoot, id)
+	path, err := sanitizePath(h.projectsRoot, id)
+	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+
 	if err := os.RemoveAll(path); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

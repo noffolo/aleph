@@ -5,7 +5,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/aleph.v1': 'http://localhost:8080',
+      '/aleph.nlp.v1': 'http://localhost:8080',
+      '/aleph.registry.v1': 'http://localhost:8080',
+      '/aleph.tool.v1': 'http://localhost:8080',
     },
   },
 })

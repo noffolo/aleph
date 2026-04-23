@@ -7,14 +7,44 @@ class MarketSource(ABC):
         pass
 
 class PolymarketSource(MarketSource):
+    API_URL = "https://clob.polymarket.com/markets"
+
     def fetch(self, identifier):
-        # Implementazione reale: request a API Polymarket
-        return 0.68
+        try:
+            resp = requests.get(f"{self.API_URL}/{identifier}", timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            if "outcomePrices" in data and data["outcomePrices"]:
+                prices = data["outcomePrices"]
+                if isinstance(prices, str):
+                    prices = prices.split(",")
+                yes_price = float(prices[0])
+                return yes_price
+            if "probability" in data:
+                return float(data["probability"])
+        except Exception as e:
+            print(f"[Markets] Polymarket API error for {identifier}: {e}")
+        return None
 
 class MetaculusSource(MarketSource):
+    API_URL = "https://www.metaculus.com/api2/questions"
+
     def fetch(self, identifier):
-        # Implementazione reale: request a API Metaculus
-        return 0.72
+        try:
+            resp = requests.get(f"{self.API_URL}/{identifier}/", timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            if "community_prediction" in data:
+                cp = data["community_prediction"]
+                if isinstance(cp, dict) and "full" in cp:
+                    return float(cp["full"]["q1"])
+                if isinstance(cp, (int, float)):
+                    return float(cp)
+            if "probability" in data:
+                return float(data["probability"])
+        except Exception as e:
+            print(f"[Markets] Metaculus API error for {identifier}: {e}")
+        return None
 
 class MarketPredictor:
     def __init__(self):
@@ -24,7 +54,6 @@ class MarketPredictor:
         }
 
     def register_source(self, name, source_instance: MarketSource):
-        """Allows dynamic registration of new market sources."""
         if not isinstance(source_instance, MarketSource):
             raise ValueError("Source must implement MarketSource interface")
         self.sources[name] = source_instance
@@ -32,20 +61,23 @@ class MarketPredictor:
     def fetch_market_prob(self, source_name, identifier):
         if source_name not in self.sources:
             raise ValueError(f"Source {source_name} not supported")
-        return self.sources[source_name].fetch(identifier)
+        result = self.sources[source_name].fetch(identifier)
+        if result is not None:
+            return result
+        print(f"[Markets] {source_name} returned None for {identifier}, using neutral 0.5")
+        return 0.5
 
     def calibrate(self, internal_prob, market_data):
-        """
-        Calibrazione Bayesiana generalizzata: combina internal_prob con 
-        la media ponderata delle fonti di mercato attive.
-        """
         if not market_data:
             return internal_prob
 
-        market_probs = [val for val in market_data.values()]
-        avg_market_prob = sum(market_probs) / len(market_probs)
+        valid_probs = []
+        for val in market_data.values():
+            if val is not None:
+                valid_probs.append(val)
 
-        # Calibrazione: 40% modello, 60% mercato
+        if not valid_probs:
+            return internal_prob
+
+        avg_market_prob = sum(valid_probs) / len(valid_probs)
         return (internal_prob * 0.4) + (avg_market_prob * 0.6)
-
-

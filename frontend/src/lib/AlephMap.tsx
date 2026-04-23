@@ -33,8 +33,8 @@ export const AlephMap: React.FC<AlephMapProps> = ({ rows, onRowClick }) => {
 
   if (points.length === 0) {
     return (
-      <div className="h-[500px] flex items-center justify-center bg-gray-50 rounded-3xl border-2 border-dashed">
-        <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">No Geographic Data found in result set</p>
+      <div className="h-[500px] flex items-center justify-center bg-surface-alt rounded-lg border-2 border-dashed border-border">
+        <p className="text-textMuted font-bold uppercase tracking-widest text-xs">No Geographic Data found in result set</p>
       </div>
     );
   }
@@ -42,7 +42,7 @@ export const AlephMap: React.FC<AlephMapProps> = ({ rows, onRowClick }) => {
   const center: [number, number] = [points[0].lat, points[0].lon];
 
   return (
-    <div className="h-[500px] w-full rounded-3xl overflow-hidden shadow-xl border border-gray-100">
+    <div className="h-[500px] w-full rounded-lg overflow-hidden shadow-lg border border-border">
       <MapContainer center={center} zoom={10} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -54,7 +54,7 @@ export const AlephMap: React.FC<AlephMapProps> = ({ rows, onRowClick }) => {
                <div className="p-2">
                   <div className="font-bold border-b mb-2 pb-1">Entity Details</div>
                   {Object.entries(p.data.values).slice(0, 5).map(([k, v]) => (
-                    <div key={k} className="text-[10px]"><span className="font-bold uppercase text-gray-400">{k}:</span> {v}</div>
+                    <div key={k} className="text-[10px]"><span className="font-bold uppercase text-textMuted">{k}:</span> {v}</div>
                   ))}
                </div>
             </Popup>

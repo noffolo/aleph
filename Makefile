@@ -1,4 +1,4 @@
-.PHONY: build run frontend-dev nlp-dev build-models
+.PHONY: build run frontend-dev nlp-dev build-models proto-python
 
 build:
 	cd frontend && npm run build
@@ -15,6 +15,9 @@ nlp-dev:
 
 build-models:
 	cd nlp && . venv/bin/activate && python3 convert_onnx.py
+
+proto-python:
+	cd nlp && python3 -m grpc_tools.protoc -I../api/proto --python_out=. --grpc_python_out=. ../api/proto/aleph/nlp/v1/nlp.proto
 
 clean:
 	rm -rf dist aleph

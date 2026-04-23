@@ -12,11 +12,25 @@ type Statement struct {
 }
 
 type ObjectDefinition struct {
-	Name       string      `"object" @Ident`
-	FromSource string      `"from" "dataset" @Ident`
-	ID         string      `"id" @Ident`
-	Properties []*Property `@@*`
-	Factors    []*Factor   `@@*`
+	Name       string                `"object" @Ident`
+	FromSource string                `"from" "dataset" @Ident`
+	ID         string                `"id" @Ident`
+	Properties []*Property            `@@*`
+	Factors    []*Factor             `@@*`
+	Filters    []*FilterDefinition   `@@*`
+	Aggregates []*AggregateDefinition `@@*`
+}
+
+type FilterDefinition struct {
+	Field string `"filter" @Ident`
+	Op    string `@("eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "like")`
+	Value string `@(String | Ident | Int | Float)`
+}
+
+type AggregateDefinition struct {
+	Function string `"aggregate" @("count" | "sum" | "avg" | "min" | "max")`
+	Field    string `"(" @Ident ")"`
+	Alias    string `"as" @Ident`
 }
 
 type Factor struct {

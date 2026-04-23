@@ -3,8 +3,12 @@ package notification
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -50,12 +54,39 @@ func (s *NotificationService) worker() {
 	}
 }
 
-func (s *NotificationService) SendWebhook(url string, payload interface{}) error {
+func (s *NotificationService) SendWebhook(rawURL string, payload interface{}) error {
+	if err := validateWebhookURL(rawURL); err != nil {
+		return fmt.Errorf("URL webhook non valido: %w", err)
+	}
 	select {
-	case s.jobs <- WebhookJob{URL: url, Payload: payload}:
+	case s.jobs <- WebhookJob{URL: rawURL, Payload: payload}:
 		return nil
 	default:
-		log.Printf("[Notification] Webhook queue full, dropping message for %s", url)
+		log.Printf("[Notification] Webhook queue full, dropping message for %s", rawURL)
 		return nil
 	}
+}
+
+func validateWebhookURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "https" && u.Scheme != "http" {
+		return fmt.Errorf("schema non permesso: %s", u.Scheme)
+	}
+	host := u.Hostname()
+	if host == "" {
+		return fmt.Errorf("host vuoto")
+	}
+	ip := net.ParseIP(host)
+	if ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			return fmt.Errorf("indirizzo IP interno non permesso: %s", host)
+		}
+	}
+	if strings.HasSuffix(host, ".internal") || strings.HasSuffix(host, ".local") || host == "localhost" {
+		return fmt.Errorf("host interno non permesso: %s", host)
+	}
+	return nil
 }

@@ -25,23 +25,19 @@ func (h *AuthHandler) ListApiKeys(
 	req *connect.Request[v1.ListApiKeysRequest],
 ) (*connect.Response[v1.ListApiKeysResponse], error) {
 	projectID := req.Msg.ProjectId
-	rows, err := h.metaRepo.DB().Query("SELECT id, label, key, created_at FROM system_api_keys WHERE project_id = ?", projectID)
+	keys, err := h.metaRepo.ListAPIKeys(projectID)
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-	defer rows.Close()
 
-	var keys []*v1.ApiKey
-	for rows.Next() {
-		var k v1.ApiKey
-		var createdAt string
-		var hashedKey string
-		rows.Scan(&k.Id, &k.Label, &hashedKey, &createdAt)
-		t, _ := time.Parse("2006-01-02 15:04:05", createdAt)
-		k.CreatedAt = t.Unix()
-		// Securely mask the hashed key in listings
-		k.Key = "********" 
-		keys = append(keys, &k)
+	var result []*v1.ApiKey
+	for _, k := range keys {
+		result = append(result, &v1.ApiKey{
+			Id:        k.ID,
+			Label:     k.Label,
+			Key:       "********",
+			CreatedAt: k.CreatedAt.Unix(),
+		})
 	}
-	return connect.NewResponse(&v1.ListApiKeysResponse{Keys: keys}), nil
+	return connect.NewResponse(&v1.ListApiKeysResponse{Keys: result}), nil
 }
 
 func (h *AuthHandler) CreateApiKey(
@@ -51,21 +47,16 @@ func (h *AuthHandler) CreateApiKey(
 	projectID := req.Msg.ProjectId
 	label := req.Msg.Label
 
-	// Generate random key
 	b := make([]byte, 16)
 	rand.Read(b)
 	key := hex.EncodeToString(b)
 	id := hex.EncodeToString(b[:4])
 
-	// Hash the key for storage
 	hsh := sha256.New()
 	hsh.Write([]byte(key))
 	hashedKey := hex.EncodeToString(hsh.Sum(nil))
 
-	_, err := h.metaRepo.DB().Exec(
-		"INSERT INTO system_api_keys (id, project_id, label, key) VALUES (?, ?, ?, ?)",
-		id, projectID, label, hashedKey,
-	)
+	err := h.metaRepo.CreateAPIKey(id, projectID, label, hashedKey)
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
 
 	return connect.NewResponse(&v1.CreateApiKeyResponse{
@@ -77,9 +68,7 @@ func (h *AuthHandler) DeleteApiKey(
 	ctx context.Context,
 	req *connect.Request[v1.DeleteApiKeyRequest],
 ) (*connect.Response[v1.DeleteApiKeyResponse], error) {
-	projectID := req.Msg.ProjectId
-	id := req.Msg.Id
-	_, err := h.metaRepo.DB().Exec("DELETE FROM system_api_keys WHERE project_id = ? AND id = ?", projectID, id)
+	err := h.metaRepo.DeleteAPIKey(req.Msg.Id, req.Msg.ProjectId)
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
 	return connect.NewResponse(&v1.DeleteApiKeyResponse{Success: true}), nil
 }

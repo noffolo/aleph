@@ -1,26 +1,42 @@
 import React from 'react';
-import { Zap, Plus } from 'lucide-react';
+import { Zap, Plus, Trash2, Play } from 'lucide-react';
+import { useStore } from '../store/useStore';
 
 interface Skill {
   id: string;
   name: string;
   description: string;
+  toolIds?: string[];
+}
+
+interface Tool {
+  id: string;
+  name: string;
 }
 
 interface SkillsViewProps {
   skills: Skill[];
-  onCreateSkill: () => void;
+  tools: Tool[];
+  onCreateSkill: (name: string, description: string, toolIds: string[]) => void;
+  onViewSkillDetail: (skill: Skill) => void;
+  onDeleteSkill: (id: string) => void;
+  onRunSkill: (id: string) => void;
+  inline?: boolean;
 }
 
-export const SkillsView: React.FC<SkillsViewProps> = ({ skills, onCreateSkill }) => {
+export const SkillsView: React.FC<SkillsViewProps> = ({ skills, tools, onCreateSkill, onViewSkillDetail, onDeleteSkill, onRunSkill, inline = false }) => {
+  const openCreate = () => {
+    useStore.getState().setSlideOverContent({ type: 'skill-form', title: 'Nuova Skill', data: { tools } });
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className={(inline ? '' : 'max-w-6xl mx-auto ') + 'space-y-8'}>
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Skill Framework</h2>
-          <p className="text-gray-500 text-sm mt-1">Pacchetti di capacità e prompt che trasformano gli agenti in specialisti.</p>
+          <p className="text-textMuted text-sm mt-1">Pacchetti di capacità e prompt che trasformano gli agenti in specialisti.</p>
         </div>
-        <button onClick={onCreateSkill} className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">
+         <button onClick={openCreate} className="flex items-center space-x-2 bg-primary text-background px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg ">
            <Plus size={20} />
            <span>Crea Skill</span>
         </button>
@@ -28,18 +44,39 @@ export const SkillsView: React.FC<SkillsViewProps> = ({ skills, onCreateSkill })
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {skills.map(s => (
-          <div key={s.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all">
-             <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 mb-4"><Zap size={24} /></div>
+          <div key={s.id} className="bg-surface p-6 rounded-lg border border-border shadow-sm hover:shadow-lg transition-all group relative">
+             <button 
+                onClick={(e) => { e.stopPropagation(); if (confirm('Eliminare questa skill?')) onDeleteSkill(s.id); }}
+                className="absolute top-6 right-6 p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+             >
+                <Trash2 size={16} />
+             </button>
+             <div className="w-12 h-12 bg-warning/10 rounded-lg flex items-center justify-center text-warning mb-4"><Zap size={24} /></div>
              <h3 className="text-xl font-bold mb-1">{s.name}</h3>
-             <p className="text-sm text-gray-500 leading-relaxed mb-6">{s.description}</p>
-             <button className="w-full py-2 bg-amber-50 text-amber-700 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-amber-100 transition-colors">Dettagli Skill</button>
+             <p className="text-sm text-textMuted leading-relaxed mb-4">{s.description}</p>
+             {s.toolIds && s.toolIds.length > 0 && (
+               <div className="flex flex-wrap gap-1 mb-4">
+                  {s.toolIds.map(tid => {
+                    const tool = tools.find(t => t.id === tid);
+                    return <span key={tid} className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded font-mono">{tool?.name || tid}</span>;
+                  })}
+               </div>
+             )}
+             <div className="flex space-x-2">
+                <button onClick={() => onRunSkill(s.id)} className="flex-1 py-2 bg-primary text-background rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors flex items-center justify-center space-x-1">
+                 <Play size={12} />
+                 <span>Esegui</span>
+               </button>
+               <button onClick={() => onViewSkillDetail(s)} className="flex-1 py-2 bg-warning/10 text-warning rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-warning/10 transition-colors">Dettagli</button>
+             </div>
           </div>
         ))}
-        <div className="col-span-full py-20 bg-blue-50/30 border-2 border-dashed border-blue-100 rounded-3xl text-center">
-           <Zap size={48} className="mx-auto text-blue-200 mb-4" />
-           <p className="text-blue-400 font-bold uppercase text-[10px] tracking-widest">Nessuna Skill personalizzata trovata</p>
-           <button className="mt-4 text-sm text-blue-600 font-bold hover:underline">Importa Skill da JSON</button>
-        </div>
+        {skills.length === 0 && (
+         <div className="col-span-full py-20 bg-primary/10/30 border-2 border-dashed border-primary/20 rounded-lg text-center">
+            <Zap size={48} className="mx-auto text-primary/30 mb-4" />
+            <p className="text-primary/70 font-bold uppercase text-[10px] tracking-widest">Nessuna Skill personalizzata trovata</p>
+         </div>
+        )}
       </div>
     </div>
   );

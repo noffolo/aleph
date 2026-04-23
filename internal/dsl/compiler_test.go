@@ -52,3 +52,66 @@ func TestCompileWithRelation(t *testing.T) {
 	assert.Contains(t, sql, `LEFT JOIN read_parquet('/data/d2/latest/*.parquet') AS "Azienda"`)
 	assert.Contains(t, sql, `ON "Appalto"."p_id" = "Azienda"."id2"`)
 }
+
+func TestCompileWithFilter(t *testing.T) {
+	input := `
+		object Appalto
+		from dataset bandi
+		id cig
+		property cig type text
+		property importo type float
+		filter importo gt 10000
+	`
+	dataRoot := "/tmp/aleph-data"
+	program, err := Parse(input)
+	assert.NoError(t, err)
+
+	compiler := NewCompiler(program, dataRoot)
+	sql, err := compiler.CompileObject("Appalto")
+
+	assert.NoError(t, err)
+	assert.Contains(t, sql, `WHERE "Appalto"."importo" > 10000`)
+	assert.NotContains(t, sql, "GROUP BY")
+}
+
+func TestCompileWithAggregate(t *testing.T) {
+	input := `
+		object Statistiche
+		from dataset bandi
+		id cig
+		property tipo type text
+		aggregate sum(importo) as totale_importo
+	`
+	dataRoot := "/tmp/aleph-data"
+	program, err := Parse(input)
+	assert.NoError(t, err)
+
+	compiler := NewCompiler(program, dataRoot)
+	sql, err := compiler.CompileObject("Statistiche")
+
+	assert.NoError(t, err)
+	assert.Contains(t, sql, `SUM("Statistiche"."importo") AS "totale_importo"`)
+	assert.Contains(t, sql, `GROUP BY "Statistiche"."tipo"`)
+}
+
+func TestCompileWithFilterAndAggregate(t *testing.T) {
+	input := `
+		object Statistiche
+		from dataset bandi
+		id cig
+		property tipo type text
+		filter tipo eq "aperta"
+		aggregate sum(importo) as totale_importo
+	`
+	dataRoot := "/tmp/aleph-data"
+	program, err := Parse(input)
+	assert.NoError(t, err)
+
+	compiler := NewCompiler(program, dataRoot)
+	sql, err := compiler.CompileObject("Statistiche")
+
+	assert.NoError(t, err)
+	assert.Contains(t, sql, `WHERE "Statistiche"."tipo" = 'aperta'`)
+	assert.Contains(t, sql, `SUM("Statistiche"."importo") AS "totale_importo"`)
+	assert.Contains(t, sql, `GROUP BY "Statistiche"."tipo"`)
+}
