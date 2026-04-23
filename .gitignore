@@ -4,6 +4,17 @@ node_modules/
 venv/
 aleph
 
+# Compiled binaries
+aleph-server
+main
+handler.test
+integration.test
+coverage.out
+
+# Python cache
+__pycache__/
+*.pyc
+
 # Databases and data
 *.duckdb
 data/projects/
