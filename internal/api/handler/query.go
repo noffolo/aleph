@@ -666,6 +666,7 @@ func truncateJSON(s string, limit int) string {
 		return s
 	}
 	var depth int
+	var maxDepth int
 	var inString bool
 	var escaped bool
 	truncateAt := -1
@@ -695,10 +696,17 @@ func truncateJSON(s string, limit int) string {
 				depth = 0
 			}
 		}
+		if depth > maxDepth {
+			maxDepth = depth
+		}
 		if i >= limit-4 && depth <= 1 {
 			truncateAt = i
 			break
 		}
+	}
+	// If no JSON structure was entered, just truncate flat content at limit.
+	if maxDepth == 0 {
+		return s[:limit]
 	}
 	if truncateAt < 0 {
 		truncateAt = limit
@@ -709,3 +717,4 @@ func truncateJSON(s string, limit int) string {
 	}
 	return result
 }
+

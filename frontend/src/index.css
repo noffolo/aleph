@@ -4,9 +4,9 @@
 
 @layer base {
   :root {
-    --color-background: #0a0a0f;
-    --color-surface: #12121a;
-    --color-surfaceAlt: #1a1a28;
+    --color-background: #080810;
+    --color-surface: #0e0e18;
+    --color-surfaceAlt: #141420;
     --color-border: #2a2a3a;
     --color-primary: #00d4ff;
     --color-primaryMuted: #0099bb;
@@ -32,6 +32,17 @@
     --color-textMuted: #64748b;
     --color-textDim: #cbd5e1;
   }
+
+  /* Typography — JetBrains Mono 13px body, 11px meta, tabular-nums */
+  html {
+    font-variant-numeric: tabular-nums;
+    font-variant-ligatures: none;
+  }
+  .text-body { font-size: 13px; line-height: 1.25; font-family: 'JetBrains Mono', Menlo, monospace; }
+  .text-meta { font-size: 11px; line-height: 1.25; font-family: 'JetBrains Mono', Menlo, monospace; color: var(--color-textMuted); }
+  .grid-8 { gap: 8px; }
+  .radius-terminal { border-radius: 0; }
+  .radius-card { border-radius: 8px; }
 }
 
 @layer utilities {
@@ -44,10 +55,28 @@
 
   .terminal-glow { text-shadow: 0 0 8px var(--color-primary); }
   .terminal-cursor { animation: blink 1s step-end infinite; }
-  .terminal-prompt { color: var(--color-primary); font-family: var(--font-mono); }
+  .terminal-prompt { color: var(--color-primary); font-family: 'JetBrains Mono', Menlo, monospace; }
   .terminal-input { background: transparent; caret-color: var(--color-primary); }
   .terminal-border { border-color: var(--color-border); }
   .terminal-surface { background: var(--color-surface); }
+
+  /* Glassmorphism */
+  .glass-panel {
+    background: rgba(14, 14, 24, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(42, 42, 58, 0.5);
+  }
+  .glass-panel-solid {
+    background: var(--color-surface);
+  }
+
+  /* CSS Volatility Layers */
+  .vol-static { transition: none; animation: none; }
+  .vol-structural { animation: fadeIn 250ms var(--terminal-ease) both; }
+  .vol-interactive { transition: background-color 150ms var(--terminal-ease), border-color 150ms var(--terminal-ease), color 150ms var(--terminal-ease); }
+  .vol-interactive:hover { background-color: var(--color-surfaceAlt); border-color: var(--color-primaryMuted); }
+  .vol-signal { animation: pulse 50ms ease-out 3; }
 }
 
 @keyframes blink {
@@ -65,6 +94,11 @@
   to { transform: translateX(0); opacity: 1; }
 }
 
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 /* Terminal animation utilities — deterministic, no bounce/spring */
 :root {
   --terminal-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -79,6 +113,17 @@
 
 .animate-slide-in-right {
   animation: slideInRight var(--terminal-duration-slide) var(--terminal-ease) both;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Respect prefers-reduced-motion */

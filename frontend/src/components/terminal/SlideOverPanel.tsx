@@ -21,7 +21,7 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
       style={{ transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
     >
       <div
-        className="h-full bg-surface border-l border-border shadow-2xl flex flex-col pointer-events-auto animate-slide-in-right"
+        className="h-full glass-panel border-l border-border shadow-2xl flex flex-col pointer-events-auto animate-slide-in-right"
       >
         <div className="h-12 flex items-center justify-between px-5 border-b border-border shrink-0">
           <span className="text-primary text-xs font-bold tracking-widest uppercase">{title}</span>

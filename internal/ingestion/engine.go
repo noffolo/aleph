@@ -967,7 +967,7 @@ func looksLikeNonDecimalIP(host string) bool {
 	}
 	if len(parts) == 1 {
 		if _, err := strconv.Atoi(host); err == nil {
-			return len(host) > 3
+			return len(host) > 3 || host == "0"
 		}
 	}
 	return false
@@ -992,7 +992,7 @@ var ssrfBlockedIPNets []*net.IPNet
 
 func init() {
 	for _, cidr := range []string{
-		"127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12",
+		"0.0.0.0/8", "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12",
 		"192.168.0.0/16", "169.254.0.0/16",
 	} {
 		_, n, err := net.ParseCIDR(cidr)
@@ -1031,6 +1031,27 @@ func blockSSRF(rawURL string) error {
 	}
 	if looksLikeNonDecimalIP(host) {
 		return fmt.Errorf("formato IP non decimale sospetto: %s", host)
+	}
+	// Handle short IP forms like "127.1" (meaning 127.0.0.1) or "0" (0.0.0.0).
+	parts := strings.Split(host, ".")
+	if len(parts) > 0 && len(parts) < 4 {
+		padded := make([]string, 4)
+		// First (len-1) parts go left-to-right.
+		for i := 0; i < len(parts)-1; i++ {
+			padded[i] = parts[i]
+		}
+		// Last part goes to the final octet.
+		padded[3] = parts[len(parts)-1]
+		// Middle octets default to "0".
+		for i := len(parts) - 1; i < 3; i++ {
+			if padded[i] == "" {
+				padded[i] = "0"
+			}
+		}
+		full := net.ParseIP(strings.Join(padded, "."))
+		if full != nil && (full.IsLoopback() || full.IsPrivate()) {
+			return fmt.Errorf("indirizzo IP locale (short form): %s", host)
+		}
 	}
 	return nil
 }

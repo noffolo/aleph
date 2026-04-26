@@ -8,6 +8,9 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -34,6 +37,12 @@ func setupIntegrationEnv(t *testing.T) (*storage.DuckDB, string, *repository.Met
 	pgDB, err := sql.Open("duckdb", "")
 	require.NoError(t, err)
 	t.Cleanup(func() { pgDB.Close() })
+
+	// Run SQL migrations directly on pgDB so system_* tables exist.
+	// Use the same connection instead of opening a new one (DuckDB catalog
+	// is per-connection for in-memory databases).
+	migrationsPath, _ := filepath.Abs(filepath.Join("..", "..", "migrations", "duckdb"))
+	require.NoError(t, runMigrationsOnConn(pgDB, migrationsPath))
 
 	metaRepo, err := repository.NewMetadataRepository(pgDB)
 	require.NoError(t, err)
@@ -433,10 +442,64 @@ func TestUsability_ConfirmAction(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// ============================================================
-// USABILITY TEST 10: NLP circuit breaker
-// Verify circuit breaker blocks requests after 3 failures
-// ============================================================
+// runMigrationsOnConn applies DuckDB SQL migrations directly on the given
+// connection. Unlike migrate.RunDuckDBMigrations, this uses the caller's
+// connection (for in-memory DuckDB where catalog is per-connection).
+func runMigrationsOnConn(db *sql.DB, migrationsPath string) error {
+	// Ensure schema_migrations tracking table exists.
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		version bigint PRIMARY KEY,
+		dirty boolean NOT NULL DEFAULT false
+	)`); err != nil {
+		return fmt.Errorf("create schema_migrations: %w", err)
+	}
+
+	var currentVersion int64
+	if err := db.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations WHERE NOT dirty").Scan(&currentVersion); err != nil {
+		currentVersion = 0
+	}
+
+	entries, err := os.ReadDir(migrationsPath)
+	if err != nil {
+		return fmt.Errorf("read migrations dir: %w", err)
+	}
+
+	type migration struct {
+		version int64
+		path    string
+	}
+	var pending []migration
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".up.sql") {
+			continue
+		}
+		parts := strings.SplitN(name, "_", 2)
+		v, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			continue
+		}
+		if v > currentVersion {
+			pending = append(pending, migration{v, filepath.Join(migrationsPath, name)})
+		}
+	}
+	sort.Slice(pending, func(i, j int) bool { return pending[i].version < pending[j].version })
+
+	for _, m := range pending {
+		content, err := os.ReadFile(m.path)
+		if err != nil {
+			return fmt.Errorf("read migration %d: %w", m.version, err)
+		}
+		if _, err := db.Exec(string(content)); err != nil {
+			return fmt.Errorf("apply migration %d: %w", m.version, err)
+		}
+		if _, err := db.Exec("INSERT INTO schema_migrations (version, dirty) VALUES ($1, false)", m.version); err != nil {
+			return fmt.Errorf("record migration %d: %w", m.version, err)
+		}
+	}
+
+	return nil
+}
 func TestUsability_NLPCircuitBreaker(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 

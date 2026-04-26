@@ -27,6 +27,10 @@ export default {
         sans: tokens.typography.fontFamily.main,
         mono: tokens.typography.fontFamily.mono,
       },
+      fontSize: {
+        body: ['13px', { lineHeight: '1.25' }],
+        meta: ['11px', { lineHeight: '1.25' }],
+      },
       animation: {
         'in': 'in 250ms cubic-bezier(0.16, 1, 0.3, 1)',
         'slide-in-from-right': 'slide-in-from-right 250ms cubic-bezier(0.16, 1, 0.3, 1)',
