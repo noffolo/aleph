@@ -149,3 +149,32 @@ export interface ContentData {
   componentId?: string
   [key: string]: unknown
 }
+
+export interface ToolIntel {
+  id: string
+  name: string
+  totalExecutions: number
+  avgLatencyMs: number
+  errorRate: number
+  lastUsed: number
+  brierScore: number
+  trustScore: number
+  execCount: number
+  avgDuration: number
+  topUsers: string[]
+  riskScore: number
+  warnings: string[]
+  usageFreq: 'high' | 'medium' | 'low'
+  recommendations: string[]
+  anomalies: { desc: string; severity: 'low' | 'medium' | 'high' }[]
+  relatedTools: string[]
+}
+
+export interface ToolAnomaly {
+  toolId: string
+  toolName: string
+  anomalyType: 'latency' | 'error_rate' | 'trust_drop'
+  severity: 'low' | 'medium' | 'high'
+  detectedAt: number
+  message: string
+}

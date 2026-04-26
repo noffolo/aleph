@@ -39,6 +39,7 @@ export const InlineRenderer: React.FC = () => {
             isLoading={store.isExplorerLoading}
             inline
           />
+          </InlineErrorBoundary>
         )
       case 'agent':
         return (

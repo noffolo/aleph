@@ -97,7 +97,7 @@ func (h *RegistryServiceHandler) ListComponents(ctx context.Context, req *connec
 }
 
 func (h *RegistryServiceHandler) GetComponent(ctx context.Context, req *connect.Request[v1.GetComponentRequest]) (*connect.Response[v1.GetComponentResponse], error) {
-	meta, err := h.registryMgr.GetComponentByID(req.Msg.Id)
+	meta, err := h.registryMgr.GetComponentByID(ctx, req.Msg.Id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	}

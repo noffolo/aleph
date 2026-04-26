@@ -1,0 +1,77 @@
+# Pre-commit configuration for aleph-v2
+# Install pre-commit: pip install pre-commit or brew install pre-commit
+# Then run: pre-commit install
+
+repos:
+  # Go language hooks
+  - repo: local
+    hooks:
+      - id: gofmt
+        name: gofmt
+        entry: gofmt
+        language: system
+        pass_filenames: true
+        args: ["-w"]
+        files: \.go$
+        exclude: ^(api/proto|dist|vendor|node_modules)/
+
+      - id: goimports
+        name: goimports
+        entry: goimports
+        language: system
+        pass_filenames: true
+        args: ["-w"]
+        files: \.go$
+        exclude: ^(api/proto|dist|vendor|node_modules)/
+
+      - id: golangci-lint
+        name: golangci-lint
+        entry: golangci-lint
+        language: system
+        pass_filenames: false
+        args: ["run", "--config", ".golangci.yml", "./..."]
+        files: \.go$
+        exclude: ^(api/proto|dist|vendor|node_modules)/
+
+  # Frontend TypeScript/React hooks
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        entry: npm
+        language: system
+        pass_filenames: true
+        args: ["run", "lint", "--"]
+        files: \.(ts|tsx|js|jsx)$
+        exclude: ^(dist|node_modules)/
+
+      - id: prettier
+        name: prettier
+        entry: npx
+        language: system
+        pass_filenames: true
+        args: ["prettier", "--write"]
+        files: \.(ts|tsx|js|jsx|json|css|md)$
+        exclude: ^(dist|node_modules)/
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(api/proto|dist|vendor|node_modules)/
+      - id: end-of-file-fixer
+        exclude: ^(api/proto|dist|vendor|node_modules)/
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+
+# Default configuration
+default_language_version:
+  python: python3.12
+  node: system
+
+# Install from local hooks
+ci:
+  autofix_commit_msg: "style: apply pre-commit hooks"
+  autoupdate_branch: ""

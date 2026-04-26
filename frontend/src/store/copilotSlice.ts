@@ -17,6 +17,14 @@ export interface CopilotSlice {
   setPendingConfirmation: (c: PendingConfirmation | null) => void
   selectedAgent: string
   setSelectedAgent: (a: string) => void
+  splitView: boolean
+  setSplitView: (s: boolean) => void
+  bookmarkedIds: Set<number>
+  toggleBookmark: (idx: number) => void
+  chatSearchQuery: string
+  setChatSearchQuery: (q: string) => void
+  onlyBookmarks: boolean
+  setOnlyBookmarks: (b: boolean) => void
   resetCopilot: () => void
 }
 
@@ -41,6 +49,20 @@ export const createCopilotSlice: StateCreator<CopilotSlice> = (set) => ({
   setPendingConfirmation: (c) => set({ pendingConfirmation: c }),
   selectedAgent: '',
   setSelectedAgent: (a) => set({ selectedAgent: a }),
+  splitView: false,
+  setSplitView: (s) => set({ splitView: s }),
+  bookmarkedIds: new Set(),
+  toggleBookmark: (idx) =>
+    set((state) => {
+      const next = new Set(state.bookmarkedIds)
+      if (next.has(idx)) next.delete(idx)
+      else next.add(idx)
+      return { bookmarkedIds: next }
+    }),
+  chatSearchQuery: '',
+  setChatSearchQuery: (q) => set({ chatSearchQuery: q }),
+  onlyBookmarks: false,
+  setOnlyBookmarks: (b) => set({ onlyBookmarks: b }),
   resetCopilot: () => set({
     chat: [],
     input: '',
@@ -48,5 +70,9 @@ export const createCopilotSlice: StateCreator<CopilotSlice> = (set) => ({
     streamAbortController: null,
     pendingConfirmation: null,
     selectedAgent: '',
+    splitView: false,
+    bookmarkedIds: new Set(),
+    chatSearchQuery: '',
+    onlyBookmarks: false,
   }),
 })

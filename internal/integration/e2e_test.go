@@ -204,11 +204,11 @@ func TestUsability_ChatHistory(t *testing.T) {
 
 	seedProjectWithOntology(t, ph, "chat-test", "")
 
-	err := metaRepo.SaveChatMessage("chat-test", "agent-1", "user", "Show me vendite data", "")
+	err := metaRepo.SaveChatMessage(context.Background(), "chat-test", "agent-1", "user", "Show me vendite data", "")
 	require.NoError(t, err)
-	err = metaRepo.SaveChatMessage("chat-test", "agent-1", "assistant", "Here are the vendite records: ...", "")
+	err = metaRepo.SaveChatMessage(context.Background(), "chat-test", "agent-1", "assistant", "Here are the vendite records: ...", "")
 	require.NoError(t, err)
-	err = metaRepo.SaveChatMessage("chat-test", "agent-1", "assistant", "", "search_data(vendite)")
+	err = metaRepo.SaveChatMessage(context.Background(), "chat-test", "agent-1", "assistant", "", "search_data(vendite)")
 	require.NoError(t, err)
 
 	historyResp, err := qh.GetChatHistory(context.Background(), connect.NewRequest(&v1.GetChatHistoryRequest{

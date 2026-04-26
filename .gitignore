@@ -10,6 +10,13 @@ main
 handler.test
 integration.test
 coverage.out
+aleph-v2
+*.test
+
+# Test output
+test-results/
+frontend/test-results/
+frontend/coverage/
 
 # Python cache
 __pycache__/

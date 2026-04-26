@@ -16,6 +16,13 @@ import {
   notificationClient,
 } from '../api/factory'
 
+export const handleError = (err: any, context: string) => {
+  const store = useStore.getState()
+  const msg = err?.message || `Errore in ${context}`
+  store.setLastError(msg)
+  setTimeout(() => useStore.getState().setLastError(null), 5000)
+}
+
 export function useAppActions() {
   const store = useStore()
   const errorTimerRef = useRef<any>(null)

@@ -1,0 +1,12 @@
+with-expecter: true
+packages:
+  github.com/ff3300/aleph-v2/internal/llm:
+    interfaces:
+      Provider:
+        config:
+          with-expecter: true
+  github.com/ff3300/aleph-v2/internal/ingestion:
+    interfaces:
+      NLPAnalyzer:
+        config:
+          with-expecter: true

@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"log/slog"
@@ -103,9 +104,9 @@ func (r *DuckDBRegistry) RegisterComponent(meta ComponentMetadata) (string, erro
 	return meta.ID, err
 }
 
-func (r *DuckDBRegistry) GetComponentByID(id string) (*ComponentMetadata, error) {
+func (r *DuckDBRegistry) GetComponentByID(ctx context.Context, id string) (*ComponentMetadata, error) {
 	var c ComponentMetadata
-	err := r.db.QueryRow(`SELECT id, name, description, version, type, category, source, status, approval_status,
+	err := r.db.QueryRowContext(ctx, `SELECT id, name, description, version, type, category, source, status, approval_status,
 		config_schema_json, execution_command, dependencies_json, input_schema_json, output_schema_json,
 		prompt_template, tool_ids_json,
 		avg_cpu_usage, avg_memory_mb, avg_exec_time_ms, avg_brier_score, avg_latency_ms,

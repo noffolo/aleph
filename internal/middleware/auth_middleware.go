@@ -2,9 +2,6 @@ package middleware
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -12,28 +9,12 @@ import (
 	"github.com/ff3300/aleph-v2/internal/repository"
 )
 
-var (
-	errNoApiKey     = errors.New("missing api key: provide X-Aleph-Api-Key header")
-	errInvalidApiKey = errors.New("invalid api key")
-)
-
-type ctxKey string
-
-const ctxKeyProjectID ctxKey = "projectID"
-
 type AuthInterceptor struct {
 	metaRepo *repository.MetadataRepository
 }
 
 func NewAuthInterceptor(metaRepo *repository.MetadataRepository) *AuthInterceptor {
 	return &AuthInterceptor{metaRepo: metaRepo}
-}
-
-func ProjectIDFromContext(ctx context.Context) string {
-	if v, ok := ctx.Value(ctxKeyProjectID).(string); ok {
-		return v
-	}
-	return ""
 }
 
 func (a *AuthInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
@@ -44,7 +25,7 @@ func (a *AuthInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		apiKey := extractApiKey(req.Header())
 		if apiKey == "" {
-			return nil, connect.NewError(connect.CodeUnauthenticated, errNoApiKey)
+			return nil, connect.NewError(connect.CodeUnauthenticated, ErrNoAPIKey)
 		}
 
 		projectID, err := a.validateKey(apiKey)
@@ -52,7 +33,7 @@ func (a *AuthInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			return nil, connect.NewError(connect.CodeUnauthenticated, err)
 		}
 
-		ctx = context.WithValue(ctx, ctxKeyProjectID, projectID)
+		ctx = projectIDToContext(ctx, projectID)
 		return next(ctx, req)
 	}
 }
@@ -69,7 +50,7 @@ func (a *AuthInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc
 
 		apiKey := extractApiKey(conn.RequestHeader())
 		if apiKey == "" {
-			return connect.NewError(connect.CodeUnauthenticated, errNoApiKey)
+			return connect.NewError(connect.CodeUnauthenticated, ErrNoAPIKey)
 		}
 
 		projectID, err := a.validateKey(apiKey)
@@ -77,21 +58,13 @@ func (a *AuthInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc
 			return connect.NewError(connect.CodeUnauthenticated, err)
 		}
 
-		ctx = context.WithValue(ctx, ctxKeyProjectID, projectID)
+		ctx = projectIDToContext(ctx, projectID)
 		return next(ctx, conn)
 	}
 }
 
 func (a *AuthInterceptor) validateKey(apiKey string) (string, error) {
-	h := sha256.New()
-	h.Write([]byte(apiKey))
-	hashed := hex.EncodeToString(h.Sum(nil))
-
-	projectID, err := a.metaRepo.ValidateAPIKey(hashed)
-	if err != nil {
-		return "", errInvalidApiKey
-	}
-	return projectID, nil
+	return ValidateAPIKey(a.metaRepo, apiKey)
 }
 
 func extractApiKey(h http.Header) string {

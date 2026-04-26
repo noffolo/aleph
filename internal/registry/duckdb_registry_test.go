@@ -1,15 +1,28 @@
 package registry
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 )
 
-func TestDuckDBRegistry_RegisterAndList(t *testing.T) {
+var testCtx = context.Background()
+
+func setupRegistry(t *testing.T) *DuckDBRegistry {
+	t.Helper()
 	r, err := NewDuckDBRegistry(":memory:", slog.Default())
 	if err != nil {
 		t.Fatal(err)
 	}
+	// :memory: DuckDB needs explicit table creation (no migrations run)
+	if _, err := r.db.Exec(createTableSQL); err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func TestDuckDBRegistry_RegisterAndList(t *testing.T) {
+	r := setupRegistry(t)
 
 	id, err := r.RegisterComponent(ComponentMetadata{
 		Name:        "test-tool",
@@ -37,10 +50,7 @@ func TestDuckDBRegistry_RegisterAndList(t *testing.T) {
 }
 
 func TestDuckDBRegistry_GetComponentByID(t *testing.T) {
-	r, err := NewDuckDBRegistry(":memory:", slog.Default())
-	if err != nil {
-		t.Fatal(err)
-	}
+	r := setupRegistry(t)
 
 	id, _ := r.RegisterComponent(ComponentMetadata{
 		Name:   "my-skill",
@@ -48,7 +58,7 @@ func TestDuckDBRegistry_GetComponentByID(t *testing.T) {
 		Status: "active",
 	})
 
-	meta, err := r.GetComponentByID(id)
+	meta, err := r.GetComponentByID(testCtx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,31 +71,25 @@ func TestDuckDBRegistry_GetComponentByID(t *testing.T) {
 }
 
 func TestDuckDBRegistry_GetComponentByID_NotFound(t *testing.T) {
-	r, err := NewDuckDBRegistry(":memory:", slog.Default())
-	if err != nil {
-		t.Fatal(err)
-	}
+	r := setupRegistry(t)
 
-	_, err = r.GetComponentByID("nonexistent")
+	_, err := r.GetComponentByID(testCtx, "nonexistent")
 	if err == nil {
 		t.Error("expected error for nonexistent id")
 	}
 }
 
 func TestDuckDBRegistry_UpdateComponentStatus(t *testing.T) {
-	r, err := NewDuckDBRegistry(":memory:", slog.Default())
-	if err != nil {
-		t.Fatal(err)
-	}
+	r := setupRegistry(t)
 
 	id, _ := r.RegisterComponent(ComponentMetadata{Name: "test", Type: "tool"})
 
-	err = r.UpdateComponentStatus(id, "approved")
+	err := r.UpdateComponentStatus(id, "approved")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	meta, _ := r.GetComponentByID(id)
+	meta, _ := r.GetComponentByID(testCtx, id)
 	if meta.Status != "approved" {
 		t.Errorf("expected approved, got %s", meta.Status)
 	}

@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -28,11 +29,14 @@ type SandboxManager interface {
 }
 
 type ExecSandbox struct {
-	logger    *slog.Logger
-	regMgr    *registry.DuckDBRegistry
-	metaRepo  *repository.MetadataRepository
-	pythonCmd string
-	goCmd     string
+	logger         *slog.Logger
+	regMgr         *registry.DuckDBRegistry
+	metaRepo       *repository.MetadataRepository
+	pythonCmd      string
+	goCmd          string
+	mockDeps       map[string]string
+	profileEnabled bool
+	profileDir     string
 }
 
 func NewExecSandbox(l *slog.Logger, r *registry.DuckDBRegistry, meta *repository.MetadataRepository, py, goCmd string) *ExecSandbox {
@@ -45,7 +49,7 @@ func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[
 	}
 
 	var code string
-	code, err := s.metaRepo.GetToolCode(toolID)
+	code, err := s.metaRepo.GetToolCode(ctx, toolID)
 	if err != nil {
 		return ExecutionResult{Error: "tool not found: " + err.Error(), ExitCode: -1}, nil
 	}
@@ -155,4 +159,43 @@ func (s *ExecSandbox) RunSkill(ctx context.Context, skillID string, input map[st
 		currentInput = nextInput
 	}
 	return result, nil
+}
+
+// WithMockDep returns a new ExecSandbox with the given mock dependency added.
+// Does not mutate the original sandbox.
+func (s *ExecSandbox) WithMockDep(name, code string) *ExecSandbox {
+	deps := make(map[string]string, len(s.mockDeps)+1)
+	for k, v := range s.mockDeps {
+		deps[k] = v
+	}
+	deps[name] = code
+	cp := *s
+	cp.mockDeps = deps
+	return &cp
+}
+
+// WithProfiling returns a new ExecSandbox with profiling enabled.
+// Does not mutate the original sandbox.
+func (s *ExecSandbox) WithProfiling(enabled bool, dir string) *ExecSandbox {
+	cp := *s
+	cp.profileEnabled = enabled
+	cp.profileDir = dir
+	return &cp
+}
+
+// WriteMockFiles writes all mock dependency files to the given directory.
+func (s *ExecSandbox) WriteMockFiles(dir string) error {
+	for name, code := range s.mockDeps {
+		var ext string
+		if strings.HasPrefix(code, "# python") {
+			ext = ".py"
+		} else {
+			ext = ".go"
+		}
+		filename := fmt.Sprintf("mock_%s%s", name, ext)
+		if err := os.WriteFile(filepath.Join(dir, filename), []byte(code), 0644); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -3,6 +3,7 @@ package ingestion
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"go/parser"
@@ -31,6 +32,15 @@ import (
 var validIdentifier = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 const SentimentUnavailable = -1.0
+
+func computeChecksum(data []byte) string {
+	h := sha256.Sum256(data)
+	return fmt.Sprintf("%x", h)
+}
+
+func VerifyChecksum(data []byte, expected string) bool {
+	return computeChecksum(data) == expected
+}
 
 func sanitizeIdentifier(id string) error {
 	if !validIdentifier.MatchString(id) {
@@ -940,4 +950,87 @@ func containsColon(s string) bool {
 		if c == ':' { return true }
 	}
 	return false
+}
+
+func looksLikeNonDecimalIP(host string) bool {
+	if host == "" {
+		return false
+	}
+	parts := strings.Split(host, ".")
+	if len(parts) == 4 {
+		for _, p := range parts {
+			if looksLikeNonDecimalPart(p) {
+				return true
+			}
+		}
+		return false
+	}
+	if len(parts) == 1 {
+		if _, err := strconv.Atoi(host); err == nil {
+			return len(host) > 3
+		}
+	}
+	return false
+}
+
+func looksLikeNonDecimalPart(part string) bool {
+	if part == "" {
+		return false
+	}
+	if part[0] == '0' && len(part) > 1 {
+		if part[1] != 'x' && part[1] != 'X' {
+			return true
+		}
+	}
+	if len(part) > 2 && (part[0:2] == "0x" || part[0:2] == "0X") {
+		return true
+	}
+	return false
+}
+
+var ssrfBlockedIPNets []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12",
+		"192.168.0.0/16", "169.254.0.0/16",
+	} {
+		_, n, err := net.ParseCIDR(cidr)
+		if err == nil {
+			ssrfBlockedIPNets = append(ssrfBlockedIPNets, n)
+		}
+	}
+}
+
+func blockSSRF(rawURL string) error {
+	if rawURL == "" {
+		return fmt.Errorf("url vuota")
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("url non valida: %w", err)
+	}
+	host := u.Hostname()
+	if host == "" {
+		return fmt.Errorf("host vuoto")
+	}
+	lower := strings.ToLower(host)
+	if lower == "localhost" || strings.HasSuffix(lower, ".local") || strings.HasSuffix(lower, ".internal") || strings.HasSuffix(lower, ".arpa") {
+		return fmt.Errorf("host locale non permesso: %s", host)
+	}
+	ip := net.ParseIP(host)
+	if ip != nil {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() {
+			return fmt.Errorf("indirizzo IP privato/loopback non permesso: %s", host)
+		}
+	}
+	for _, n := range ssrfBlockedIPNets {
+		if ip := net.ParseIP(host); ip != nil && n.Contains(ip) {
+			return fmt.Errorf("indirizzo IP bloccato: %s", host)
+		}
+	}
+	if looksLikeNonDecimalIP(host) {
+		return fmt.Errorf("formato IP non decimale sospetto: %s", host)
+	}
+	return nil
 }

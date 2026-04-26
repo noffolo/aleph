@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from aleph.nlp.v1 import nlp_pb2 as aleph_dot_nlp_dot_v1_dot_nlp__pb2
+import nlp_pb2 as aleph_dot_nlp_dot_v1_dot_nlp__pb2
 
 GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__

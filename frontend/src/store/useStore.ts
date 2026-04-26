@@ -29,6 +29,7 @@ export interface SlideOverContent {
     | 'datasource-form'
     | 'component-form'
     | 'component-detail'
+    | 'tool-intelligence'
   title: string
   data?: unknown
 }

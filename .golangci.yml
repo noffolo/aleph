@@ -1,0 +1,164 @@
+# golangci-lint configuration for aleph-v2
+# Go version: 1.24.0 (as per go.mod)
+run:
+  # Default timeout
+  timeout: 5m
+  
+  # Minimum confidence for issues (0-1)
+  issues-exit-code: 1
+  
+  # Build tags
+  build-tags: []
+  
+  # Modules download mode
+  modules-download-mode: readonly
+  
+  # Go version for staticcheck
+  go: "1.24"
+  
+  # Skip tests for linting (focus on production code)
+  tests: false
+
+  linters:
+  disable-all: false
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - typecheck
+    - revive
+    - gofmt
+    - goimports
+    - misspell
+    - prealloc
+    - unconvert
+    - gocyclo
+    - bodyclose
+    - copyloopvar
+    - goconst
+    - makezero
+    - rowserrcheck
+    - sqlclosecheck
+
+  # Disable some overly verbose or problematic linters
+  disable:
+    - wsl
+    - funlen
+    - gocognit
+    - nestif
+    - exportloopref
+
+  linters-settings:
+  gofmt:
+    simplify: true
+  
+  goimports:
+    local-prefixes: github.com/ff3300/aleph-v2
+  
+  gocyclo:
+    min-complexity: 15
+  
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: indent-error-flow
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: unreachable-code
+      - name: unnecessary-stmt
+      - name: unused-parameter
+      - name: var-declaration
+      - name: var-naming
+      - name: early-return
+  
+  errcheck:
+    # Ignore certain error patterns
+    check-type-assertions: false
+    check-blank: false
+  
+  misspell:
+    locale: US
+    ignore-words:
+      - algedonic
+      - aleph
+  
+  staticcheck:
+    checks: ["all"]
+
+issues:
+  # Exclude directories
+  exclude-dirs:
+    - api/proto
+    - dist
+    - node_modules
+    - vendor
+  
+  # Exclude files
+  exclude-files:
+    - ".*_generated\\.go$"
+    - ".*_mock\\.go$"
+
+  # Exclude issues from generated files
+  exclude-rules:
+    - path: api/proto
+      linters:
+        - all
+    
+    # Exclude all linters for test files (typecheck issues and duplicate declarations)
+    - path: _test\.go$
+      linters:
+        - typecheck
+        - unused
+        - govet
+    
+    # Exclude common false positives in tests
+    - path: _test\.go$
+      text: "Error return value of.*is not checked"
+      linters:
+        - errcheck
+    
+    # Ignore certain error patterns in test assertions
+    - path: _test\.go$
+      text: "^(assert|require)\\.*"
+      linters:
+        - errcheck
+    
+     # Ignore unused parameters in interface implementations
+    - linters:
+        - unused
+      text: "^parameter.*unused$"
+    
+    # typecheck false positive: "go/ast" IS used (returns *ast.File from parser.ParseFile)
+    - path: internal/sandbox/validation\.go$
+      linters:
+        - typecheck
+      text: '"go/ast" imported and not used'
+
+  # Maximum issues per linter (0 = unlimited)
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  formats:
+    - format: colored-line-number
+      path: stdout
+  sort-results: true
+  print-issued-lines: true
+  print-linter-name: true
+
+severity:
+  default: "error"

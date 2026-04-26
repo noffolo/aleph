@@ -11,7 +11,7 @@ export function escapeHtml(str: string): string {
   return str.replace(/[&<>"']/g, (m) => map[m]);
 }
 
-interface TerminalLine {
+export interface TerminalLine {
   id?: string | number;
   type: 'input' | 'output' | 'error' | 'system' | 'tool';
   content: string;

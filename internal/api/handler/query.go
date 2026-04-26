@@ -99,7 +99,7 @@ func (h *QueryHandler) GetChatHistory(ctx context.Context, req *connect.Request[
 		projectID = req.Msg.ProjectId
 	}
 	agentID := req.Msg.AgentId
-	msgs, err := h.metaRepo.GetChatHistory(projectID, agentID)
+	msgs, err := h.metaRepo.GetChatHistory(ctx, projectID, agentID)
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
 	var messages []*v1.ChatMessage
 	for _, m := range msgs {
@@ -284,6 +284,62 @@ func (h *QueryHandler) GetDataStats(ctx context.Context, req *connect.Request[v1
 	return connect.NewResponse(&v1.GetDataStatsResponse{Stats: stats}), nil
 }
 
+func (h *QueryHandler) GetDataLineage(ctx context.Context, req *connect.Request[v1.GetDataLineageRequest]) (*connect.Response[v1.GetDataLineageResponse], error) {
+	projectID := req.Msg.ProjectId
+	tableName := req.Msg.TableName
+	if projectID == "" || tableName == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("project_id and table_name are required"))
+	}
+	var columnsCount int64
+	var rowsCount int64
+	var jsonCols string
+	err := h.db.QueryRowContext(ctx,
+		"SELECT (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2), (SELECT COUNT(*) FROM \""+projectID+"\".\""+tableName+"\"), json_group_array(column_name || ':' || data_type) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2",
+		projectID, tableName,
+	).Scan(&columnsCount, &rowsCount, &jsonCols)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("table not found: %w", err))
+	}
+	return connect.NewResponse(&v1.GetDataLineageResponse{
+		Provenance: &v1.DataProvenance{
+			TableName:    tableName,
+			Source:       "duckdb:" + projectID,
+			ColumnsCount: columnsCount,
+			RowsCount:    rowsCount,
+		},
+	}), nil
+}
+
+func (h *QueryHandler) GetChecksum(ctx context.Context, req *connect.Request[v1.GetChecksumRequest]) (*connect.Response[v1.GetChecksumResponse], error) {
+	projectID := req.Msg.ProjectId
+	tableName := req.Msg.TableName
+
+	if projectID == "" || tableName == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("project_id and table_name are required"))
+	}
+
+	// Compute checksum from DuckDB table using hash aggregation
+	var checksum string
+	err := h.db.QueryRowContext(ctx,
+		"SELECT md5(CAST(SUM(hash(TO_JSON(*))) AS VARCHAR)) FROM \""+projectID+"\".\""+tableName+"\"",
+	).Scan(&checksum)
+	if err != nil {
+		// Table may be empty — use structure-based checksum
+		err = h.db.QueryRowContext(ctx,
+			"SELECT md5(column_list) FROM (SELECT string_agg(column_name || ':' || data_type, ',' ORDER BY column_name) AS column_list FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2)",
+			projectID, tableName,
+		).Scan(&checksum)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("table not found: %w", err))
+		}
+	}
+
+	return connect.NewResponse(&v1.GetChecksumResponse{
+		Checksum:  checksum,
+		TableName: tableName,
+	}), nil
+}
+
 func (h *QueryHandler) GlobalQuery(ctx context.Context, req *connect.Request[v1.GlobalQueryRequest]) (*connect.Response[v1.GlobalQueryResponse], error) {
 	// Re-map the request and call ExecuteQuery. Since signatures now match conceptually but not type-wise, 
 	// we perform a light manual mapping or cast. Given the structures are identical, we can safely adapt.
@@ -324,7 +380,7 @@ func (h *QueryHandler) Chat(
 		slog.Warn("ontology file not found, chat will proceed without ontology context", "path", ontPath, "error", ontErr)
 	}
 
-	h.metaRepo.SaveChatMessage(projectID, agentID, "user", msg, "")
+	h.metaRepo.SaveChatMessage(ctx, projectID, agentID, "user", msg, "")
 
 	var agent v1.Agent
 	if agentID != "" {
@@ -432,7 +488,7 @@ func (h *QueryHandler) Chat(
 	}
 
 	// Load chat history for this agent
-	history, histErr := h.metaRepo.GetChatMessages(projectID, agentID)
+	history, histErr := h.metaRepo.GetChatMessages(ctx, projectID, agentID)
 	if histErr == nil {
 		for _, m := range history {
 			if m.Role == "user" {
@@ -497,7 +553,7 @@ func (h *QueryHandler) Chat(
 
 		if responseContent != "" {
 			stream.Send(&v1.ChatResponse{Token: responseContent})
-			h.metaRepo.SaveChatMessage(projectID, agentID, "assistant", responseContent, "")
+			h.metaRepo.SaveChatMessage(ctx, projectID, agentID, "assistant", responseContent, "")
 		}
 
 		if len(localToolCalls) == 0 { break }
@@ -525,7 +581,7 @@ func (h *QueryHandler) Chat(
 		for _, tc := range toolCalls {
 			reasoning := fmt.Sprintf("Executing tool: %s", tc.Name)
 			stream.Send(&v1.ChatResponse{ToolCall: reasoning})
-			h.metaRepo.SaveChatMessage(projectID, agentID, "assistant", "", reasoning)
+			h.metaRepo.SaveChatMessage(ctx, projectID, agentID, "assistant", "", reasoning)
 
 			var resultStr string
 			if tc.Name == "search_data" {
@@ -571,7 +627,7 @@ func (h *QueryHandler) Chat(
 				if entityID == "" {
 					resultStr = "Errore: parametro entity_id mancante per get_trust_score"
 				} else if h.registry != nil {
-					comp, err := h.registry.GetComponentByID(entityID)
+					comp, err := h.registry.GetComponentByID(ctx, entityID)
 					if err != nil || comp == nil {
 						resultStr = fmt.Sprintf(`{"error": "entità %s non trovata"}`, entityID)
 					} else {
@@ -603,4 +659,53 @@ func (h *QueryHandler) Chat(
 		h.db.Cleanup()
 	}
 	return nil
+}
+
+func truncateJSON(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	var depth int
+	var inString bool
+	var escaped bool
+	truncateAt := -1
+	for i := 0; i < len(s) && i < limit; i++ {
+		ch := s[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && inString {
+			escaped = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		switch ch {
+		case '{', '[':
+			depth++
+		case '}', ']':
+			depth--
+			if depth < 0 {
+				depth = 0
+			}
+		}
+		if i >= limit-4 && depth <= 1 {
+			truncateAt = i
+			break
+		}
+	}
+	if truncateAt < 0 {
+		truncateAt = limit
+	}
+	result := s[:truncateAt]
+	if truncateAt < len(s) {
+		result += "..."
+	}
+	return result
 }
