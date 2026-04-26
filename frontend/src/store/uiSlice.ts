@@ -39,6 +39,8 @@ export interface UISlice {
   toastMessages: ToastMessage[]
   addToast: (t: Omit<ToastMessage, 'id'>) => void
   removeToast: (id: string) => void
+  inputMode: boolean
+  setInputMode: (v: boolean) => void
   resetUI: () => void
 }
 
@@ -75,11 +77,14 @@ export const createUISlice: StateCreator<UISlice> = (set) => ({
     set((state) => ({
       toastMessages: state.toastMessages.filter((m) => m.id !== id),
     })),
+  inputMode: false,
+  setInputMode: (v) => set({ inputMode: v }),
   resetUI: () => set({
     assets: [],
     globalSearchResults: null,
     showGuide: false,
     confirmDialog: { isOpen: false, message: '' },
     toastMessages: [],
+    inputMode: false,
   }),
 })

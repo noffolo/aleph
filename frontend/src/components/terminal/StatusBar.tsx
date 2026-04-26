@@ -16,6 +16,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ projectID, ollamaHealthy, 
     : inlineType
       ? inlineType.toUpperCase()
       : 'READY'
+  const inputMode = store.inputMode
 
   return (
     <div className="h-7 flex items-center justify-between px-3 py-2 border-t border-border bg-surface font-mono text-[10px] text-textDim shrink-0 select-none leading-snug tracking-widest">
@@ -25,6 +26,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({ projectID, ollamaHealthy, 
         <span className="text-textMuted">{projectID || 'NO PROJECT'}</span>
         <span className="text-textDim">│</span>
         <span className="text-textMuted">{context}</span>
+        <span className={`ml-2 ${inputMode ? 'text-textMuted' : 'text-primary'} font-bold`}>
+          {inputMode ? '[INPUT]' : '[CMD]'}
+        </span>
       </div>
       <div className="flex items-center gap-4">
         <span className="flex items-center gap-1">

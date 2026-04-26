@@ -9,13 +9,15 @@ import (
 
 // Factory creates adaptation pipeline components.
 type Factory struct {
-	metaRepo *repository.MetadataRepository
+	metaRepo  *repository.MetadataRepository
+	discovery *mcp.DiscoveryEngine
 }
 
 // NewFactory creates a new adaptation factory.
-func NewFactory(metaRepo *repository.MetadataRepository) *Factory {
+func NewFactory(metaRepo *repository.MetadataRepository, discovery *mcp.DiscoveryEngine) *Factory {
 	return &Factory{
-		metaRepo: metaRepo,
+		metaRepo:  metaRepo,
+		discovery: discovery,
 	}
 }
 
@@ -26,7 +28,7 @@ func (f *Factory) CreatePipeline() *Pipeline {
 
 // CreateSuggester creates a new suggestion engine.
 func (f *Factory) CreateSuggester() *Suggester {
-	return NewSuggester(f.metaRepo)
+	return NewSuggester(f.metaRepo, f.discovery)
 }
 
 // CreateVersioningRollback creates a versioning rollback handler.

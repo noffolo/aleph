@@ -232,10 +232,12 @@ FASE 1: W4 CSS Fixes — nessuna dipendenza
   │ W4-08 glassmorphism, W4-01 design tokens, W4-04 border-radius
   │ Build check: npx vite build ✅
 
-FASE 2: W4 React Components — DEP: FASE 1
-  │ W4-12 App.tsx React.lazy, W4-13 6 view types
-  │ W4-15 /tool commands, W4-10 icons + empty states
-  │ W4-06 command mode, W4-19 suggestion workflow
+FASE 2: W4 React Components — ✅ COMPLETED (2026-04-27)
+  │ W4-12 App.tsx React.lazy (3 chunks ✅), W4-13 SlideOverContent (79 righe ✅)
+  │ W4-15 /tool 5 subcommands ✅, W4-10 EmptyState ✅
+  │ W4-06 command mode ⏳ (bg_ec86d71d in flight)
+  │ W4-19 suggestion workflow ⏳ (bg_04ad5d48 in flight)
+  │ W4-20 versioning rollback ⏳ (bg_741c72f8 in flight)
   │ Build check: npx tsc --noEmit ✅ | npx vite build ✅
 
 FASE 3: W5 Remaining — DEP: FASE 2
