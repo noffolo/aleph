@@ -54,6 +54,13 @@ type RegisterConfig struct {
 
 // RegisterRoutes registers all HTTP routes on the given mux.
 func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
+	// Unauthenticated health check endpoint (for Docker HEALTHCHECK, load balancers, etc.)
+	mux.HandleFunc("/api/v1/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
 	// Connect RPC Routes
 	mux.Handle(v1connect.NewQueryServiceHandler(cfg.QueryHandler, cfg.Interceptors...))
 	mux.Handle(v1connect.NewProjectServiceHandler(cfg.ProjectHandler, cfg.Interceptors...))

@@ -408,7 +408,7 @@ func (e *ErrRestartPinger) Restart(_ context.Context) error {
 // VerifyCertificate checks that the TLS certificate for an HTTPS MCP server is valid.
 func (h *MCPHealthChecker) VerifyCertificate(serverURL string) error {
 	if err := ValidateSSRF(serverURL); err != nil {
-		return err
+		return fmt.Errorf("verifyCertificateSSRF: %w", err)
 	}
 
 	client := &http.Client{

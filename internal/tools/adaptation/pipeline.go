@@ -518,7 +518,7 @@ func (s *TestingStage) runPythonCode(ctx context.Context, tmpDir, code string, s
 			*exitCode = exitErr.ExitCode()
 			return nil
 		}
-		return err
+		return fmt.Errorf("runPythonCode: %w", err)
 	}
 	*exitCode = 0
 	return nil
@@ -568,7 +568,7 @@ func (s *TestingStage) runGoCode(ctx context.Context, tmpDir, code string, stdou
 			*exitCode = exitErr.ExitCode()
 			return nil
 		}
-		return err
+		return fmt.Errorf("runGoCode: %w", err)
 	}
 	*exitCode = 0
 	return nil

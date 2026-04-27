@@ -104,7 +104,7 @@ func (d *DuckDB) Cleanup() {
 }
 
 func (d *DuckDB) Close() error {
-	return d.db.Close()
+	return fmt.Errorf("duckdbClose: %w", d.db.Close())
 }
 
 func (d *DuckDB) QueryRow(query string, args ...interface{}) *sql.Row {
@@ -237,7 +237,7 @@ func (t *TX) Commit() error {
 	}
 	t.sem.Release(1)
 
-	return err
+	return fmt.Errorf("txCommit: %w", err)
 }
 
 // Rollback rolls back the transaction and releases the acquired locks and semaphore.
@@ -261,7 +261,7 @@ func (t *TX) Rollback() error {
 	}
 	t.sem.Release(1)
 
-	return err
+	return fmt.Errorf("txRollback: %w", err)
 }
 
 // Query executes a query on the transaction with a read lock.

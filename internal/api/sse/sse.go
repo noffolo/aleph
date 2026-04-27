@@ -329,7 +329,7 @@ func StreamEvents(w http.ResponseWriter, r *http.Request, client *Client, logger
 			}
 			if err := WriteEvent(w, evt); err != nil {
 				logger.Error("sse write event failed", "client_id", client.ID, "error", err)
-				return err
+				return fmt.Errorf("streamEvents: %w", err)
 			}
 			flusher.Flush()
 		}

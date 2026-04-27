@@ -89,16 +89,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   }, [selectedIndex]);
 
   return (
-     <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[200] flex items-start justify-center pt-[15vh] p-4 animate-in fade-in duration-200" onClick={onClose} onKeyDown={handleKeyDown}>
+     <div role="dialog" aria-modal="true" aria-label="Command palette" className="fixed inset-0 bg-black/60 backdrop-blur-md z-[200] flex items-start justify-center pt-[15vh] p-4 animate-in fade-in duration-200" onClick={onClose} onKeyDown={handleKeyDown}>
       <div 
         className="bg-surface w-full max-w-2xl rounded-lg   overflow-hidden border border-border animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-6 border-b flex items-center space-x-4 bg-surface-alt/50">
            <Command size={24} className="text-primary" />
-           <input 
-              autoFocus
-              value={search}
+            <input 
+               autoFocus
+               aria-label="Search commands"
+               value={search}
               onChange={e => { setSearch(e.target.value); setSelectedIndex(0); }}
               placeholder="Cerca entità, progetti o comandi (CMD+K)..."
               className="flex-1 bg-transparent border-none outline-none text-xl font-medium text-text placeholder:text-textDim"

@@ -43,7 +43,7 @@ func EnsureProjectSchema(d *DuckDB, schema string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	_, err := d.db.Exec(fmt.Sprintf(`CREATE SCHEMA IF NOT EXISTS "%s"`, schema))
-	return err
+	return fmt.Errorf("ensureProjectSchema: %w", err)
 }
 
 // scopeQuery wraps a query with a SET schema statement from context.

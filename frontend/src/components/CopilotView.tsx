@@ -53,7 +53,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
   }))
 
   return (
-    <div className="flex flex-col h-full bg-surface rounded-lg border border-border overflow-hidden">
+    <div role="region" aria-label="Chat" className="flex flex-col h-full bg-surface rounded-lg border border-border overflow-hidden">
       <div className="h-9 flex items-center justify-between px-4 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-primary text-xs font-bold">COPILOT</span>
@@ -147,8 +147,9 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
         </div>
       )}
 
-      <TerminalPrompt
-        value={input}
+       <TerminalPrompt
+         aria-label="Message input"
+         value={input}
         onChange={setInput}
         onSubmit={onSend}
         disabled={isStreaming || !selectedAgent}

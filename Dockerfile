@@ -26,10 +26,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 FROM python:3.12-slim-bullseye
 WORKDIR /app
 
-# Install system dependencies (for DuckDB VSS and general stability)
+# Install system dependencies (for DuckDB VSS, health checks, and general stability)
 RUN apt-get update && apt-get install -y \
     libstdc++6 \
     ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend binary
@@ -51,6 +52,8 @@ ENV DUCKDB_PATH="/app/data/aleph.duckdb"
 RUN mkdir -p /app/data/projects /app/data/raw /app/data/ontologies
 
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost:8080/api/v1/healthz || exit 1
 
 # Start script to run both if needed, but per Master Plan, Go is the orchestrator
 # Go app will manage the sidecar if started via shell or it assumes sidecar is running elsewhere.

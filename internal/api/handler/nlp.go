@@ -59,9 +59,9 @@ func (h *NLPHandler) StreamPredictions(
 		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("predictions unavailable: %w", err))
 	}
 
-	for pythonStream.Receive() {
+		for pythonStream.Receive() {
 		if err := stream.Send(pythonStream.Msg()); err != nil {
-			return err
+			return fmt.Errorf("streamSend: %w", err)
 		}
 	}
 	if err := pythonStream.Err(); err != nil {

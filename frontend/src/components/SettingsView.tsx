@@ -36,7 +36,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newKeyLabel, setNewKeyLabel] = useState('');
 
   return (
-    <div className={(inline ? '' : 'max-w-4xl mx-auto ') + 'space-y-12'}>
+    <div 
+      className={(inline ? '' : 'max-w-4xl mx-auto ') + 'space-y-12'} 
+      role="region" 
+      aria-label="Settings"
+    >
       <div className="flex flex-col space-y-1">
         <h2 className="text-3xl font-bold tracking-tight">Impostazioni</h2>
         <p className="text-textMuted text-sm mt-1">Gestisci chiavi API, notifiche e integrazioni.</p>
@@ -60,10 +64,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <ScanLine size={16} className="text-primary" />
               <span className="font-bold text-sm">Scanlines</span>
             </div>
-            <button 
-              onClick={() => store.setEnableScanline(!store.enableScanline)}
-              className={`w-10 h-5 rounded-full relative transition-colors ${store.enableScanline ? 'bg-primary' : 'bg-border'}`}
-            >
+             <button 
+               onClick={() => store.setEnableScanline(!store.enableScanline)}
+               className={`w-10 h-5 rounded-full relative transition-colors ${store.enableScanline ? 'bg-primary' : 'bg-border'}`}
+               aria-label="Toggle scanlines"
+               role="switch"
+               aria-checked={store.enableScanline}
+             >
               <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${store.enableScanline ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
@@ -72,10 +79,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <Sparkles size={16} className="text-primary" />
               <span className="font-bold text-sm">Effetto Glow</span>
             </div>
-            <button 
-              onClick={() => store.setEnableGlow(!store.enableGlow)}
-              className={`w-10 h-5 rounded-full relative transition-colors ${store.enableGlow ? 'bg-primary' : 'bg-border'}`}
-            >
+             <button 
+               onClick={() => store.setEnableGlow(!store.enableGlow)}
+               className={`w-10 h-5 rounded-full relative transition-colors ${store.enableGlow ? 'bg-primary' : 'bg-border'}`}
+               aria-label="Toggle glow effect"
+               role="switch"
+               aria-checked={store.enableGlow}
+             >
               <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${store.enableGlow ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
@@ -84,10 +94,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <Monitor size={16} className="text-primary" />
               <span className="font-bold text-sm">Sfarfallio (Flicker)</span>
             </div>
-            <button 
-              onClick={() => store.setEnableFlicker(!store.enableFlicker)}
-              className={`w-10 h-5 rounded-full relative transition-colors ${store.enableFlicker ? 'bg-primary' : 'bg-border'}`}
-            >
+             <button 
+               onClick={() => store.setEnableFlicker(!store.enableFlicker)}
+               className={`w-10 h-5 rounded-full relative transition-colors ${store.enableFlicker ? 'bg-primary' : 'bg-border'}`}
+               aria-label="Toggle flicker effect"
+               role="switch"
+               aria-checked={store.enableFlicker}
+             >
               <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${store.enableFlicker ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
@@ -116,10 +129,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
               <div className="flex items-center space-x-3">
                 <span className="text-[10px] text-textMuted">{new Date(k.createdAt * 1000).toLocaleDateString()}</span>
-                <button
-                  onClick={() => { if (confirm('Revocare questa chiave?')) onDeleteApiKey(k.id); }}
-                  className="p-1.5 text-textDim hover:text-danger hover:bg-danger/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                >
+                 <button
+                   onClick={() => { if (confirm('Revocare questa chiave?')) onDeleteApiKey(k.id); }}
+                   className="p-1.5 text-textDim hover:text-danger hover:bg-danger/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                   aria-label="Revoke API key"
+                 >
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -184,11 +198,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               placeholder="Secret (opzionale)"
               className="w-full px-4 py-3 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 bg-surface text-text"
             />
-            <button
-              onClick={() => onSendWebhook(webhookUrl, webhookPayload, webhookSecret)}
-              disabled={!webhookUrl.trim()}
-              className="px-6 py-3 bg-warning text-white rounded-xl text-sm font-bold hover:bg-warning/90 disabled:opacity-50 transition-all"
-            >
+             <button
+               onClick={() => onSendWebhook(webhookUrl, webhookPayload, webhookSecret)}
+               disabled={!webhookUrl.trim()}
+               className="px-6 py-3 bg-warning text-white rounded-xl text-sm font-bold hover:bg-warning/90 disabled:opacity-50 transition-all"
+               aria-label="Send test webhook"
+             >
               Invia Webhook di Test
             </button>
           </div>

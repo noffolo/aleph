@@ -224,13 +224,14 @@ func (a *AlephApp) Serve(port int) error {
 
 	corsHandler := routes.CORSHandler(mux, a.logger)
 	telemetryHandler := telemetry.Middleware(corsHandler)
+	recoveryHandler := middleware.Recovery(telemetryHandler)
 
 	go a.watchSidecar(a.nlpHandler)
 
 	log.Printf("[Aleph] Data OS starting on :%d", port)
 	a.server = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
-		Handler: h2c.NewHandler(telemetryHandler, &http2.Server{}),
+		Handler: h2c.NewHandler(recoveryHandler, &http2.Server{}),
 	}
 
 	return a.server.ListenAndServe()

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Bot, Plus, Trash2, Pencil, Globe, Server } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useCursorPagination } from '../hooks/useCursorPagination';
@@ -26,34 +26,42 @@ interface AgentsViewProps {
   inline?: boolean;
 }
 
-export const AgentsView: React.FC<AgentsViewProps> = ({ agents: initialAgents, onCreateAgent, onDeleteAgent, onUpdateAgent, ollamaHealthy = false, ollamaModels = [], inline = false }) => {
+export const AgentsView: React.FC<AgentsViewProps> = React.memo(({ agents: initialAgents, onCreateAgent, onDeleteAgent, onUpdateAgent, ollamaHealthy = false, ollamaModels = [], inline = false }) => {
   const setAgents = useStore(state => state.setAgents);
   const projectId = useStore(state => state.selectedObject);
 
   const { items: agents, hasMore, loadMore, loading } = useCursorPagination({
     clientMethod: agentClient.listAgents,
-    requestBuilder: (cursor) => new ListAgentsRequest({ projectId, after: cursor, limit: 25 }),
+    requestBuilder: useCallback((cursor: string) => new ListAgentsRequest({ projectId, after: cursor, limit: 25 }), [projectId]),
     responseExtractor: (res) => ({ items: res.agents, nextCursor: res.nextCursor }),
     storeSetter: setAgents,
     initialItems: initialAgents,
   });
 
-  const openCreate = () => {
+  const openCreate = useCallback(() => {
     useStore.getState().setSlideOverContent({ type: 'agent-form', title: 'Nuovo Agente', data: undefined });
-  };
+  }, []);
 
-  const openEdit = (a: Agent) => {
+  const openEdit = useCallback((a: Agent) => {
     useStore.getState().setSlideOverContent({ type: 'agent-form', title: 'Modifica Agente', data: a as any });
-  };
+  }, []);
 
   return (
-    <div className={(inline ? '' : 'max-w-6xl mx-auto ') + 'space-y-8'}>
+    <div 
+      className={(inline ? '' : 'max-w-6xl mx-auto ') + 'space-y-8'} 
+      role="region" 
+      aria-label="Agents"
+    >
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Gestore Agenti</h2>
           <p className="text-textMuted text-sm mt-1">Configura agenti AI con qualsiasi provider — locale o cloud.</p>
         </div>
-         <button onClick={openCreate} className="flex items-center space-x-2 bg-primary text-background px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg ">
+          <button 
+            onClick={openCreate} 
+            className="flex items-center space-x-2 bg-primary text-background px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg "
+            aria-label="Create new agent"
+          >
           <Plus size={20} />
           <span>Nuovo Agente</span>
         </button>
@@ -63,8 +71,16 @@ export const AgentsView: React.FC<AgentsViewProps> = ({ agents: initialAgents, o
         {agents.map(a => (
           <div key={a.id} className="bg-surface p-6 rounded-lg border border-border shadow-sm hover:shadow-lg transition-all group relative">
               <div className="absolute top-6 right-6 flex items-center space-x-1">
-                <button onClick={(e) => { e.stopPropagation(); openEdit(a); }} className="p-2 text-textDim hover:text-primary hover:bg-primary/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"><Pencil size={18} /></button>
-                <button onClick={(e) => { e.stopPropagation(); if (confirm('Sei sicuro di voler eliminare questo agente?')) onDeleteAgent(a.id); }} className="p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"><Trash2 size={18} /></button>
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); openEdit(a); }} 
+                   className="p-2 text-textDim hover:text-primary hover:bg-primary/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                   aria-label="Edit agent"
+                 ><Pencil size={18} /></button>
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); if (confirm('Sei sicuro di voler eliminare questo agente?')) onDeleteAgent(a.id); }} 
+                   className="p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                   aria-label="Delete agent"
+                 ><Trash2 size={18} /></button>
               </div>
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4 group-hover:bg-primary group-hover:text-white transition-colors"><Bot size={24} /></div>
                <h3 className="text-xl font-bold mb-1">{a.name}</h3>
@@ -101,4 +117,4 @@ export const AgentsView: React.FC<AgentsViewProps> = ({ agents: initialAgents, o
       )}
     </div>
   );
-};
+});

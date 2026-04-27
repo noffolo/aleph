@@ -194,7 +194,7 @@ func (s *ExecSandbox) WriteMockFiles(dir string) error {
 		}
 		filename := fmt.Sprintf("mock_%s%s", name, ext)
 		if err := os.WriteFile(filepath.Join(dir, filename), []byte(code), 0644); err != nil {
-			return err
+			return fmt.Errorf("writeMockFiles: %w", err)
 		}
 	}
 	return nil

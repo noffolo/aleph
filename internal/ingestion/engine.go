@@ -150,7 +150,7 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	os.MkdirAll(filepath.Dir(logPath), 0755)
 	
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil { return err }
+	if err != nil { return fmt.Errorf("openLogFile: %w", err) }
 	defer f.Close()
 
 	fmt.Fprintf(f, "\n--- Inizio Task: %s alle %s ---\n", task.Id, time.Now().Format(time.RFC3339))
@@ -398,7 +398,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 	e.updateProgress(task.Id, 70, "running")
 
 	tableName := task.Id
-	if err := sanitizeIdentifier(tableName); err != nil { return err }
+	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(precompiled): %w", err) }
 	contentType := resp.Header.Get("Content-Type")
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	os.MkdirAll(filepath.Join(projectPath, "raw"), 0755)
@@ -480,7 +480,7 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 
 	contentType := resp.Header.Get("Content-Type")
 	tableName := task.Id
-	if err := sanitizeIdentifier(tableName); err != nil { return err }
+	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(urlfetch): %w", err) }
 	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
 	os.MkdirAll(projectPath, 0755)
 
@@ -621,8 +621,8 @@ func (e *Engine) runCSVLoad(ctx context.Context, w *os.File, projectID string, t
 		tableName = task.Id
 	}
 	tableName = strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(tableName, "_"))
-	if err := sanitizeIdentifier(tableName); err != nil { return err }
-	if err := sanitizeFilePath(config.Path); err != nil { return err }
+	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(csvload): %w", err) }
+	if err := sanitizeFilePath(config.Path); err != nil { return fmt.Errorf("sanitizeFilePath: %w", err) }
 
 	readerFunc := "read_csv_auto"
 	if strings.HasSuffix(strings.ToLower(config.Path), ".parquet") {
@@ -662,7 +662,7 @@ func (e *Engine) runPostgresLoad(ctx context.Context, w *os.File, projectID stri
 	e.updateProgress(task.Id, 10, "running")
 
 	tableName := task.Id
-	if err := sanitizeIdentifier(tableName); err != nil { return err }
+	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(postgres): %w", err) }
 
 	_, err := e.db.Exec("INSTALL postgres_scanner")
 	if err != nil {
@@ -754,7 +754,7 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 
 func (e *Engine) runDynamic(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
 	var config struct { Code string `json:"code"` }
-	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil { return err }
+	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil { return fmt.Errorf("unmarshalDynamicConfig: %w", err) }
 	if config.Code == "" {
 		return fmt.Errorf("codice vuoto nel config")
 	}
@@ -767,18 +767,18 @@ func (e *Engine) runDynamic(ctx context.Context, w *os.File, projectID string, t
 	defer cancel()
 
 	tmpDir, err := os.MkdirTemp("", "aleph-run-*")
-	if err != nil { return err }
+	if err != nil { return fmt.Errorf("createTempDir: %w", err) }
 	defer os.RemoveAll(tmpDir)
 
 	tmpFile := filepath.Join(tmpDir, "main.go")
-	if err := os.WriteFile(tmpFile, []byte(config.Code), 0644); err != nil { return err }
+	if err := os.WriteFile(tmpFile, []byte(config.Code), 0644); err != nil { return fmt.Errorf("writeTempFile: %w", err) }
 	binaryPath := filepath.Join(tmpDir, "conn")
 
 	cmdBuild := exec.CommandContext(sandboxCtx, "go", "build", "-o", binaryPath, tmpFile)
 	cmdBuild.Dir = tmpDir
 	if out, err := cmdBuild.CombinedOutput(); err != nil {
 		fmt.Fprintf(w, "Build Error: %s\n", string(out))
-		return err
+		return fmt.Errorf("buildDynamic: %w", err)
 	}
 
 	cmdRun := exec.CommandContext(sandboxCtx, binaryPath)
@@ -790,7 +790,7 @@ func (e *Engine) runDynamic(ctx context.Context, w *os.File, projectID string, t
 		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
 		"HOME=" + tmpDir,
 	}
-	return cmdRun.Run()
+	return fmt.Errorf("runDynamic: %w", cmdRun.Run())
 }
 
 var blockedImports = map[string]bool{
@@ -906,7 +906,7 @@ if rows:
 `, escapedAddr, escapedHost, escapedHost, escapedUser, escapedPass, escapedFolder)
 
 	tmpDir, err := os.MkdirTemp("", "aleph-email-*")
-	if err != nil { return err }
+	if err != nil { return fmt.Errorf("createEmailTempDir: %w", err) }
 	defer os.RemoveAll(tmpDir)
 
 	scriptPath := filepath.Join(tmpDir, "fetch_emails.py")

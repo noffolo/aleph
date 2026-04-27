@@ -20,6 +20,7 @@ export const handleError = (err: any, context: string) => {
   const store = useStore.getState()
   const msg = err?.message || `Errore in ${context}`
   store.setLastError(msg)
+  store.setErrorToast(msg, 'error')
   setTimeout(() => useStore.getState().setLastError(null), 5000)
 }
 
@@ -196,8 +197,10 @@ export function useAppActions() {
     try {
       await queryClient.confirmAction({ projectId: pc?.projectId || store.projectID, agentId: pc?.agentId || store.selectedAgent, approved })
       store.addChatMessage({ role: 'assistant', content: approved ? 'Azione approvata e eseguita.' : 'Azione rifiutata.', toolCall: '', createdAt: Date.now() })
-    } catch {
-      store.addChatMessage({ role: 'assistant', content: 'Errore nella conferma dell\'azione.', toolCall: '', createdAt: Date.now() })
+    } catch (e: any) {
+      const msg = e.message || 'Errore nella conferma dell\'azione.'
+      store.addChatMessage({ role: 'assistant', content: msg, toolCall: '', createdAt: Date.now() })
+      store.setErrorToast(msg, 'error')
     } finally {
       store.setPendingConfirmation(null)
     }
@@ -211,8 +214,10 @@ export function useAppActions() {
       store.setSandboxResult(res.result)
       store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: res.result })
     } catch (e: any) {
-      store.setSandboxResult({ stderr: e.message, exitCode: 1 })
-      store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: { stderr: e.message, exitCode: 1 } })
+      const msg = e.message || 'Errore durante l\'esecuzione della skill'
+      store.setSandboxResult({ stderr: msg, exitCode: 1 })
+      store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: { stderr: msg, exitCode: 1 } })
+      store.setErrorToast(msg, 'error')
     }
   }, [store.projectID])
 
@@ -224,8 +229,10 @@ export function useAppActions() {
       store.setSandboxResult(res.result)
       store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: res.result })
     } catch (e: any) {
-      store.setSandboxResult({ stderr: e.message, exitCode: 1 })
-      store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: { stderr: e.message, exitCode: 1 } })
+      const msg = e.message || 'Errore durante l\'esecuzione del tool'
+      store.setSandboxResult({ stderr: msg, exitCode: 1 })
+      store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: { stderr: msg, exitCode: 1 } })
+      store.setErrorToast(msg, 'error')
     }
   }, [store.projectID])
 

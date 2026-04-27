@@ -10,12 +10,21 @@ import (
 // MetadataRepository provides CRUD operations for system metadata tables
 // (agents, tools, skills, tasks, API keys, chat history).
 type MetadataRepository struct {
-	db *sql.DB
+	db       *sql.DB
+	toolCache *ToolCache
 }
 
 // NewMetadataRepository creates a MetadataRepository backed by the given *sql.DB.
 func NewMetadataRepository(db *sql.DB) (*MetadataRepository, error) {
-	return &MetadataRepository{db: db}, nil
+	return &MetadataRepository{
+		db:        db,
+		toolCache: NewToolCache(),
+	}, nil
+}
+
+// SetToolCache replaces the default tool cache (used by tests).
+func (r *MetadataRepository) SetToolCache(tc *ToolCache) {
+	r.toolCache = tc
 }
 
 // ─── Notification Channels ────────────────────────────────────────────────
@@ -63,7 +72,7 @@ type IngestionTaskRecord struct {
 
 func (r *MetadataRepository) UpdateTaskProgress(id string, progress int32, status string) error {
 	_, err := r.db.Exec("UPDATE system_tasks SET progress = $1, status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3", progress, status, id)
-	return err
+	return fmt.Errorf("updateTaskProgress: %w", err)
 }
 
 func (r *MetadataRepository) GetTaskProgress(taskID string) (int32, error) {
@@ -98,7 +107,7 @@ func (r *MetadataRepository) CreateTask(t *IngestionTaskRecord) error {
 		"INSERT INTO system_tasks (id, project_id, name, source_type, config_json, schedule, status, progress) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
 		t.ID, t.ProjectID, t.Name, t.SourceType, t.ConfigJSON, t.Schedule, t.Status, t.Progress,
 	)
-	return err
+	return fmt.Errorf("createTask: %w", err)
 }
 
 func (r *MetadataRepository) GetTaskByID(taskID string) (*IngestionTaskRecord, error) {
@@ -112,7 +121,7 @@ func (r *MetadataRepository) GetTaskByID(taskID string) (*IngestionTaskRecord, e
 
 func (r *MetadataRepository) DeleteTask(id, projectID string) error {
 	_, err := r.db.Exec("DELETE FROM system_tasks WHERE project_id = $1 AND id = $2", projectID, id)
-	return err
+	return fmt.Errorf("deleteTask: %w", err)
 }
 
 // ─── Chat Messages ─────────────────────────────────────────────────────────
@@ -127,7 +136,7 @@ type ChatMessage struct {
 
 func (r *MetadataRepository) SaveChatMessage(ctx context.Context, projectID, agentID, role, content, toolCall string) error {
 	_, err := r.db.ExecContext(ctx, "INSERT INTO system_chat_history (id, project_id, agent_id, role, content, tool_call) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)", projectID, agentID, role, content, toolCall)
-	return err
+	return fmt.Errorf("saveChatMessage: %w", err)
 }
 
 func (r *MetadataRepository) GetChatMessages(ctx context.Context, projectID, agentID string) ([]ChatMessage, error) {
@@ -241,17 +250,17 @@ func (r *MetadataRepository) ListAgentsCursor(projectID, cursor string, limit in
 
 func (r *MetadataRepository) CreateAgent(a *AgentRecord) error {
 	_, err := r.db.Exec("INSERT INTO system_agents (id, project_id, name, provider, model, api_key, system_prompt, skill_ids, base_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)", a.ID, a.ProjectID, a.Name, a.Provider, a.Model, a.ApiKey, a.SystemPrompt, a.SkillIDsJSON, a.BaseURL)
-	return err
+	return fmt.Errorf("createAgent: %w", err)
 }
 
 func (r *MetadataRepository) DeleteAgent(agentID, projectID string) error {
 	_, err := r.db.Exec("DELETE FROM system_agents WHERE project_id = $1 AND id = $2", projectID, agentID)
-	return err
+	return fmt.Errorf("deleteAgent: %w", err)
 }
 
 func (r *MetadataRepository) UpdateAgent(a *AgentRecord) error {
 	_, err := r.db.Exec("UPDATE system_agents SET name = $1, provider = $2, model = $3, api_key = $4, system_prompt = $5, skill_ids = $6, base_url = $7 WHERE id = $8 AND project_id = $9", a.Name, a.Provider, a.Model, a.ApiKey, a.SystemPrompt, a.SkillIDsJSON, a.BaseURL, a.ID, a.ProjectID)
-	return err
+	return fmt.Errorf("updateAgent: %w", err)
 }
 
 // ─── Tools ─────────────────────────────────────────────────────────────────
@@ -269,6 +278,13 @@ type ToolRecord struct {
 }
 
 func (r *MetadataRepository) ListTools() ([]ToolRecord, error) {
+	const cacheKey = "list_tools"
+	if v, ok := r.toolCache.Get(cacheKey); ok {
+		if tools, ok := v.([]ToolRecord); ok {
+			return tools, nil
+		}
+	}
+
 	rows, err := r.db.Query("SELECT id, name, description, code, category, version, health_status, source_type FROM system_tools")
 	if err != nil {
 		return nil, err
@@ -282,6 +298,7 @@ func (r *MetadataRepository) ListTools() ([]ToolRecord, error) {
 		}
 		tools = append(tools, t)
 	}
+	r.toolCache.Set(cacheKey, tools)
 	return tools, nil
 }
 
@@ -332,17 +349,26 @@ func (r *MetadataRepository) GetToolByCategory(category string) ([]ToolRecord, e
 func (r *MetadataRepository) CreateTool(t *ToolRecord) error {
 	_, err := r.db.Exec("INSERT INTO system_tools (id, name, description, code, category, version, health_status, source_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
 		t.ID, t.Name, t.Description, t.Code, t.Category, t.Version, t.HealthStatus, t.SourceType)
-	return err
+	if err == nil {
+		r.toolCache.Invalidate("list_tools")
+	}
+	return fmt.Errorf("createTool: %w", err)
 }
 
 func (r *MetadataRepository) UpdateToolCode(ctx context.Context, toolID, code string) error {
 	_, err := r.db.ExecContext(ctx, "UPDATE system_tools SET code = $1 WHERE id = $2", code, toolID)
-	return err
+	if err == nil {
+		r.toolCache.Invalidate("list_tools")
+	}
+	return fmt.Errorf("updateToolCode: %w", err)
 }
 
 func (r *MetadataRepository) UpdateHealthStatus(toolID, status string) error {
 	_, err := r.db.Exec("UPDATE system_tools SET health_status = $1 WHERE id = $2", status, toolID)
-	return err
+	if err == nil {
+		r.toolCache.Invalidate("list_tools")
+	}
+	return fmt.Errorf("updateHealthStatus: %w", err)
 }
 
 func (r *MetadataRepository) GetToolCode(ctx context.Context, toolID string) (string, error) {
@@ -356,7 +382,10 @@ func (r *MetadataRepository) GetToolCode(ctx context.Context, toolID string) (st
 
 func (r *MetadataRepository) DeleteTool(id string) error {
 	_, err := r.db.Exec("DELETE FROM system_tools WHERE id = $1", id)
-	return err
+	if err == nil {
+		r.toolCache.Invalidate("list_tools")
+	}
+	return fmt.Errorf("deleteTool: %w", err)
 }
 
 // ─── Skills ────────────────────────────────────────────────────────────────
@@ -419,7 +448,7 @@ func (r *MetadataRepository) ListSkillsCursor(projectID, cursor string, limit in
 
 func (r *MetadataRepository) CreateSkill(s *SkillRecord) error {
 	_, err := r.db.Exec("INSERT INTO system_skills (id, project_id, name, description, tool_ids) VALUES ($1, $2, $3, $4, $5)", s.ID, s.ProjectID, s.Name, s.Description, s.ToolIDsJSON)
-	return err
+	return fmt.Errorf("createSkill: %w", err)
 }
 
 func (r *MetadataRepository) GetSkillToolIDs(skillID string) (string, error) {
@@ -433,7 +462,7 @@ func (r *MetadataRepository) GetSkillToolIDs(skillID string) (string, error) {
 
 func (r *MetadataRepository) DeleteSkill(id, projectID string) error {
 	_, err := r.db.Exec("DELETE FROM system_skills WHERE project_id = $1 AND id = $2", projectID, id)
-	return err
+	return fmt.Errorf("deleteSkill: %w", err)
 }
 
 // ─── API Keys ──────────────────────────────────────────────────────────────
@@ -467,7 +496,7 @@ func (r *MetadataRepository) ListAPIKeys(projectID string) ([]APIKeyRecord, erro
 
 func (r *MetadataRepository) CreateAPIKey(id, projectID, label, hashedKey string) error {
 	_, err := r.db.Exec("INSERT INTO system_api_keys (id, project_id, label, key) VALUES ($1, $2, $3, $4)", id, projectID, label, hashedKey)
-	return err
+	return fmt.Errorf("createAPIKey: %w", err)
 }
 
 func (r *MetadataRepository) ValidateAPIKey(hashedKey string) (string, error) {
@@ -481,5 +510,5 @@ func (r *MetadataRepository) ValidateAPIKey(hashedKey string) (string, error) {
 
 func (r *MetadataRepository) DeleteAPIKey(id, projectID string) error {
 	_, err := r.db.Exec("DELETE FROM system_api_keys WHERE project_id = $1 AND id = $2", projectID, id)
-	return err
+	return fmt.Errorf("deleteAPIKey: %w", err)
 }

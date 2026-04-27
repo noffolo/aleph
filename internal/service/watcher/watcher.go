@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/fsnotify/fsnotify"
@@ -23,7 +24,7 @@ func NewWatcher(projectsRoot string, runner IngestionRunner) *Watcher {
 
 func (w *Watcher) Start(ctx context.Context) error {
 	watcher, err := fsnotify.NewWatcher()
-	if err != nil { return err }
+	if err != nil { return fmt.Errorf("newWatcher: %w", err) }
 	defer watcher.Close()
 
 	// Watch projects root for new files in 'drop' folders

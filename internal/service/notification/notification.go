@@ -70,7 +70,7 @@ func (s *NotificationService) SendWebhook(rawURL string, payload interface{}) er
 func validateWebhookURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("validateWebhookURL: %w", err)
 	}
 	if u.Scheme != "https" && u.Scheme != "http" {
 		return fmt.Errorf("schema non permesso: %s", u.Scheme)

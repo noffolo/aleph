@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -49,7 +50,7 @@ func (r *AuditRepository) InsertAuditLog(ctx context.Context, entry AuditEntry) 
 		entry.Timestamp,
 		entry.Diff,
 	)
-	return err
+	return fmt.Errorf("insertAuditLog: %w", err)
 }
 
 func (r *AuditRepository) QueryAuditLog(ctx context.Context, filters AuditFilters) ([]AuditEntry, error) {

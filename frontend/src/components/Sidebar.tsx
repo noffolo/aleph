@@ -77,22 +77,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ projectID, onShowOnboarding })
         <Binary size={18} />
       </div>
 
-      <nav className="flex-1 flex flex-col items-center gap-0.5 overflow-y-auto no-scrollbar">
+       <nav aria-label="Main navigation" className="flex-1 flex flex-col items-center gap-0.5 overflow-y-auto no-scrollbar">
         {sidebarItems.map((item, i) => {
           const Icon = item.icon
           const active = isActive(item.id)
           return (
             <React.Fragment key={item.id}>
               {DIVIDER_AFTER.has(i) && <div className="w-6 h-px bg-border my-2" />}
-              <button
-                onClick={() => handleClick(item)}
-                title={item.id}
-                className={`w-9 h-9 flex items-center justify-center rounded transition-colors ${
-                  active
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-textMuted hover:text-text hover:bg-surface-alt'
-                }`}
-              >
+               <button
+                 onClick={() => handleClick(item)}
+                 title={item.id}
+                 aria-current={active ? 'page' : undefined}
+                 className={`w-9 h-9 flex items-center justify-center rounded transition-colors ${
+                   active
+                     ? 'bg-primary/10 text-primary'
+                     : 'text-textMuted hover:text-text hover:bg-surface-alt'
+                 }`}
+               >
                 <Icon size={18} />
               </button>
             </React.Fragment>

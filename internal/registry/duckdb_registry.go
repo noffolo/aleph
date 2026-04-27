@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 	_ "github.com/marcboeker/go-duckdb"
@@ -125,7 +126,7 @@ func (r *DuckDBRegistry) GetComponentByID(ctx context.Context, id string) (*Comp
 
 func (r *DuckDBRegistry) UpdateComponentStatus(id string, status string) error {
 	_, err := r.db.Exec("UPDATE components SET status = ?, last_updated_timestamp = ? WHERE id = ?", status, time.Now(), id)
-	return err
+	return fmt.Errorf("updateComponentStatus: %w", err)
 }
 
 func (r *DuckDBRegistry) ListComponents(filter map[string]string) ([]ComponentMetadata, error) {

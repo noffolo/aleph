@@ -9,6 +9,7 @@ import { StatusBar } from './components/terminal'
 import { InlineRenderer } from './components/terminal/InlineRenderer'
 import { SlideOverPanel } from './components/terminal/SlideOverPanel'
 import { TerminalEffects } from './components/terminal/TerminalEffects'
+import { ToastBar } from './components/ToastBar'
 import { useStore } from './store/useStore'
 import { useAppActions } from './hooks/useAppActions'
 import { setApiKey, getStoredApiKey } from './api/client'
@@ -120,6 +121,7 @@ function App() {
   return (
     <div className="flex h-screen bg-background text-text font-mono overflow-hidden">
       <AlephErrorBoundary>
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-background focus:rounded-lg">Skip to main content</a>
         <CommandPalette
           isOpen={store.isCommandPaletteOpen}
           onClose={() => store.setIsCommandPaletteOpen(false)}
@@ -151,7 +153,7 @@ function App() {
             </div>
           )}
 
-           <main className="flex-1 overflow-hidden p-4 relative">
+           <main id="main-content" className="flex-1 overflow-hidden p-4 relative">
               <TerminalEffects />
               <CopilotView
                 agents={store.agents}
@@ -186,8 +188,10 @@ function App() {
                </SlideOverPanel>
              </AlephErrorBoundary>
            )}
-           <StatusBar projectID={store.projectID} ollamaHealthy={store.ollamaHealthy} nlpHealthy={store.nlpHealthy} />
-         </div>
+            <StatusBar projectID={store.projectID} ollamaHealthy={store.ollamaHealthy} nlpHealthy={store.nlpHealthy} />
+            <ToastBar />
+          </div>
+
 
       </AlephErrorBoundary>
     </div>

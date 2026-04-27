@@ -45,6 +45,9 @@ export interface UISlice {
   toastMessages: ToastMessage[]
   addToast: (t: Omit<ToastMessage, 'id'>) => void
   removeToast: (id: string) => void
+  errorToast: { message: string, type: 'error' | 'success' | 'info', id: string } | null
+  setErrorToast: (message: string, type: 'error' | 'success' | 'info') => void
+  clearErrorToast: () => void
   inputMode: boolean
   setInputMode: (v: boolean) => void
   resetUI: () => void
@@ -89,6 +92,10 @@ export const createUISlice: StateCreator<UISlice> = (set) => ({
     set((state) => ({
       toastMessages: state.toastMessages.filter((m) => m.id !== id),
     })),
+  errorToast: null,
+  setErrorToast: (message, type) =>
+    set({ errorToast: { message, type, id: `error-${Date.now()}` } }),
+  clearErrorToast: () => set({ errorToast: null }),
   inputMode: false,
   setInputMode: (v) => set({ inputMode: v }),
   resetUI: () => set({
