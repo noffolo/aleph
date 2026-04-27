@@ -21,6 +21,7 @@ export interface TerminalLine {
 interface TerminalOutputProps {
   lines: TerminalLine[];
   isStreaming?: boolean;
+  onMessageClick?: (id: number) => void;
 }
 
 const typeStyles: Record<string, string> = {
@@ -31,11 +32,15 @@ const typeStyles: Record<string, string> = {
   tool: 'text-warning',
 };
 
-export const TerminalOutput: React.FC<TerminalOutputProps> = ({ lines, isStreaming = false }) => {
+export const TerminalOutput: React.FC<TerminalOutputProps> = ({ lines, isStreaming = false, onMessageClick }) => {
   return (
     <div className="flex-1 overflow-auto px-4 py-3 font-mono text-sm leading-relaxed custom-scrollbar">
       {lines.map((line, i) => (
-        <div key={line.id ?? i} className={`py-0.5 leading-relaxed ${typeStyles[line.type] || 'text-text'}`}>
+        <div 
+          key={line.id ?? i} 
+          onClick={() => onMessageClick && onMessageClick(i)}
+          className={`py-0.5 leading-relaxed cursor-pointer hover:bg-background/50 transition-colors ${typeStyles[line.type] || 'text-text'}`}
+        >
           {line.type === 'input' && <span className="text-primary terminal-glow mr-2 text-sm tracking-tight">λ</span>}
           {line.type === 'system' && <span className="text-textDim mr-2 text-[10px] tracking-widest leading-snug">→</span>}
           {line.type === 'tool' && <span className="text-warning mr-2 text-xs">⚙</span>}

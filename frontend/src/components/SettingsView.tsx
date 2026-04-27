@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Key, Plus, Trash2, Bell, Globe, Shield } from 'lucide-react';
+import { Key, Plus, Trash2, Bell, Globe, Shield, Monitor, Sparkles, ScanLine } from 'lucide-react';
+import { useStore } from '../store/useStore';
 
 interface ApiKey {
   id: string;
@@ -25,49 +26,85 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
-  apiKeys, notificationChannels, onCreateApiKey, onDeleteApiKey, onSendWebhook, inline = false
-}) => {
-  const [webhookUrl, setWebhookUrl] = useState('');
+   apiKeys, notificationChannels, onCreateApiKey, onDeleteApiKey, onSendWebhook, inline = false
+ }) => {
+   const store = useStore();
+   const [webhookUrl, setWebhookUrl] = useState('');
+
   const [webhookPayload, setWebhookPayload] = useState('{}');
   const [webhookSecret, setWebhookSecret] = useState('');
   const [newKeyLabel, setNewKeyLabel] = useState('');
 
   return (
     <div className={(inline ? '' : 'max-w-4xl mx-auto ') + 'space-y-12'}>
-      <div>
+      <div className="flex flex-col space-y-1">
         <h2 className="text-3xl font-bold tracking-tight">Impostazioni</h2>
         <p className="text-textMuted text-sm mt-1">Gestisci chiavi API, notifiche e integrazioni.</p>
       </div>
 
+
+
       <div className="bg-surface rounded-lg border border-border shadow-sm overflow-hidden">
         <div className="p-8 border-b border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Key size={20} /></div>
-              <div>
-                <h3 className="font-bold text-lg">Chiavi API</h3>
-                <p className="text-[10px] text-textMuted uppercase tracking-widest font-bold">Autenticazione per servizi esterni</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                value={newKeyLabel}
-                onChange={(e) => setNewKeyLabel(e.target.value)}
-                placeholder="Etichetta chiave..."
-                className="px-4 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 bg-surface text-text"
-              />
-              <button
-                onClick={() => { if (newKeyLabel.trim()) { onCreateApiKey(newKeyLabel.trim()); setNewKeyLabel(''); } }}
-                disabled={!newKeyLabel.trim()}
-                className="flex items-center space-x-2 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 disabled:opacity-50"
-              >
-                <Plus size={14} />
-                <span>Crea Chiave</span>
-              </button>
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Monitor size={20} /></div>
+            <div>
+              <h3 className="font-bold text-lg">Effetti Terminale</h3>
+              <p className="text-[10px] text-textMuted uppercase tracking-widest font-bold">Personalizzazione visiva interfaccia</p>
             </div>
           </div>
         </div>
-        <div className="divide-y divide-border">
+        <div className="p-8 space-y-4">
+          <div className="flex items-center justify-between p-4 bg-surface-alt rounded-2xl">
+            <div className="flex items-center space-x-3">
+              <ScanLine size={16} className="text-primary" />
+              <span className="font-bold text-sm">Scanlines</span>
+            </div>
+            <button 
+              onClick={() => store.setEnableScanline(!store.enableScanline)}
+              className={`w-10 h-5 rounded-full relative transition-colors ${store.enableScanline ? 'bg-primary' : 'bg-border'}`}
+            >
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${store.enableScanline ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
+          <div className="flex items-center justify-between p-4 bg-surface-alt rounded-2xl">
+            <div className="flex items-center space-x-3">
+              <Sparkles size={16} className="text-primary" />
+              <span className="font-bold text-sm">Effetto Glow</span>
+            </div>
+            <button 
+              onClick={() => store.setEnableGlow(!store.enableGlow)}
+              className={`w-10 h-5 rounded-full relative transition-colors ${store.enableGlow ? 'bg-primary' : 'bg-border'}`}
+            >
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${store.enableGlow ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
+          <div className="flex items-center justify-between p-4 bg-surface-alt rounded-2xl">
+            <div className="flex items-center space-x-3">
+              <Monitor size={16} className="text-primary" />
+              <span className="font-bold text-sm">Sfarfallio (Flicker)</span>
+            </div>
+            <button 
+              onClick={() => store.setEnableFlicker(!store.enableFlicker)}
+              className={`w-10 h-5 rounded-full relative transition-colors ${store.enableFlicker ? 'bg-primary' : 'bg-border'}`}
+            >
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${store.enableFlicker ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-surface rounded-lg border border-border shadow-sm overflow-hidden">
+        <div className="p-8 border-b border-border">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Key size={20} /></div>
+            <div>
+              <h3 className="font-bold text-lg">Chiavi API</h3>
+              <p className="text-[10px] text-textMuted uppercase tracking-widest font-bold">Gestione chiavi di accesso</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-8 space-y-4">
           {apiKeys.map(k => (
             <div key={k.id} className="flex items-center justify-between px-8 py-4 hover:bg-surface-alt/50 transition-colors group">
               <div className="flex items-center space-x-4">

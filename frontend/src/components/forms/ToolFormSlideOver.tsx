@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
-import { useViewActions } from '../../hooks/useViewActions'
+import { useAppActions } from '../../hooks/useAppActions'
+import { useToolActions } from '../../hooks/domain/useToolActions'
 import type { Tool } from '../../store/types'
 
 interface ToolFormSlideOverProps {
@@ -10,7 +11,8 @@ interface ToolFormSlideOverProps {
 
 export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
   const store = useStore()
-  const actions = useViewActions()
+  const { loadProjectData } = useAppActions()
+  const { onCreateTool } = useToolActions(loadProjectData)
   const isEdit = tool && tool.id
   const [name, setName] = useState(tool?.name || '')
   const [description, setDescription] = useState(tool?.description || '')
@@ -26,7 +28,7 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
       alert('Update tool non ancora implementato')
       store.setSlideOverContent(null)
     } else {
-      actions.toolsActions.onCreateTool(name, description, code)
+      onCreateTool(name, description, code)
       store.setSlideOverContent(null)
     }
   }

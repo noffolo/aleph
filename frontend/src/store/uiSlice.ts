@@ -36,6 +36,12 @@ export interface UISlice {
   confirmDialog: ConfirmDialog
   showConfirmDialog: (message: string, confirmLabel?: string, onConfirm?: () => void) => void
   hideConfirmDialog: () => void
+  enableScanline: boolean
+  setEnableScanline: (v: boolean) => void
+  enableGlow: boolean
+  setEnableGlow: (v: boolean) => void
+  enableFlicker: boolean
+  setEnableFlicker: (v: boolean) => void
   toastMessages: ToastMessage[]
   addToast: (t: Omit<ToastMessage, 'id'>) => void
   removeToast: (id: string) => void
@@ -68,6 +74,12 @@ export const createUISlice: StateCreator<UISlice> = (set) => ({
     set({ confirmDialog: { isOpen: true, message, confirmLabel, onConfirm } }),
   hideConfirmDialog: () =>
     set({ confirmDialog: { isOpen: false, message: '' } }),
+  enableScanline: true,
+  setEnableScanline: (v: boolean) => set({ enableScanline: v }),
+  enableGlow: false,
+  setEnableGlow: (v: boolean) => set({ enableGlow: v }),
+  enableFlicker: false,
+  setEnableFlicker: (v: boolean) => set({ enableFlicker: v }),
   toastMessages: [],
   addToast: (t) =>
     set((state) => ({
@@ -86,5 +98,8 @@ export const createUISlice: StateCreator<UISlice> = (set) => ({
     confirmDialog: { isOpen: false, message: '' },
     toastMessages: [],
     inputMode: false,
+    enableScanline: true,
+    enableGlow: false,
+    enableFlicker: false,
   }),
 })

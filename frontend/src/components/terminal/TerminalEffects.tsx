@@ -1,22 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import { useStore } from '../../store/useStore'
 
-interface TerminalEffectsProps {
-  enableScanline?: boolean
-  enableCRT?: boolean
-  enableGlow?: boolean
-  scanlineOpacity?: number // 0-1
-  glowIntensity?: number // 0-1
-  className?: string
-}
-
-export const TerminalEffects: React.FC<TerminalEffectsProps> = ({
-  enableScanline = true,
-  enableCRT = false,
-  enableGlow = true,
-  scanlineOpacity = 0.03,
-  glowIntensity = 0.5,
+export const TerminalEffects: React.FC<{ className?: string }> = ({
   className = '',
 }) => {
+  const { enableScanline, enableGlow, enableFlicker } = useStore()
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
   useEffect(() => {
@@ -29,12 +17,15 @@ export const TerminalEffects: React.FC<TerminalEffectsProps> = ({
 
   const reduced = prefersReducedMotion
   const scanlineEnabled = enableScanline && !reduced
-  const crtEnabled = enableCRT && !reduced
   const glowEnabled = enableGlow && !reduced
+  const flickerEnabled = enableFlicker && !reduced
+
+  const scanlineOpacity = 0.03
+  const glowIntensity = 0.5
 
   return (
     <div className={`fixed inset-0 pointer-events-none z-[9999] ${className}`}
-         aria-hidden="true"
+          aria-hidden="true"
     >
       {/* ── Scanline Overlay ── */}
       {scanlineEnabled && (
@@ -54,19 +45,8 @@ export const TerminalEffects: React.FC<TerminalEffectsProps> = ({
         />
       )}
 
-      {/* ── CRT Curvature / Vignette ── */}
-      {crtEnabled && (
-        <div
-          className="absolute inset-0"
-          style={{
-            boxShadow: 'inset 0 0 150px rgba(0,0,0,0.5)',
-            borderRadius: '20px',
-          }}
-        />
-      )}
-
       {/* ── Subtle Horizontal Flicker ── */}
-      {scanlineEnabled && (
+      {flickerEnabled && (
         <div
           className="absolute inset-0"
           style={{

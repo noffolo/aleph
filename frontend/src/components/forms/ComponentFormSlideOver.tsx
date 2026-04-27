@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
-import { useViewActions } from '../../hooks/useViewActions'
+import { useComponentActions } from '../../hooks/domain/useComponentActions'
 
 interface ComponentFormSlideOverProps {
   title?: string
@@ -9,7 +9,7 @@ interface ComponentFormSlideOverProps {
 
 export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOverProps) {
   const store = useStore()
-  const actions = useViewActions()
+  const { onRegisterComponent } = useComponentActions()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [type, setType] = useState('skill')
@@ -42,7 +42,7 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
       return
     }
 
-    actions.componentsActions.onRegisterComponent({
+    onRegisterComponent({
       name,
       description,
       type,
@@ -57,7 +57,7 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
       outputSchemaJson,
       promptTemplate,
       toolIdsJson,
-    })
+    } as any)
 
     onClose()
   }

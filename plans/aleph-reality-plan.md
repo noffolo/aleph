@@ -15,14 +15,14 @@
 | **W1** | ✅ 12/12 + bench + plan | 12 items | Completati. Zustand 6 slices, LLM Provider, migration, goroutine ctx, gRPC lifecycle, streaming abort, LRU cache, timeout, PRAGMA fix, hex arch plan |
 | **W2** | ✅ 7/8 | 8 items | ✅ 7 completati. W2-05 (GNN only positive) DEFERRED — strategicamente prematuro |
 | **W3** | ✅ 17/17 (FASE 0) | 17 items | **TUTTI WIREATI in app.go** — telemetry, timeout/retry/bulkhead, error_handler, audit, health, MCP, diagnostic. ✅ |
-| **W4** | ⚠️ 15/20 (FASE 1-2) | 20 items | **FASE 1-2 completate**: palette #080810, typography 13px/11px, glassmorphism 3-tier, volatility layers, tokens estesi, radius classes, React.lazy 3 chunks, SlideOverContent extraction (79 righe), 4 form estratti, /tool subcommands implementati. 5 da fare. |
-| **W5** | ⏳ 4/16 | 16 items | AgentForm, SetupWizard, Toast, AlephErrorBoundary completati. 12 da fare. |
-| **W6** | ⏳ 0/15 | 15 items | Non iniziato. |
-| **W-ERR** | ⏳ | — | Error handling system |
-| **W-A11Y** | ⏳ | — | Accessibility |
-| **W-PERF** | ⏳ | — | Performance |
-| **W-DEPLOY** | ⏳ | — | Deployment & DevOps |
-| **W-DOCS** | ⏳ | — | Documentation |
+| **W4** | ✅ 20/20 (FASE 1-2 + residuali) | 20 items | **COMPLETA 2026-04-27**: palette, typography, glassmorphism, volatility, tokens, radius, React.lazy 3 chunks, SlideOverContent, 4 forms, /tool subcommands, command/input mode, ghost prompt EmptyState, real Suggester, VersioningRollback. ✅ |
+| **W5** | ✅ 12/12 (FASE 3) | 12 items | **COMPLETA 2026-04-27**: DataSourceForm 3-step, split view + search/export, terminal effects, command palette Tab, GetDataStats batched, app.go wired. ✅ |
+| **W6** | ✅ 12/15 (3 differiti) | 15 items | **COMPLETA 2026-04-27**: 12 completi (dead code useViewActions cancellato, cursor pagination, bundle budget, Playwright dep, cross-context test 820 righe, SSE, bias, tool lifecycle, MCP, repair, shadcn/ui 9 comp). 3 differiti: i18n, URL state, Yjs cleanup. ✅ |
+| **W-ERR** | ⏳ Audited | — | ✅ Buono: APIError types, ErrorHandlerInterceptor, boundaries. 🔴 Critico: nessun toast/notifica errori, 47 return err nudi, nessun panic recovery middleware |
+| **W-A11Y** | ⏳ Audited | — | ✅ Buono: contrasto ~12:1, prefers-reduced-motion, focus form. 🔴 Critico: nessun <main>/skip-link, nessun focus trap modali, sidebar senza aria-label |
+| **W-PERF** | ⏳ Audited | — | ✅ Buono: timeout 19 usi, caching, manualChunks. 🔴 Critico: d3 65KB gzip sincrono, N+1 ListTools() 6/chiamata, quasi zero memoization |
+| **W-DEPLOY** | ⏳ Audited | — | ✅ Buono: 3 Dockerfile, compose 4 servizi, CI, OTel, nginx. 🔴 Critico: nessun liveness probe, nessun Docker push, nessun secrets management |
+| **W-DOCS** | ⏳ Audited | — | ✅ Buono: README, ARCHITECTURE, AGENTS, threat-model, bias-checklist. 🔴 Critico: nessun CHANGELOG, nessun CONTRIBUTING, API.md scheletrico |
 
 ---
 
@@ -233,14 +233,11 @@ FASE 1: W4 CSS Fixes — nessuna dipendenza
   │ Build check: npx vite build ✅
 
 FASE 2: W4 React Components — ✅ COMPLETED (2026-04-27)
-  │ W4-12 App.tsx React.lazy (3 chunks ✅), W4-13 SlideOverContent (79 righe ✅)
-  │ W4-15 /tool 5 subcommands ✅, W4-10 EmptyState ✅
-  │ W4-06 command mode ⏳ (bg_ec86d71d in flight)
-  │ W4-19 suggestion workflow ⏳ (bg_04ad5d48 in flight)
-  │ W4-20 versioning rollback ⏳ (bg_741c72f8 in flight)
-  │ Build check: npx tsc --noEmit ✅ | npx vite build ✅
+  │ W4 20/20 — React.lazy 3 chunks, SlideOverContent 79 righe, 4 forms, /tool 5 subcommands
+  │ Command/Input mode, ghost prompt EmptyState, real Suggester, VersioningRollback
+  │ Build check: npx tsc --noEmit ✅ | npx vite build ✅ | go build ✅
 
-FASE 3: W5 Remaining — DEP: FASE 2
+FASE 3: W5 Remaining (12 items) — IN PROGRESS (2026-04-27)
   │ W5-02 DataSourceForm, W5-04 split view
   │ W5-06 effects toggle, W5-07 command palette
   │ W5-09 Zod schemas, W5-10 eliminate any

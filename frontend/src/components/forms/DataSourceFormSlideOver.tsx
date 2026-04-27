@@ -1,90 +1,291 @@
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
-import { useViewActions } from '../../hooks/useViewActions'
+import { useAppActions } from '../../hooks/useAppActions'
+import { useDataSourceActions } from '../../hooks/domain/useDataSourceActions'
+import { Upload, Globe, Database, FileText, Code, Link, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 
 interface DataSourceFormSlideOverProps {
   title?: string
 }
 
+type Mode = 'file' | 'api' | 'db'
+
 export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps) {
   const store = useStore()
-  const actions = useViewActions()
+  const { loadProjectData } = useAppActions()
+  const { onAddSource } = useDataSourceActions(loadProjectData)
+  
+  const [step, setStep] = useState(1)
+  const [mode, setMode] = useState<Mode>('file')
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [sourceType, setSourceType] = useState('csv')
   const [configJson, setConfigJson] = useState('{}')
+  const [errors, setErrors] = useState<Partial<Record<string, string>>>({})
+
+  const updateConfig = (key: string, value: any) => {
+    try {
+      const config = JSON.parse(configJson || '{}')
+      config[key] = value
+      setConfigJson(JSON.stringify(config, null, 2))
+    } catch {
+      setConfigJson(`{\\n  "${key}": "${value}"\\n}`)
+    }
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const content = event.target?.result as string
+      const config = {
+        path: file.name,
+        content: content,
+        size: file.size,
+        type: file.type || 'text/plain'
+      }
+      setConfigJson(JSON.stringify(config, null, 2))
+    }
+    reader.readAsText(file)
+  }
+
+  const validateStep = (): boolean => {
+    const newErrors: Partial<Record<string, string>> = {}
+    
+      if (step === 1) {
+        if (!name.trim()) newErrors.name = 'Il nome è obbligatorio'
+      } else if (step === 3) {
+        try {
+          JSON.parse(configJson)
+        } catch {
+          newErrors.configJson = 'Il JSON di configurazione non è valido'
+        }
+        
+        const config = JSON.parse(configJson || '{}')
+        if (mode === 'api' && config.url && !/^https?:\/\/.+/.test(config.url)) {
+          newErrors.url = 'L\'URL deve iniziare con http o https'
+        }
+        if (mode === 'db' && (!config.connectionString || !config.connectionString.trim())) {
+          newErrors.connectionString = 'La stringa di connessione è obbligatoria'
+        }
+      }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleSubmit = () => {
-    if (!name.trim()) {
-      alert('Il nome è obbligatorio')
-      return
-    }
+    if (!validateStep()) return
 
-    try {
-      JSON.parse(configJson)
-    } catch {
-      alert('Config JSON non valido')
-      return
-    }
-
-    actions.dataSourcesActions.onAddSource({ name, sourceType, configJson })
+    onAddSource({ name, sourceType, configJson })
     store.setSlideOverContent(null)
   }
 
+  const nextStep = () => {
+    if (validateStep()) setStep(s => s + 1)
+  }
+
+  const prevStep = () => setStep(s => s - 1)
+
   return (
-    <div className="p-6 space-y-4">
-      <h3 className="text-xl font-bold">{title || 'Nuova Sorgente Dati'}</h3>
-
-      <div className="space-y-3">
-        <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
-            placeholder="Es: Dati CSV clienti"
-          />
-        </div>
-
-        <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo Sorgente</label>
-          <select
-            value={sourceType}
-            onChange={(e) => setSourceType(e.target.value)}
-            className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
-          >
-            <option value="csv">CSV</option>
-            <option value="api">API REST</option>
-            <option value="database">Database</option>
-            <option value="json">JSON File</option>
-            <option value="xml">XML</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Configurazione JSON</label>
-          <textarea
-            value={configJson}
-            onChange={(e) => setConfigJson(e.target.value)}
-            rows={6}
-            className="w-full p-3 bg-background rounded-lg border border-border text-xs font-mono resize-none focus:outline-none focus:border-primary/50"
-            placeholder={`{\n  "url": "https://...",\n  "format": "csv",\n  "columns": []\n}`}
-          />
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-xl font-bold">{title || 'Nuova Sorgente Dati'}</h3>
+        <div className="flex gap-1">
+          {[1, 2, 3].map(s => (
+            <div 
+              key={s} 
+              className={`w-2 h-2 rounded-full transition-colors ${step === s ? 'bg-primary' : 'bg-border'}`}
+            />
+          ))}
         </div>
       </div>
 
-      <div className="flex gap-3 pt-2">
+      <div className="space-y-4">
+        {step === 1 && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+            <div>
+              <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome Sorgente</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
+                  errors.name ? 'border-danger bg-danger/5' : 'border-border'
+                }`}
+                placeholder="Es: Dati Clienti Q3"
+              />
+              {errors.name && <p className="text-danger text-[10px] mt-1">{errors.name}</p>}
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione (Opzionale)</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 resize-none"
+                placeholder="Descrivi questa sorgente dati..."
+              />
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Scegli Tipo Sorgente</label>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={() => { setMode('file'); setSourceType('csv'); }}
+                className={`flex flex-col items-center justify-center p-4 rounded-lg border transition-all ${
+                  mode === 'file' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-textDim hover:bg-surface-alt'
+                }`}
+              >
+                <Upload size={24} className="mb-2" />
+                <span className="text-[10px] font-bold uppercase">File</span>
+              </button>
+              <button
+                onClick={() => { setMode('api'); setSourceType('api'); }}
+                className={`flex flex-col items-center justify-center p-4 rounded-lg border transition-all ${
+                  mode === 'api' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-textDim hover:bg-surface-alt'
+                }`}
+              >
+                <Globe size={24} className="mb-2" />
+                <span className="text-[10px] font-bold uppercase">API</span>
+              </button>
+              <button
+                onClick={() => { setMode('db'); setSourceType('database'); }}
+                className={`flex flex-col items-center justify-center p-4 rounded-lg border transition-all ${
+                  mode === 'db' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-textDim hover:bg-surface-alt'
+                }`}
+              >
+                <Database size={24} className="mb-2" />
+                <span className="text-[10px] font-bold uppercase">DB</span>
+              </button>
+            </div>
+
+            {mode === 'file' && (
+              <div className="pt-2">
+                <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-2 block">Formato File</label>
+                <div className="flex gap-2">
+                  {[
+                    { id: 'csv', label: 'CSV', icon: FileText },
+                    { id: 'json', label: 'JSON', icon: Code },
+                    { id: 'xml', label: 'XML', icon: FileText },
+                  ].map(({ id, label, icon: Icon }) => (
+                    <button
+                      key={id}
+                      onClick={() => setSourceType(id)}
+                      className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-lg border text-xs transition-all ${
+                        sourceType === id ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-textDim'
+                      }`}
+                    >
+                      <Icon size={14} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
+            {mode === 'file' && (
+              <div>
+                <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Carica File</label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".csv,.json,.xml"
+                    onChange={handleFileUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="w-full p-6 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-textDim hover:border-primary/50 transition-colors bg-background">
+                    <Upload size={24} className="mb-2" />
+                    <span className="text-xs font-medium">Trascina qui o clicca per caricare</span>
+                    <span className="text-[10px] opacity-50 mt-1">CSV, JSON, XML</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {mode === 'api' && (
+              <div>
+                <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">URL Endpoint</label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-textDim">
+                    <Link size={14} />
+                  </div>
+                  <input
+                    value={JSON.parse(configJson || '{}').url || ''}
+                    onChange={(e) => updateConfig('url', e.target.value)}
+                    className={`w-full p-3 pl-10 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
+                      errors.url ? 'border-danger bg-danger/5' : 'border-border'
+                    }`}
+                    placeholder="https://api.example.com/v1/data"
+                  />
+                  {errors.url && <p className="text-danger text-[10px] mt-1">{errors.url}</p>}
+                </div>
+              </div>
+            )}
+
+            {mode === 'db' && (
+              <div>
+                <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">ConnectionString</label>
+                <input
+                  value={JSON.parse(configJson || '{}').connectionString || ''}
+                  onChange={(e) => updateConfig('connectionString', e.target.value)}
+                  className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
+                    errors.connectionString ? 'border-danger bg-danger/5' : 'border-border'
+                  }`}
+                  placeholder="postgresql://user:pass@localhost:5432/dbname"
+                />
+                {errors.connectionString && <p className="text-danger text-[10px] mt-1">{errors.connectionString}</p>}
+              </div>
+            )}
+
+            <div>
+              <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Configurazione Avanzata (JSON)</label>
+              <textarea
+                value={configJson}
+                onChange={(e) => setConfigJson(e.target.value)}
+                rows={6}
+                className={`w-full p-3 bg-background rounded-lg border text-xs font-mono resize-none focus:outline-none focus:border-primary/50 transition-colors ${
+                  errors.configJson ? 'border-danger bg-danger/5' : 'border-border'
+                }`}
+              />
+              {errors.configJson && <p className="text-danger text-[10px] mt-1">{errors.configJson}</p>}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-3 pt-4">
         <button
-          onClick={() => store.setSlideOverContent(null)}
-          className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
+          onClick={step === 1 ? () => store.setSlideOverContent(null) : prevStep}
+          className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border flex items-center justify-center gap-2"
         >
-          Annulla
+          {step === 1 ? 'Annulla' : <><ChevronLeft size={16} /> Indietro</>}
         </button>
-        <button
-          onClick={handleSubmit}
-          className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors"
-        >
-          Crea Sorgente
-        </button>
+        
+        {step < 3 ? (
+          <button
+            onClick={nextStep}
+            className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors flex items-center justify-center gap-2"
+          >
+            Avanti <ChevronRight size={16} />
+          </button>
+        ) : (
+          <button
+            onClick={handleSubmit}
+            className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors flex items-center justify-center gap-2"
+          >
+            <Check size={16} /> Crea Sorgente
+          </button>
+        )}
       </div>
     </div>
   )

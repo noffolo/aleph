@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
-import { useViewActions } from '../../hooks/useViewActions'
+import { useAppActions } from '../../hooks/useAppActions'
+import { useSkillActions } from '../../hooks/domain/useSkillActions'
 import type { Skill, Tool } from '../../store/types'
 
 interface SkillFormSlideOverProps {
@@ -11,7 +12,8 @@ interface SkillFormSlideOverProps {
 
 export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverProps) {
   const store = useStore()
-  const actions = useViewActions()
+  const { loadProjectData } = useAppActions()
+  const { onCreateSkill } = useSkillActions(loadProjectData)
   const isEdit = skill && skill.id
   const [name, setName] = useState(skill?.name || '')
   const [description, setDescription] = useState(skill?.description || '')
@@ -27,7 +29,7 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
       alert('Update skill non ancora implementato')
       store.setSlideOverContent(null)
     } else {
-      actions.skillsActions.onCreateSkill(name, description, toolIds)
+      onCreateSkill(name, description, toolIds)
       store.setSlideOverContent(null)
     }
   }

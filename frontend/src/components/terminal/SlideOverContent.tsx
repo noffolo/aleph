@@ -1,5 +1,4 @@
 import { useStore } from '../../store/useStore'
-import { useViewActions } from '../../hooks/useViewActions'
 import type { Skill, Tool, SandboxResult, Agent, RegistryComponent } from '../../store/types'
 import { AgentFormSlideOver } from '../forms/AgentFormSlideOver'
 import { SkillFormSlideOver } from '../forms/SkillFormSlideOver'
@@ -15,7 +14,6 @@ import { DetailSlideOver } from '../forms/DetailSlideOver'
 
 export function SlideOverContent() {
   const store = useStore()
-  const actions = useViewActions()
   const content = store.slideOverContent
   if (!content) return null
 

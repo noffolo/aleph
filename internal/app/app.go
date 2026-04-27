@@ -39,6 +39,10 @@ import (
 	"github.com/ff3300/aleph-v2/internal/service/notification"
 	"github.com/ff3300/aleph-v2/internal/storage"
 	"github.com/ff3300/aleph-v2/internal/telemetry"
+	"github.com/ff3300/aleph-v2/internal/tools/adaptation"
+	"github.com/ff3300/aleph-v2/internal/tools/codeflow"
+	"github.com/ff3300/aleph-v2/internal/tools/humanecosystems"
+	"github.com/ff3300/aleph-v2/internal/tools/osint"
 	"log/slog"
 )
 
@@ -180,6 +184,17 @@ func (a *AlephApp) Serve(port int) error {
 	sandboxHandler := handler.NewSandboxServiceHandler(sandboxManager, a.logger)
 	registryHandler := handler.NewRegistryServiceHandler(registryMgr, a.logger)
 
+	// ── Tool Execution & CodeFlow ─────────────────────────────────────────────
+	codeFlow := codeflow.NewCodeFlow()
+	shadowbroker := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	duckdbLayer := humanecosystems.NewDuckDBLayer(a.db)
+	toolExecHandler := handler.NewToolExecuteHandler(a.metaRepo, shadowbroker, duckdbLayer)
+	codeFlowHandler := handler.NewCodeFlowHandler(codeFlow)
+
+	// ── Tool Suggestion Pipeline ──────────────────────────────────────────────
+	suggestPipeline := adaptation.NewPipeline(a.metaRepo)
+	toolSuggestHandler := handler.NewToolSuggestHandler(discoveryEngine, suggestPipeline, a.cfg.MCPServerURIs)
+
 	// ── Routes ───────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 	routes.RegisterRoutes(mux, routes.RegisterConfig{
@@ -188,7 +203,7 @@ func (a *AlephApp) Serve(port int) error {
 		SSEHandler:        nil, // TODO: wire SSE handler
 		DiagnosticMonitor: diagnosticMonitor,
 		Frontend:          a.frontend,
-		CodeFlow:          nil, // TODO: wire CodeFlow
+		CodeFlow:          codeFlow,
 		QueryHandler:      queryHandler,
 		ProjectHandler:    projectHandler,
 		AgentHandler:      agentHandler,
@@ -201,9 +216,9 @@ func (a *AlephApp) Serve(port int) error {
 		IngestionHandler:  ingestionHandler,
 		SandboxHandler:    sandboxHandler,
 		RegistryHandler:   registryHandler,
-		ToolExecHandler:   nil, // TODO: wire ToolExecHandler
-		CodeFlowHandler:   nil, // TODO: wire CodeFlowHandler
-		SuggestPipeline:   nil, // TODO: wire SuggestPipeline
+		ToolExecHandler:   toolExecHandler,
+		CodeFlowHandler:   codeFlowHandler,
+		SuggestPipeline:   toolSuggestHandler,
 		Interceptors:      interceptors,
 	})
 

@@ -1,5 +1,6 @@
 import { useStore } from '../../store/useStore'
-import { useViewActions } from '../../hooks/useViewActions'
+import { useAppActions } from '../../hooks/useAppActions'
+import { useSkillActions } from '../../hooks/domain/useSkillActions'
 import type { Skill } from '../../store/types'
 
 interface SkillExecuteSlideOverProps {
@@ -9,7 +10,8 @@ interface SkillExecuteSlideOverProps {
 
 export function SkillExecuteSlideOver({ skill, title }: SkillExecuteSlideOverProps) {
   const store = useStore()
-  const actions = useViewActions()
+  const { loadProjectData } = useAppActions()
+  const { onRunSkill } = useSkillActions(loadProjectData)
   const skillId = skill.id
 
   if (!skill || !skill.id) return null
@@ -39,7 +41,7 @@ export function SkillExecuteSlideOver({ skill, title }: SkillExecuteSlideOverPro
         />
       </div>
       <button
-        onClick={() => actions.skillsActions.onRunSkill(skillId)}
+        onClick={() => onRunSkill(skillId)}
         className="w-full py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors"
       >
         Esegui Skill nel Sandbox

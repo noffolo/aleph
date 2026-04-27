@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Command, Database, Zap, ArrowRight } from 'lucide-react';
+import { Command, Database, Zap, ArrowRight, Terminal } from 'lucide-react';
+import { SLASH_COMMANDS, executeCommand, getTabCompletion } from './terminal/slashCommands';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -11,7 +12,7 @@ interface CommandPaletteProps {
 }
 
 interface PaletteItem {
-  type: 'object' | 'project';
+  type: 'object' | 'project' | 'command';
   key: string;
   label: string;
   id: string;
@@ -33,10 +34,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   const filteredObjects = availableObjects.filter(o => o.toLowerCase().includes(search.toLowerCase()));
   const filteredProjects = projects.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredCommands = search.startsWith('/') 
+    ? SLASH_COMMANDS.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.description.toLowerCase().includes(search.toLowerCase()))
+    : [];
 
   const items: PaletteItem[] = [
     ...filteredObjects.map(o => ({ type: 'object' as const, key: `obj-${o}`, label: o, id: o })),
     ...filteredProjects.map(p => ({ type: 'project' as const, key: `proj-${p.id}`, label: p.name, id: p.id })),
+    ...filteredCommands.map(c => ({ type: 'command' as const, key: `cmd-${c.name}`, label: c.name, id: c.name })),
   ];
 
   const executeSelected = () => {
@@ -44,8 +49,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     const item = items[selectedIndex];
     if (item.type === 'object') {
       onSelectObject(item.id);
-    } else {
+    } else if (item.type === 'project') {
       onSelectProject(item.id);
+    } else if (item.type === 'command') {
+      executeCommand(item.id);
     }
     onClose();
   };
@@ -55,6 +62,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex(i => Math.min(i + 1, items.length - 1)); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIndex(i => Math.max(i - 1, 0)); return; }
     if (e.key === 'Enter') { e.preventDefault(); executeSelected(); return; }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      if (search.startsWith('/')) {
+        const completions = getTabCompletion(search);
+        if (completions.length > 0) {
+          const currentC = completions[0];
+          const nextC = completions[1] || completions[0];
+          if (search === currentC) {
+            setSearch(nextC);
+          } else {
+            setSearch(currentC);
+          }
+          setSelectedIndex(0);
+        }
+      }
+      return;
+    }
   };
 
   useEffect(() => {
@@ -82,53 +106,86 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
            <div className="px-2 py-1 bg-surface rounded-lg border border-border text-[10px] font-bold text-textMuted">ESC</div>
         </div>
 
-        <div className="max-h-[60vh] overflow-auto p-4 custom-scrollbar" ref={listRef}>
-           {search && filteredObjects.length > 0 && (
-             <div className="mb-6">
-                <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">Entità Ontologiche</div>
-                <div className="space-y-1">
-                   {filteredObjects.map((o, idx) => (
-                     <button
-                       key={o}
-                       data-idx={idx}
-                        onClick={() => { onSelectObject(o); onClose(); }}
-                       className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === idx ? 'bg-primary/10' : 'hover:bg-primary/10'}`}
-                     >
-                        <div className={`flex items-center space-x-3 font-bold ${selectedIndex === idx ? 'text-primary' : 'text-textMuted group-hover:text-primary'}`}>
-                           <Database size={18} />
-                           <span>{o}</span>
-                        </div>
-                        <ArrowRight size={16} className={selectedIndex === idx ? 'text-primary/50' : 'text-textDim group-hover:text-primary/50'} />
-                     </button>
-                   ))}
-                </div>
-             </div>
-           )}
+         <div className="max-h-[60vh] overflow-auto p-4 custom-scrollbar" ref={listRef}>
+            {search && filteredCommands.length > 0 && (
+              <div className="mb-6">
+                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">Comandi Slash</div>
+                 <div className="space-y-1">
+                    {filteredCommands.map((c, cIdx) => {
+                      const idx = cIdx;
+                      return (
+                        <button
+                          key={c.name}
+                          data-idx={idx}
+                          onClick={() => { executeCommand(c.name); onClose(); }}
+                          className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === idx ? 'bg-primary/10' : 'hover:bg-primary/10'}`}
+                        >
+                           <div className={`flex items-center space-x-3 font-bold ${selectedIndex === idx ? 'text-primary' : 'text-textMuted group-hover:text-primary'}`}>
+                              <Terminal size={18} />
+                              <span className="flex items-center space-x-2">
+                                <span>{c.name}</span>
+                                <span className="text-[10px] font-normal text-textDim opacity-50 group-hover:opacity-100 transition-opacity"> {c.description}</span>
+                              </span>
+                            </div>
+                            <ArrowRight size={16} className={selectedIndex === idx ? 'text-primary/50' : 'text-textDim group-hover:text-primary/50'} />
+                        </button>
+                      );
+                    })}
+                 </div>
+              </div>
+            )}
 
-           {search && filteredProjects.length > 0 && (
-             <div className="mb-6">
-                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">Spazi di lavoro</div>
-                <div className="space-y-1">
-                   {filteredProjects.map((p, pIdx) => {
-                     const idx = filteredObjects.length + pIdx;
-                     return (
-                       <button
-                         key={p.id}
-                         data-idx={idx}
-                         onClick={() => { onSelectProject(p.id); onClose(); }}
-                         className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === idx ? 'bg-warning/10' : 'hover:bg-warning/10'}`}
-                       >
-                          <div className={`flex items-center space-x-3 font-bold ${selectedIndex === idx ? 'text-warning' : 'text-textMuted group-hover:text-warning'}`}>
-                             <Zap size={18} />
-                             <span>{p.name}</span>
-                          </div>
-                          <ArrowRight size={16} className={selectedIndex === idx ? 'text-warning/50' : 'text-textDim group-hover:text-warning/50'} />
-                       </button>
-                     );
-                   })}
-                </div>
-             </div>
-           )}
+            {search && filteredObjects.length > 0 && (
+              <div className="mb-6">
+                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">Entità Ontologiche</div>
+                 <div className="space-y-1">
+                    {filteredObjects.map((o, idx) => {
+                      const actualIdx = filteredCommands.length + idx;
+                      return (
+                        <button
+                          key={o}
+                          data-idx={actualIdx}
+                         onClick={() => { onSelectObject(o); onClose(); }}
+                          className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === actualIdx ? 'bg-primary/10' : 'hover:bg-primary/10'}`}
+                        >
+                         <div className={`flex items-center space-x-3 font-bold ${selectedIndex === actualIdx ? 'text-primary' : 'text-textMuted group-hover:text-primary'}`}>
+                            <Database size={18} />
+                            <span>{o}</span>
+                         </div>
+                         <ArrowRight size={16} className={selectedIndex === actualIdx ? 'text-primary/50' : 'text-textDim group-hover:text-primary/50'} />
+                        </button>
+                      );
+                    })}
+                 </div>
+              </div>
+            )}
+
+
+            {search && filteredProjects.length > 0 && (
+              <div className="mb-6">
+                  <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">Spazi di lavoro</div>
+                 <div className="space-y-1">
+                    {filteredProjects.map((p, pIdx) => {
+                      const actualIdx = filteredCommands.length + filteredObjects.length + pIdx;
+                      return (
+                        <button
+                          key={p.id}
+                          data-idx={actualIdx}
+                          onClick={() => { onSelectProject(p.id); onClose(); }}
+                          className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === actualIdx ? 'bg-warning/10' : 'hover:bg-warning/10'}`}
+                        >
+                           <div className={`flex items-center space-x-3 font-bold ${selectedIndex === actualIdx ? 'text-warning' : 'text-textMuted group-hover:text-warning'}`}>
+                              <Zap size={18} />
+                              <span>{p.name}</span>
+                           </div>
+                           <ArrowRight size={16} className={selectedIndex === actualIdx ? 'text-warning/50' : 'text-textDim group-hover:text-warning/50'} />
+                        </button>
+                      );
+                    })}
+                 </div>
+              </div>
+            )}
+
 
            {!search && (
              <div className="text-center py-20">

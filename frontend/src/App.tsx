@@ -151,43 +151,44 @@ function App() {
             </div>
           )}
 
-          <main className="flex-1 overflow-hidden p-4">
-             <CopilotView
-               agents={store.agents}
-               selectedAgent={store.selectedAgent}
-               setSelectedAgent={store.setSelectedAgent}
-               chat={store.chat}
-               input={store.input}
-               setInput={store.setInput}
-               onSend={onSend}
-               isStreaming={store.isStreaming}
-               onCancelStream={() => store.cancelStream()}
-               onConfirmAction={onConfirmAction}
-               onClearChat={() => store.clearChat()}
-             />
-          </main>
+           <main className="flex-1 overflow-hidden p-4 relative">
+              <TerminalEffects />
+              <CopilotView
+                agents={store.agents}
+                selectedAgent={store.selectedAgent}
+                setSelectedAgent={store.setSelectedAgent}
+                chat={store.chat}
+                input={store.input}
+                setInput={store.setInput}
+                onSend={onSend}
+                isStreaming={store.isStreaming}
+                onCancelStream={() => store.cancelStream()}
+                onConfirmAction={onConfirmAction}
+                onClearChat={() => store.clearChat()}
+              />
+           </main>
+
 
           <AlephErrorBoundary>
             <InlineRenderer />
           </AlephErrorBoundary>
 
-          {store.slideOverContent && (
-            <AlephErrorBoundary>
-              <SlideOverPanel
-                isOpen={true}
-                onClose={() => store.setSlideOverContent(null)}
-                title={store.slideOverContent.title}
-              >
-                <Suspense fallback={<div className="p-4 text-textDim text-xs font-mono">Loading...</div>}>
-                  <SlideOverContent />
-                </Suspense>
-              </SlideOverPanel>
-            </AlephErrorBoundary>
-          )}
+           {store.slideOverContent && (
+             <AlephErrorBoundary>
+               <SlideOverPanel
+                 isOpen={true}
+                 onClose={() => store.setSlideOverContent(null)}
+                 title={store.slideOverContent.title}
+               >
+                 <Suspense fallback={<div className="p-4 text-textDim text-xs font-mono">Loading...</div>}>
+                   <SlideOverContent />
+                 </Suspense>
+               </SlideOverPanel>
+             </AlephErrorBoundary>
+           )}
+           <StatusBar projectID={store.projectID} ollamaHealthy={store.ollamaHealthy} nlpHealthy={store.nlpHealthy} />
+         </div>
 
-          <TerminalEffects />
-          <StatusBar projectID={store.projectID} ollamaHealthy={store.ollamaHealthy} nlpHealthy={store.nlpHealthy} />
-        </div>
       </AlephErrorBoundary>
     </div>
   )

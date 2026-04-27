@@ -236,50 +236,102 @@ func (h *QueryHandler) GetDataStats(ctx context.Context, req *connect.Request[v1
 	baseSql, err := compiler.CompileObject(objName)
 	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
 	
+	// Query 1: Discover columns and types
 	rows, err := h.db.Query(fmt.Sprintf("SELECT * FROM (%s) LIMIT 0", baseSql))
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-	cols, _ := rows.Columns()
+	allCols, _ := rows.Columns()
 	colTypes, _ := rows.ColumnTypes()
 	rows.Close()
 
-	var stats []*v1.ColumnStats
-	for i, col := range cols {
-		if !validName.MatchString(col) {
+	// Filter to valid column names, determine aggregatability
+	var cols []string
+	var aggFlags []bool
+	for i, c := range allCols {
+		if !validName.MatchString(c) {
 			continue
 		}
-		s := &v1.ColumnStats{ColumnName: col, TopValues: make(map[string]int64)}
-		
+		cols = append(cols, c)
 		dbType := strings.ToUpper(colTypes[i].DatabaseTypeName())
-		isAggregatable := !strings.Contains(dbType, "STRUCT") && !strings.Contains(dbType, "LIST") && !strings.Contains(dbType, "MAP") && dbType != "BOOLEAN"
+		isAgg := !strings.Contains(dbType, "STRUCT") && !strings.Contains(dbType, "LIST") && !strings.Contains(dbType, "MAP") && dbType != "BOOLEAN"
+		aggFlags = append(aggFlags, isAgg)
+	}
 
-		var q string
-		if isAggregatable {
-			q = fmt.Sprintf(`SELECT MIN("%s"), MAX("%s"), COUNT("%s"), COUNT(DISTINCT "%s") FROM (%s)`, col, col, col, col, baseSql)
+	stats := make([]*v1.ColumnStats, len(cols))
+	for i, c := range cols {
+		stats[i] = &v1.ColumnStats{ColumnName: c, TopValues: make(map[string]int64)}
+	}
+
+	if len(cols) == 0 {
+		return connect.NewResponse(&v1.GetDataStatsResponse{Stats: stats}), nil
+	}
+
+	// Query 2: Single batch — MIN/MAX/COUNT/COUNT(DISTINCT) for ALL columns (1 query total)
+	var selectParts []string
+	var scanTargets []interface{}
+	for i, c := range cols {
+		if aggFlags[i] {
+			selectParts = append(selectParts,
+				fmt.Sprintf(`MIN("%s"), MAX("%s"), COUNT("%s"), COUNT(DISTINCT "%s")`, c, c, c, c))
 		} else {
-			q = fmt.Sprintf(`SELECT NULL, NULL, COUNT("%s"), COUNT(DISTINCT "%s") FROM (%s)`, col, col, baseSql)
+			selectParts = append(selectParts,
+				fmt.Sprintf(`NULL, NULL, COUNT("%s"), COUNT(DISTINCT "%s")`, c, c))
 		}
-		
-		var min, max interface{}
-		h.db.QueryRow(q).Scan(&min, &max, &s.Count, &s.UniqueCount)
-		if min != nil { s.Min = fmt.Sprintf("%v", min) }
-		if max != nil { s.Max = fmt.Sprintf("%v", max) }
+		scanTargets = append(scanTargets, new(interface{}), new(interface{}), new(int64), new(int64))
+	}
 
-		if isAggregatable {
-			topQ := fmt.Sprintf(`SELECT "%s", COUNT(*) as cnt FROM (%s) GROUP BY "%s" ORDER BY cnt DESC LIMIT 10`, col, baseSql, col)
-			topRows, topErr := h.db.Query(topQ)
-			if topErr == nil {
-				for topRows.Next() {
-					var val interface{}
-					var cnt int64
-					if err := topRows.Scan(&val, &cnt); err == nil && val != nil {
-						s.TopValues[fmt.Sprintf("%v", val)] = cnt
+	aggSQL := fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(selectParts, ", "), baseSql)
+	if err := h.db.QueryRow(aggSQL).Scan(scanTargets...); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	for i := range cols {
+		minPtr := scanTargets[i*4+0].(*interface{})
+		maxPtr := scanTargets[i*4+1].(*interface{})
+		countPtr := scanTargets[i*4+2].(*int64)
+		distinctPtr := scanTargets[i*4+3].(*int64)
+		if *minPtr != nil {
+			stats[i].Min = fmt.Sprintf("%v", *minPtr)
+		}
+		if *maxPtr != nil {
+			stats[i].Max = fmt.Sprintf("%v", *maxPtr)
+		}
+		stats[i].Count = *countPtr
+		stats[i].UniqueCount = *distinctPtr
+	}
+
+	// Query 3: UNION ALL — top 10 values for aggregatable columns only (1 query total)
+	var aggIndices []int
+	for i, agg := range aggFlags {
+		if agg {
+			aggIndices = append(aggIndices, i)
+		}
+	}
+
+	if len(aggIndices) > 0 {
+		var unionParts []string
+		for _, si := range aggIndices {
+			c := cols[si]
+			unionParts = append(unionParts,
+				fmt.Sprintf(`SELECT * FROM (SELECT '%s' AS cn, CAST("%s" AS VARCHAR) AS val, COUNT(*) AS cnt FROM (%s) GROUP BY "%s" ORDER BY cnt DESC LIMIT 10)`,
+					c, c, baseSql, c))
+		}
+		topSQL := strings.Join(unionParts, " UNION ALL ")
+		topRows, topErr := h.db.Query(topSQL)
+		if topErr == nil {
+			for topRows.Next() {
+				var cn, val string
+				var cnt int64
+				if err := topRows.Scan(&cn, &val, &cnt); err == nil {
+					for _, si := range aggIndices {
+						if cols[si] == cn {
+							stats[si].TopValues[val] = cnt
+							break
+						}
 					}
 				}
-				topRows.Close()
 			}
+			topRows.Close()
 		}
-
-		stats = append(stats, s)
 	}
 	return connect.NewResponse(&v1.GetDataStatsResponse{Stats: stats}), nil
 }

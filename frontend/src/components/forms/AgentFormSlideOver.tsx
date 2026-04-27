@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
-import { useViewActions } from '../../hooks/useViewActions'
+import { useAppActions } from '../../hooks/useAppActions'
+import { useAgentActions } from '../../hooks/domain/useAgentActions'
 import type { Agent } from '../../store/types'
 
 interface AgentFormSlideOverProps {
@@ -10,7 +11,8 @@ interface AgentFormSlideOverProps {
 
 export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
   const store = useStore()
-  const actions = useViewActions()
+  const { loadProjectData } = useAppActions()
+  const { onCreateAgent, onUpdateAgent } = useAgentActions(loadProjectData)
   const isEdit = agent && agent.id
   const [name, setName] = useState(agent?.name || '')
   const [model, setModel] = useState(agent?.model || 'gpt-4o-mini')
@@ -26,7 +28,7 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
     }
 
     if (isEdit && agent?.id) {
-      actions.agentsActions.onUpdateAgent({
+      onUpdateAgent({
         id: agent.id,
         name,
         model,
@@ -35,9 +37,9 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
         baseUrl,
         systemPrompt,
         skillIds: agent.skillIds || [],
-      })
+      } as any)
     } else {
-      actions.agentsActions.onCreateAgent(name, model, systemPrompt, provider, apiKey, baseUrl)
+      onCreateAgent(name, model, systemPrompt, provider, apiKey, baseUrl)
     }
 
     store.setSlideOverContent(null)

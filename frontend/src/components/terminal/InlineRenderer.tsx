@@ -1,6 +1,15 @@
 import React, { Suspense } from 'react'
 import { useStore } from '../../store/useStore'
-import { useViewActions } from '../../hooks/useViewActions'
+import { useAppActions } from '../../hooks/useAppActions'
+import { useExplorerActions } from '../../hooks/domain/useExplorerActions'
+import { useAgentActions } from '../../hooks/domain/useAgentActions'
+import { useOntologyActions } from '../../hooks/domain/useOntologyActions'
+import { useDataSourceActions } from '../../hooks/domain/useDataSourceActions'
+import { useSkillActions } from '../../hooks/domain/useSkillActions'
+import { useToolActions } from '../../hooks/domain/useToolActions'
+import { useComponentActions } from '../../hooks/domain/useComponentActions'
+import { useSettingsActions } from '../../hooks/domain/useSettingsActions'
+import { useLibraryActions } from '../../hooks/domain/useLibraryActions'
 import { InlineErrorBoundary } from '../InlineErrorBoundary'
 
 const ExplorerView = React.lazy(() => import('../ExplorerView').then(m => ({ default: m.ExplorerView })))
@@ -17,7 +26,31 @@ const OracleView = React.lazy(() => import('../OracleView').then(m => ({ default
 
 export const InlineRenderer: React.FC = () => {
   const store = useStore()
-  const actions = useViewActions()
+  const { loadProjectData } = useAppActions()
+  const {
+    onCreateAgent, onDeleteAgent, onUpdateAgent,
+  } = useAgentActions(loadProjectData)
+  const {
+    onEmerge, onSave,
+  } = useOntologyActions(loadProjectData)
+  const {
+    onAddSource, onRunTask, onViewLogs, onDeleteTask,
+  } = useDataSourceActions(loadProjectData)
+  const {
+    onCreateSkill, onViewSkillDetail, onDeleteSkill, onRunSkill,
+  } = useSkillActions(loadProjectData)
+  const {
+    onCreateTool, onEditTool, onDeleteTool, onExecuteTool,
+  } = useToolActions(loadProjectData)
+  const {
+    onUpdateComponentStatus, onRegisterComponent, onGetComponent,
+  } = useComponentActions()
+  const {
+    onCreateApiKey, onDeleteApiKey, onSendWebhook,
+  } = useSettingsActions()
+  const {
+    onViewAsset, onDeleteAsset, onGetAssetContent, onGeneratePdf, onUploadAsset,
+  } = useLibraryActions(loadProjectData)
   const content = store.inlineContent
   if (!content || !store.showInlinePanel) return null
 
@@ -47,9 +80,9 @@ export const InlineRenderer: React.FC = () => {
             agents={store.agents}
             ollamaHealthy={store.ollamaHealthy}
             ollamaModels={store.ollamaModels}
-            onCreateAgent={actions.agentsActions.onCreateAgent}
-            onDeleteAgent={actions.agentsActions.onDeleteAgent}
-            onUpdateAgent={actions.agentsActions.onUpdateAgent}
+            onCreateAgent={onCreateAgent as any}
+            onDeleteAgent={onDeleteAgent as any}
+            onUpdateAgent={onUpdateAgent as any}
             inline
           />
         )
@@ -58,8 +91,8 @@ export const InlineRenderer: React.FC = () => {
           <OntologyView
             ontologyRaw={store.ontologyRaw}
             setOntologyRaw={store.setOntologyRaw}
-            onEmerge={actions.ontologyActions.onEmerge}
-            onSave={actions.ontologyActions.onSave}
+            onEmerge={onEmerge}
+            onSave={onSave}
             inline
           />
         )
@@ -67,10 +100,10 @@ export const InlineRenderer: React.FC = () => {
         return (
           <DataSourcesView
             tasks={store.ingestionTasks}
-            onAddSource={actions.dataSourcesActions.onAddSource}
-            onRunTask={actions.dataSourcesActions.onRunTask}
-            onViewLogs={actions.dataSourcesActions.onViewLogs}
-            onDeleteTask={actions.dataSourcesActions.onDeleteTask}
+            onAddSource={onAddSource}
+            onRunTask={onRunTask}
+            onViewLogs={onViewLogs}
+            onDeleteTask={onDeleteTask}
             taskLogs={store.taskLogs}
             setTaskLogs={store.setTaskLogs}
             inline
@@ -83,10 +116,10 @@ export const InlineRenderer: React.FC = () => {
           <SkillsView
             skills={store.skills}
             tools={store.tools}
-            onCreateSkill={actions.skillsActions.onCreateSkill}
-            onViewSkillDetail={actions.skillsActions.onViewSkillDetail}
-            onDeleteSkill={actions.skillsActions.onDeleteSkill}
-            onRunSkill={actions.skillsActions.onRunSkill}
+            onCreateSkill={onCreateSkill as any}
+            onViewSkillDetail={onViewSkillDetail as any}
+            onDeleteSkill={onDeleteSkill as any}
+            onRunSkill={onRunSkill as any}
             inline
           />
         )
@@ -94,10 +127,10 @@ export const InlineRenderer: React.FC = () => {
         return (
           <ToolsView
             tools={store.tools}
-            onCreateTool={actions.toolsActions.onCreateTool}
-            onEditTool={actions.toolsActions.onEditTool}
-            onDeleteTool={actions.toolsActions.onDeleteTool}
-            onExecuteTool={actions.toolsActions.onExecuteTool}
+            onCreateTool={onCreateTool as any}
+            onEditTool={onEditTool as any}
+            onDeleteTool={onDeleteTool as any}
+            onExecuteTool={onExecuteTool as any}
             inline
           />
         )
@@ -105,9 +138,9 @@ export const InlineRenderer: React.FC = () => {
         return (
           <ComponentsView
             components={store.registryComponents}
-            onUpdateComponentStatus={actions.componentsActions.onUpdateComponentStatus}
-            onRegisterComponent={actions.componentsActions.onRegisterComponent}
-            onGetComponent={actions.componentsActions.onGetComponent}
+            onUpdateComponentStatus={onUpdateComponentStatus as any}
+            onRegisterComponent={onRegisterComponent as any}
+            onGetComponent={onGetComponent as any}
             inline
           />
         )
@@ -116,9 +149,9 @@ export const InlineRenderer: React.FC = () => {
           <SettingsView
             apiKeys={store.apiKeys}
             notificationChannels={store.notificationChannels}
-            onCreateApiKey={actions.settingsActions.onCreateApiKey}
-            onDeleteApiKey={actions.settingsActions.onDeleteApiKey}
-            onSendWebhook={actions.settingsActions.onSendWebhook}
+            onCreateApiKey={onCreateApiKey}
+            onDeleteApiKey={onDeleteApiKey}
+            onSendWebhook={onSendWebhook}
             inline
           />
         )
@@ -126,14 +159,14 @@ export const InlineRenderer: React.FC = () => {
         return (
           <LibraryView
             assets={store.assets}
-            onViewAsset={actions.libraryActions.onViewAsset}
-            onDeleteAsset={actions.libraryActions.onDeleteAsset}
+            onViewAsset={onViewAsset}
+            onDeleteAsset={onDeleteAsset}
             selectedAssetContent={store.selectedAssetContent}
             setSelectedAssetContent={store.setSelectedAssetContent}
             selectedAssetName={store.assets.find((a: any) => a.id === store.selectedAssetId)?.name}
-            onGetAssetContent={actions.libraryActions.onGetAssetContent}
-            onGeneratePdf={actions.libraryActions.onGeneratePdf}
-            onUploadAsset={actions.libraryActions.onUploadAsset}
+            onGetAssetContent={onGetAssetContent}
+            onGeneratePdf={onGeneratePdf}
+            onUploadAsset={onUploadAsset}
             selectedAssetId={store.selectedAssetId}
             inline
           />

@@ -1,5 +1,6 @@
 import { useStore } from '../../store/useStore'
-import { useViewActions } from '../../hooks/useViewActions'
+import { useAppActions } from '../../hooks/useAppActions'
+import { useToolActions } from '../../hooks/domain/useToolActions'
 import type { Tool } from '../../store/types'
 
 interface ToolExecuteSlideOverProps {
@@ -9,7 +10,8 @@ interface ToolExecuteSlideOverProps {
 
 export function ToolExecuteSlideOver({ tool, title }: ToolExecuteSlideOverProps) {
   const store = useStore()
-  const actions = useViewActions()
+  const { loadProjectData } = useAppActions()
+  const { onExecuteTool } = useToolActions(loadProjectData)
   const toolId = tool.id
 
   if (!tool || !tool.id) return null
@@ -31,7 +33,7 @@ export function ToolExecuteSlideOver({ tool, title }: ToolExecuteSlideOverProps)
         />
       </div>
       <button
-        onClick={() => actions.toolsActions.onExecuteTool(toolId)}
+        onClick={() => onExecuteTool(toolId)}
         className="w-full py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
       >
         Esegui Tool nel Sandbox
