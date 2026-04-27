@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { t } from '../../i18n';
 import { X, AlertCircle } from 'lucide-react';
 
 interface ToastErrorProps {
@@ -42,7 +43,7 @@ export const ToastError: React.FC<ToastErrorProps> = ({
             <button 
               onClick={onDismiss}
               className="text-textMuted hover:text-text transition-colors vol-interactive p-1"
-              aria-label="Dismiss"
+              aria-label={t('inlineError.dismiss')}
             >
               <X size={14} />
             </button>

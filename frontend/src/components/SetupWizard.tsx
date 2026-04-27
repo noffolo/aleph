@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Database, Zap, ArrowRight, CheckCircle2, ShieldCheck, Key, Copy, Activity, AlertTriangle } from 'lucide-react';
+import { t } from '../i18n';
 
 interface SetupWizardProps {
   onComplete: (projectID: string, apiKey: string) => void;
@@ -116,9 +117,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCreatePr
                  <div className="font-bold text-success mb-2 uppercase tracking-widest">Tua API Key</div>
                  {apiKey}
                  <button 
-                    onClick={() => { navigator.clipboard.writeText(apiKey).then(() => alert("Copiata!")).catch(() => {}); }}
+                    onClick={() => { navigator.clipboard.writeText(apiKey).then(() => alert(t('setup.copied'))).catch(() => {}); }}
                     className="absolute top-4 right-4 p-2 bg-surface-alt rounded-lg text-textMuted hover:text-primary opacity-0 group-hover:opacity-100 transition-all"
-                    title="Copia negli appunti"
+                    title={t('setup.copy')}
                  >
                     <Copy size={14} />
                  </button>

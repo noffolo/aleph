@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { InlineErrorBoundary } from '../InlineErrorBoundary';
+import { t } from '../../i18n';
 
 interface SlideOverPanelProps {
   isOpen: boolean;
@@ -86,7 +87,7 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
             <button
               onClick={onClose}
               className="p-2 hover:bg-surface-alt rounded-lg text-textMuted hover:text-text transition-colors"
-              aria-label="Chiudi pannello"
+              aria-label={t('slideOver.close')}
             >
               ✕
             </button>

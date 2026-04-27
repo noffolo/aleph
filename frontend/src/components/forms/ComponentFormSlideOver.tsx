@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import { useComponentActions } from '../../hooks/domain/useComponentActions'
+import { t } from '../../i18n'
 
 interface ComponentFormSlideOverProps {
   title?: string
@@ -64,7 +65,7 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
 
   return (
     <div className="p-6 space-y-4">
-      <h3 className="text-xl font-bold">{title || 'Registra Componente'}</h3>
+      <h3 className="text-xl font-bold">{title || t('components.register')}</h3>
 
       <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
         <div className="grid grid-cols-2 gap-3">
@@ -74,12 +75,12 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
-              placeholder="Es: Analizzatore CSV"
-            />
-          </div>
+              placeholder={t('components.form.name')}
+          />
+        </div>
 
-          <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo</label>
+        <div>
+          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
@@ -101,7 +102,7 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm font-mono resize-none focus:outline-none focus:border-primary/50"
-            placeholder="Descrivi il componente..."
+            placeholder={t('components.form.description')}
           />
         </div>
 
@@ -242,7 +243,7 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
             onChange={(e) => setPromptTemplate(e.target.value)}
             rows={4}
             className="w-full p-3 bg-background rounded-lg border border-border text-xs font-mono resize-none focus:outline-none focus:border-primary/50"
-            placeholder="Tu sei un..."
+            placeholder={t('components.form.systemPrompt')}
           />
         </div>
       </div>
@@ -252,13 +253,13 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
           onClick={onClose}
           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
         >
-          Annulla
+          {t('confirmDialog.cancel')}
         </button>
         <button
           onClick={handleSubmit}
           className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors"
         >
-          Registra Componente
+          {t('components.register')}
         </button>
       </div>
     </div>

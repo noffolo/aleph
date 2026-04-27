@@ -5,6 +5,7 @@ import (
 
 	"connectrpc.com/connect"
 	alephv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
+	"github.com/ff3300/aleph-v2/internal/gnn"
 	"github.com/ff3300/aleph-v2/internal/llm"
 )
 
@@ -51,11 +52,13 @@ type Observation struct {
 
 // EngineConfig holds dependencies needed by the DecisionEngine.
 type EngineConfig struct {
-	Provider    llm.Provider
-	MetaRepo    ToolRepository   // interface for tool/chat history operations
-	Executor    ToolExecutor     // interface for executing tools
-	Registry    PluginRegistry   // interface for registry validation
-	MaxAttempts int              // max loop iterations (default 5)
+	Provider      llm.Provider
+	MetaRepo      ToolRepository   // interface for tool/chat history operations
+	Executor      ToolExecutor     // interface for executing tools
+	Registry      PluginRegistry   // interface for registry validation
+	MaxAttempts   int              // max loop iterations (default 5)
+	LinkPredictor LinkPredictor    // optional GNN link predictor for confidence blending
+	Graph         *gnn.Graph       // optional workspace knowledge graph for link prediction
 }
 
 // DecisionEngine orchestrates the Plan→Act→Observe→Reflect→Admit loop.

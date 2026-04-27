@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../../i18n';
 import { X } from 'lucide-react';
 
 interface InlineErrorProps {
@@ -19,7 +20,7 @@ export const InlineError: React.FC<InlineErrorProps> = ({
         <button 
           onClick={onDismiss}
           className="text-danger hover:text-white transition-colors vol-interactive p-0.5"
-          aria-label="Dismiss"
+          aria-label={t('inlineError.dismiss')}
         >
           <X size={14} strokeWidth={2} />
         </button>

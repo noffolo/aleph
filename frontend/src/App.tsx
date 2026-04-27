@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar'
 const WorkspaceOnboarding = lazy(() => import('./components/WorkspaceOnboarding').then(module => ({ default: module.WorkspaceOnboarding })))
 import { CopilotView } from './components/CopilotView'
 import { CommandPalette } from './components/CommandPalette'
+import { NavigationStateSync } from './hooks/NavigationStateSync'
 const SetupWizard = lazy(() => import('./components/SetupWizard').then(module => ({ default: module.SetupWizard })))
 import { AlephErrorBoundary } from './components/AlephErrorBoundary'
 import { StatusBar } from './components/terminal'
@@ -121,9 +122,11 @@ function App() {
   return (
     <div className="flex h-screen bg-background text-text font-mono overflow-hidden">
       <AlephErrorBoundary>
+        <NavigationStateSync />
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-background focus:rounded-lg">Skip to main content</a>
         <CommandPalette
           isOpen={store.isCommandPaletteOpen}
+
           onClose={() => store.setIsCommandPaletteOpen(false)}
           availableObjects={store.availableObjects}
           projects={store.projects}

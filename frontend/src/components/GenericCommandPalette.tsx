@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { t } from '../i18n';
 import { Command, ArrowRight } from 'lucide-react';
 import { fuzzySearch, HighlightedText } from '../utils/fuzzySearch';
 
@@ -21,7 +22,7 @@ interface GenericCommandPaletteProps {
 type FilteredItem = BaseItem & { score: number; indices: number[] };
 
 export const GenericCommandPalette: React.FC<GenericCommandPaletteProps> = ({
-  isOpen, onClose, items, onSelect, title, placeholder = "Cerca..."
+  isOpen, onClose, items, onSelect,   title, placeholder = t('genericSearch')
 }) => {
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(-1);

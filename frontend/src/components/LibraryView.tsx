@@ -1,6 +1,7 @@
 import React from 'react';
 import { Book, FileText, Download, Trash2, Upload } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 
 interface Asset {
   id: string;
@@ -77,8 +78,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ assets, onViewAsset, o
     <div className={(inline ? '' : 'max-w-6xl mx-auto ') + 'space-y-8'}>
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Biblioteca Asset</h2>
-          <p className="text-textMuted text-sm mt-1">Archivio centralizzato di report, analisi e snapshot generati dagli agenti.</p>
+          <h2 className="text-3xl font-bold tracking-tight">{t('library.title')}</h2>
+          <p className="text-textMuted text-sm mt-1">{t('library.subtitle')}</p>
         </div>
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -86,7 +87,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ assets, onViewAsset, o
           className="flex items-center space-x-2 bg-primary text-white px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg  disabled:opacity-50"
         >
           <Upload size={20} />
-          <span>{uploading ? 'Caricamento...' : 'Carica File'}</span>
+          <span>{uploading ? 'Caricamento...' : t('library.upload')}</span>
         </button>
         <input ref={fileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
       </div>
@@ -134,13 +135,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ assets, onViewAsset, o
             <div className="col-span-full py-24 bg-surface border-2 border-dashed border-border rounded-lg text-center">
                <Book size={48} className="mx-auto text-textDim mb-4" />
                 <p className="text-textMuted font-bold uppercase text-[10px] tracking-[0.2em]">Nessun report generato in questo spazio di lavoro</p>
-                <p className="text-textDim text-xs mt-2">Trascina file qui o usa il pulsante "Carica File"</p>
+                 <p className="text-textDim text-xs mt-2">{t('library.dragAndDrop')}</p>
             </div>
           )}
           {dragOver && (
             <div className="col-span-full py-24 border-2 border-primary bg-primary/5 rounded-lg text-center">
               <Upload size={48} className="mx-auto text-primary/70 mb-4" />
-              <p className="text-primary font-bold text-sm">Rilascia i file per caricarli</p>
+              <p className="text-primary font-bold text-sm">{t('library.dropToUpload')}</p>
             </div>
           )}
         </div>

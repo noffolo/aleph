@@ -4,6 +4,8 @@ import { useStore } from '../store/useStore';
 import { useCursorPagination } from '../hooks/useCursorPagination';
 import { skillClient } from '../api/factory';
 import { ListSkillsRequest } from '../api/proto/aleph/v1/query_pb';
+import { useQueryState } from 'nuqs';
+import { t } from '../i18n';
 
 interface Skill {
   id: string;
@@ -30,6 +32,7 @@ interface SkillsViewProps {
 export const SkillsView: React.FC<SkillsViewProps> = React.memo(({ skills: initialSkills, tools, onCreateSkill, onViewSkillDetail, onDeleteSkill, onRunSkill, inline = false }) => {
   const setSkills = useStore(state => state.setSkills);
   const projectId = useStore(state => state.selectedObject);
+  const [searchQuery, setSearchQuery] = useQueryState('q', { defaultValue: '' });
 
   const { items: skills, hasMore, loadMore, loading } = useCursorPagination({
     clientMethod: skillClient.listSkills,
@@ -39,8 +42,14 @@ export const SkillsView: React.FC<SkillsViewProps> = React.memo(({ skills: initi
     initialItems: initialSkills,
   });
 
+  const filteredSkills = skills.filter(s => 
+    !searchQuery || 
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    s.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const openCreate = useCallback(() => {
-    useStore.getState().setSlideOverContent({ type: 'skill-form', title: 'Nuova Skill', data: { tools } });
+    useStore.getState().setSlideOverContent({ type: 'skill-form', title: t('skills.create'), data: { tools } });
   }, [tools]);
 
   return (
@@ -51,8 +60,8 @@ export const SkillsView: React.FC<SkillsViewProps> = React.memo(({ skills: initi
     >
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Skill Framework</h2>
-          <p className="text-textMuted text-sm mt-1">Pacchetti di capacità e prompt che trasformano gli agenti in specialisti.</p>
+          <h2 className="text-3xl font-bold tracking-tight">{t('skills.title')}</h2>
+          <p className="text-textMuted text-sm mt-1">{t('skills.subtitle')}</p>
         </div>
           <button 
             onClick={openCreate} 
@@ -60,13 +69,22 @@ export const SkillsView: React.FC<SkillsViewProps> = React.memo(({ skills: initi
             aria-label="Create new skill"
           >
             <Plus size={20} />
-            <span>Crea Skill</span>
+            <span>{t('skills.create')}</span>
         </button>
-      </div>
+       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {skills.map(s => (
-          <div key={s.id} className="bg-surface p-6 rounded-lg border border-border shadow-sm hover:shadow-lg transition-all group relative">
+       <input
+         type="text"
+         value={searchQuery}
+         onChange={e => setSearchQuery(e.target.value)}
+         placeholder={t('skills.search')}
+         className="w-full max-w-md px-4 py-2 bg-surface-alt border border-border rounded-lg text-sm font-mono text-textPrimary placeholder-textDim focus:outline-none focus:border-primary/50"
+       />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+         {filteredSkills.map(s => (
+           <div key={s.id} className="bg-surface p-6 rounded-lg border border-border shadow-sm hover:shadow-lg transition-all group relative">
+
                <button 
                   onClick={(e) => { e.stopPropagation(); if (confirm('Eliminare questa skill?')) onDeleteSkill(s.id); }}
                   className="absolute top-6 right-6 p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
@@ -105,7 +123,7 @@ export const SkillsView: React.FC<SkillsViewProps> = React.memo(({ skills: initi
         {skills.length === 0 && (
           <div className="col-span-full py-20 bg-primary/10/30 border-2 border-dashed border-primary/20 rounded-lg text-center">
              <Zap size={48} className="mx-auto text-primary/30 mb-4" />
-             <p className="text-primary/70 font-bold uppercase text-[10px] tracking-widest">Nessuna Skill personalizzata trovata</p>
+              <p className="text-primary/70 font-bold uppercase text-[10px] tracking-widest">Nessuna Skill personalizzata trovata</p>
           </div>
         )}
       </div>

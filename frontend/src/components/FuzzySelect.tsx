@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { t } from '../i18n';
 import { fuzzySearch, HighlightedText } from '../utils/fuzzySearch';
 
 interface FuzzySelectProps {
@@ -127,7 +128,7 @@ export const FuzzySelect: React.FC<FuzzySelectProps> = ({
                 setSelectedIndex(0);
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Cerca..."
+              placeholder={t('agents.search')}
               className="w-full p-2 bg-background rounded-md border border-border text-sm text-text placeholder:text-textDim outline-none focus:border-primary/50"
             />
           </div>

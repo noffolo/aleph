@@ -1,5 +1,4 @@
 import { StateCreator } from 'zustand'
-import * as Y from 'yjs'
 import {
   Agent,
   ChatMessage,
@@ -11,9 +10,6 @@ import {
   Skill,
   Tool,
 } from './types'
-
-export const ydoc = new (Y as any).Doc()
-export const yMap = ydoc.getMap('state')
 
 export interface WorkspaceSlice {
   sandboxResult: SandboxResult | null
@@ -48,51 +44,15 @@ export interface WorkspaceSlice {
 }
 
 export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set) => {
-  const SYNCED_KEYS = new Set(['searchQuery', 'selectedObject'])
-  let skipYMapSet = false
-
-  if (yMap.has('activeTab')) {
-    ydoc.transact(() => {
-      yMap.delete('activeTab')
-    })
-  }
-
-  yMap.observe((event: any) => {
-    if (skipYMapSet) return
-    const newState: Partial<WorkspaceSlice> = {}
-    event.keysChanged.forEach((key: string) => {
-      if (SYNCED_KEYS.has(key)) {
-        ;(newState as Record<string, unknown>)[key] = yMap.get(key)
-      }
-    })
-    if (Object.keys(newState).length > 0) {
-      set((state) => ({ ...state, ...newState }))
-    }
-  })
-
   return {
     sandboxResult: null,
     setSandboxResult: (r) => set({ sandboxResult: r }),
     sandboxInput: '{}',
     setSandboxInput: (s) => set({ sandboxInput: s }),
-    searchQuery: (yMap.get('searchQuery') as string) || '',
-    setSearchQuery: (query) => {
-      ydoc.transact(() => {
-        yMap.set('searchQuery', query)
-        skipYMapSet = true
-        set({ searchQuery: query })
-        queueMicrotask(() => { skipYMapSet = false })
-      })
-    },
-    selectedObject: (yMap.get('selectedObject') as string) || '',
-    setSelectedObject: (obj) => {
-      ydoc.transact(() => {
-        yMap.set('selectedObject', obj)
-        skipYMapSet = true
-        set({ selectedObject: obj })
-        queueMicrotask(() => { skipYMapSet = false })
-      })
-    },
+    searchQuery: '',
+    setSearchQuery: (query) => set({ searchQuery: query }),
+    selectedObject: '',
+    setSelectedObject: (obj) => set({ selectedObject: obj }),
     predictions: [],
     setPredictions: (preds) => set({ predictions: preds }),
     data: null,

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Activity, X, Trash2, Database, Globe, FileText, Link, Play, Mail, Rss, Github, Terminal } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 
 interface IngestionTask {
   id: string;
@@ -25,15 +26,15 @@ export const DataSourcesView: React.FC<DataSourcesViewProps> = ({
   tasks, onAddSource, onRunTask, onViewLogs, onDeleteTask, taskLogs, setTaskLogs, inline = false
 }) => {
   const openForm = () => {
-    useStore.getState().setSlideOverContent({ type: 'datasource-form', title: 'Nuova Sorgente', data: undefined });
+    useStore.getState().setSlideOverContent({ type: 'datasource-form', title: t('datasources.title'), data: undefined });
   };
 
   return (
     <div className={(inline ? '' : 'max-w-6xl mx-auto ') + 'space-y-8'}>
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Sorgenti Dati</h2>
-          <p className="text-textMuted text-sm mt-1">Connetti dati esterni allo spazio di lavoro. Aleph legge direttamente alla fonte, senza ETL.</p>
+          <h2 className="text-3xl font-bold tracking-tight">{t('datasources.title')}</h2>
+          <p className="text-textMuted text-sm mt-1">{t('datasources.subtitle')}</p>
         </div>
         <button onClick={openForm} className="flex items-center space-x-2 bg-primary text-background px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg">
            <Plus size={20} />
@@ -84,8 +85,8 @@ export const DataSourcesView: React.FC<DataSourcesViewProps> = ({
            <div className="py-20 bg-surface border-2 border-dashed border-border rounded-lg text-center">
               <Database size={48} className="mx-auto text-textDim mb-4" />
               <p className="text-textDim font-bold uppercase text-xs tracking-[0.2em] mb-2">Nessuna pipeline di ingestion configurata</p>
-               <p className="text-textMuted text-sm">Connetti una sorgente dati per popolare lo spazio di lavoro</p>
-               <button onClick={openForm} className="mt-6 px-6 py-3 bg-primary text-background rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg">Aggiungi Fonte</button>
+                <p className="text-textMuted text-sm">{t('datasources.empty')}</p>
+                <button onClick={openForm} className="mt-6 px-6 py-3 bg-primary text-background rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg">Aggiungi Fonte</button>
            </div>
         )}
       </div>

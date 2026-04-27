@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { t } from '../i18n';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -57,14 +58,14 @@ export function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: C
             onClick={onCancel}
             className="px-4 py-2 text-sm font-bold text-textMuted hover:text-text bg-surface-alt hover:bg-border rounded-lg transition-colors"
           >
-            Annulla
+            {t('confirmDialog.cancel')}
           </button>
           <button
             ref={confirmRef}
             onClick={onConfirm}
             className="px-4 py-2 text-sm font-bold text-white bg-danger hover:bg-danger/90 rounded-lg transition-colors"
           >
-            Elimina
+            {t('confirmDialog.confirm')}
           </button>
         </div>
       </div>

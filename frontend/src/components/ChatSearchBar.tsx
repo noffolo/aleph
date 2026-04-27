@@ -1,4 +1,5 @@
 import React from 'react'
+import { t } from '../i18n'
 import { Search, X } from 'lucide-react'
 
 interface ChatSearchBarProps {
@@ -16,7 +17,7 @@ export const ChatSearchBar: React.FC<ChatSearchBarProps> = ({ query, setQuery, m
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cerca nei messaggi..."
+          placeholder={t('copilot.search')}
           className="w-full bg-background border border-border rounded px-8 py-1 text-xs font-mono text-text outline-none focus:border-primary/50 transition-colors"
         />
         {query && (

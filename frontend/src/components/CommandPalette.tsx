@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { t } from '../i18n';
 import { Command, Database, Zap, ArrowRight, Terminal } from 'lucide-react';
 import { SLASH_COMMANDS, executeCommand, getTabCompletion } from './terminal/slashCommands';
 
@@ -101,7 +102,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                aria-label="Search commands"
                value={search}
               onChange={e => { setSearch(e.target.value); setSelectedIndex(0); }}
-              placeholder="Cerca entità, progetti o comandi (CMD+K)..."
+              placeholder={t('commandPalette.search')}
               className="flex-1 bg-transparent border-none outline-none text-xl font-medium text-text placeholder:text-textDim"
            />
            <div className="px-2 py-1 bg-surface rounded-lg border border-border text-[10px] font-bold text-textMuted">ESC</div>

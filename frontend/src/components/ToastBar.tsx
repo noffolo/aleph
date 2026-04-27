@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { t } from '../i18n'
 import { useStore } from '../store/useStore'
 import { X } from 'lucide-react'
 
@@ -34,7 +35,7 @@ export const ToastBar: React.FC = () => {
         <button
           onClick={clearErrorToast}
           className="p-1 hover:bg-white/20 rounded-full transition-colors"
-          aria-label="Close notification"
+          aria-label={t('toast.closeNotification')}
         >
           <X size={16} />
         </button>

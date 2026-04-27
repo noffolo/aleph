@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Skill, Tool } from '../store/types'
 import { useStore } from '../store/useStore'
+import { t } from '../i18n'
 
 export interface SkillFormData {
   name: string
@@ -73,7 +74,7 @@ export function SkillForm({ skill, tools, onSave, onCancel, title }: SkillFormPr
 
   return (
     <div className="p-6 space-y-4">
-      <h3 className="text-xl font-bold">{title || (isEdit ? 'Modifica Skill' : 'Nuova Skill')}</h3>
+      <h3 className="text-xl font-bold">{title || (isEdit ? t('skills.edit') : t('skills.create'))}</h3>
       
       {saveError && (
         <div className="p-3 bg-danger/10 border border-danger/30 text-danger text-xs rounded-lg font-medium">
@@ -91,7 +92,7 @@ export function SkillForm({ skill, tools, onSave, onCancel, title }: SkillFormPr
             className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
               errors.name ? 'border-danger bg-danger/5' : 'border-border'
             } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-            placeholder="Es: Analista Finanze"
+            placeholder={t('skills.form.name')}
           />
           {errors.name && <p className="text-danger text-[10px] mt-1">{errors.name}</p>}
         </div>
@@ -104,7 +105,7 @@ export function SkillForm({ skill, tools, onSave, onCancel, title }: SkillFormPr
             disabled={isSaving}
             rows={3}
             className={`w-full p-3 bg-background rounded-lg border border-border text-sm font-mono resize-none focus:outline-none focus:border-primary/50 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-            placeholder="Descrivi la capacità di questa skill..."
+            placeholder={t('skills.form.description')}
           />
         </div>
         
@@ -139,14 +140,14 @@ export function SkillForm({ skill, tools, onSave, onCancel, title }: SkillFormPr
           disabled={isSaving}
           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border disabled:opacity-50"
         >
-          Annulla
+          {t('confirmDialog.cancel')}
         </button>
         <button
           onClick={handleSubmit}
           disabled={isSaving}
           className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors disabled:opacity-50"
         >
-          {isSaving ? 'Salvataggio...' : (isEdit ? 'Aggiorna Skill' : 'Crea Skill')}
+          {isSaving ? 'Salvataggio...' : (isEdit ? 'Aggiorna Skill' : t('skills.create'))}
         </button>
       </div>
     </div>

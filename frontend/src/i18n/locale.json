@@ -1,0 +1,112 @@
+{
+  "app.title": "ALEPH",
+  "app.noProject": "NO PROJECT",
+
+  "agents.title": "Gestore Agenti",
+  "agents.subtitle": "Configura agenti AI con qualsiasi provider — locale o cloud.",
+  "agents.create": "Nuovo Agente",
+  "agents.edit": "Modifica Agente",
+  "agents.noSystemPrompt": "Nessun prompt di sistema configurato.",
+  "agents.search": "Cerca...",
+  "agents.form.name": "Es: Analista Finanze",
+  "agents.form.model": "Es: gpt-4o-mini, claude-3-5-sonnet",
+  "agents.form.apiKey": "Inserisci solo per override globale",
+  "agents.form.baseUrl": "Es: https://api.openai.com/v1",
+  "agents.form.systemPrompt": "Definisci il ruolo e le restrizioni dell'agente...",
+
+  "skills.title": "Skill Framework",
+  "skills.subtitle": "Pacchetti di capacità e prompt che trasformano gli agenti in specialisti.",
+  "skills.create": "Crea Skill",
+  "skills.edit": "Modifica Skill",
+  "skills.search": "Cerca...",
+  "skills.form.name": "Es: Analista Finanze",
+  "skills.form.description": "Descrivi la capacità di questa skill...",
+
+  "tools.title": "Toolbox",
+  "tools.subtitle": "Strumenti modulari che estendono le capacità degli agenti.",
+  "tools.create": "Nuovo Tool",
+  "tools.edit": "Modifica Tool",
+  "tools.search": "Cerca...",
+  "tools.form.name": "Es: Analizzatore CSV",
+  "tools.form.description": "Descrivi cosa fa questo tool...",
+
+  "datasources.title": "Sorgenti Dati",
+  "datasources.subtitle": "Connetti dati esterni allo spazio di lavoro. Aleph legge direttamente alla fonte, senza ETL.",
+  "datasources.empty": "Connetti una sorgente dati per popolare lo spazio di lavoro",
+  "datasources.form.name": "Es: Dati Clienti Q3",
+  "datasources.form.description": "Descrivi questa sorgente dati...",
+
+  "components.title": "Registry Componenti",
+  "components.subtitle": "Catalogo centralizzato di agenti, skill, tool e risorse registrate.",
+  "components.edit": "Modifica Componente",
+  "components.register": "Registra Componente",
+  "components.search": "Cerca componenti per nome, tipo o categoria...",
+  "components.form.name": "Es: Analizzatore CSV",
+  "components.form.description": "Descrivi il componente...",
+  "components.form.systemPrompt": "Tu sei un...",
+  "components.betaScore": "Funzionalità beta — i punteggi potrebbero non riflettere ancora l'accuratezza effettiva",
+
+  "library.title": "Biblioteca Asset",
+  "library.subtitle": "Archivio centralizzato di report, analisi e snapshot generati dagli agenti.",
+  "library.upload": "Carica File",
+  "library.dragAndDrop": "Trascina file qui o usa il pulsante \"Carica File\"",
+  "library.dropToUpload": "Rilascia i file per caricarli",
+
+  "explorer.view.table": "Tabella",
+  "explorer.view.map": "Mappa",
+  "explorer.view.timeline": "Timeline",
+  "explorer.view.graph": "Grafo Relazionale",
+
+  "settings.title": "Impostazioni",
+  "settings.scanlines": "Effetto Scanline",
+  "settings.glow": "Effetto Glow",
+  "settings.flicker": "Effetto Flicker",
+  "settings.apiKey": "Chiave API",
+  "settings.revoke": "Revoca",
+  "settings.webhook": "Webhook URL",
+  "settings.webhookSecret": "Secret (opzionale)",
+  "settings.sendTest": "Invia Test",
+
+  "setup.apiKey": "Inserisci API Key dello spazio di lavoro...",
+  "setup.copy": "Copia negli appunti",
+  "setup.copied": "Copiata!",
+
+  "onboarding.apiKey": "Inserisci API Key...",
+
+  "copilot.splitView": "Split View",
+  "copilot.cancelStream": "Interrompi streaming",
+  "copilot.clearChat": "Pulisci",
+  "copilot.search": "Cerca nei messaggi...",
+  "copilot.export": "Esporta",
+
+  "commandPalette.search": "Cerca entità, progetti o comandi (CMD+K)...",
+  "commandPalette.searchCommands": "Cerca...",
+
+  "detail.title": "Ispezione Dati",
+  "detail.noData": "Nessun dato disponibile",
+  "detail.empty": "—",
+
+  "toast.close": "Chiudi",
+  "toast.closeNotification": "Close notification",
+
+  "errors.default": "Errore nello streaming delle predizioni",
+  "errors.uncaught": "Uncaught error",
+
+  "confirmDialog.cancel": "Annulla",
+  "confirmDialog.confirm": "Conferma",
+
+  "slideOver.close": "Chiudi pannello",
+  "inlineError.dismiss": "Dismiss",
+
+  "oracle.title": "Motore Predittivo Oracle",
+  "oracle.subtitle": "Previsioni basate sullo storico delle operazioni e pattern ricorrenti.",
+  "oracle.empty": "Nessuna predizione disponibile per questo progetto",
+  "oracle.sentimentTitle": "Analisi Sentiment",
+  "oracle.sentimentSubtitle": "Inserisci un testo per analizzarne il sentiment tramite il modello NLP sidecar.",
+  "oracle.sentimentPlaceholder": "Scrivi o incolla il testo da analizzare...",
+  "oracle.correctPrediction": "Predizione corretta",
+  "oracle.wrongPrediction": "Predizione errata",
+
+  "genericSearch": "Cerca...",
+  "logs": "Logs"
+}

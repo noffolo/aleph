@@ -3,6 +3,7 @@ import { useStore } from '../../store/useStore'
 import { useAppActions } from '../../hooks/useAppActions'
 import { useToolActions } from '../../hooks/domain/useToolActions'
 import type { Tool } from '../../store/types'
+import { t } from '../../i18n'
 
 interface ToolFormSlideOverProps {
   tool?: Tool
@@ -35,7 +36,7 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
 
   return (
     <div className="p-6 space-y-4">
-      <h3 className="text-xl font-bold">{title || (isEdit ? 'Modifica Tool' : 'Nuovo Tool')}</h3>
+      <h3 className="text-xl font-bold">{title || (isEdit ? t('tools.edit') : t('tools.create'))}</h3>
 
       <div className="space-y-3">
         <div>
@@ -44,7 +45,7 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
-            placeholder="Es: Analizzatore CSV"
+            placeholder={t('tools.form.name')}
           />
         </div>
 
@@ -55,7 +56,7 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm font-mono resize-none focus:outline-none focus:border-primary/50"
-            placeholder="Descrivi cosa fa questo tool..."
+            placeholder={t('tools.form.description')}
           />
         </div>
 
@@ -76,13 +77,13 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
           onClick={() => store.setSlideOverContent(null)}
           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
         >
-          Annulla
+          {t('confirmDialog.cancel')}
         </button>
         <button
           onClick={handleSubmit}
           className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors"
         >
-          {isEdit ? 'Aggiorna Tool' : 'Crea Tool'}
+          {isEdit ? t('tools.edit') : t('tools.create')}
         </button>
       </div>
     </div>

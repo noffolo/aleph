@@ -3,6 +3,7 @@ import { useStore } from '../../store/useStore'
 import { useAppActions } from '../../hooks/useAppActions'
 import { useAgentActions } from '../../hooks/domain/useAgentActions'
 import type { Agent } from '../../store/types'
+import { t } from '../../i18n'
 
 interface AgentFormSlideOverProps {
   agent?: Agent
@@ -47,7 +48,7 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
 
   return (
     <div className="p-6 space-y-4">
-      <h3 className="text-xl font-bold">{title || (isEdit ? 'Modifica Agente' : 'Nuovo Agente')}</h3>
+      <h3 className="text-xl font-bold">{title || (isEdit ? t('agents.edit') : t('agents.create'))}</h3>
 
       <div className="space-y-3">
         <div>
@@ -56,7 +57,7 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
-            placeholder="Es: Analista Finanze"
+            placeholder={t('agents.form.name')}
           />
         </div>
 
@@ -81,7 +82,7 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
               value={model}
               onChange={(e) => setModel(e.target.value)}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
-              placeholder="Es: gpt-4o-mini, claude-3-5-sonnet"
+              placeholder={t('agents.form.model')}
             />
           </div>
         </div>
@@ -93,7 +94,7 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
-            placeholder="Inserisci solo per override globale"
+            placeholder={t('agents.form.apiKey')}
           />
         </div>
 
@@ -103,7 +104,7 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
-            placeholder="Es: https://api.openai.com/v1"
+            placeholder={t('agents.form.baseUrl')}
           />
         </div>
 
@@ -114,7 +115,7 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
             onChange={(e) => setSystemPrompt(e.target.value)}
             rows={4}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm font-mono resize-none focus:outline-none focus:border-primary/50"
-            placeholder="Definisci il ruolo e le restrizioni dell'agente..."
+            placeholder={t('agents.form.systemPrompt')}
           />
         </div>
       </div>
@@ -124,13 +125,13 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
           onClick={() => store.setSlideOverContent(null)}
           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
         >
-          Annulla
+          {t('confirmDialog.cancel')}
         </button>
         <button
           onClick={handleSubmit}
           className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors"
         >
-          {isEdit ? 'Aggiorna Agente' : 'Crea Agente'}
+          {isEdit ? t('agents.edit') : t('agents.create')}
         </button>
       </div>
     </div>

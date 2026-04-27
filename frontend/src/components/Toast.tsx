@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
+import { t } from '../i18n'
 import { X, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { ToastMessage } from '../store/uiSlice'
@@ -70,7 +71,7 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
         <button
           onClick={() => onRemove(toast.id)}
           className="shrink-0 p-0.5 text-textDim hover:text-text transition-colors"
-          aria-label="Chiudi"
+          aria-label={t('toast.close')}
         >
           <X size={14} />
         </button>

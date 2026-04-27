@@ -1,5 +1,6 @@
 import { useStore } from '../../store/useStore'
 import type { RegistryComponent } from '../../store/types'
+import { t } from '../../i18n'
 
 interface ComponentDetailSlideOverProps {
   componentId: string
@@ -57,7 +58,7 @@ export function ComponentDetailSlideOver({ componentId, title, onClose }: Compon
           onClick={onClose}
           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
         >
-          Chiudi
+          {t('slideOver.close')}
         </button>
       </div>
     </div>

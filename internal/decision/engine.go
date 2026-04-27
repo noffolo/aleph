@@ -7,16 +7,19 @@ import (
 	"time"
 
 	alephv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
+	"github.com/ff3300/aleph-v2/internal/gnn"
 	"github.com/ff3300/aleph-v2/internal/llm"
 )
 
 // Engine is the concrete implementation of DecisionEngine.
 type Engine struct {
-	provider    llm.Provider
-	metaRepo    ToolRepository
-	executor    ToolExecutor
-	registry    PluginRegistry
-	maxAttempts int
+	provider      llm.Provider
+	metaRepo      ToolRepository
+	executor      ToolExecutor
+	registry      PluginRegistry
+	maxAttempts   int
+	linkPredictor LinkPredictor
+	graph         *gnn.Graph
 }
 
 // compile-time interface check
@@ -29,11 +32,13 @@ func NewEngine(cfg EngineConfig) *Engine {
 		maxAttempts = 5
 	}
 	return &Engine{
-		provider:    cfg.Provider,
-		metaRepo:    cfg.MetaRepo,
-		executor:    cfg.Executor,
-		registry:    cfg.Registry,
-		maxAttempts: maxAttempts,
+		provider:      cfg.Provider,
+		metaRepo:      cfg.MetaRepo,
+		executor:      cfg.Executor,
+		registry:      cfg.Registry,
+		maxAttempts:   maxAttempts,
+		linkPredictor: cfg.LinkPredictor,
+		graph:         cfg.Graph,
 	}
 }
 
@@ -45,11 +50,32 @@ func (e *Engine) Plan(ctx context.Context, msg string, projectID string, agentID
 	toolDefs := e.buildToolDefinitions(ctx)
 
 	// Parse intent from the user message
+	neededTools := e.inferToolsFromMessage(ctx, msg, toolDefs)
 	intent := Intent{
 		PrimaryGoal:   msg,
-		NeededTools:   e.inferToolsFromMessage(ctx, msg, toolDefs),
+		NeededTools:   neededTools,
 		TargetObjects: e.extractObjectReferences(msg),
 		Confidence:    0.8,
+	}
+
+	// Blend GNN link prediction scores into confidence.
+	// If a LinkPredictor and workspace graph are available, run inference
+	// on detected tools/objects to adjust keyword-based confidence.
+	if e.linkPredictor != nil && e.graph != nil && e.linkPredictor.IsTrained() && len(neededTools) > 0 {
+		var totalScore float64
+		var count int
+		for _, tool := range neededTools {
+			scores, err := e.linkPredictor.PredictLinks(ctx, e.graph, tool)
+			if err == nil {
+				totalScore += ConfidenceFromPredictions(scores)
+				count++
+			}
+		}
+		if count > 0 {
+			gnnConf := totalScore / float64(count)
+			// Blend: 70% keyword, 30% GNN
+			intent.Confidence = 0.7*intent.Confidence + 0.3*gnnConf
+		}
 	}
 
 	// Create a single planned step for the first action
@@ -174,6 +200,19 @@ func (e *Engine) Admit(ctx context.Context, results []*ActResult, maxAttempts in
 	}
 
 	return false, nil
+}
+
+// TrainLinkModel trains the GNN link predictor on the workspace graph.
+// If the engine does not have a LinkPredictor configured, this is a no-op.
+// The graph must have at least 1 node and 1 edge for meaningful training.
+func (e *Engine) TrainLinkModel(ctx context.Context, graph *gnn.Graph, epochs int) error {
+	if e.linkPredictor == nil {
+		return nil
+	}
+	if graph == nil || graph.NumNodes() == 0 {
+		return fmt.Errorf("decision: cannot train link model on empty graph")
+	}
+	return e.linkPredictor.TrainFromGraph(ctx, graph, epochs)
 }
 
 // isKnownTool checks if a tool name is one of the built-in tools or registered in the registry.

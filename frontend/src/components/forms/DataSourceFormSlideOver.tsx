@@ -3,6 +3,7 @@ import { useStore } from '../../store/useStore'
 import { useAppActions } from '../../hooks/useAppActions'
 import { useDataSourceActions } from '../../hooks/domain/useDataSourceActions'
 import { Upload, Globe, Database, FileText, Code, Link, ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { t } from '../../i18n'
 
 interface DataSourceFormSlideOverProps {
   title?: string
@@ -114,7 +115,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
                 className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
                   errors.name ? 'border-danger bg-danger/5' : 'border-border'
                 }`}
-                placeholder="Es: Dati Clienti Q3"
+                placeholder={t('datasources.form.name')}
               />
               {errors.name && <p className="text-danger text-[10px] mt-1">{errors.name}</p>}
             </div>
@@ -126,7 +127,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 resize-none"
-                placeholder="Descrivi questa sorgente dati..."
+                placeholder={t('datasources.form.description')}
               />
             </div>
           </div>
@@ -268,7 +269,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
           onClick={step === 1 ? () => store.setSlideOverContent(null) : prevStep}
           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border flex items-center justify-center gap-2"
         >
-          {step === 1 ? 'Annulla' : <><ChevronLeft size={16} /> Indietro</>}
+          {step === 1 ? t('confirmDialog.cancel') : <><ChevronLeft size={16} /> Indietro</>}
         </button>
         
         {step < 3 ? (

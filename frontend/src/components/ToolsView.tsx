@@ -4,6 +4,8 @@ import { useStore } from '../store/useStore';
 import { useCursorPagination } from '../hooks/useCursorPagination';
 import { toolClient } from '../api/factory';
 import { ListToolsRequest } from '../api/proto/aleph/v1/query_pb';
+import { useQueryState } from 'nuqs';
+import { t } from '../i18n';
 
 interface Tool {
   id: string;
@@ -24,6 +26,7 @@ interface ToolsViewProps {
 export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialTools, onCreateTool, onEditTool, onDeleteTool, onExecuteTool, inline = false }) => {
   const setTools = useStore(state => state.setTools);
   const projectId = useStore(state => state.selectedObject);
+  const [searchQuery, setSearchQuery] = useQueryState('q', { defaultValue: '' });
 
   const { items: tools, hasMore, loadMore, loading } = useCursorPagination({
     clientMethod: toolClient.listTools,
@@ -33,8 +36,14 @@ export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialT
     initialItems: initialTools,
   });
 
+  const filteredTools = tools.filter(t => 
+    !searchQuery || 
+    t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    t.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const openCreate = useCallback(() => {
-    useStore.getState().setSlideOverContent({ type: 'tool-form', title: 'Nuovo Strumento', data: undefined });
+    useStore.getState().setSlideOverContent({ type: 'tool-form', title: t('tools.create'), data: undefined });
   }, []);
 
   return (
@@ -45,8 +54,8 @@ export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialT
     >
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Strumenti Operativi</h2>
-          <p className="text-textMuted text-sm mt-1">Definisci funzioni eseguibili dagli agenti (SQL, Python, API).</p>
+          <h2 className="text-3xl font-bold tracking-tight">{t('tools.title')}</h2>
+          <p className="text-textMuted text-sm mt-1">{t('tools.subtitle')}</p>
         </div>
         <button 
           onClick={openCreate} 
@@ -54,13 +63,22 @@ export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialT
           aria-label="Create new tool"
         >
            <Plus size={20} />
-           <span>Crea Strumento</span>
+            <span>{t('tools.create')}</span>
         </button>
-      </div>
+       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {tools.map(t => (
-          <div key={t.id} className="bg-surface p-8 rounded-lg border border-border shadow-sm hover:shadow-lg shadow-primary/5 transition-all flex flex-col h-full group relative">
+       <input
+         type="text"
+         value={searchQuery}
+         onChange={e => setSearchQuery(e.target.value)}
+         placeholder={t('tools.search')}
+         className="w-full max-w-md px-4 py-2 bg-surface-alt border border-border rounded-lg text-sm font-mono text-textPrimary placeholder-textDim focus:outline-none focus:border-primary/50"
+       />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         {filteredTools.map(t => (
+           <div key={t.id} className="bg-surface p-8 rounded-lg border border-border shadow-sm hover:shadow-lg shadow-primary/5 transition-all flex flex-col h-full group relative">
+
                <button 
                   onClick={(e) => { e.stopPropagation(); if (confirm('Eliminare questo strumento?')) onDeleteTool(t.id); }}
                   className="absolute top-8 right-8 p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"

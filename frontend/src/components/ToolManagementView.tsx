@@ -2,6 +2,7 @@ import React from 'react';
 import { useQueryState } from 'nuqs';
 import { useStore } from '../store/useStore';
 import { Terminal, Plus, Trash2, Activity, AlertCircle, CheckCircle2, Search, BarChart3 } from 'lucide-react';
+import { t } from '../i18n';
 import { Tool } from '../store/types';
 
 interface ToolManagementViewProps {
@@ -39,7 +40,7 @@ export const ToolManagementView: React.FC<ToolManagementViewProps> = ({ inline }
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-textMuted" size={14} />
             <input 
               type="text" 
-              placeholder="Cerca tool..." 
+              placeholder={t('tools.search')} 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary/50"

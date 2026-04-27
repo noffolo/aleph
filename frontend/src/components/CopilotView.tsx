@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react'
+import { t } from '../i18n'
 import { useStore } from '../store/useStore'
 import { TerminalPrompt, TerminalOutput, escapeHtml } from './terminal'
 import { InlineRenderer } from './terminal/InlineRenderer'
@@ -74,7 +75,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
           <button 
             onClick={() => setSplitView(!splitView)} 
             className={`p-1 rounded transition-colors ${splitView ? 'text-primary bg-primary/10' : 'text-textMuted hover:text-text'}`} 
-            title="Split View"
+            title={t('copilot.splitView')}
           >
             <SplitSquareHorizontal className="w-3 h-3" />
           </button>
@@ -82,11 +83,11 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
           {chat.length > 0 && (
             <div className="flex items-center gap-4">
               {isStreaming && (
-                <button onClick={onCancelStream} className="text-danger hover:text-danger-bright text-xs font-bold transition-colors" title="Interrompi streaming">
+                <button onClick={onCancelStream} className="text-danger hover:text-danger-bright text-xs font-bold transition-colors" title={t('copilot.cancelStream')}>
                   ⏹ STOP
                 </button>
               )}
-              <button onClick={onClearChat} className="text-textMuted hover:text-text transition-colors text-xs font-bold" title="Pulisci">
+              <button onClick={onClearChat} className="text-textMuted hover:text-text transition-colors text-xs font-bold" title={t('copilot.clearChat')}>
                 PULISCI
               </button>
             </div>

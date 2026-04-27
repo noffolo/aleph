@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Agent } from '../store/types'
 import { Eye, EyeOff } from 'lucide-react'
+import { t } from '../i18n'
 
 export interface AgentFormData {
   name: string
@@ -59,7 +60,7 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
 
   return (
     <div className="p-6 space-y-4">
-      <h3 className="text-xl font-bold">{title || (isEdit ? 'Modifica Agente' : 'Nuovo Agente')}</h3>
+      <h3 className="text-xl font-bold">{title || (isEdit ? t('agents.edit') : t('agents.create'))}</h3>
       
       <div className="space-y-3">
         <div>
@@ -70,7 +71,7 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
             className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
               errors.name ? 'border-danger bg-danger/5' : 'border-border'
             }`}
-            placeholder="Es: Analista Finanze"
+            placeholder={t('agents.form.name')}
           />
           {errors.name && <p className="text-danger text-[10px] mt-1">{errors.name}</p>}
         </div>
@@ -98,7 +99,7 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
               className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
                 errors.model ? 'border-danger bg-danger/5' : 'border-border'
               }`}
-              placeholder="Es: gpt-4o-mini, claude-3-5-sonnet"
+              placeholder={t('agents.form.model')}
             />
             {errors.model && <p className="text-danger text-[10px] mt-1">{errors.model}</p>}
           </div>
@@ -112,7 +113,7 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
               value={formData.apiKey}
               onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
-              placeholder="Inserisci solo per override globale"
+              placeholder={t('agents.form.apiKey')}
             />
             <button
               type="button"
@@ -132,7 +133,7 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
             className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
               errors.baseUrl ? 'border-danger bg-danger/5' : 'border-border'
             }`}
-            placeholder="Es: https://api.openai.com/v1"
+            placeholder={t('agents.form.baseUrl')}
           />
           {errors.baseUrl && <p className="text-danger text-[10px] mt-1">{errors.baseUrl}</p>}
         </div>
@@ -144,7 +145,7 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
             onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
             rows={4}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm font-mono resize-none focus:outline-none focus:border-primary/50"
-            placeholder="Definisci il ruolo e le restrizioni dell'agente..."
+            placeholder={t('agents.form.systemPrompt')}
           />
         </div>
       </div>
@@ -154,13 +155,13 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
           onClick={onCancel}
           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
         >
-          Annulla
+          {t('confirmDialog.cancel')}
         </button>
         <button
           onClick={handleSubmit}
           className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors"
         >
-          {isEdit ? 'Aggiorna Agente' : 'Crea Agente'}
+          {isEdit ? 'Aggiorna Agente' : t('agents.create')}
         </button>
       </div>
     </div>

@@ -11,6 +11,7 @@ import { useComponentActions } from '../../hooks/domain/useComponentActions'
 import { useSettingsActions } from '../../hooks/domain/useSettingsActions'
 import { useLibraryActions } from '../../hooks/domain/useLibraryActions'
 import { InlineErrorBoundary } from '../InlineErrorBoundary'
+import { t } from '../../i18n'
 
 const ExplorerView = React.lazy(() => import('../ExplorerView').then(m => ({ default: m.ExplorerView })))
 const DataSourcesView = React.lazy(() => import('../DataSourcesView').then(m => ({ default: m.DataSourcesView })))
@@ -185,7 +186,7 @@ export const InlineRenderer: React.FC = () => {
             onClick={() => store.setShowInlinePanel(false)}
             className="text-textMuted hover:text-text text-xs transition-colors px-2 py-1 rounded hover:bg-surface-alt"
           >
-             CHIUDI
+             {t('slideOver.close')}
           </button>
         </div>
       </div>

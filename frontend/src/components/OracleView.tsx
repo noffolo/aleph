@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { nlpClient } from '../api/factory';
 import { Zap, TrendingUp, AlertTriangle, Clock, ThumbsUp, ThumbsDown, MessageSquareText } from 'lucide-react';
+import { t } from '../i18n';
 
 interface Prediction {
   entityId: string;
@@ -45,7 +46,7 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
         }
       } catch (err: any) {
         if (err?.code !== 'CANCELLED') {
-          console.error("Errore nello streaming delle predizioni:", err);
+          console.error(t('errors.default'), err);
         }
       } finally {
         if (!ac.signal.aborted) setIsLoading(false);
@@ -93,7 +94,7 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
       <header className="flex flex-col space-y-4">
         <div className="flex items-center space-x-3 text-primary">
           <Zap size={32} className="fill-current" />
-          <h2 className="text-4xl font-black tracking-tighter uppercase italic">Motore Predittivo Oracle</h2>
+          <h2 className="text-4xl font-black tracking-tighter uppercase italic">{t('oracle.title')}</h2>
         </div>
         <p className="text-textMuted font-medium max-w-2xl">
           Analisi degli scenari probabilistici generati dal sistema.
@@ -112,7 +113,7 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
       {predictions.length === 0 && !isLoading && (
         <div className="py-20 text-center">
           <Zap size={48} className="mx-auto text-textDim mb-4" />
-          <p className="text-textMuted font-bold text-sm">Nessuna predizione disponibile per questo progetto</p>
+          <p className="text-textMuted font-bold text-sm">{t('oracle.empty')}</p>
         </div>
       )}
 
@@ -155,7 +156,7 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
                      onClick={() => handleFeedback(pred, true)}
                      disabled={feedbackGiven[pred.entityId] === true}
                      className={`p-2 rounded-xl transition-all ${feedbackGiven[pred.entityId] === true ? 'bg-success/10 text-success' : 'hover:bg-success/10 text-textDim hover:text-success'}`}
-                     title="Predizione corretta"
+                      title={t('oracle.correctPrediction')}
                    >
                      <ThumbsUp size={16} />
                    </button>
@@ -163,7 +164,7 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
                      onClick={() => handleFeedback(pred, false)}
                      disabled={feedbackGiven[pred.entityId] === false}
                      className={`p-2 rounded-xl transition-all ${feedbackGiven[pred.entityId] === false ? 'bg-danger/10 text-danger' : 'hover:bg-danger/10 text-textDim hover:text-danger'}`}
-                     title="Predizione errata"
+                      title={t('oracle.wrongPrediction')}
                    >
                      <ThumbsDown size={16} />
                    </button>
@@ -178,14 +179,14 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
           <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
             <MessageSquareText size={20} />
           </div>
-          <h3 className="text-2xl font-black tracking-tight uppercase italic">Analisi Sentiment <span className="text-sm font-normal text-textMuted align-middle">(beta)</span></h3>
+          <h3 className="text-2xl font-black tracking-tight uppercase italic">{t('oracle.sentimentTitle')} <span className="text-sm font-normal text-textMuted align-middle">(beta)</span></h3>
         </div>
-        <p className="text-textMuted text-sm mb-6">Inserisci un testo per analizzarne il sentiment tramite il modello NLP sidecar.</p>
+        <p className="text-textMuted text-sm mb-6">{t('oracle.sentimentSubtitle')}</p>
         <div className="flex space-x-3">
           <textarea
             value={sentimentText}
             onChange={(e) => setSentimentText(e.target.value)}
-            placeholder="Scrivi o incolla il testo da analizzare..."
+            placeholder={t('oracle.sentimentPlaceholder')}
             className="flex-1 h-24 p-4 bg-surface-alt rounded-lg border border-border text-sm resize-none focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all"
           />
           <button

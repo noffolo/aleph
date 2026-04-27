@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Key, Plus, Trash2, Bell, Globe, Shield, Monitor, Sparkles, ScanLine } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 
 interface ApiKey {
   id: string;
@@ -42,7 +43,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       aria-label="Settings"
     >
       <div className="flex flex-col space-y-1">
-        <h2 className="text-3xl font-bold tracking-tight">Impostazioni</h2>
+        <h2 className="text-3xl font-bold tracking-tight">{t('settings.title')}</h2>
         <p className="text-textMuted text-sm mt-1">Gestisci chiavi API, notifiche e integrazioni.</p>
       </div>
 
@@ -62,7 +63,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="flex items-center justify-between p-4 bg-surface-alt rounded-2xl">
             <div className="flex items-center space-x-3">
               <ScanLine size={16} className="text-primary" />
-              <span className="font-bold text-sm">Scanlines</span>
+              <span className="font-bold text-sm">{t('settings.scanlines')}</span>
             </div>
              <button 
                onClick={() => store.setEnableScanline(!store.enableScanline)}
@@ -77,7 +78,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="flex items-center justify-between p-4 bg-surface-alt rounded-2xl">
             <div className="flex items-center space-x-3">
               <Sparkles size={16} className="text-primary" />
-              <span className="font-bold text-sm">Effetto Glow</span>
+              <span className="font-bold text-sm">{t('settings.glow')}</span>
             </div>
              <button 
                onClick={() => store.setEnableGlow(!store.enableGlow)}
@@ -92,7 +93,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="flex items-center justify-between p-4 bg-surface-alt rounded-2xl">
             <div className="flex items-center space-x-3">
               <Monitor size={16} className="text-primary" />
-              <span className="font-bold text-sm">Sfarfallio (Flicker)</span>
+              <span className="font-bold text-sm">{t('settings.flicker')}</span>
             </div>
              <button 
                onClick={() => store.setEnableFlicker(!store.enableFlicker)}
@@ -112,7 +113,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Key size={20} /></div>
             <div>
-              <h3 className="font-bold text-lg">Chiavi API</h3>
+              <h3 className="font-bold text-lg">{t('settings.apiKey')}</h3>
               <p className="text-[10px] text-textMuted uppercase tracking-widest font-bold">Gestione chiavi di accesso</p>
             </div>
           </div>
@@ -132,9 +133,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                  <button
                    onClick={() => { if (confirm('Revocare questa chiave?')) onDeleteApiKey(k.id); }}
                    className="p-1.5 text-textDim hover:text-danger hover:bg-danger/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                   aria-label="Revoke API key"
-                 >
-                  <Trash2 size={14} />
+                    aria-label={t('settings.revoke')}
+                  >
+                   <Trash2 size={14} />
                 </button>
               </div>
             </div>
@@ -179,10 +180,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div className="border-t border-border pt-6 space-y-4">
             <div className="text-[10px] font-black text-textMuted uppercase tracking-widest">Test Webhook</div>
-            <input
-              value={webhookUrl}
-              onChange={(e) => setWebhookUrl(e.target.value)}
-              placeholder="https://hooks.example.com/..."
+              <input
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  placeholder="https://hooks.example.com/..."
               className="w-full px-4 py-3 border border-border rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/10 bg-surface text-text"
             />
             <textarea
@@ -195,7 +196,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <input
               value={webhookSecret}
               onChange={(e) => setWebhookSecret(e.target.value)}
-              placeholder="Secret (opzionale)"
+               placeholder={t('settings.webhookSecret')}
               className="w-full px-4 py-3 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 bg-surface text-text"
             />
              <button
@@ -204,7 +205,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                className="px-6 py-3 bg-warning text-white rounded-xl text-sm font-bold hover:bg-warning/90 disabled:opacity-50 transition-all"
                aria-label="Send test webhook"
              >
-              Invia Webhook di Test
+              {t('settings.sendTest')}
             </button>
           </div>
         </div>

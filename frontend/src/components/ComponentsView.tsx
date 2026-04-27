@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Cpu, Search, Zap, ToggleLeft, Plus, Eye } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 import { Timestamp } from '@bufbuild/protobuf';
 
 interface ComponentMetadata {
@@ -58,24 +59,24 @@ export const ComponentsView: React.FC<ComponentsViewProps> = ({ components, onUp
   };
 
   const openRegister = () => {
-    useStore.getState().setSlideOverContent({ type: 'component-form', title: 'Registra Componente', data: undefined });
+    useStore.getState().setSlideOverContent({ type: 'component-form', title: t('components.register'), data: undefined });
   };
 
   const openDetail = (id: string) => {
     const local = components.find(c => c.id === id);
-    useStore.getState().setSlideOverContent({ type: 'component-detail', title: local?.name || 'Dettaglio Componente', data: { componentId: id } });
+    useStore.getState().setSlideOverContent({ type: 'component-detail', title: local?.name || t('components.edit'), data: { componentId: id } });
   };
 
   return (
     <div className={(inline ? '' : 'max-w-6xl mx-auto ') + 'space-y-8'}>
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Registro Componenti</h2>
-          <p className="text-textMuted text-sm mt-1">Catalogo centralizzato di agenti, skill, strumenti e modelli registrati.</p>
+          <h2 className="text-3xl font-bold tracking-tight">{t('components.title')}</h2>
+          <p className="text-textMuted text-sm mt-1">{t('components.subtitle')}</p>
         </div>
         <button onClick={openRegister} className="flex items-center space-x-2 bg-primary text-white px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg ">
           <Plus size={20} />
-          <span>Registra Componente</span>
+          <span>{t('components.register')}</span>
         </button>
       </div>
 
@@ -85,7 +86,7 @@ export const ComponentsView: React.FC<ComponentsViewProps> = ({ components, onUp
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Cerca componenti per nome, tipo o categoria..."
+          placeholder={t('components.search')}
           className="w-full pl-12 pr-4 py-4 bg-surface border border-border rounded-lg focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-lg shadow-sm"
         />
       </div>
@@ -124,14 +125,14 @@ export const ComponentsView: React.FC<ComponentsViewProps> = ({ components, onUp
                 </div>
               )}
               {c.trustScore != null && (
-                 <div className="p-2 bg-surface-alt rounded-xl" title="Funzionalità beta — i punteggi potrebbero non riflettere ancora l'accuratezza effettiva">
-                   <div className="text-[9px] text-textMuted uppercase font-bold">Trust (beta) {c.trustScore.toFixed(2)}</div>
-                 </div>
+                 <div className="p-2 bg-surface-alt rounded-xl" title={t('components.betaScore')}>
+                    <div className="text-[9px] text-textMuted uppercase font-bold">Trust (beta) {c.trustScore.toFixed(2)}</div>
+                  </div>
                )}
               {c.avgBrierScore != null && (
-                 <div className="p-2 bg-surface-alt rounded-xl" title="Funzionalità beta — i punteggi potrebbero non riflettere ancora l'accuratezza effettiva">
-                   <div className="text-[9px] text-textMuted uppercase font-bold">Brier (beta) {c.avgBrierScore.toFixed(3)}</div>
-                 </div>
+                 <div className="p-2 bg-surface-alt rounded-xl" title={t('components.betaScore')}>
+                    <div className="text-[9px] text-textMuted uppercase font-bold">Brier (beta) {c.avgBrierScore.toFixed(3)}</div>
+                  </div>
                )}
               {c.avgCpuUsage != null && (
                 <div className="p-2 bg-surface-alt rounded-xl">

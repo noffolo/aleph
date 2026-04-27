@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Briefcase, Plus, Key, Lock, ArrowRight, X, Trash2, Binary, Sparkles, AlertTriangle } from 'lucide-react';
+import { t } from '../i18n';
 
 interface Project {
   id: string;
@@ -37,7 +38,7 @@ const DeleteConfirmModal: React.FC<{ project: Project; onConfirm: (apiKey: strin
             value={keyInput}
             onChange={e => setKeyInput(e.target.value)}
             className="w-full pl-14 pr-6 py-4 bg-surface-alt border-2 border-transparent rounded-lg focus:bg-surface focus:border-danger outline-none transition-all font-mono text-sm text-text"
-            placeholder="Inserisci API Key dello spazio di lavoro..."
+            placeholder={t('setup.apiKey')}
           />
         </div>
         <button
@@ -86,7 +87,7 @@ export const WorkspaceOnboarding: React.FC<WorkspaceOnboardingProps> = ({ projec
                    onChange={e => setKeyInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && keyInput.trim() && onSelectProject(selectedId, keyInput)}
                    className="w-full pl-16 pr-6 py-5 bg-surface-alt border-2 border-transparent rounded-lg focus:bg-surface focus:border-primary outline-none transition-all font-mono text-lg shadow-inner text-text"
-                   placeholder="Inserisci API Key..."
+                   placeholder={t('onboarding.apiKey')}
                 />
              </div>
              <button 

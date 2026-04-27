@@ -3,6 +3,7 @@ import { useStore } from '../../store/useStore'
 import { useAppActions } from '../../hooks/useAppActions'
 import { useSkillActions } from '../../hooks/domain/useSkillActions'
 import type { Skill, Tool } from '../../store/types'
+import { t } from '../../i18n'
 
 interface SkillFormSlideOverProps {
   skill?: Skill
@@ -36,7 +37,7 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
 
   return (
     <div className="p-6 space-y-4">
-      <h3 className="text-xl font-bold">{title || (isEdit ? 'Modifica Skill' : 'Nuova Skill')}</h3>
+      <h3 className="text-xl font-bold">{title || (isEdit ? t('skills.edit') : t('skills.create'))}</h3>
 
       <div className="space-y-3">
         <div>
@@ -45,7 +46,7 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
-            placeholder="Es: Analista Finanze"
+            placeholder={t('skills.form.name')}
           />
         </div>
 
@@ -56,7 +57,7 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm font-mono resize-none focus:outline-none focus:border-primary/50"
-            placeholder="Descrivi la capacità di questa skill..."
+            placeholder={t('skills.form.description')}
           />
         </div>
 
@@ -89,13 +90,13 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
           onClick={() => store.setSlideOverContent(null)}
           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
         >
-          Annulla
+          {t('confirmDialog.cancel')}
         </button>
         <button
           onClick={handleSubmit}
           className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors"
         >
-          {isEdit ? 'Aggiorna Skill' : 'Crea Skill'}
+          {isEdit ? t('skills.edit') : t('skills.create')}
         </button>
       </div>
     </div>

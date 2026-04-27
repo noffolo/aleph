@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Tool } from '../store/types'
 import { useStore } from '../store/useStore'
+import { t } from '../i18n'
 
 export interface ToolFormData {
   name: string
@@ -75,7 +76,7 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
 
   return (
     <div className="p-6 space-y-4">
-      <h3 className="text-xl font-bold">{title || (isEdit ? 'Modifica Tool' : 'Nuovo Tool')}</h3>
+      <h3 className="text-xl font-bold">{title || (isEdit ? t('tools.edit') : t('tools.create'))}</h3>
       
       {saveError && (
         <div className="p-3 bg-danger/10 border border-danger/30 text-danger text-xs rounded-lg font-medium">
@@ -93,7 +94,7 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
             className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
               errors.name ? 'border-danger bg-danger/5' : 'border-border'
             } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-            placeholder="Es: Analizzatore CSV"
+            placeholder={t('tools.form.name')}
           />
           {errors.name && <p className="text-danger text-[10px] mt-1">{errors.name}</p>}
         </div>
@@ -106,7 +107,7 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
             disabled={isSaving}
             rows={2}
             className={`w-full p-3 bg-background rounded-lg border border-border text-sm font-mono resize-none focus:outline-none focus:border-primary/50 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-            placeholder="Descrivi cosa fa questo tool..."
+            placeholder={t('tools.form.description')}
           />
         </div>
         
@@ -129,14 +130,14 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
           disabled={isSaving}
           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border disabled:opacity-50"
         >
-          Annulla
+          {t('confirmDialog.cancel')}
         </button>
         <button
           onClick={handleSubmit}
           disabled={isSaving}
           className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors disabled:opacity-50"
         >
-          {isSaving ? 'Salvataggio...' : (isEdit ? 'Aggiorna Tool' : 'Crea Tool')}
+          {isSaving ? 'Salvataggio...' : (isEdit ? t('tools.edit') : t('tools.create'))}
         </button>
       </div>
     </div>

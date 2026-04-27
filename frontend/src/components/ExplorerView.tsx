@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Table as TableIcon, Map as MapIcon, Clock, Share2 as GraphIcon } from 'lucide-react';
+import { t } from '../i18n';
 import { AlephTable } from '../lib/AlephTable';
 import { AlephMap } from '../lib/AlephMap';
 import { AlephTimeline } from '../lib/AlephTimeline';
@@ -51,10 +52,10 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
           />
         </div>
         <div className="flex bg-surface p-0.5 border border-border">
-           <button onClick={() => setActiveView('table')} className={`px-2.5 py-1.5 ${activeView === 'table' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title="Tabella"><TableIcon size={16} /></button>
-           <button onClick={() => setActiveView('map')} className={`px-2.5 py-1.5 ${activeView === 'map' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title="Mappa"><MapIcon size={16} /></button>
-           <button onClick={() => setActiveView('timeline')} className={`px-2.5 py-1.5 ${activeView === 'timeline' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title="Timeline"><Clock size={16} /></button>
-           <button onClick={() => setActiveView('graph')} className={`px-2.5 py-1.5 ${activeView === 'graph' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title="Grafo Relazionale"><GraphIcon size={16} /></button>
+           <button onClick={() => setActiveView('table')} className={`px-2.5 py-1.5 ${activeView === 'table' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.table')}><TableIcon size={16} /></button>
+            <button onClick={() => setActiveView('map')} className={`px-2.5 py-1.5 ${activeView === 'map' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.map')}><MapIcon size={16} /></button>
+            <button onClick={() => setActiveView('timeline')} className={`px-2.5 py-1.5 ${activeView === 'timeline' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.timeline')}><Clock size={16} /></button>
+            <button onClick={() => setActiveView('graph')} className={`px-2.5 py-1.5 ${activeView === 'graph' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.graph')}><GraphIcon size={16} /></button>
         </div>
       </div>
 
