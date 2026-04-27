@@ -12,6 +12,7 @@ services:
       SERVER_ADDRESS: ":8080"
       ALEPH_API_KEY_SECRET_BACKEND: "${ALEPH_API_KEY_SECRET_BACKEND}"
       NLP_ADDR: "aleph-nlp-sidecar:8001"
+      KEY_ENCRYPTION_KEY: "${KEY_ENCRYPTION_KEY}"
     ports:
       - "8080:8080"
     volumes:

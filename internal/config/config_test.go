@@ -22,6 +22,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	assert.Equal(t, "http://localhost:11434", cfg.OllamaBaseURL)
 	assert.Empty(t, cfg.MCPServerURIs)
 	assert.Empty(t, cfg.KeyEncryptionKey)
+	assert.Nil(t, cfg.EncryptionKey)
 	assert.Equal(t, 7, cfg.BackupKeep)
 }
 
@@ -50,6 +51,8 @@ func TestLoadConfig_WithEnv(t *testing.T) {
 	assert.Equal(t, "nlp:8002", cfg.NLPAddr)
 	assert.Equal(t, []string{"http://server1", "http://server2"}, cfg.MCPServerURIs)
 	assert.Equal(t, "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", cfg.KeyEncryptionKey)
+	assert.NotNil(t, cfg.EncryptionKey)
+	assert.Equal(t, 32, len(cfg.EncryptionKey))
 	assert.Equal(t, 14, cfg.BackupKeep)
 }
 

@@ -4,14 +4,24 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
+
+	"github.com/ff3300/aleph-v2/internal/crypto"
 )
 
 // MetadataRepository provides CRUD operations for system metadata tables
 // (agents, tools, skills, tasks, API keys, chat history).
 type MetadataRepository struct {
-	db       *sql.DB
-	toolCache *ToolCache
+	db            *sql.DB
+	toolCache     *ToolCache
+	encryptionKey []byte // AES-256 key for transparent API key encryption; nil = plaintext
+}
+
+// SetEncryptionKey sets the AES-256 key used for transparent encryption
+// of sensitive fields (e.g. agent API keys). Pass nil to disable encryption.
+func (r *MetadataRepository) SetEncryptionKey(key []byte) {
+	r.encryptionKey = key
 }
 
 // NewMetadataRepository creates a MetadataRepository backed by the given *sql.DB.
@@ -20,6 +30,11 @@ func NewMetadataRepository(db *sql.DB) (*MetadataRepository, error) {
 		db:        db,
 		toolCache: NewToolCache(),
 	}, nil
+}
+
+// EncryptionKey returns the current encryption key (may be nil).
+func (r *MetadataRepository) EncryptionKey() []byte {
+	return r.encryptionKey
 }
 
 // SetToolCache replaces the default tool cache (used by tests).
@@ -198,6 +213,13 @@ func (r *MetadataRepository) GetAgentForChat(agentID string) (*AgentRecord, erro
 		return nil, err
 	}
 	a.ID = agentID
+	if r.encryptionKey != nil && a.ApiKey != "" {
+		plaintext, err := crypto.Decrypt(a.ApiKey, r.encryptionKey)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt agent api_key: %w", err)
+		}
+		a.ApiKey = string(plaintext)
+	}
 	return &a, nil
 }
 
@@ -214,6 +236,14 @@ func (r *MetadataRepository) ListAgents(projectID string) ([]*AgentRecord, error
 			continue
 		}
 		a.ProjectID = projectID
+		if r.encryptionKey != nil && a.ApiKey != "" {
+			plaintext, err := crypto.Decrypt(a.ApiKey, r.encryptionKey)
+			if err != nil {
+				log.Printf("decrypt agent %s api_key: %v (skipping row)", a.ID, err)
+			} else {
+				a.ApiKey = string(plaintext)
+			}
+		}
 		agents = append(agents, &a)
 	}
 	return agents, nil
@@ -243,13 +273,29 @@ func (r *MetadataRepository) ListAgentsCursor(projectID, cursor string, limit in
 			continue
 		}
 		a.ProjectID = projectID
+		if r.encryptionKey != nil && a.ApiKey != "" {
+			plaintext, err := crypto.Decrypt(a.ApiKey, r.encryptionKey)
+			if err != nil {
+				log.Printf("decrypt agent %s api_key: %v (skipping row)", a.ID, err)
+			} else {
+				a.ApiKey = string(plaintext)
+			}
+		}
 		agents = append(agents, &a)
 	}
 	return agents, nil
 }
 
 func (r *MetadataRepository) CreateAgent(a *AgentRecord) error {
-	_, err := r.db.Exec("INSERT INTO system_agents (id, project_id, name, provider, model, api_key, system_prompt, skill_ids, base_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)", a.ID, a.ProjectID, a.Name, a.Provider, a.Model, a.ApiKey, a.SystemPrompt, a.SkillIDsJSON, a.BaseURL)
+	apiKey := a.ApiKey
+	if r.encryptionKey != nil && apiKey != "" {
+		encrypted, err := crypto.Encrypt([]byte(apiKey), r.encryptionKey)
+		if err != nil {
+			return fmt.Errorf("createAgent encrypt api_key: %w", err)
+		}
+		apiKey = encrypted
+	}
+	_, err := r.db.Exec("INSERT INTO system_agents (id, project_id, name, provider, model, api_key, system_prompt, skill_ids, base_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)", a.ID, a.ProjectID, a.Name, a.Provider, a.Model, apiKey, a.SystemPrompt, a.SkillIDsJSON, a.BaseURL)
 	return fmt.Errorf("createAgent: %w", err)
 }
 
@@ -259,7 +305,15 @@ func (r *MetadataRepository) DeleteAgent(agentID, projectID string) error {
 }
 
 func (r *MetadataRepository) UpdateAgent(a *AgentRecord) error {
-	_, err := r.db.Exec("UPDATE system_agents SET name = $1, provider = $2, model = $3, api_key = $4, system_prompt = $5, skill_ids = $6, base_url = $7 WHERE id = $8 AND project_id = $9", a.Name, a.Provider, a.Model, a.ApiKey, a.SystemPrompt, a.SkillIDsJSON, a.BaseURL, a.ID, a.ProjectID)
+	apiKey := a.ApiKey
+	if r.encryptionKey != nil && apiKey != "" {
+		encrypted, err := crypto.Encrypt([]byte(apiKey), r.encryptionKey)
+		if err != nil {
+			return fmt.Errorf("updateAgent encrypt api_key: %w", err)
+		}
+		apiKey = encrypted
+	}
+	_, err := r.db.Exec("UPDATE system_agents SET name = $1, provider = $2, model = $3, api_key = $4, system_prompt = $5, skill_ids = $6, base_url = $7 WHERE id = $8 AND project_id = $9", a.Name, a.Provider, a.Model, apiKey, a.SystemPrompt, a.SkillIDsJSON, a.BaseURL, a.ID, a.ProjectID)
 	return fmt.Errorf("updateAgent: %w", err)
 }
 

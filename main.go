@@ -23,6 +23,10 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	if cfg.EncryptionKey == nil {
+		log.Println("WARNING: KEY_ENCRYPTION_KEY not set — API keys stored in PLAINTEXT")
+	}
+
 	port := flag.Int("port", cfg.Port, "Port to listen on")
 	flag.Parse()
 

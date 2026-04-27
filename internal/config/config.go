@@ -1,11 +1,14 @@
 package config
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/viper"
+
+	"github.com/ff3300/aleph-v2/internal/crypto"
 )
 
 type Config struct {
@@ -16,7 +19,8 @@ type Config struct {
 	NLPAddr           string
 	OllamaBaseURL     string
 	MCPServerURIs     []string
-	KeyEncryptionKey  string
+	KeyEncryptionKey  string // raw hex string from env (kept for compat/display)
+	EncryptionKey     []byte // decoded 32-byte AES-256 key (nil if not set)
 	BackupInterval    string
 	BackupDir         string
 	BackupKeep        int
@@ -35,6 +39,19 @@ func LoadConfig() (*Config, error) {
 
 	viper.AutomaticEnv()
 
+	rawKey := viper.GetString("KEY_ENCRYPTION_KEY")
+	var encKey []byte
+	if rawKey != "" {
+		decoded, err := crypto.LoadEncryptionKey(rawKey)
+		if err != nil {
+			log.Printf("[config] WARNING: KEY_ENCRYPTION_KEY is invalid (%v) — API keys stored in PLAINTEXT", err)
+		} else {
+			encKey = decoded
+		}
+	} else {
+		log.Printf("[config] WARNING: KEY_ENCRYPTION_KEY not set — API keys stored in PLAINTEXT")
+	}
+
 	return &Config{
 		Port:              viper.GetInt("PORT"),
 		DataRoot:          viper.GetString("DATA_ROOT"),
@@ -43,7 +60,8 @@ func LoadConfig() (*Config, error) {
 		NLPAddr:           viper.GetString("NLP_ADDR"),
 		OllamaBaseURL:     viper.GetString("OLLAMA_BASE_URL"),
 		MCPServerURIs:     parseMCPServerURIs(viper.GetString("MCP_SERVER_URIS")),
-		KeyEncryptionKey:  viper.GetString("KEY_ENCRYPTION_KEY"),
+		KeyEncryptionKey:  rawKey,
+		EncryptionKey:     encKey, // nil if not set or invalid
 		BackupKeep:        viper.GetInt("BACKUP_KEEP"),
 	}, nil
 }

@@ -47,6 +47,7 @@ ENV PORT=8080
 ENV DATA_ROOT=/app/data/raw
 ENV POSTGRES_DSN="postgres://postgres:postgres@db:5432/aleph?sslmode=disable"
 ENV DUCKDB_PATH="/app/data/aleph.duckdb"
+ENV KEY_ENCRYPTION_KEY=""
 
 # Create data directories
 RUN mkdir -p /app/data/projects /app/data/raw /app/data/ontologies

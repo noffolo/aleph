@@ -88,6 +88,7 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to init metadata repo: %v", err)
 	}
+	metaRepo.SetEncryptionKey(cfg.EncryptionKey)
 
 	wd, _ := os.Getwd()
 	projectsRoot := filepath.Join(wd, "data", "projects")
