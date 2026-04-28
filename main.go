@@ -12,6 +12,7 @@ import (
 
 	"github.com/ff3300/aleph-v2/internal/app"
 	"github.com/ff3300/aleph-v2/internal/config"
+	"github.com/ff3300/aleph-v2/internal/routes"
 )
 
 //go:embed dist/*
@@ -21,10 +22,6 @@ func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
-	}
-
-	if cfg.EncryptionKey == nil {
-		log.Println("WARNING: KEY_ENCRYPTION_KEY not set — API keys stored in PLAINTEXT")
 	}
 
 	port := flag.Int("port", cfg.Port, "Port to listen on")
@@ -46,7 +43,11 @@ func main() {
 	<-stop
 
 	log.Println("[Aleph] Shutting down gracefully...")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	routes.SetDraining(true)
+	time.Sleep(2 * time.Second)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := aleph.Close(ctx); err != nil {
 		log.Printf("[Aleph] Shutdown error: %v", err)

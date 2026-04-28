@@ -1,7 +1,7 @@
 package config
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,16 +51,14 @@ func LoadConfig() (*Config, error) {
 
 	rawKey := viper.GetString("KEY_ENCRYPTION_KEY")
 	var encKey []byte
-	if rawKey != "" {
-		decoded, err := crypto.LoadEncryptionKey(rawKey)
-		if err != nil {
-			log.Printf("[config] WARNING: KEY_ENCRYPTION_KEY is invalid (%v) — API keys stored in PLAINTEXT", err)
-		} else {
-			encKey = decoded
-		}
-	} else {
-		log.Printf("[config] WARNING: KEY_ENCRYPTION_KEY not set — API keys stored in PLAINTEXT")
+	if rawKey == "" {
+		return nil, fmt.Errorf("FATAL: KEY_ENCRYPTION_KEY (env KEY_ENCRYPTION_KEY) is required — API keys must be encrypted at rest")
 	}
+	decoded, err := crypto.LoadEncryptionKey(rawKey)
+	if err != nil {
+		return nil, fmt.Errorf("FATAL: KEY_ENCRYPTION_KEY is invalid (%v)", err)
+	}
+	encKey = decoded
 
 	return &Config{
 		Port:              viper.GetInt("PORT"),
