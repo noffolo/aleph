@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	_ "github.com/rs/cors"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"golang.org/x/time/rate"
@@ -71,6 +70,7 @@ type AlephApp struct {
 	discoveryEngine  *mcp.DiscoveryEngine
 	notificationSvc  *notification.NotificationService
 	sseBroker        *sse.Broker
+	rlCleanup        func()
 }
 
 func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
@@ -281,6 +281,8 @@ func (a *AlephApp) Serve(port int) error {
 	corsHandler := routes.CORSHandler(mux, a.logger)
 	telemetryHandler := telemetry.Middleware(corsHandler)
 	recoveryHandler := middleware.Recovery(telemetryHandler)
+	secureHandler := middleware.SecurityHeaders(recoveryHandler)
+	ridHandler := middleware.RequestID(secureHandler)
 
 	rateLimitCfg := middleware.RateLimitConfig{
 		ChatLimit:    rate.Limit(a.cfg.RateLimitChat) / 60.0,
@@ -290,14 +292,18 @@ func (a *AlephApp) Serve(port int) error {
 		HealthBurst:  20,
 		DefaultBurst: 50,
 	}
-	rateLimitedHandler := middleware.RateLimitMiddleware(&rateLimitCfg)(recoveryHandler)
+	rateLimitMw, rateLimitStop := middleware.RateLimitMiddleware(&rateLimitCfg)
+	a.rlCleanup = rateLimitStop
+	rateLimitedHandler := rateLimitMw(ridHandler)
+
+	promHandler := telemetry.PrometheusMiddleware(rateLimitedHandler)
 
 	go a.watchSidecar(a.nlpHandler)
 
 	log.Printf("[Aleph] Data OS starting on :%d", port)
 	a.server = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
-		Handler: h2c.NewHandler(rateLimitedHandler, &http2.Server{}),
+		Handler: h2c.NewHandler(promHandler, &http2.Server{}),
 	}
 
 	return a.server.ListenAndServe()
@@ -318,6 +324,9 @@ func (a *AlephApp) Close(ctx context.Context) error {
 	}
 	if a.sseBroker != nil {
 		a.sseBroker.Close()
+	}
+	if a.rlCleanup != nil {
+		a.rlCleanup()
 	}
 
 	// Cancel root context → stops watchSidecar, enrichment goroutines, etc.
