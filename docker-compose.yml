@@ -28,13 +28,22 @@ services:
       context: ./nlp
       dockerfile: Dockerfile
     container_name: aleph-nlp-sidecar
+    user: aleph
     environment:
       GRPC_SERVER_ADDRESS: 0.0.0.0:8001
       ALEPH_API_KEY_SECRET: "${ALEPH_API_KEY_SECRET}"
+      ALEPH_DUCKDB_PATH: /data/aleph.duckdb
     ports:
       - "8001:8001"
     volumes:
       - ./nlp/models:/app/onnx_model
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; channel=grpc.insecure_channel('localhost:50051'); stub=grpc.channel_ready_future(channel); stub.result(timeout=5); print('healthy')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
     depends_on:
       aleph-backend:
         condition: service_started

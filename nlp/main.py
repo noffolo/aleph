@@ -7,6 +7,8 @@ import pandas as pd
 import json
 import os
 import re
+import sys
+import signal
 import time
 import hashlib
 
@@ -18,7 +20,7 @@ from simulator import StochasticSimulator
 from ensemble import PredictiveEnsemble
 from markets import MarketPredictor
 
-DUCKDB_PATH = os.environ.get("DUCKDB_PATH", "")
+DUCKDB_PATH = os.environ.get("ALEPH_DUCKDB_PATH", "./data/aleph.duckdb")
 
 _SAFE_IDENTIFIER = re.compile(r'^[a-zA-Z0-9_-]+$')
 
@@ -79,6 +81,23 @@ def load_history_from_duckdb(context_id, duckdb_path):
         return None
 
 
+def analyze_sentiment_simple(text: str) -> tuple:
+    positive_words = {"buono", "ottimo", "eccellente", "positivo", "crescita", "successo", "good", "great", "excellent", "positive", "growth", "success", "up", "increase", "profit", "gain"}
+    negative_words = {"cattivo", "pessimo", "negativo", "calo", "fallimento", "bad", "terrible", "negative", "decline", "failure", "down", "decrease", "loss", "risk", "crisis"}
+    words = set(text.lower().split())
+    pos_count = sum(1 for w in words if w in positive_words)
+    neg_count = sum(1 for w in words if w in negative_words)
+    total = pos_count + neg_count
+    if total == 0:
+        return 0.0, "neutral"
+    score = (pos_count - neg_count) / total
+    if score > 0.2:
+        return score, "positive"
+    elif score < -0.2:
+        return score, "negative"
+    return score, "neutral"
+
+
 def generate_synthetic_history():
     return pd.DataFrame({
         'ds': pd.date_range(start='2026-01-01', periods=20, freq='D'),
@@ -114,26 +133,16 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
         self.ensemble = PredictiveEnsemble()
         self.markets = MarketPredictor()
         self.duckdb_path = DUCKDB_PATH
-        print("[NLP] Ensemble (Prophet/XGBoost) and Market Predictor loaded.")
+        print("[NLP] Ensemble (Prophet/GBM) and Market Predictor loaded.")
 
     def AnalyzeSentiment(self, request, context):
         text = request.text
         if not text or not text.strip():
             return nlp_pb2.AnalyzeSentimentResponse(score=0.5, label="NEUTRAL")
-        if self.model is not None:
-            try:
-                embedding = self.GenerateEmbedding(text)
-                if embedding:
-                    arr = np.array(embedding)
-                    mean_val = float(np.mean(arr))
-                    score = max(0.0, min(1.0, 0.5 + mean_val * 0.5))
-                    label = "POSITIVE" if score > 0.6 else "NEGATIVE" if score < 0.4 else "NEUTRAL"
-                    return nlp_pb2.AnalyzeSentimentResponse(score=score, label=label)
-            except Exception as e:
-                print(f"[NLP] Embedding-based sentiment failed ({e}), using heuristic")
-        score = 0.8 if "ottimo" in text.lower() or "great" in text.lower() or "excellent" in text.lower() else 0.2 if "pessimo" in text.lower() or "terrible" in text.lower() else 0.5
-        label = "POSITIVE" if score > 0.6 else "NEGATIVE" if score < 0.4 else "NEUTRAL"
-        return nlp_pb2.AnalyzeSentimentResponse(score=score, label=label)
+        score, label_str = analyze_sentiment_simple(text)
+        score_norm = max(0.0, min(1.0, 0.5 + score * 0.5))
+        label = "POSITIVE" if score_norm > 0.6 else "NEGATIVE" if score_norm < 0.4 else "NEUTRAL"
+        return nlp_pb2.AnalyzeSentimentResponse(score=score_norm, label=label)
 
     def RecordFeedback(self, request, context):
         print(f"[NLP] Feedback received for {request.entity_id}: Correct={request.is_correct}")
@@ -234,6 +243,14 @@ def serve():
         "aleph.nlp.v1.NLPService",
         health_pb2.HealthCheckResponse.SERVING
     )
+
+    def handle_shutdown(signum, frame):
+        print(f"Received signal {signum}, shutting down gracefully...")
+        server.stop(5)
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, handle_shutdown)
+    signal.signal(signal.SIGINT, handle_shutdown)
 
     address = os.environ.get("GRPC_SERVER_ADDRESS", "[::]:8001")
     server.add_insecure_port(address)
