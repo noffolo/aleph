@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -17,17 +18,23 @@ import (
 	_ "github.com/rs/cors"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/ff3300/aleph-v2/internal/api/handler"
+	alephv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
+	nlpv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1/nlpconnect"
+	"github.com/ff3300/aleph-v2/internal/api/sse"
 	"github.com/ff3300/aleph-v2/internal/config"
+	"github.com/ff3300/aleph-v2/internal/decision"
 	"github.com/ff3300/aleph-v2/internal/diagnostic"
 	"github.com/ff3300/aleph-v2/internal/health"
 	"github.com/ff3300/aleph-v2/internal/ingestion"
 	"github.com/ff3300/aleph-v2/internal/mcp"
+	"github.com/ff3300/aleph-v2/internal/memory"
 	"github.com/ff3300/aleph-v2/internal/middleware"
 	"github.com/ff3300/aleph-v2/internal/migrate"
 	"github.com/ff3300/aleph-v2/internal/nlp_adapter"
@@ -59,6 +66,11 @@ type AlephApp struct {
 	nlpHandler   *handler.NLPHandler
 	ctx          context.Context
 	cancel       context.CancelFunc
+
+	healthChecker    *health.HealthChecker
+	discoveryEngine  *mcp.DiscoveryEngine
+	notificationSvc  *notification.NotificationService
+	sseBroker        *sse.Broker
 }
 
 func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
@@ -149,13 +161,13 @@ func (a *AlephApp) Serve(port int) error {
 
 	// ── Subsystem Startups ──────────────────────────────────────────────────
 	// Health checker
-	healthChecker := health.NewHealthChecker(a.logger, a.metaRepo)
-	go healthChecker.Start(a.ctx)
+	a.healthChecker = health.NewHealthChecker(a.logger, a.metaRepo)
+	go a.healthChecker.Start(a.ctx)
 
 	// Diagnostic monitor
 	diagHealthInt := &diagnostic.HealthIntegration{
-		GetConsecutiveFailures: func(toolID string) int { return healthChecker.ConsecutiveFailures(toolID) },
-		GetToolHealthStatus:    func(toolID string) string { return healthChecker.GetLatestStatus(toolID) },
+		GetConsecutiveFailures: func(toolID string) int { return a.healthChecker.ConsecutiveFailures(toolID) },
+		GetToolHealthStatus:    func(toolID string) string { return a.healthChecker.GetLatestStatus(toolID) },
 	}
 	diagnosticMonitor := diagnostic.NewDiagnosticMonitor(3, diagHealthInt)
 
@@ -164,8 +176,8 @@ func (a *AlephApp) Serve(port int) error {
 		ServerURIs:  []string{}, // populated from config in future
 		HealthCheck: 5 * time.Minute,
 	}
-	discoveryEngine := mcp.NewDiscoveryEngine(a.logger, a.metaRepo, discoveryConfig)
-	go discoveryEngine.Start(a.ctx)
+	a.discoveryEngine = mcp.NewDiscoveryEngine(a.logger, a.metaRepo, discoveryConfig)
+	go a.discoveryEngine.Start(a.ctx)
 
 	// ── Handlers ─────────────────────────────────────────────────────────────
 	registryMgr, _ := registry.NewDuckDBRegistryFromDuckDB(a.db, a.logger)
@@ -176,8 +188,8 @@ func (a *AlephApp) Serve(port int) error {
 	toolHandler := handler.NewToolHandler(projectsRoot, a.metaRepo)
 	libraryHandler := handler.NewLibraryHandler(projectsRoot)
 
-	notificationSvc := notification.NewNotificationService()
-	notificationHandler := handler.NewNotificationHandler(notificationSvc, a.metaRepo)
+	a.notificationSvc = notification.NewNotificationService()
+	notificationHandler := handler.NewNotificationHandler(a.notificationSvc, a.metaRepo)
 
 	authHandler := handler.NewAuthHandler(a.metaRepo)
 	ingestionHandler := handler.NewIngestionHandler(projectsRoot, a.eng, a.metaRepo)
@@ -192,16 +204,59 @@ func (a *AlephApp) Serve(port int) error {
 	toolExecHandler := handler.NewToolExecuteHandler(a.metaRepo, shadowbroker, duckdbLayer)
 	codeFlowHandler := handler.NewCodeFlowHandler(codeFlow)
 
+	// ── Memory Subsystem (W4W6) ──────────────────────────────────────────────
+	memStore, mErr := memory.NewMemoryStore(a.db.DB(), a.cfg.DuckDBSchema, 768)
+	if mErr != nil {
+		a.logger.Warn("memory store init failed (degraded)", "err", mErr)
+		memStore = nil
+	}
+	_ = memStore
+
+	// ── Decision Engine Wiring (W4W6) ───────────────────────────────────────
+	decision.NewToolExecutor = func(
+		executeQuery func(ctx context.Context, req *connect.Request[alephv1.ExecuteQueryRequest]) (*connect.Response[alephv1.ExecuteQueryResponse], error),
+		analyzeSentiment func(ctx context.Context, text string) (string, error),
+		getTrustScore func(ctx context.Context, entityID string) (string, error),
+		getComponentByID func(id string) (*decision.ComponentMetadata, error),
+	) decision.ToolExecutor {
+		return handler.CreateToolExecutor(executeQuery, analyzeSentiment, getTrustScore, getComponentByID)
+	}
+
+	metaRepoAdapter := &decision.MetaRepoAdapter{Repo: a.metaRepo}
+	registryAdapter := &decision.RegistryAdapter{Reg: registryMgr}
+
+	helperExec := handler.CreateToolExecutor(
+		queryHandler.ExecuteQuery,
+		a.makeSentimentHelper(),
+		a.makeTrustScoreHelper(registryMgr),
+		a.makeComponentByIDHelper(registryMgr),
+	)
+
+	engineCfg := decision.EngineConfig{
+		Provider:    nil,
+		MetaRepo:    metaRepoAdapter,
+		Executor:    helperExec,
+		Registry:    registryAdapter,
+		MaxAttempts: 5,
+	}
+	decisionEngine := decision.NewEngine(engineCfg)
+
+	queryHandler.SetDecisionEngine(decisionEngine, helperExec)
+
 	// ── Tool Suggestion Pipeline ──────────────────────────────────────────────
 	suggestPipeline := adaptation.NewPipeline(a.metaRepo)
-	toolSuggestHandler := handler.NewToolSuggestHandler(discoveryEngine, suggestPipeline, a.cfg.MCPServerURIs)
+	toolSuggestHandler := handler.NewToolSuggestHandler(a.discoveryEngine, suggestPipeline, a.cfg.MCPServerURIs)
+
+	// ── SSE Broker (W2-04) ──────────────────────────────────────────────────
+	a.sseBroker = sse.NewBroker(30*time.Second, a.logger)
+	sseHandler := handler.NewSSEHandler(a.sseBroker, a.logger)
 
 	// ── Routes ───────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 	routes.RegisterRoutes(mux, routes.RegisterConfig{
 		MetaRepo:          a.metaRepo,
-		SSEBroker:         nil, // TODO: wire SSE broker
-		SSEHandler:        nil, // TODO: wire SSE handler
+		SSEBroker:         a.sseBroker,
+		SSEHandler:        sseHandler,
 		DiagnosticMonitor: diagnosticMonitor,
 		Frontend:          a.frontend,
 		CodeFlow:          codeFlow,
@@ -227,12 +282,22 @@ func (a *AlephApp) Serve(port int) error {
 	telemetryHandler := telemetry.Middleware(corsHandler)
 	recoveryHandler := middleware.Recovery(telemetryHandler)
 
+	rateLimitCfg := middleware.RateLimitConfig{
+		ChatLimit:    rate.Limit(a.cfg.RateLimitChat) / 60.0,
+		HealthLimit:  rate.Limit(a.cfg.RateLimitHealth) / 60.0,
+		DefaultLimit: rate.Limit(a.cfg.RateLimitDefault) / 60.0,
+		ChatBurst:    5,
+		HealthBurst:  20,
+		DefaultBurst: 50,
+	}
+	rateLimitedHandler := middleware.RateLimitMiddleware(&rateLimitCfg)(recoveryHandler)
+
 	go a.watchSidecar(a.nlpHandler)
 
 	log.Printf("[Aleph] Data OS starting on :%d", port)
 	a.server = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
-		Handler: h2c.NewHandler(recoveryHandler, &http2.Server{}),
+		Handler: h2c.NewHandler(rateLimitedHandler, &http2.Server{}),
 	}
 
 	return a.server.ListenAndServe()
@@ -240,9 +305,26 @@ func (a *AlephApp) Serve(port int) error {
 
 func (a *AlephApp) Close(ctx context.Context) error {
 	log.Println("[Aleph] Shutting down services...")
+
+	// Stop goroutine-backed services first (W2-01)
+	if a.healthChecker != nil {
+		a.healthChecker.Stop()
+	}
+	if a.discoveryEngine != nil {
+		a.discoveryEngine.Stop()
+	}
+	if a.notificationSvc != nil {
+		a.notificationSvc.Stop()
+	}
+	if a.sseBroker != nil {
+		a.sseBroker.Close()
+	}
+
+	// Cancel root context → stops watchSidecar, enrichment goroutines, etc.
 	if a.cancel != nil {
 		a.cancel()
 	}
+
 	if a.server != nil {
 		a.server.Shutdown(ctx)
 	}
@@ -252,6 +334,63 @@ func (a *AlephApp) Close(ctx context.Context) error {
 	a.eng.Close()
 	a.pg.Close()
 	return a.db.Close()
+}
+
+func (a *AlephApp) makeSentimentHelper() func(ctx context.Context, text string) (string, error) {
+	return func(ctx context.Context, text string) (string, error) {
+		if a.nlpHandler == nil {
+			slog.Warn("sentiment analysis unavailable — NLP sidecar not configured")
+			return `{"score": 0, "label": "neutral", "error": "NLP sidecar non disponibile"}`, nil
+		}
+		resp, err := a.nlpHandler.AnalyzeSentiment(ctx, connect.NewRequest(&nlpv1.AnalyzeSentimentRequest{Text: text}))
+		if err != nil {
+			slog.Warn("sentiment analysis failed", "err", err)
+			return "", fmt.Errorf("Errore analisi sentiment: %v", err)
+		}
+		result := map[string]interface{}{
+			"score": resp.Msg.Score,
+			"label": resp.Msg.Label,
+		}
+		jb, _ := json.Marshal(result)
+		return string(jb), nil
+	}
+}
+
+func (a *AlephApp) makeTrustScoreHelper(reg *registry.DuckDBRegistry) func(ctx context.Context, entityID string) (string, error) {
+	return func(ctx context.Context, entityID string) (string, error) {
+		if reg == nil {
+			return `{"error": "registry non disponibile"}`, nil
+		}
+		comp, err := reg.GetComponentByID(ctx, entityID)
+		if err != nil || comp == nil {
+			return "", fmt.Errorf("entità %s non trovata", entityID)
+		}
+		result := map[string]interface{}{
+			"entity_id":       entityID,
+			"avg_brier_score": comp.AvgBrierScore,
+			"trust_score":     comp.TrustScore,
+		}
+		jb, _ := json.Marshal(result)
+		return string(jb), nil
+	}
+}
+
+func (a *AlephApp) makeComponentByIDHelper(reg *registry.DuckDBRegistry) func(id string) (*decision.ComponentMetadata, error) {
+	return func(id string) (*decision.ComponentMetadata, error) {
+		if reg == nil {
+			return nil, fmt.Errorf("registry non disponibile")
+		}
+		comp, err := reg.GetComponentByID(context.Background(), id)
+		if err != nil || comp == nil {
+			return nil, err
+		}
+		return &decision.ComponentMetadata{
+			ID:       comp.ID,
+			Name:     comp.Name,
+			Category: comp.Category,
+			Status:   comp.Status,
+		}, nil
+	}
 }
 
 func newH2CClient() *http.Client {
