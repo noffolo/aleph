@@ -42,6 +42,72 @@ func NewEngine(cfg EngineConfig) *Engine {
 	}
 }
 
+// PlanWithProvider creates a plan using the given provider.
+// If provider is nil, falls back to keyword-based heuristic planning.
+func (e *Engine) PlanWithProvider(
+	ctx context.Context,
+	msg string,
+	projectID string,
+	agentID string,
+	ontContent []byte,
+	agent *alephv1.Agent,
+	provider llm.Provider,
+) (*PlanResult, error) {
+	if provider == nil {
+		return e.Plan(ctx, msg, projectID, agentID, ontContent, agent)
+	}
+
+	useTools := e.BuildToolsMap(ctx)
+	systemPrompt := "You are a planning agent. Analyze the user's request and determine which tools to call."
+
+	var model, apiKey, baseURL string
+	if agent != nil {
+		model = agent.Model
+		apiKey = agent.ApiKey
+		baseURL = agent.BaseUrl
+	}
+	if model == "" {
+		model = "llama3"
+	}
+	if baseURL == "" {
+		baseURL = "http://localhost:11434"
+	}
+
+	req := llm.CompletionRequest{
+		Model:        model,
+		Messages:     []map[string]interface{}{{"role": "user", "content": msg}},
+		Tools:        useTools,
+		SystemPrompt: systemPrompt,
+		ApiKey:       apiKey,
+		BaseURL:      baseURL,
+	}
+
+	completion, err := provider.Complete(ctx, req)
+	if err != nil {
+		return e.Plan(ctx, msg, projectID, agentID, ontContent, agent)
+	}
+
+	intent := Intent{
+		PrimaryGoal: msg,
+		Confidence:  0.7,
+	}
+
+	steps := make([]PlannedStep, 0, len(completion.ToolCalls))
+	for _, tc := range completion.ToolCalls {
+		steps = append(steps, PlannedStep{
+			ToolName:  tc.Name,
+			Arguments: tc.Arguments,
+		})
+	}
+
+	return &PlanResult{
+		Intent:     intent,
+		Steps:      steps,
+		CanProceed: true,
+		Reason:     "planned via LLM",
+	}, nil
+}
+
 // Plan implements DecisionEngine.Plan.
 // It builds tool definitions from hardcoded + registered tools,
 // creates the initial plan with the user's intent.

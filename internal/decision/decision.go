@@ -3,7 +3,6 @@ package decision
 import (
 	"context"
 
-	"connectrpc.com/connect"
 	alephv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/gnn"
 	"github.com/ff3300/aleph-v2/internal/llm"
@@ -64,10 +63,12 @@ type EngineConfig struct {
 // DecisionEngine orchestrates the Plan→Act→Observe→Reflect→Admit loop.
 type DecisionEngine interface {
 	Plan(ctx context.Context, msg string, projectID string, agentID string, ontContent []byte, agent *alephv1.Agent) (*PlanResult, error)
+	PlanWithProvider(ctx context.Context, msg string, projectID string, agentID string, ontContent []byte, agent *alephv1.Agent, provider llm.Provider) (*PlanResult, error)
 	Act(ctx context.Context, step PlannedStep, projectID string) (*ActResult, error)
 	Observe(ctx context.Context, step PlannedStep, result *ActResult) (*Observation, error)
 	Reflect(ctx context.Context, plan *PlanResult, observations []Observation) (*PlanResult, error)
 	Admit(ctx context.Context, results []*ActResult, maxAttempts int) (bool, error)
+	BuildToolsMap(ctx context.Context) []map[string]interface{}
 }
 
 // ToolRepository is the minimal interface decision engine needs from metadata repo.
@@ -136,19 +137,4 @@ type PropertyDef struct {
 	Default     interface{} `json:"default,omitempty"`
 }
 
-// GetToolExecutor returns the configured executor or nil.
-func GetToolExecutor() ToolExecutor {
-	if NewToolExecutor == nil {
-		return nil
-	}
-	return NewToolExecutor(nil, nil, nil, nil)
-}
 
-// NewToolExecutor creates a tool executor that wraps the handler's dispatch logic.
-// This is called from the handler package to bridge to the decision engine.
-var NewToolExecutor func(
-	executeQuery func(ctx context.Context, req *connect.Request[alephv1.ExecuteQueryRequest]) (*connect.Response[alephv1.ExecuteQueryResponse], error),
-	analyzeSentiment func(ctx context.Context, text string) (string, error),
-	getTrustScore func(ctx context.Context, entityID string) (string, error),
-	getComponentByID func(id string) (*ComponentMetadata, error),
-) ToolExecutor
