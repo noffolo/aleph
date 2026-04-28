@@ -266,18 +266,19 @@ func (r *MetadataRepository) ListAgents(projectID string) ([]*AgentRecord, error
 }
 
 func (r *MetadataRepository) ListAgentsCursor(projectID, cursor string, limit int) ([]*AgentRecord, error) {
-	var args []interface{}
-	args = append(args, projectID)
-	query := "SELECT id, name, provider, model, api_key, system_prompt, skill_ids, base_url FROM system_agents WHERE project_id = $1"
+	var rows *sql.Rows
+	var err error
 	if cursor != "" {
-		query += " AND id > $2"
-		args = append(args, cursor)
-		query += fmt.Sprintf(" ORDER BY id LIMIT $%d", len(args)+1)
+		rows, err = r.db.Query(
+			"SELECT id, name, provider, model, api_key, system_prompt, skill_ids, base_url FROM system_agents WHERE project_id = $1 AND id > $2 ORDER BY id LIMIT $3",
+			projectID, cursor, limit,
+		)
 	} else {
-		query += " ORDER BY id LIMIT $2"
+		rows, err = r.db.Query(
+			"SELECT id, name, provider, model, api_key, system_prompt, skill_ids, base_url FROM system_agents WHERE project_id = $1 ORDER BY id LIMIT $2",
+			projectID, limit,
+		)
 	}
-	args = append(args, limit)
-	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -384,17 +385,19 @@ func (r *MetadataRepository) ListTools() ([]ToolRecord, error) {
 }
 
 func (r *MetadataRepository) ListToolsCursor(cursor string, limit int) ([]ToolRecord, error) {
-	var args []interface{}
-	query := "SELECT id, name, description, code, category, version, health_status, source_type FROM system_tools"
+	var rows *sql.Rows
+	var err error
 	if cursor != "" {
-		query += " WHERE id > $1"
-		args = append(args, cursor)
-		query += fmt.Sprintf(" ORDER BY id LIMIT $%d", len(args)+1)
+		rows, err = r.db.Query(
+			"SELECT id, name, description, code, category, version, health_status, source_type FROM system_tools WHERE id > $1 ORDER BY id LIMIT $2",
+			cursor, limit,
+		)
 	} else {
-		query += " ORDER BY id LIMIT $1"
+		rows, err = r.db.Query(
+			"SELECT id, name, description, code, category, version, health_status, source_type FROM system_tools ORDER BY id LIMIT $1",
+			limit,
+		)
 	}
-	args = append(args, limit)
-	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -511,18 +514,19 @@ func (r *MetadataRepository) ListSkills(projectID string) ([]SkillRecord, error)
 }
 
 func (r *MetadataRepository) ListSkillsCursor(projectID, cursor string, limit int) ([]SkillRecord, error) {
-	var args []interface{}
-	args = append(args, projectID)
-	query := "SELECT id, name, description, tool_ids FROM system_skills WHERE project_id = $1"
+	var rows *sql.Rows
+	var err error
 	if cursor != "" {
-		query += " AND id > $2"
-		args = append(args, cursor)
-		query += fmt.Sprintf(" ORDER BY id LIMIT $%d", len(args)+1)
+		rows, err = r.db.Query(
+			"SELECT id, name, description, tool_ids FROM system_skills WHERE project_id = $1 AND id > $2 ORDER BY id LIMIT $3",
+			projectID, cursor, limit,
+		)
 	} else {
-		query += " ORDER BY id LIMIT $2"
+		rows, err = r.db.Query(
+			"SELECT id, name, description, tool_ids FROM system_skills WHERE project_id = $1 ORDER BY id LIMIT $2",
+			projectID, limit,
+		)
 	}
-	args = append(args, limit)
-	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}

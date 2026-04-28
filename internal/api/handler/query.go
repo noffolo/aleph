@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,10 +13,8 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
-	nlpv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
 	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/decision"
-	"github.com/ff3300/aleph-v2/internal/llm"
 	"github.com/ff3300/aleph-v2/internal/middleware"
 	"github.com/ff3300/aleph-v2/internal/registry"
 	"github.com/ff3300/aleph-v2/internal/repository"
@@ -446,311 +443,76 @@ func (h *QueryHandler) Chat(
 		projectID = req.Msg.ProjectId
 	}
 	agentID := req.Msg.AgentId
+
 	projectPath, _, err := h.resolveProject(projectID)
-	if err != nil { return connect.NewError(connect.CodeNotFound, err) }
+	if err != nil {
+		return connect.NewError(connect.CodeNotFound, err)
+	}
 
 	ontPath := filepath.Join(projectPath, "ontologies", "core.aleph")
 	ontContent, ontErr := os.ReadFile(ontPath)
 	if ontErr != nil {
-		slog.Warn("ontology file not found, chat will proceed without ontology context", "path", ontPath, "error", ontErr)
+		slog.Warn("ontology file not found", "path", ontPath, "error", ontErr)
 	}
 
 	h.metaRepo.SaveChatMessage(ctx, projectID, agentID, "user", msg, "")
 
-	var agent v1.Agent
-	if agentID != "" {
-		agentRec, err := h.metaRepo.GetAgentForChat(agentID)
-		if err == nil && agentRec != nil {
-			agent.Provider = agentRec.Provider
-			agent.Model = agentRec.Model
-			agent.ApiKey = agentRec.ApiKey
-			agent.SystemPrompt = agentRec.SystemPrompt
-			agent.BaseUrl = agentRec.BaseURL
-			if agentRec.SkillIDsJSON != "" {
-				json.Unmarshal([]byte(agentRec.SkillIDsJSON), &agent.SkillIds)
-			}
-		}
-		if err != nil {
-			slog.Warn("GetAgentForChat failed", "agentID", agentID, "error", err)
-		}
+	agent, err := h.resolveAgent(ctx, agentID)
+	if err != nil {
+		return err
 	}
-	if agent.Model == "" {
-		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("agent %s has no model configured; configure a model before chatting", agentID))
+
+	fullSystemPrompt := agent.SystemPrompt
+	if len(ontContent) > 0 {
+		fullSystemPrompt += "\n\nCONTEXTUAL DATA ONTOLOGY (Aleph Format):\n" + string(ontContent) +
+			"\n\nUse the 'search_data' tool to query the objects defined above. Always refer to columns exactly as named in the ontology."
 	}
-	if agent.Provider == "" {
-		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("agent %s has no provider configured; configure a provider before chatting", agentID))
+
+	session := NewChatSession(ctx, stream, h, projectID, agentID, msg, agent, ontContent, fullSystemPrompt)
+	return session.Run()
+}
+
+func (h *QueryHandler) resolveAgent(ctx context.Context, agentID string) (AgentInfo, error) {
+	var agent AgentInfo
+	if agentID == "" {
+		return agent, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("agent ID is required"))
 	}
-	if agent.BaseUrl == "" {
+
+	agentRec, err := h.metaRepo.GetAgentForChat(agentID)
+	if err != nil || agentRec == nil {
+		return agent, connect.NewError(connect.CodeNotFound, fmt.Errorf("agent %s not found", agentID))
+	}
+
+	agent = AgentInfo{
+		Provider:     agentRec.Provider,
+		Model:        agentRec.Model,
+		ApiKey:       agentRec.ApiKey,
+		SystemPrompt: agentRec.SystemPrompt,
+	}
+
+	if agentRec.BaseURL != "" {
+		agent.BaseURL = agentRec.BaseURL
+	} else {
 		switch agent.Provider {
 		case "openai":
-			agent.BaseUrl = "https://api.openai.com"
+			agent.BaseURL = "https://api.openai.com"
 		case "anthropic":
-			agent.BaseUrl = "https://api.anthropic.com"
+			agent.BaseURL = "https://api.anthropic.com"
 		default:
-			agent.BaseUrl = "http://localhost:11434"
+			agent.BaseURL = "http://localhost:11434"
 		}
 	}
 
-	fullSystemPrompt := agent.SystemPrompt + "\n\nCONTEXTUAL DATA ONTOLOGY (Aleph Format):\n" + string(ontContent) + "\n\nUse the 'search_data' tool to query the objects defined above. Always refer to columns exactly as named in the ontology."
-
-	tools := []map[string]interface{}{
-		{
-			"type": "function",
-			"function": map[string]interface{}{
-				"name": "search_data",
-				"description": "Search records from a specific business object defined in the ontology.",
-				"parameters": map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"object_name": map[string]interface{}{"type": "string"},
-						"limit":       map[string]interface{}{"type": "integer", "default": 10},
-					},
-					"required": []string{"object_name"},
-				},
-			},
-		},
-		{
-			"type": "function",
-			"function": map[string]interface{}{
-				"name":        "analyze_sentiment",
-				"description": "Analyze the sentiment of text data. Returns a score from -1.0 (negative) to 1.0 (positive) and a label (positive/negative/neutral).",
-				"parameters": map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"text": map[string]interface{}{"type": "string", "description": "The text to analyze"},
-					},
-					"required": []string{"text"},
-				},
-			},
-		},
-		{
-			"type": "function",
-			"function": map[string]interface{}{
-				"name":        "get_trust_score",
-				"description": "Get the trust score for a prediction entity. Returns the Brier score (0.0 = perfect, 1.0 = worst) and trust level.",
-				"parameters": map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"entity_id": map[string]interface{}{"type": "string", "description": "The entity ID to check trust for"},
-					},
-					"required": []string{"entity_id"},
-				},
-			},
-		},
+	if agent.Model == "" {
+		return agent, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("agent %s has no model configured", agentID))
+	}
+	if agent.Provider == "" {
+		return agent, connect.NewError(connect.CodeFailedPrecondition,
+			fmt.Errorf("agent %s has no provider configured", agentID))
 	}
 
-	if h.metaRepo != nil {
-		registeredTools, err := h.metaRepo.ListTools()
-		if err == nil {
-			for _, t := range registeredTools {
-				toolDef := map[string]interface{}{
-					"type": "function",
-					"function": map[string]interface{}{
-						"name":        t.Name,
-						"description": t.Description,
-					},
-				}
-				if t.Code != "" {
-					var params map[string]interface{}
-					if json.Unmarshal([]byte(t.Code), &params) == nil {
-						toolDef["function"].(map[string]interface{})["parameters"] = params
-					}
-				}
-				tools = append(tools, toolDef)
-			}
-		}
-	}
-
-	chatMessages := []map[string]interface{}{
-		{"role": "system", "content": fullSystemPrompt},
-	}
-
-	// Load chat history for this agent
-	history, histErr := h.metaRepo.GetChatMessages(ctx, projectID, agentID)
-	if histErr == nil {
-		for _, m := range history {
-			if m.Role == "user" {
-				chatMessages = append(chatMessages, map[string]interface{}{"role": "user", "content": m.Content})
-			} else if m.Role == "assistant" && m.ToolCall == "" {
-				chatMessages = append(chatMessages, map[string]interface{}{"role": "assistant", "content": m.Content})
-			}
-			// Skip tool messages to keep context clean for the LLM
-		}
-	}
-	chatMessages = append(chatMessages, map[string]interface{}{"role": "user", "content": msg})
-
-	baseUrl := strings.TrimRight(agent.BaseUrl, "/")
-	provider := llm.NewProvider(agent.Provider, baseUrl, h.httpClient)
-	if provider == nil {
-		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("unsupported provider: %s", agent.Provider))
-	}
-
-	for i := 0; i < 5; i++ {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		var systemPrompt string
-		if agent.Provider == "anthropic" {
-			systemPrompt = agent.SystemPrompt + "\n\nCONTEXTUAL DATA ONTOLOGY (Aleph Format):\n" + string(ontContent)
-		}
-
-		req := llm.CompletionRequest{
-			Model:        agent.Model,
-			Messages:     chatMessages,
-			Tools:        tools,
-			SystemPrompt: systemPrompt,
-			ApiKey:       agent.ApiKey,
-			BaseURL:      baseUrl,
-		}
-
-		completion, err := provider.Complete(ctx, req)
-		if err != nil {
-			return connect.NewError(connect.CodeUnavailable, err)
-		}
-
-		responseContent := completion.Content
-		toolCalls := completion.ToolCalls
-
-		type toolCall struct {
-			Function struct {
-				Name      string
-				Arguments map[string]interface{}
-			}
-		}
-		
-		var localToolCalls []toolCall
-		for _, tc := range toolCalls {
-			localToolCalls = append(localToolCalls, toolCall{Function: struct {
-				Name      string
-				Arguments map[string]interface{}
-			}{Name: tc.Name, Arguments: tc.Arguments}})
-		}
-
-		if responseContent != "" {
-			stream.Send(&v1.ChatResponse{Token: responseContent})
-			h.metaRepo.SaveChatMessage(ctx, projectID, agentID, "assistant", responseContent, "")
-		}
-
-		if len(localToolCalls) == 0 { break }
-
-		assistantMsg := map[string]interface{}{"role": "assistant", "content": responseContent}
-		if agent.Provider == "ollama" {
-			assistantMsg["tool_calls"] = localToolCalls
-		} else {
-			tcList := make([]map[string]interface{}, len(localToolCalls))
-			for j, tc := range localToolCalls {
-				argsJSON, _ := json.Marshal(tc.Function.Arguments)
-				tcList[j] = map[string]interface{}{
-					"id":   fmt.Sprintf("call_%d_%d", i, j),
-					"type": "function",
-					"function": map[string]interface{}{
-						"name":      tc.Function.Name,
-						"arguments": string(argsJSON),
-					},
-				}
-			}
-			assistantMsg["tool_calls"] = tcList
-		}
-		chatMessages = append(chatMessages, assistantMsg)
-
-		for _, tc := range toolCalls {
-			reasoning := fmt.Sprintf("Executing tool: %s", tc.Name)
-			stream.Send(&v1.ChatResponse{ToolCall: reasoning})
-			h.metaRepo.SaveChatMessage(ctx, projectID, agentID, "assistant", "", reasoning)
-
-			var resultStr string
-
-			// If decision engine is wired, use it for tool dispatch
-			if h.engine != nil {
-				step := decision.PlannedStep{
-					ToolName:  tc.Name,
-					Arguments: tc.Arguments,
-				}
-				result, err := h.engine.Act(ctx, step, projectID)
-				if err != nil {
-					resultStr = "Errore: " + err.Error()
-				} else if result.Error != "" {
-					resultStr = "Errore: " + result.Error
-				} else {
-					resultStr = result.Output
-				}
-			} else if tc.Name == "search_data" {
-				objName, _ := tc.Arguments["object_name"].(string)
-				if objName == "" {
-					resultStr = "Errore: parametro object_name mancante"
-				} else {
-					limit := 10
-					if l, ok := tc.Arguments["limit"].(float64); ok { limit = int(l) }
-
-					res, err := h.ExecuteQuery(ctx, connect.NewRequest(&v1.ExecuteQueryRequest{ObjectType: objName, ProjectId: projectID, Limit: int32(limit)}))
-					if err != nil {
-						resultStr = "Errore: " + err.Error()
-					} else {
-						jb, _ := json.Marshal(res.Msg.Rows)
-						resultStr = string(jb)
-						if len(resultStr) > 2000 {
-							resultStr = resultStr[:2000] + "\n... [Risultati troncati per limiti di contesto.]"
-						}
-					}
-				}
-			} else if tc.Name == "analyze_sentiment" {
-				text, _ := tc.Arguments["text"].(string)
-				if text == "" {
-					resultStr = "Errore: parametro text mancante per analyze_sentiment"
-				} else if h.nlpHandler != nil {
-					resp, err := h.nlpHandler.AnalyzeSentiment(ctx, connect.NewRequest(&nlpv1.AnalyzeSentimentRequest{Text: text}))
-					if err != nil {
-						resultStr = fmt.Sprintf("Errore analisi sentiment: %v", err)
-					} else {
-						result := map[string]interface{}{
-							"score": resp.Msg.Score,
-							"label": resp.Msg.Label,
-						}
-						jb, _ := json.Marshal(result)
-						resultStr = string(jb)
-					}
-				} else {
-					resultStr = `{"error": "servizio sentiment non disponibile"}`
-				}
-			} else if tc.Name == "get_trust_score" {
-				entityID, _ := tc.Arguments["entity_id"].(string)
-				if entityID == "" {
-					resultStr = "Errore: parametro entity_id mancante per get_trust_score"
-				} else if h.registry != nil {
-					comp, err := h.registry.GetComponentByID(ctx, entityID)
-					if err != nil || comp == nil {
-						resultStr = fmt.Sprintf(`{"error": "entità %s non trovata"}`, entityID)
-					} else {
-						result := map[string]interface{}{
-							"entity_id":       entityID,
-							"avg_brier_score": comp.AvgBrierScore,
-							"trust_score":      comp.TrustScore,
-						}
-						jb, _ := json.Marshal(result)
-						resultStr = string(jb)
-					}
-				} else {
-					resultStr = `{"error": "registry non disponibile"}`
-				}
-			} else {
-				stream.Send(&v1.ChatResponse{RequiresConfirmation: true})
-				resultStr = fmt.Sprintf("Proposta azione '%s' in attesa di conferma.", tc.Name)
-			}
-			if agent.Provider == "ollama" {
-				chatMessages = append(chatMessages, map[string]interface{}{"role": "tool", "content": resultStr})
-			} else {
-				chatMessages = append(chatMessages, map[string]interface{}{
-					"role":          "tool",
-					"content":       resultStr,
-					"tool_call_id":  fmt.Sprintf("call_%d_tools_0", i),
-				})
-			}
-		}
-	}
-	return nil
+	return agent, nil
 }
 
 func truncateJSON(s string, limit int) string {

@@ -23,7 +23,6 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/ff3300/aleph-v2/internal/api/handler"
-	alephv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	nlpv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1/nlpconnect"
 	"github.com/ff3300/aleph-v2/internal/api/sse"
@@ -214,23 +213,13 @@ func (a *AlephApp) Serve(port int) error {
 	a.memStore = memStore
 
 	// ── Decision Engine Wiring (W4W6) ───────────────────────────────────────
-	decision.NewToolExecutor = func(
-		executeQuery func(ctx context.Context, req *connect.Request[alephv1.ExecuteQueryRequest]) (*connect.Response[alephv1.ExecuteQueryResponse], error),
-		analyzeSentiment func(ctx context.Context, text string) (string, error),
-		getTrustScore func(ctx context.Context, entityID string) (string, error),
-		getComponentByID func(id string) (*decision.ComponentMetadata, error),
-	) decision.ToolExecutor {
-		return handler.CreateToolExecutor(executeQuery, analyzeSentiment, getTrustScore, getComponentByID)
-	}
-
 	metaRepoAdapter := &decision.MetaRepoAdapter{Repo: a.metaRepo}
 	registryAdapter := &decision.RegistryAdapter{Reg: registryMgr}
 
-	helperExec := handler.CreateToolExecutor(
+	helperExec := handler.NewHandlerToolExecutor(
 		queryHandler.ExecuteQuery,
-		a.makeSentimentHelper(),
-		a.makeTrustScoreHelper(registryMgr),
-		a.makeComponentByIDHelper(registryMgr),
+		a.nlpHandler,
+		registryMgr,
 	)
 
 	engineCfg := decision.EngineConfig{
