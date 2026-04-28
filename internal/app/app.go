@@ -71,6 +71,7 @@ type AlephApp struct {
 	notificationSvc  *notification.NotificationService
 	sseBroker        *sse.Broker
 	rlCleanup        func()
+	memStore         *memory.MemoryStore
 }
 
 func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
@@ -210,7 +211,7 @@ func (a *AlephApp) Serve(port int) error {
 		a.logger.Warn("memory store init failed (degraded)", "err", mErr)
 		memStore = nil
 	}
-	_ = memStore
+	a.memStore = memStore
 
 	// ── Decision Engine Wiring (W4W6) ───────────────────────────────────────
 	decision.NewToolExecutor = func(
@@ -239,6 +240,11 @@ func (a *AlephApp) Serve(port int) error {
 		Registry:    registryAdapter,
 		MaxAttempts: 5,
 	}
+
+	// ── GNN Link Predictor (optional, epistemic trust) ───────────────────
+	gnnPredictor := decision.NewGNNLinkPredictor(100, 64, 0.01)
+	engineCfg.LinkPredictor = gnnPredictor
+
 	decisionEngine := decision.NewEngine(engineCfg)
 
 	queryHandler.SetDecisionEngine(decisionEngine, helperExec)
@@ -278,7 +284,7 @@ func (a *AlephApp) Serve(port int) error {
 		Interceptors:      interceptors,
 	})
 
-	corsHandler := routes.CORSHandler(mux, a.logger)
+	corsHandler := routes.CORSHandler(mux, a.cfg.CORSAllowedOrigins, a.logger)
 	telemetryHandler := telemetry.Middleware(corsHandler)
 	recoveryHandler := middleware.Recovery(telemetryHandler)
 	secureHandler := middleware.SecurityHeaders(recoveryHandler)
@@ -327,6 +333,9 @@ func (a *AlephApp) Close(ctx context.Context) error {
 	}
 	if a.rlCleanup != nil {
 		a.rlCleanup()
+	}
+	if a.memStore != nil {
+		a.memStore.Close()
 	}
 
 	// Cancel root context → stops watchSidecar, enrichment goroutines, etc.
