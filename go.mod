@@ -12,7 +12,6 @@ require (
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/marcboeker/go-duckdb v1.8.5
 	github.com/prometheus/client_golang v1.23.2
-	github.com/rs/cors v1.11.1
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/otel v1.43.0
