@@ -7,6 +7,18 @@ import (
 	"runtime/debug"
 )
 
+// responseWriter wraps http.ResponseWriter to add Flusher support.
+// Required for ConnectRPC streaming over h2c.
+type responseWriter struct {
+	http.ResponseWriter
+}
+
+func (w *responseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 // Recovery is HTTP middleware that catches panics from downstream handlers,
 // logs the stack trace, and returns a 500 JSON error response.
 // It must be the outermost middleware to catch all panics.
@@ -32,6 +44,6 @@ func Recovery(next http.Handler) http.Handler {
 			}
 		}()
 
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(&responseWriter{ResponseWriter: w}, r)
 	})
 }

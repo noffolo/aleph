@@ -84,18 +84,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ projectID, onShowOnboarding })
           return (
             <React.Fragment key={item.id}>
               {DIVIDER_AFTER.has(i) && <div className="w-6 h-px bg-border my-2" />}
-               <button
-                 onClick={() => handleClick(item)}
-                 title={item.id}
-                 aria-current={active ? 'page' : undefined}
-                 className={`w-9 h-9 flex items-center justify-center rounded transition-colors ${
-                   active
-                     ? 'bg-primary/10 text-primary'
-                     : 'text-textMuted hover:text-text hover:bg-surface-alt'
-                 }`}
-               >
-                <Icon size={18} />
-              </button>
+                <button
+                  onClick={() => handleClick(item)}
+                  title={item.id}
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative w-9 h-9 flex items-center justify-center rounded transition-colors ${
+                    active
+                      ? 'bg-primary/10 text-primary border-l-2 border-primary rounded-none pl-[calc(0.75rem-2px)]'
+                      : 'text-textMuted hover:text-text hover:bg-surface-alt'
+                  }`}
+                >
+                  <Icon size={18} />
+                  <span className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-success" style={{ boxShadow: '0 0 4px rgba(34,197,94,0.5)' }} />
+                </button>
             </React.Fragment>
           )
         })}

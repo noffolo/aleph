@@ -19,7 +19,7 @@ interface Tool {
   name: string;
 }
 
-interface SkillsViewProps {
+export interface SkillsViewProps {
   skills: Skill[];
   tools: Tool[];
   onCreateSkill: (name: string, description: string, toolIds: string[]) => void;

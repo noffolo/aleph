@@ -26,9 +26,10 @@ type Config struct {
 	BackupInterval    string
 	BackupDir         string
 	BackupKeep        int
-	RateLimitChat     int
-	RateLimitHealth   int
-	RateLimitDefault  int
+	RateLimitChat        int
+	RateLimitHealth      int
+	RateLimitDefault     int
+	CORSAllowedOrigins   []string
 }
 
 func LoadConfig() (*Config, error) {
@@ -46,6 +47,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("RATE_LIMIT_CHAT", 10)
 	viper.SetDefault("RATE_LIMIT_HEALTH", 100)
 	viper.SetDefault("RATE_LIMIT_DEFAULT", 500)
+	viper.SetDefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
 
 	viper.AutomaticEnv()
 
@@ -73,15 +75,31 @@ func LoadConfig() (*Config, error) {
 		KeyEncryptionKey:  rawKey,
 		EncryptionKey:     encKey,
 		BackupKeep:        viper.GetInt("BACKUP_KEEP"),
-		RateLimitChat:     viper.GetInt("RATE_LIMIT_CHAT"),
-		RateLimitHealth:   viper.GetInt("RATE_LIMIT_HEALTH"),
-		RateLimitDefault:  viper.GetInt("RATE_LIMIT_DEFAULT"),
+		RateLimitChat:        viper.GetInt("RATE_LIMIT_CHAT"),
+		RateLimitHealth:      viper.GetInt("RATE_LIMIT_HEALTH"),
+		RateLimitDefault:     viper.GetInt("RATE_LIMIT_DEFAULT"),
+		CORSAllowedOrigins:   parseCORSOrigins(viper.GetString("CORS_ALLOWED_ORIGINS")),
 	}, nil
 }
 
 func parseMCPServerURIs(s string) []string {
 	if s == "" {
 		return nil
+	}
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
+func parseCORSOrigins(s string) []string {
+	if s == "" {
+		return []string{"http://localhost:5173", "http://localhost:3000"}
 	}
 	parts := strings.Split(s, ",")
 	result := make([]string, 0, len(parts))

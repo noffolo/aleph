@@ -136,10 +136,21 @@ func (h *ToolExecuteHandler) HandleListToolsByCategory(w http.ResponseWriter, r 
 		return
 	}
 
+	pag := ParsePagePagination(r)
 	tools := h.Registry().List(category)
 	if len(tools) == 0 {
 		writeError(w, "unknown category: "+category, http.StatusNotFound)
 		return
+	}
+
+	if pag.Offset() < len(tools) {
+		end := pag.Offset() + pag.PerPage
+		if end > len(tools) {
+			end = len(tools)
+		}
+		tools = tools[pag.Offset():end]
+	} else {
+		tools = nil
 	}
 
 	writeJSON(w, http.StatusOK, tools)

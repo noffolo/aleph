@@ -70,3 +70,19 @@ func TestEngine_GetStatus(t *testing.T) {
 		t.Fatalf("expected completed, got %s", status)
 	}
 }
+
+func TestOrchestrator_MaxAgents(t *testing.T) {
+	eng := NewEngine()
+	eng.RegisterStep("simple", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
+		return map[string]interface{}{"result": "ok"}, nil
+	})
+
+	orch := NewOrchestrator(eng, 1)
+	w, err := orch.DecomposeTask(context.Background(), []Step{{Name: "simple"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if w.Status != StatusCompleted {
+		t.Fatalf("expected completed, got %s", w.Status)
+	}
+}

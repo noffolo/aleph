@@ -1,0 +1,2 @@
+-- Aleph-v2 migration 000005: Down (no-op)
+-- This migration only backfills data, no schema change to revert.

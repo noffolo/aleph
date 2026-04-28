@@ -15,8 +15,15 @@ export const TerminalPrompt: React.FC<TerminalPromptProps> = ({
   value, onChange, onSubmit, disabled = false, placeholder, prefix
 }) => {
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [rows, setRows] = useState(1);
   const [tabCompletions, setTabCompletions] = useState<string[]>([]);
   const [completionIndex, setCompletionIndex] = useState(0);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onChange(e.target.value);
+    const lineCount = e.target.value.split('\n').length;
+    setRows(Math.min(Math.max(1, lineCount), 6));
+  };
 
   const { inputMode, setInputMode } = useStore((state) => ({
     inputMode: state.inputMode,
@@ -74,10 +81,11 @@ export const TerminalPrompt: React.FC<TerminalPromptProps> = ({
         <textarea
           ref={inputRef}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          rows={1}
+          onChange={handleChange}
+           onKeyDown={handleKeyDown}
+           disabled={disabled}
+           rows={rows}
+
           className="flex-1 bg-transparent text-text outline-none resize-none terminal-input placeholder:text-textDim text-base leading-relaxed"
           placeholder={activePlaceholder}
         />

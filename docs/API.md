@@ -2,14 +2,17 @@
 
 ## REST Endpoints
 
-All REST endpoints require authentication via `X-Aleph-Api-Key` header.
+Most REST endpoints require authentication via `X-Aleph-Api-Key` header. The health endpoint is the only unauthenticated route.
 
 ### Health & Diagnostics
 
-#### `GET /api/v1/healthz`
-Health check endpoint for load balancers and monitoring.
+#### `GET /api/v1/healthz` (no auth required)
+Health check endpoint for Docker HEALTHCHECK, load balancers, and monitoring.
 
-**Response:** `200 OK` on healthy status
+**Response:** `200 OK`
+```json
+{"status":"ok"}
+```
 
 ---
 
@@ -214,29 +217,20 @@ Server-Sent Events endpoint for real-time updates.
 
 ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X-Aleph-Api-Key` header.
 
-### QueryService
-
-**Prefix:** `/aleph.v1.QueryService/`
-
-| Method | Description |
-|--------|-------------|
-| `ListAgents` | List all registered agents |
-| `ListSkills` | List available skills |
-| `ListTools` | List registered tools |
-
----
-
 ### AgentService
 
 **Prefix:** `/aleph.v1.AgentService/`
 
+5 methods — backed by `handler.AgentHandler` (`internal/api/handler/agent.go`).
+
 | Method | Description |
 |--------|-------------|
-| `CreateAgent` | Create a new agent |
+| `ListAgents` | List all agents for a project |
+| `CreateAgent` | Create a new agent (with provider, model, system prompt, skill IDs) |
 | `GetAgent` | Get agent by ID |
-| `UpdateAgent` | Update agent configuration |
+| `UpdateAgent` | Update agent configuration (masked API key in response) |
 | `DeleteAgent` | Remove an agent |
-| `ListAgents` | List all agents |
+| `ListModels` | List available Ollama models from the configured Ollama host |
 
 ---
 
@@ -244,13 +238,13 @@ ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X
 
 **Prefix:** `/aleph.v1.SkillService/`
 
+3 methods — backed by `handler.SkillHandler` (`internal/api/handler/skill.go`).
+
 | Method | Description |
 |--------|-------------|
+| `ListSkills` | List all skills for a project (with tool IDs) |
 | `CreateSkill` | Register a new skill |
-| `GetSkill` | Get skill by ID |
-| `UpdateSkill` | Update skill configuration |
 | `DeleteSkill` | Remove a skill |
-| `ListSkills` | List all skills |
 
 ---
 
@@ -258,27 +252,15 @@ ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X
 
 **Prefix:** `/aleph.v1.ToolService/`
 
+3 ConnectRPC methods — backed by `handler.ToolHandler` (`internal/api/handler/tool.go`).
+
 | Method | Description |
 |--------|-------------|
+| `ListTools` | List all registered tools (name, description, code) |
 | `CreateTool` | Register a new tool |
-| `GetTool` | Get tool by ID |
-| `UpdateTool` | Update tool configuration |
 | `DeleteTool` | Remove a tool |
-| `ListTools` | List all tools |
 
----
-
-### DataSourceService
-
-**Prefix:** `/aleph.v1.DataSourceService/`
-
-| Method | Description |
-|--------|-------------|
-| `CreateDataSource` | Register a data source |
-| `GetDataSource` | Get data source by ID |
-| `UpdateDataSource` | Update data source |
-| `DeleteDataSource` | Remove a data source |
-| `ListDataSources` | List all data sources |
+The same `ToolHandler` also exposes **raw HTTP endpoints** — see [Tool Management REST endpoints](#tool-management) above.
 
 ---
 
@@ -286,10 +268,15 @@ ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X
 
 **Prefix:** `/aleph.v1.LibraryService/`
 
+5 methods — backed by `handler.LibraryHandler` (`internal/api/handler/library.go`).
+
 | Method | Description |
 |--------|-------------|
-| `ListLibraries` | List available libraries |
-| `GetLibrary` | Get library details |
+| `ListAssets` | List all assets in a project's library directory |
+| `GetAssetContent` | Read raw content of an asset |
+| `UploadAsset` | Upload a new asset (path-sanitized) |
+| `DeleteAsset` | Remove an asset |
+| `GeneratePdf` | Generate a PDF from an asset's content |
 
 ---
 
@@ -297,13 +284,16 @@ ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X
 
 **Prefix:** `/aleph.v1.ProjectService/`
 
+6 methods — backed by `handler.ProjectHandler` (`internal/api/handler/project.go`).
+
 | Method | Description |
 |--------|-------------|
-| `CreateProject` | Create a new project |
-| `GetProject` | Get project by ID |
-| `UpdateProject` | Update project |
-| `DeleteProject` | Remove a project |
-| `ListProjects` | List all projects |
+| `ListProjects` | List all projects (reads `data/projects/` subdirectories) |
+| `CreateProject` | Create project directory structure (`raw/`, `ontologies/`, `agents/`, `skills/`) |
+| `DeleteProject` | Remove a project directory tree |
+| `GetOntology` | Read `core.aleph` and parse object names; falls back to DuckDB `information_schema` |
+| `SaveOntology` | Atomic write with backup (`core.aleph.<timestamp>.bak`) |
+| `EmergeOntology` | Auto-generate ontology definition from DuckDB schema |
 
 ---
 
@@ -311,11 +301,12 @@ ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X
 
 **Prefix:** `/aleph.v1.NotificationService/`
 
+2 methods — backed by `handler.NotificationHandler` (`internal/api/handler/notification.go`).
+
 | Method | Description |
 |--------|-------------|
-| `CreateNotification` | Create a notification |
-| `ListNotifications` | List notifications |
-| `MarkRead` | Mark notification as read |
+| `SendWebhook` | Send a webhook notification (with optional secret) |
+| `ListChannels` | List notification channels for a project |
 
 ---
 
@@ -323,11 +314,13 @@ ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X
 
 **Prefix:** `/aleph.v1.AuthService/`
 
+3 methods — backed by `handler.AuthHandler` (`internal/api/handler/auth.go`).
+
 | Method | Description |
 |--------|-------------|
-| `Login` | Authenticate user |
-| `Logout` | End session |
-| `RefreshToken` | Refresh authentication token |
+| `ListApiKeys` | List API keys (keys masked as `********` in responses) |
+| `CreateApiKey` | Generate a new API key (SHA-256 hashed for storage, returned once in plaintext) |
+| `DeleteApiKey` | Revoke an API key |
 
 ---
 
@@ -335,10 +328,16 @@ ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X
 
 **Prefix:** `/aleph.v1.IngestionService/`
 
+6 methods — backed by `handler.IngestionHandler` (`internal/api/handler/ingestion.go`).
+
 | Method | Description |
 |--------|-------------|
-| `IngestData` | Ingest data from source |
-| `GetIngestionStatus` | Check ingestion progress |
+| `ListTasks` | List ingestion tasks for a project |
+| `CreateTask` | Create a new ingestion task (auto-generates ID if empty) |
+| `GetProgress` | Get task progress percentage |
+| `RunTask` | Start a task asynchronously (15-minute context timeout) |
+| `GetTaskLogs` | Read task log file |
+| `DeleteTask` | Remove a task |
 
 ---
 
@@ -346,10 +345,12 @@ ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X
 
 **Prefix:** `/aleph.v1.SandboxService/`
 
+2 methods — backed by `handler.SandboxServiceHandler` (`internal/api/handler/sandbox_handler.go`).
+
 | Method | Description |
 |--------|-------------|
-| `ExecuteTool` | Execute tool in sandbox |
-| `RunSkill` | Run skill orchestration |
+| `ExecuteTool` | Execute a tool inside the sandbox |
+| `RunSkill` | Run a skill orchestration workflow |
 
 ---
 
@@ -357,10 +358,14 @@ ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X
 
 **Prefix:** `/aleph.v1.RegistryService/`
 
+4 methods — backed by `handler.RegistryServiceHandler` (`internal/api/handler/registry_handler.go`).
+
 | Method | Description |
 |--------|-------------|
-| `RegisterComponent` | Register a component |
+| `RegisterComponent` | Register a new component |
 | `ListComponents` | List registered components |
+| `GetComponent` | Get component details by ID |
+| `UpdateComponentStatus` | Update component status |
 
 ---
 
@@ -368,16 +373,40 @@ ConnectRPC services use HTTP/2 and protobuf serialization. Authentication via `X
 
 **Prefix:** `/aleph.nlp.v1.NLPService/`
 
+3 methods — backed by `handler.NLPHandler` (`internal/api/handler/nlp.go`). Delegates to a Python sidecar via circuit breaker.
+
 | Method | Description |
 |--------|-------------|
-| `AnalyzeText` | Perform NLP analysis |
-| `ExtractEntities` | Extract named entities |
+| `AnalyzeSentiment` | Perform NLP sentiment analysis |
+| `StreamPredictions` | Stream predictions via server-sent streaming |
+| `RecordFeedback` | Record feedback and trigger Brier score evaluation |
+
+---
+
+### QueryService
+
+**Prefix:** `/aleph.v1.QueryService/`
+
+8 methods — backed by `handler.QueryHandler` (`internal/api/handler/query.go`).
+
+| Method | Description |
+|--------|-------------|
+| `ExecuteQuery` | Execute a DuckDB query against a project's database |
+| `Chat` | Streaming chat with AI agent (SSE, supports tool calls) |
+| `GetChatHistory` | Retrieve chat history for a project |
+| `GetDataStats` | Get column-level statistics for a dataset |
+| `ConfirmAction` | Confirm or reject a pending action |
+| `GlobalQuery` | Cross-project query across all databases |
+| `GetDataLineage` | Get data lineage information |
+| `GetChecksum` | Compute SHA-256 checksum for a table |
 
 ---
 
 ## Authentication
 
-All API requests require authentication:
+All API requests require authentication via the `X-Aleph-Api-Key` header, with one exception:
+
+- **`GET /api/v1/healthz`** — no authentication required (for Docker HEALTHCHECK and load balancers)
 
 **REST endpoints:**
 ```
@@ -389,7 +418,7 @@ X-Aleph-Api-Key: <your-api-key>
 X-Aleph-Api-Key: <your-api-key>
 ```
 
-API keys are managed through the AuthService and stored in the metadata repository.
+API keys are managed through the AuthService and stored in the metadata repository (SHA-256 hashed).
 
 ---
 

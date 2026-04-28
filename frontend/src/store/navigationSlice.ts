@@ -1,5 +1,5 @@
-import { StateCreator } from 'zustand'
-import { InlineContent, SlideOverContent } from './useStore'
+import type { StateCreator } from 'zustand'
+import type { InlineContent, SlideOverContent } from './useStore'
 
 export interface NavigationSlice {
   currentView: 'copilot' | 'inline'

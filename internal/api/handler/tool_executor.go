@@ -110,17 +110,125 @@ func (e *toolExecutor) executeGetTrustScore(ctx context.Context, args map[string
 	return `{"error": "registry non disponibile"}`, false, nil
 }
 
-// newToolExecutor creates a new toolExecutor that wraps the handler's dispatch logic.
-func newToolExecutor(
+// NewHandlerToolExecutor creates a new toolExecutor that wraps the handler's dispatch logic.
+func NewHandlerToolExecutor(
 	executeQuery func(ctx context.Context, req *connect.Request[alephv1.ExecuteQueryRequest]) (*connect.Response[alephv1.ExecuteQueryResponse], error),
 	nlpHandler *NLPHandler,
 	reg *registry.DuckDBRegistry,
-) *toolExecutor {
+) decision.ToolExecutor {
 	return &toolExecutor{
 		executeQuery: executeQuery,
 		nlpHandler:   nlpHandler,
 		reg:          reg,
 	}
+}
+
+// handlerToolExecutor implements decision.ToolExecutor by bridging the 4-func
+// signature expected by decision.NewToolExecutor to the handler's dispatch logic.
+type handlerToolExecutor struct {
+	executeQuery     func(ctx context.Context, req *connect.Request[alephv1.ExecuteQueryRequest]) (*connect.Response[alephv1.ExecuteQueryResponse], error)
+	analyzeSentiment func(ctx context.Context, text string) (string, error)
+	getTrustScore    func(ctx context.Context, entityID string) (string, error)
+	getComponentByID func(id string) (*decision.ComponentMetadata, error)
+}
+
+var _ decision.ToolExecutor = (*handlerToolExecutor)(nil)
+
+// CreateToolExecutor returns a decision.ToolExecutor that dispatches to the provided
+// handler functions. This bridges the decision engine's interface to concrete handlers.
+func CreateToolExecutor(
+	executeQuery func(ctx context.Context, req *connect.Request[alephv1.ExecuteQueryRequest]) (*connect.Response[alephv1.ExecuteQueryResponse], error),
+	analyzeSentimentFunc func(ctx context.Context, text string) (string, error),
+	getTrustScoreFunc func(ctx context.Context, entityID string) (string, error),
+	getComponentByIDFunc func(id string) (*decision.ComponentMetadata, error),
+) decision.ToolExecutor {
+	return &handlerToolExecutor{
+		executeQuery:     executeQuery,
+		analyzeSentiment: analyzeSentimentFunc,
+		getTrustScore:    getTrustScoreFunc,
+		getComponentByID: getComponentByIDFunc,
+	}
+}
+
+func (h *handlerToolExecutor) ExecuteTool(ctx context.Context, toolName string, args map[string]interface{}, projectID string, agentID string) (string, bool, error) {
+	switch toolName {
+	case "search_data":
+		return h.execSearchData(ctx, args, projectID)
+	case "analyze_sentiment":
+		return h.execAnalyzeSentiment(ctx, args)
+	case "get_trust_score":
+		return h.execGetTrustScore(ctx, args)
+	default:
+		return fmt.Sprintf("Proposta azione '%s' in attesa di conferma.", toolName), true, nil
+	}
+}
+
+func (h *handlerToolExecutor) execSearchData(ctx context.Context, args map[string]interface{}, projectID string) (string, bool, error) {
+	objName, _ := args["object_name"].(string)
+	if objName == "" {
+		return "", false, fmt.Errorf("Errore: parametro object_name mancante")
+	}
+	limit := 10
+	if l, ok := args["limit"].(float64); ok {
+		limit = int(l)
+	}
+	res, err := h.executeQuery(ctx, connect.NewRequest(&alephv1.ExecuteQueryRequest{
+		ObjectType: objName,
+		ProjectId:  projectID,
+		Limit:      int32(limit),
+	}))
+	if err != nil {
+		return "", false, fmt.Errorf("Errore: %v", err)
+	}
+	jb, _ := json.Marshal(res.Msg.Rows)
+	resultStr := string(jb)
+	if len(resultStr) > 2000 {
+		resultStr = resultStr[:2000] + "\n... [Risultati troncati per limiti di contesto.]"
+	}
+	return resultStr, false, nil
+}
+
+func (h *handlerToolExecutor) execAnalyzeSentiment(ctx context.Context, args map[string]interface{}) (string, bool, error) {
+	text, _ := args["text"].(string)
+	if text == "" {
+		return "", false, fmt.Errorf("Errore: parametro text mancante per analyze_sentiment")
+	}
+	if h.analyzeSentiment != nil {
+		result, err := h.analyzeSentiment(ctx, text)
+		if err != nil {
+			return "", false, fmt.Errorf("Errore analisi sentiment: %v", err)
+		}
+		return result, false, nil
+	}
+	return `{"error": "servizio sentiment non disponibile"}`, false, nil
+}
+
+func (h *handlerToolExecutor) execGetTrustScore(ctx context.Context, args map[string]interface{}) (string, bool, error) {
+	entityID, _ := args["entity_id"].(string)
+	if entityID == "" {
+		return "", false, fmt.Errorf("Errore: parametro entity_id mancante per get_trust_score")
+	}
+	if h.getTrustScore != nil {
+		result, err := h.getTrustScore(ctx, entityID)
+		if err != nil {
+			return "", false, err
+		}
+		return result, false, nil
+	}
+	if h.getComponentByID != nil {
+		comp, err := h.getComponentByID(entityID)
+		if err != nil || comp == nil {
+			return "", false, fmt.Errorf("entità %s non trovata", entityID)
+		}
+		result := map[string]interface{}{
+			"entity_id": entityID,
+			"status":    comp.Status,
+			"category":  comp.Category,
+		}
+		jb, _ := json.Marshal(result)
+		return string(jb), false, nil
+	}
+	return `{"error": "registry non disponibile"}`, false, nil
 }
 
 

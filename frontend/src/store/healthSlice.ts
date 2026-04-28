@@ -1,5 +1,5 @@
-import { StateCreator } from 'zustand'
-import { ColumnStats } from './types'
+import type { StateCreator } from 'zustand'
+import type { ColumnStats } from './types'
 
 export interface HealthSlice {
   ollamaHealthy: boolean

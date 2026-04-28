@@ -1,4 +1,4 @@
-import { ZodSchema } from 'zod';
+import type { ZodSchema } from 'zod';
 
 /**
  * Validate and parse data from an unknown source (e.g., protobuf/gRPC response)

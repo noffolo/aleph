@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Download, ChevronDown } from 'lucide-react'
-import { ChatMessage } from '../store/types'
+import type { ChatMessage } from '../store/types'
 
 interface ChatExportMenuProps {
   messages: ChatMessage[]

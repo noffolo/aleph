@@ -2,8 +2,12 @@ package decision
 
 import (
 	"context"
+	"errors"
 	"strings"
 )
+
+// ErrPlanNil is returned when Reflect receives a nil plan.
+var ErrPlanNil = errors.New("plan is nil")
 
 // Reflector is the interface for the Reflect phase.
 type Reflector interface {
@@ -25,7 +29,7 @@ func NewDefaultReflector() *DefaultReflector {
 // Reflect analyzes the observations and produces an updated plan.
 func (r *DefaultReflector) Reflect(ctx context.Context, plan *PlanResult, observations []Observation) (*PlanResult, error) {
 	if plan == nil {
-		return nil, nil
+		return nil, ErrPlanNil
 	}
 
 	// If the plan already says we can't proceed, don't change it

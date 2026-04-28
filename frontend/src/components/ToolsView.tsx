@@ -14,7 +14,7 @@ interface Tool {
   code: string;
 }
 
-interface ToolsViewProps {
+export interface ToolsViewProps {
   tools: Tool[];
   onCreateTool: (name: string, description: string, code: string) => void;
   onEditTool: (tool: Tool) => void;

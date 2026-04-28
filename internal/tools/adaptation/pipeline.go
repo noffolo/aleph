@@ -3,6 +3,7 @@ package adaptation
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -639,7 +640,9 @@ func (s *RegistrationStage) Execute(ctx context.Context, candidate *Candidate, r
 			}, nil
 		}
 		toolRecord.ID = existingID
-		_ = s.metaRepo.UpdateHealthStatus(existingID, "healthy")
+		if err := s.metaRepo.UpdateHealthStatus(existingID, "healthy"); err != nil {
+			log.Printf("update health status for tool %s: %v", existingID, err)
+		}
 
 		return StageResult{
 			Name:    "registration",

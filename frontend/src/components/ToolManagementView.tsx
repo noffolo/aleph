@@ -3,7 +3,7 @@ import { useQueryState } from 'nuqs';
 import { useStore } from '../store/useStore';
 import { Terminal, Plus, Trash2, Activity, AlertCircle, CheckCircle2, Search, BarChart3 } from 'lucide-react';
 import { t } from '../i18n';
-import { Tool } from '../store/types';
+import type { Tool } from '../store/types';
 
 interface ToolManagementViewProps {
   inline?: boolean;

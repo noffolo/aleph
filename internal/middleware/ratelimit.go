@@ -17,8 +17,6 @@ type RateLimitConfig struct {
 	ChatBurst    int
 	HealthBurst  int
 	DefaultBurst int
-	SysAPILimit  rate.Limit
-	SysAPIBurst  int
 }
 
 // DefaultRateLimitConfig provides sensible production defaults.
@@ -29,8 +27,6 @@ var DefaultRateLimitConfig = RateLimitConfig{
 	ChatBurst:    5,
 	HealthBurst:  20,
 	DefaultBurst: 50,
-	SysAPILimit:  30.0 / 60.0, // 30 req/min per IP
-	SysAPIBurst:  10,
 }
 
 type ipRateLimiter struct {
@@ -105,8 +101,11 @@ func contains(s, substr string) bool {
 	return false
 }
 
-// RateLimitMiddleware returns HTTP middleware that rate-limits by IP.
-func RateLimitMiddleware(config *RateLimitConfig) func(http.Handler) http.Handler {
+func (rl *ipRateLimiter) Close() {
+	close(rl.stopCh)
+}
+
+func RateLimitMiddleware(config *RateLimitConfig) (func(http.Handler) http.Handler, func()) {
 	if config == nil {
 		cfg := DefaultRateLimitConfig
 		config = &cfg
@@ -131,5 +130,5 @@ func RateLimitMiddleware(config *RateLimitConfig) func(http.Handler) http.Handle
 
 			next.ServeHTTP(w, r)
 		})
-	}
+	}, rl.Close
 }

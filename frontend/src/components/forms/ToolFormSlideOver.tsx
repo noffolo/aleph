@@ -4,6 +4,9 @@ import { useAppActions } from '../../hooks/useAppActions'
 import { useToolActions } from '../../hooks/domain/useToolActions'
 import type { Tool } from '../../store/types'
 import { t } from '../../i18n'
+import { ToolSchema } from '../../schemas'
+
+type FormErrors = Partial<Record<string, string>>
 
 interface ToolFormSlideOverProps {
   tool?: Tool
@@ -18,10 +21,14 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
   const [name, setName] = useState(tool?.name || '')
   const [description, setDescription] = useState(tool?.description || '')
   const [code, setCode] = useState(tool?.code || '')
+  const [errors, setErrors] = useState<FormErrors>({})
 
   const handleSubmit = () => {
-    if (!name.trim()) {
-      alert('Il nome è obbligatorio')
+    setErrors({})
+
+    const parsed = ToolSchema.safeParse({ id: tool?.id || '', name, description, code })
+    if (!parsed.success) {
+      setErrors(parsed.error.flatten().fieldErrors as unknown as FormErrors)
       return
     }
 

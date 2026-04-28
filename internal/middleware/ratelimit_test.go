@@ -11,7 +11,7 @@ func TestRateLimitMiddleware_AllowsWithinLimit(t *testing.T) {
 		DefaultLimit: 100.0,
 		DefaultBurst: 100,
 	}
-	mw := RateLimitMiddleware(&cfg)
+	mw, _ := RateLimitMiddleware(&cfg)
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -31,7 +31,7 @@ func TestRateLimitMiddleware_BlocksWhenExceeded(t *testing.T) {
 		DefaultLimit: 0.0,
 		DefaultBurst: 0,
 	}
-	mw := RateLimitMiddleware(&cfg)
+	mw, _ := RateLimitMiddleware(&cfg)
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -53,7 +53,7 @@ func TestRateLimitMiddleware_DifferentRatesForDifferentPaths(t *testing.T) {
 		HealthBurst:  100,
 		DefaultBurst: 100,
 	}
-	mw := RateLimitMiddleware(&cfg)
+	mw, _ := RateLimitMiddleware(&cfg)
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))

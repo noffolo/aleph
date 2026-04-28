@@ -4,7 +4,6 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/ff3300/aleph-v2/internal/tools/codeflow"
 )
@@ -77,12 +76,7 @@ func (h *CodeFlowHandler) HandleListExecutions(w http.ResponseWriter, r *http.Re
 	}
 
 	toolID := r.URL.Query().Get("tool_id")
-	limit := 0
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
+	pag := ParsePagePagination(r)
 
 	var records []codeflow.ExecutionRecord
 	var err error
@@ -90,7 +84,7 @@ func (h *CodeFlowHandler) HandleListExecutions(w http.ResponseWriter, r *http.Re
 	if toolID != "" {
 		records, err = h.codeFlow.GetRecords(r.Context(), toolID)
 	} else {
-		records, err = h.codeFlow.ListRecentExecutions(r.Context(), limit)
+		records, err = h.codeFlow.ListRecentExecutions(r.Context(), pag.PerPage)
 	}
 
 	if err != nil {

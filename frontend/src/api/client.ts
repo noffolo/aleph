@@ -3,14 +3,14 @@ import type { Interceptor } from "@connectrpc/connect";
 
 const STORAGE_KEY = "aleph_api_key";
 
-export const getStoredApiKey = () => localStorage.getItem(STORAGE_KEY) || "";
+export const getStoredApiKey = () => sessionStorage.getItem(STORAGE_KEY) || "";
 
 export const setApiKey = (key: string) => {
-  localStorage.setItem(STORAGE_KEY, key);
+  sessionStorage.setItem(STORAGE_KEY, key);
 };
 
 export const clearApiKey = () => {
-  localStorage.removeItem(STORAGE_KEY);
+  sessionStorage.removeItem(STORAGE_KEY);
 };
 
 const authInterceptor: Interceptor = (next) => async (req) => {

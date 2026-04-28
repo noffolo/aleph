@@ -4,6 +4,9 @@ import { useAppActions } from '../../hooks/useAppActions'
 import { useAgentActions } from '../../hooks/domain/useAgentActions'
 import type { Agent } from '../../store/types'
 import { t } from '../../i18n'
+import { AgentSchema } from '../../schemas'
+
+type FormErrors = Partial<Record<string, string>>
 
 interface AgentFormSlideOverProps {
   agent?: Agent
@@ -21,15 +24,18 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
   const [apiKey, setApiKey] = useState(agent?.apiKey || '')
   const [baseUrl, setBaseUrl] = useState(agent?.baseUrl || '')
   const [systemPrompt, setSystemPrompt] = useState(agent?.systemPrompt || '')
+  const [errors, setErrors] = useState<FormErrors>({})
 
   const handleSubmit = () => {
+    setErrors({})
+
     if (!name.trim()) {
-      alert('Il nome è obbligatorio')
+      setErrors({ name: 'Il nome è obbligatorio' })
       return
     }
 
     if (isEdit && agent?.id) {
-      onUpdateAgent({
+      const parsed = AgentSchema.safeParse({
         id: agent.id,
         name,
         model,
@@ -38,7 +44,12 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
         baseUrl,
         systemPrompt,
         skillIds: agent.skillIds || [],
-      } as any)
+      })
+      if (!parsed.success) {
+        setErrors(parsed.error.flatten().fieldErrors as unknown as FormErrors)
+        return
+      }
+      onUpdateAgent(parsed.data as unknown as Agent)
     } else {
       onCreateAgent(name, model, systemPrompt, provider, apiKey, baseUrl)
     }

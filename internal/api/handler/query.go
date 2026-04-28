@@ -16,6 +16,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	nlpv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
 	"github.com/ff3300/aleph-v2/internal/dsl"
+	"github.com/ff3300/aleph-v2/internal/decision"
 	"github.com/ff3300/aleph-v2/internal/llm"
 	"github.com/ff3300/aleph-v2/internal/middleware"
 	"github.com/ff3300/aleph-v2/internal/registry"
@@ -31,6 +32,16 @@ type QueryHandler struct {
 	nlpHandler   *NLPHandler
 	registry     *registry.DuckDBRegistry
 	programs     *programCache
+	executor     decision.ToolExecutor   // set after construction — bridges engine to handler dispatch
+	engine       decision.DecisionEngine // optional, nil = degraded mode (uses hardcoded if-else fallback)
+}
+
+// SetDecisionEngine attaches a decision engine and tool executor to the handler.
+// These are set after construction to avoid changing the constructor signature.
+// engine may be nil for degraded mode (uses hardcoded if-else fallback).
+func (h *QueryHandler) SetDecisionEngine(eng decision.DecisionEngine, exec decision.ToolExecutor) {
+	h.engine = eng
+	h.executor = exec
 }
 
 var validName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
@@ -41,7 +52,7 @@ func NewQueryHandler(db *storage.DuckDB, projectsRoot string, metaRepo *reposito
 		projectsRoot: projectsRoot,
 		programs:     newProgramCache(),
 		metaRepo:     metaRepo,
-		httpClient:   &http.Client{Timeout: 2 * time.Minute},
+		httpClient:   &http.Client{Timeout: 10 * time.Minute},
 		nlpHandler:   nlpHandler,
 		registry:     reg,
 	}
@@ -172,13 +183,13 @@ func (h *QueryHandler) ExecuteQuery(
 			return nil, connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("query analysis timed out (limit: 30s)"))
 		}
 		if strings.Contains(err.Error(), "No files found") || strings.Contains(err.Error(), "IO Error") {
-			checkRows, err2 := h.db.Query(fmt.Sprintf("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'main' AND table_name = '%s'", strings.ToLower(objName)))
+			checkRows, err2 := h.db.Query(fmt.Sprintf("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'main' AND table_name = '%s'", lowerObjName))
 			if err2 == nil {
 				var count int
 				if checkRows.Next() { checkRows.Scan(&count) }
 				checkRows.Close()
 				if count > 0 {
-					sql = fmt.Sprintf("SELECT * FROM \"%s\" LIMIT %d", strings.ToLower(objName), limit)
+					sql = fmt.Sprintf("SELECT * FROM \"%s\" LIMIT %d", lowerObjName, limit)
 					rows, err = h.db.QueryContext(queryCtx, sql)
 					if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
 				} else {
@@ -345,10 +356,14 @@ func (h *QueryHandler) GetDataLineage(ctx context.Context, req *connect.Request[
 	var columnsCount int64
 	var rowsCount int64
 	var jsonCols string
-	err := h.db.QueryRowContext(ctx,
+	row := h.db.QueryRowContext(ctx,
 		"SELECT (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2), (SELECT COUNT(*) FROM \""+projectID+"\".\""+tableName+"\"), json_group_array(column_name || ':' || data_type) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2",
 		projectID, tableName,
-	).Scan(&columnsCount, &rowsCount, &jsonCols)
+	)
+	if row == nil {
+		return nil, connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("duckdb resource exhausted"))
+	}
+	err := row.Scan(&columnsCount, &rowsCount, &jsonCols)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("table not found: %w", err))
 	}
@@ -372,15 +387,23 @@ func (h *QueryHandler) GetChecksum(ctx context.Context, req *connect.Request[v1.
 
 	// Compute checksum from DuckDB table using hash aggregation
 	var checksum string
-	err := h.db.QueryRowContext(ctx,
+	row1 := h.db.QueryRowContext(ctx,
 		"SELECT md5(CAST(SUM(hash(TO_JSON(*))) AS VARCHAR)) FROM \""+projectID+"\".\""+tableName+"\"",
-	).Scan(&checksum)
+	)
+	if row1 == nil {
+		return nil, connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("duckdb resource exhausted"))
+	}
+	err := row1.Scan(&checksum)
 	if err != nil {
 		// Table may be empty — use structure-based checksum
-		err = h.db.QueryRowContext(ctx,
+		row2 := h.db.QueryRowContext(ctx,
 			"SELECT md5(column_list) FROM (SELECT string_agg(column_name || ':' || data_type, ',' ORDER BY column_name) AS column_list FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2)",
 			projectID, tableName,
-		).Scan(&checksum)
+		)
+		if row2 == nil {
+			return nil, connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("duckdb resource exhausted"))
+		}
+		err = row2.Scan(&checksum)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("table not found: %w", err))
 		}
@@ -446,6 +469,9 @@ func (h *QueryHandler) Chat(
 			if agentRec.SkillIDsJSON != "" {
 				json.Unmarshal([]byte(agentRec.SkillIDsJSON), &agent.SkillIds)
 			}
+		}
+		if err != nil {
+			slog.Warn("GetAgentForChat failed", "agentID", agentID, "error", err)
 		}
 	}
 	if agent.Model == "" {
@@ -636,7 +662,22 @@ func (h *QueryHandler) Chat(
 			h.metaRepo.SaveChatMessage(ctx, projectID, agentID, "assistant", "", reasoning)
 
 			var resultStr string
-			if tc.Name == "search_data" {
+
+			// If decision engine is wired, use it for tool dispatch
+			if h.engine != nil {
+				step := decision.PlannedStep{
+					ToolName:  tc.Name,
+					Arguments: tc.Arguments,
+				}
+				result, err := h.engine.Act(ctx, step, projectID)
+				if err != nil {
+					resultStr = "Errore: " + err.Error()
+				} else if result.Error != "" {
+					resultStr = "Errore: " + result.Error
+				} else {
+					resultStr = result.Output
+				}
+			} else if tc.Name == "search_data" {
 				objName, _ := tc.Arguments["object_name"].(string)
 				if objName == "" {
 					resultStr = "Errore: parametro object_name mancante"
@@ -708,7 +749,6 @@ func (h *QueryHandler) Chat(
 				})
 			}
 		}
-		h.db.Cleanup()
 	}
 	return nil
 }

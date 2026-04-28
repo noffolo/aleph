@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 var (
@@ -36,16 +37,24 @@ var (
 	}
 
 	pythonPatternRegexes []*regexp.Regexp
+	compileOnce          sync.Once
+	compileErr           error
 )
 
-func init() {
-	for _, pattern := range blocklistedPythonPatterns {
-		re, err := regexp.Compile(pattern)
-		if err != nil {
-			panic(fmt.Sprintf("invalid regex pattern %q: %v", pattern, err))
+// ValidateConfig compiles the Python blocklist regexes lazily.
+func ValidateConfig() error {
+	compileOnce.Do(func() {
+		pythonPatternRegexes = make([]*regexp.Regexp, 0, len(blocklistedPythonPatterns))
+		for _, pattern := range blocklistedPythonPatterns {
+			re, err := regexp.Compile(pattern)
+			if err != nil {
+				compileErr = fmt.Errorf("invalid regex pattern %q: %w", pattern, err)
+				return
+			}
+			pythonPatternRegexes = append(pythonPatternRegexes, re)
 		}
-		pythonPatternRegexes = append(pythonPatternRegexes, re)
-	}
+	})
+	return compileErr
 }
 
 func ValidateGoCode(source string) error {
@@ -89,6 +98,9 @@ func simpleGoImportCheck(source string) error {
 }
 
 func ValidatePythonCode(source string) error {
+	if err := ValidateConfig(); err != nil {
+		return fmt.Errorf("sandbox config: %w", err)
+	}
 	lines := strings.Split(source, "\n")
 	for i, line := range lines {
 		lineTrimmed := strings.TrimSpace(line)

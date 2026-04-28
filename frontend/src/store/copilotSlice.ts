@@ -1,5 +1,5 @@
-import { StateCreator } from 'zustand'
-import { ChatMessage, PendingConfirmation } from './types'
+import type { StateCreator } from 'zustand'
+import type { ChatMessage, PendingConfirmation } from './types'
 
 export interface CopilotSlice {
   chat: ChatMessage[]

@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"sort"
+
 	"github.com/ff3300/aleph-v2/internal/repository"
 	"github.com/ff3300/aleph-v2/internal/tools"
 	"github.com/stretchr/testify/assert"
@@ -184,7 +186,8 @@ func TestToolExecuteHandler_HandleListToolsByCategory_Finance(t *testing.T) {
 	err := json.NewDecoder(resp.Body).Decode(&toolDefs)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(toolDefs), 3)
-	assert.Equal(t, "finance_prophet_forecast", toolDefs[0].Name)
+	sort.Slice(toolDefs, func(i, j int) bool { return toolDefs[i].Name < toolDefs[j].Name })
+	assert.Equal(t, "finance_openbb_market_data", toolDefs[0].Name)
 }
 
 func TestToolExecuteHandler_HandleListToolsByCategory_Unknown(t *testing.T) {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { RegistryComponent } from '../store/types'
+import type { RegistryComponent } from '../store/types'
 
 export interface ComponentFormData {
   name: string

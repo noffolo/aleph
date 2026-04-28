@@ -6,6 +6,7 @@ aleph
 
 # Compiled binaries
 aleph-server
+aleph-server-new
 main
 handler.test
 integration.test

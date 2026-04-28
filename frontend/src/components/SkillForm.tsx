@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Skill, Tool } from '../store/types'
+import type { Skill, Tool } from '../store/types'
 import { useStore } from '../store/useStore'
 import { t } from '../i18n'
 

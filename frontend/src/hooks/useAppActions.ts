@@ -1,5 +1,7 @@
 import { useCallback, useRef } from 'react'
 import { useStore } from '../store/useStore'
+import type { SandboxResult } from '../store/types'
+import type { InlineContent, SlideOverContent } from '../store/useStore'
 import { executeCommand, parseCommand, SLASH_COMMANDS } from '../components/terminal/slashCommands'
 import {
   projectClient,
@@ -16,6 +18,12 @@ import {
   notificationClient,
 } from '../api/factory'
 
+interface StreamChunk {
+  token?: string
+  toolCall?: string
+  requiresConfirmation?: boolean
+}
+
 export const handleError = (err: any, context: string) => {
   const store = useStore.getState()
   const msg = err?.message || `Errore in ${context}`
@@ -26,7 +34,8 @@ export const handleError = (err: any, context: string) => {
 
 export function useAppActions() {
   const store = useStore()
-  const errorTimerRef = useRef<any>(null)
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadAbortRef = useRef<AbortController | null>(null)
 
   const handleError = useCallback((err: any, context: string) => {
     const msg = err?.message || `Errore in ${context}`
@@ -38,35 +47,40 @@ export function useAppActions() {
   const loadProjectData = useCallback(() => {
     if (!store.projectID) return
 
-    projectClient.getOntology({ projectId: store.projectID }).then((res: any) => {
+    loadAbortRef.current?.abort()
+    const ac = new AbortController()
+    loadAbortRef.current = ac
+    const opts = { signal: ac.signal }
+
+    projectClient.getOntology({ projectId: store.projectID }, opts).then((res: any) => {
       store.setOntologyRaw(res.alephDefinition || '')
       store.setAvailableObjects(res.objectNames || [])
       if (res.objectNames?.length > 0 && !store.selectedObject) {
         store.setSelectedObject(res.objectNames[0])
       }
-    }).catch((e) => handleError(e, 'getOntology'))
+    }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'getOntology') })
 
-    agentClient.listAgents({ projectId: store.projectID }).then((res: any) => {
+    agentClient.listAgents({ projectId: store.projectID }, opts).then((res: any) => {
       store.setAgents(res.agents || [])
-    }).catch((e) => handleError(e, 'listAgents'))
+    }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listAgents') })
 
-    ingestionClient.listTasks({ projectId: store.projectID }).then((res: any) => {
+    ingestionClient.listTasks({ projectId: store.projectID }, opts).then((res: any) => {
       store.setIngestionTasks(res.tasks || [])
-    }).catch((e) => handleError(e, 'listTasks'))
+    }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listTasks') })
 
-    libraryClient.listAssets({ projectId: store.projectID }).then((res: any) => {
+    libraryClient.listAssets({ projectId: store.projectID }, opts).then((res: any) => {
       store.setAssets(res.assets || [])
-    }).catch((e) => handleError(e, 'listAssets'))
+    }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listAssets') })
 
-    skillClient.listSkills({ projectId: store.projectID }).then((res: any) => {
+    skillClient.listSkills({ projectId: store.projectID }, opts).then((res: any) => {
       store.setSkills(res.skills || [])
-    }).catch((e) => handleError(e, 'listSkills'))
+    }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listSkills') })
 
-    toolClient.listTools({ projectId: store.projectID }).then((res: any) => {
+    toolClient.listTools({ projectId: store.projectID }, opts).then((res: any) => {
       store.setTools(res.tools || [])
-    }).catch((e) => handleError(e, 'listTools'))
+    }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listTools') })
 
-    agentClient.listModels({}).then((res: any) => {
+    agentClient.listModels({}, opts).then((res: any) => {
       store.setOllamaHealthy(true)
       store.setOllamaModels(res.models || [])
     }).catch(() => {
@@ -74,42 +88,42 @@ export function useAppActions() {
       store.setOllamaModels([])
     })
 
-    nlpClient.analyzeSentiment({ text: 'ping' }).then(() => {
+    nlpClient.analyzeSentiment({ text: 'ping' }, opts).then(() => {
       store.setNlpHealthy(true)
     }).catch(() => {
       store.setNlpHealthy(false)
     })
 
-    authClient.listApiKeys({ projectId: store.projectID }).then((res: any) => {
+    authClient.listApiKeys({ projectId: store.projectID }, opts).then((res: any) => {
       store.setApiKeys(res.keys || [])
-    }).catch((e) => handleError(e, 'listApiKeys'))
+    }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listApiKeys') })
 
-    notificationClient.listChannels({ projectId: store.projectID }).then((res: any) => {
+    notificationClient.listChannels({ projectId: store.projectID }, opts).then((res: any) => {
       store.setNotificationChannels(res.channels || [])
-    }).catch((e) => handleError(e, 'listChannels'))
+    }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listChannels') })
 
-    registryClient.listComponents({}).then((res: any) => {
+    registryClient.listComponents({}, opts).then((res: any) => {
       store.setRegistryComponents(res.components || [])
-    }).catch((e) => handleError(e, 'listComponents'))
+    }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listComponents') })
   }, [store.projectID, handleError])
 
    const handleCommandResult = useCallback((result: ReturnType<typeof executeCommand>) => {
     if (!result.handled) return false
-    
+
     switch (result.action) {
       case 'SHOW_INLINE':
         const slideOverTargets = ['explore', 'map', 'timeline', 'graph', 'explorer']
         const shouldUseSlideOver = result.target && slideOverTargets.includes(result.target)
-        
+
         if (shouldUseSlideOver) {
           store.setSlideOverContent({
-            type: result.target as any,
+            type: result.target as unknown as SlideOverContent['type'],
             title: result.target || 'View',
             data: result.args ? { text: result.args } : undefined,
           })
         } else {
           store.setInlineContent({
-            type: result.target as any,
+            type: result.target as unknown as InlineContent['type'],
             title: result.target || 'View',
             data: result.args ? { text: result.args } : undefined,
           })
@@ -136,20 +150,20 @@ export function useAppActions() {
     const userMsg = store.input
     const parsed = parseCommand(userMsg)
     const cmdResult = executeCommand(userMsg)
-    
+
     if (cmdResult.handled) {
       const commandDef = SLASH_COMMANDS.find(c => c.name === parsed?.command)
       if (commandDef?.requiresConfirmation) {
-        store.setChat([...store.chat, { 
-          role: 'system', 
-          content: `Confermi l'esecuzione di ${commandDef.name}?`, 
+        store.setChat([...store.chat, {
+          role: 'system',
+          content: `Confermi l'esecuzione di ${commandDef.name}?`,
           requiresConfirmation: true,
-          createdAt: Date.now() 
+          createdAt: Date.now()
         }])
         store.setInput('')
         return
       }
-      
+
       if (handleCommandResult(cmdResult)) {
         store.setInput('')
         store.addToHistory(userMsg)
@@ -168,9 +182,10 @@ export function useAppActions() {
       let requiresConfirmation = false
       store.addChatMessage({ role: 'assistant', content: '', toolCall: '', createdAt: Date.now() })
       for await (const res of stream) {
-        fullContent += (res as any).token || ''
-        fullToolCall += (res as any).toolCall || ''
-        if ((res as any).requiresConfirmation) requiresConfirmation = true
+        const chunk = res as unknown as StreamChunk
+        fullContent += chunk.token || ''
+        fullToolCall += chunk.toolCall || ''
+        if (chunk.requiresConfirmation) requiresConfirmation = true
         const currentChat = useStore.getState().chat
         store.setChat([...currentChat.slice(0, -1), { role: 'assistant', content: fullContent, toolCall: fullToolCall, requiresConfirmation, createdAt: Date.now() }])
       }
@@ -210,9 +225,10 @@ export function useAppActions() {
     let inputParams = {}
     try { inputParams = JSON.parse(useStore.getState().sandboxInput) } catch {}
     try {
-      const res = await sandboxClient.runSkill({ skillId, inputParams, context: { projectId: store.projectID } }) as any
-      store.setSandboxResult(res.result)
-      store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: res.result })
+      const res = await sandboxClient.runSkill({ skillId, inputParams, context: { projectId: store.projectID } })
+      const r = (res as unknown as { result: SandboxResult }).result
+      store.setSandboxResult(r)
+      store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: r })
     } catch (e: any) {
       const msg = e.message || 'Errore durante l\'esecuzione della skill'
       store.setSandboxResult({ stderr: msg, exitCode: 1 })
@@ -225,9 +241,10 @@ export function useAppActions() {
     let inputParams = {}
     try { inputParams = JSON.parse(useStore.getState().sandboxInput) } catch {}
     try {
-      const res = await sandboxClient.executeTool({ toolId, inputParams }) as any
-      store.setSandboxResult(res.result)
-      store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: res.result })
+      const res = await sandboxClient.executeTool({ toolId, inputParams })
+      const r2 = (res as unknown as { result: SandboxResult }).result
+      store.setSandboxResult(r2)
+      store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: r2 })
     } catch (e: any) {
       const msg = e.message || 'Errore durante l\'esecuzione del tool'
       store.setSandboxResult({ stderr: msg, exitCode: 1 })
@@ -237,8 +254,8 @@ export function useAppActions() {
   }, [store.projectID])
 
   const getAssetContent = useCallback(async (assetId: string): Promise<string> => {
-    const res = await libraryClient.getAssetContent({ projectId: store.projectID, assetId }) as any
-    return res.content || ''
+    const res = await libraryClient.getAssetContent({ projectId: store.projectID, assetId })
+    return (res as unknown as { content: string }).content || ''
   }, [store.projectID])
 
   return {

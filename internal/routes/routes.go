@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"connectrpc.com/connect"
 	"github.com/ff3300/aleph-v2/internal/api/handler"
@@ -18,8 +19,17 @@ import (
 	"github.com/ff3300/aleph-v2/internal/diagnostic"
 	"github.com/ff3300/aleph-v2/internal/middleware"
 	"github.com/ff3300/aleph-v2/internal/repository"
+	"github.com/ff3300/aleph-v2/internal/telemetry"
 	"github.com/ff3300/aleph-v2/internal/tools/codeflow"
 )
+
+// isDraining tracks graceful shutdown state for readiness checks
+var isDraining = &atomic.Bool{}
+
+// SetDraining sets the draining flag for graceful shutdown
+func SetDraining(draining bool) {
+	isDraining.Store(draining)
+}
 
 // RegisterConfig carries all dependencies needed to register routes.
 type RegisterConfig struct {
@@ -54,12 +64,33 @@ type RegisterConfig struct {
 
 // RegisterRoutes registers all HTTP routes on the given mux.
 func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
+	// Readiness probe: returns 503 during graceful drain
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if isDraining.Load() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status":"not ready","reason":"draining"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
+	// Liveness probe: lightweight check
+	mux.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"alive"}`))
+	})
+
 	// Unauthenticated health check endpoint (for Docker HEALTHCHECK, load balancers, etc.)
 	mux.HandleFunc("/api/v1/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	mux.Handle("/metrics", telemetry.MetricsHandler())
 
 	// Connect RPC Routes
 	mux.Handle(v1connect.NewQueryServiceHandler(cfg.QueryHandler, cfg.Interceptors...))
@@ -154,13 +185,12 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 }
 
 // CORSHandler wraps the given handler with CORS middleware.
-func CORSHandler(next http.Handler, logger interface{ Warn(msg string, args ...any) }) http.Handler {
-	allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
-	if allowedOrigins == "" {
-		allowedOrigins = "http://localhost:5173,http://localhost:3000"
+func CORSHandler(next http.Handler, allowedOrigins []string, logger interface{ Warn(msg string, args ...any) }) http.Handler {
+	if len(allowedOrigins) == 0 {
+		allowedOrigins = []string{"http://localhost:5173", "http://localhost:3000"}
 	}
 	originMap := map[string]bool{}
-	for _, o := range strings.Split(allowedOrigins, ",") {
+	for _, o := range allowedOrigins {
 		trimmed := strings.TrimSpace(o)
 		if !strings.HasPrefix(trimmed, "http://") && !strings.HasPrefix(trimmed, "https://") {
 			logger.Warn("skipping invalid CORS origin", "origin", trimmed)

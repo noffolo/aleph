@@ -6,30 +6,9 @@ import { agentClient } from '../api/factory';
 import { ListAgentsRequest } from '../api/proto/aleph/v1/query_pb';
 import { useQueryState } from 'nuqs';
 import { t } from '../i18n';
+import type { Agent } from '../store/types';
 
-interface Agent {
-  id: string;
-  name: string;
-  model: string;
-  systemPrompt: string;
-  provider?: string;
-  apiKey?: string;
-  baseUrl?: string;
-  skillIds?: string[];
-}
-
-interface Agent {
-  id: string;
-  name: string;
-  model: string;
-  systemPrompt: string;
-  provider?: string;
-  apiKey?: string;
-  baseUrl?: string;
-  skillIds?: string[];
-}
-
-interface AgentsViewProps {
+export interface AgentsViewProps {
   agents: Agent[];
   onCreateAgent: (name: string, model: string, systemPrompt: string, provider: string, apiKey: string, baseUrl: string) => void;
   onDeleteAgent: (id: string) => void;
@@ -47,7 +26,7 @@ export const AgentsView: React.FC<AgentsViewProps> = React.memo(({ agents: initi
   const { items: agents, hasMore, loadMore, loading } = useCursorPagination({
     clientMethod: agentClient.listAgents,
     requestBuilder: useCallback((cursor: string) => new ListAgentsRequest({ projectId, after: cursor, limit: 25 }), [projectId]),
-    responseExtractor: (res) => ({ items: res.agents, nextCursor: res.nextCursor }),
+    responseExtractor: (res) => ({ items: res.agents as unknown as Agent[], nextCursor: res.nextCursor }),
     storeSetter: setAgents,
     initialItems: initialAgents,
   });
@@ -61,7 +40,7 @@ export const AgentsView: React.FC<AgentsViewProps> = React.memo(({ agents: initi
   }, []);
 
   const openEdit = useCallback((a: Agent) => {
-    useStore.getState().setSlideOverContent({ type: 'agent-form', title: t('agents.edit'), data: a as any });
+    useStore.getState().setSlideOverContent({ type: 'agent-form', title: t('agents.edit'), data: a });
   }, []);
 
   return (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Agent } from '../store/types'
+import type { Agent } from '../store/types'
 import { Eye, EyeOff } from 'lucide-react'
 import { t } from '../i18n'
 

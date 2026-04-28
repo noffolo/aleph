@@ -45,8 +45,7 @@ func (h *SSEHandler) WithMetaRepo(repo *repository.MetadataRepository) *SSEHandl
 // Stream is the HTTP handler for SSE connections.
 // GET /api/v1/events — opens an SSE stream for real-time notifications.
 //
-// Authentication is handled via query parameter or the existing
-// X-Aleph-Api-Key header for compatibility with the existing auth system.
+// Authentication uses the X-Aleph-Api-Key header.
 // Events include: tool_status, notification, ingestion_progress, system_alert.
 func (h *SSEHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -56,7 +55,7 @@ func (h *SSEHandler) Stream(w http.ResponseWriter, r *http.Request) {
 
 	// Validate authentication
 	if !isAuthenticatedForSSE(r, h.metaRepo) {
-		http.Error(w, "unauthorized — valid X-Aleph-Api-Key header or api_key query param required", http.StatusUnauthorized)
+		http.Error(w, "unauthorized — valid X-Aleph-Api-Key header required", http.StatusUnauthorized)
 		return
 	}
 
@@ -144,22 +143,14 @@ func generateClientID() string {
 	return fmt.Sprintf("sse-%s", hex.EncodeToString(b))
 }
 
-// extractAPIKeyFromSSE attempts to extract an API key from the SSE connection
-// request, checking both the standard header and query parameter.
+// extractAPIKeyFromSSE extracts the API key from the X-Aleph-Api-Key header.
+// Query parameter auth (?api_key=...) was removed for security (W11-02).
 func extractAPIKeyFromSSE(r *http.Request) string {
-	key := r.Header.Get("X-Aleph-Api-Key")
-	if key != "" {
-		return key
-	}
-	key = r.URL.Query().Get("api_key")
-	if key != "" {
-		return key
-	}
-	return ""
+	return r.Header.Get("X-Aleph-Api-Key")
 }
 
 // isAuthenticatedForSSE checks if the request has valid authentication.
-// Validates the X-Aleph-Api-Key header (or api_key query param) against the repository.
+// Validates the X-Aleph-Api-Key header against the repository.
 func isAuthenticatedForSSE(r *http.Request, metaRepo *repository.MetadataRepository) bool {
 	key := extractAPIKeyFromSSE(r)
 	if key == "" {

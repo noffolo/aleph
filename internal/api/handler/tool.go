@@ -168,7 +168,8 @@ func (h *ToolHandler) HandleHealthHistory(w http.ResponseWriter, r *http.Request
 
 // HandleListAll lists all tools in JSON format.
 func (h *ToolHandler) HandleListAll(w http.ResponseWriter, r *http.Request) {
-	tools, err := h.metaRepo.ListTools()
+	pag := ParsePagePagination(r)
+	tools, err := h.metaRepo.ListToolsCursor("", pag.PerPage)
 	if err != nil {
 		writeError(w, "failed to list tools: "+err.Error(), http.StatusInternalServerError)
 		return

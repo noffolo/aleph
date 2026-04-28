@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -23,6 +25,47 @@ var (
 	httpRequestSize     metric.Int64Histogram
 	httpResponseSize    metric.Int64Histogram
 )
+
+var (
+	promRequestDuration *prometheus.HistogramVec
+	promRequestsTotal   *prometheus.CounterVec
+	promDBConnections   prometheus.Gauge
+)
+
+func init() {
+	register := func(cs ...prometheus.Collector) {
+		for _, c := range cs {
+			if err := prometheus.Register(c); err != nil {
+				slog.Warn("prometheus metric registration skipped", "error", err)
+			}
+		}
+	}
+
+	promRequestDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "aleph_request_duration_seconds",
+			Help:    "HTTP request duration in seconds",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"method", "path", "status_code"},
+	)
+	register(promRequestDuration)
+
+	promRequestsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "aleph_requests_total",
+			Help: "Total number of HTTP requests",
+		},
+		[]string{"method", "path", "status_code"},
+	)
+	register(promRequestsTotal)
+
+	promDBConnections = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "aleph_db_connections_active",
+		Help: "Number of active database connections",
+	})
+	register(promDBConnections)
+}
 
 func initMetrics() error {
 	meter := otel.GetMeterProvider().Meter("aleph.v2.http")
@@ -118,6 +161,50 @@ func Middleware(next http.Handler) http.Handler {
 	})
 }
 
+func PrometheusMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		rw := &promResponseWriter{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK,
+		}
+
+		next.ServeHTTP(rw, r)
+
+		duration := time.Since(start).Seconds()
+		statusCode := fmt.Sprintf("%d", rw.statusCode)
+
+		promRequestDuration.WithLabelValues(r.Method, r.URL.Path, statusCode).Observe(duration)
+		promRequestsTotal.WithLabelValues(r.Method, r.URL.Path, statusCode).Inc()
+	})
+}
+
+func MetricsHandler() http.Handler {
+	return promhttp.Handler()
+}
+
+type promResponseWriter struct {
+	http.ResponseWriter
+	statusCode  int
+	wroteHeader bool
+}
+
+func (rw *promResponseWriter) WriteHeader(code int) {
+	if !rw.wroteHeader {
+		rw.statusCode = code
+		rw.wroteHeader = true
+		rw.ResponseWriter.WriteHeader(code)
+	}
+}
+
+func (rw *promResponseWriter) Write(b []byte) (int, error) {
+	if !rw.wroteHeader {
+		rw.WriteHeader(http.StatusOK)
+	}
+	return rw.ResponseWriter.Write(b)
+}
+
 type headerCarrier struct {
 	headers http.Header
 }
@@ -163,6 +250,12 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	}
 	rw.size += len(b)
 	return rw.ResponseWriter.Write(b)
+}
+
+func (rw *responseWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 func ConnectRPCMiddleware() func(http.Handler) http.Handler {

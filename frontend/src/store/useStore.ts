@@ -1,10 +1,16 @@
 import { create } from 'zustand'
-import { AuthSlice, createAuthSlice } from './authSlice'
-import { NavigationSlice, createNavigationSlice } from './navigationSlice'
-import { CopilotSlice, createCopilotSlice } from './copilotSlice'
-import { WorkspaceSlice, createWorkspaceSlice } from './workspaceSlice'
-import { HealthSlice, createHealthSlice } from './healthSlice'
-import { UISlice, createUISlice } from './uiSlice'
+import type { AuthSlice } from './authSlice'
+import { createAuthSlice } from './authSlice'
+import type { NavigationSlice } from './navigationSlice'
+import { createNavigationSlice } from './navigationSlice'
+import type { CopilotSlice } from './copilotSlice'
+import { createCopilotSlice } from './copilotSlice'
+import type { WorkspaceSlice } from './workspaceSlice'
+import { createWorkspaceSlice } from './workspaceSlice'
+import type { HealthSlice } from './healthSlice'
+import { createHealthSlice } from './healthSlice'
+import type { UISlice } from './uiSlice'
+import { createUISlice } from './uiSlice'
 
 export interface InlineContent {
   type: 'explore' | 'agent' | 'ontology' | 'data' | 'health' | 'skill' | 'tool' | 'component' | 'settings' | 'library' | 'predict' | null

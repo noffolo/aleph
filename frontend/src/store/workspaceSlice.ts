@@ -1,5 +1,5 @@
-import { StateCreator } from 'zustand'
-import {
+import type { StateCreator } from 'zustand'
+import type {
   Agent,
   ChatMessage,
   IngestionTask,

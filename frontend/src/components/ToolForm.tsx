@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Tool } from '../store/types'
+import type { Tool } from '../store/types'
 import { useStore } from '../store/useStore'
 import { t } from '../i18n'
 

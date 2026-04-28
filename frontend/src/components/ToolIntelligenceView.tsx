@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Activity, Users, Shield, Star, AlertTriangle, CheckCircle2, BarChart3 } from 'lucide-react';
-import { ToolIntel, ToolAnomaly } from '../store/types';
+import type { ToolIntel, ToolAnomaly } from '../store/types';
 import { useStore } from '../store/useStore';
 
 const Card = ({ title, icon: Icon, children, className = "" }: { title: string, icon: any, children: React.ReactNode, className?: string }) => (

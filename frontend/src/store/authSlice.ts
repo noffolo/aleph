@@ -1,5 +1,5 @@
-import { StateCreator } from 'zustand'
-import { ApiKey, NotificationChannel, Project, RegistryComponent } from './types'
+import type { StateCreator } from 'zustand'
+import type { ApiKey, NotificationChannel, Project, RegistryComponent } from './types'
 
 export interface AuthSlice {
   projectID: string

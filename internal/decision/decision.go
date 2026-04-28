@@ -136,10 +136,18 @@ type PropertyDef struct {
 	Default     interface{} `json:"default,omitempty"`
 }
 
+// GetToolExecutor returns the configured executor or nil.
+func GetToolExecutor() ToolExecutor {
+	if NewToolExecutor == nil {
+		return nil
+	}
+	return NewToolExecutor(nil, nil, nil, nil)
+}
+
 // NewToolExecutor creates a tool executor that wraps the handler's dispatch logic.
 // This is called from the handler package to bridge to the decision engine.
 var NewToolExecutor func(
-	executeQuery func(ctx context.Context, req *connect.Request[*alephv1.ExecuteQueryRequest]) (*connect.Response[*alephv1.ExecuteQueryResponse], error),
+	executeQuery func(ctx context.Context, req *connect.Request[alephv1.ExecuteQueryRequest]) (*connect.Response[alephv1.ExecuteQueryResponse], error),
 	analyzeSentiment func(ctx context.Context, text string) (string, error),
 	getTrustScore func(ctx context.Context, entityID string) (string, error),
 	getComponentByID func(id string) (*ComponentMetadata, error),

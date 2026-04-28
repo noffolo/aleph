@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,15 +21,19 @@ type WebhookJob struct {
 type NotificationService struct {
 	client *http.Client
 	jobs   chan WebhookJob
+	stop   chan struct{}
+	wg     sync.WaitGroup
 }
 
 func NewNotificationService() *NotificationService {
 	svc := &NotificationService{
 		client: &http.Client{Timeout: 10 * time.Second},
 		jobs:   make(chan WebhookJob, 100),
+		stop:   make(chan struct{}),
 	}
 
 	for i := 0; i < 3; i++ {
+		svc.wg.Add(1)
 		go svc.worker()
 	}
 
@@ -36,22 +41,40 @@ func NewNotificationService() *NotificationService {
 }
 
 func (s *NotificationService) worker() {
-	for job := range s.jobs {
-		data, err := json.Marshal(job.Payload)
-		if err != nil {
-			log.Printf("[Notification] Webhook payload marshal failed: %v", err)
-			continue
+	defer s.wg.Done()
+	for {
+		select {
+		case job, ok := <-s.jobs:
+			if !ok {
+				return
+			}
+			s.sendWebhook(job)
+		case <-s.stop:
+			return
 		}
-
-		resp, err := s.client.Post(job.URL, "application/json", bytes.NewBuffer(data))
-		if err != nil {
-			log.Printf("[Notification] Webhook failed to %s: %v", job.URL, err)
-			continue
-		}
-		resp.Body.Close()
-
-		log.Printf("[Notification] Webhook sent to %s. Status: %s", job.URL, resp.Status)
 	}
+}
+
+func (s *NotificationService) sendWebhook(job WebhookJob) {
+	data, err := json.Marshal(job.Payload)
+	if err != nil {
+		log.Printf("[Notification] Webhook payload marshal failed: %v", err)
+		return
+	}
+
+	resp, err := s.client.Post(job.URL, "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		log.Printf("[Notification] Webhook failed to %s: %v", job.URL, err)
+		return
+	}
+	resp.Body.Close()
+
+	log.Printf("[Notification] Webhook sent to %s. Status: %s", job.URL, resp.Status)
+}
+
+func (s *NotificationService) Stop() {
+	close(s.stop)
+	s.wg.Wait()
 }
 
 func (s *NotificationService) SendWebhook(rawURL string, payload interface{}) error {

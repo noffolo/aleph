@@ -11,6 +11,10 @@ import { useComponentActions } from '../../hooks/domain/useComponentActions'
 import { useSettingsActions } from '../../hooks/domain/useSettingsActions'
 import { useLibraryActions } from '../../hooks/domain/useLibraryActions'
 import { InlineErrorBoundary } from '../InlineErrorBoundary'
+import type { ComponentsViewProps } from '../ComponentsView'
+import type { SkillsViewProps } from '../SkillsView'
+import type { ToolsViewProps } from '../ToolsView'
+import type { AgentsViewProps } from '../AgentsView'
 import { t } from '../../i18n'
 
 const ExplorerView = React.lazy(() => import('../ExplorerView').then(m => ({ default: m.ExplorerView })))
@@ -81,9 +85,9 @@ export const InlineRenderer: React.FC = () => {
             agents={store.agents}
             ollamaHealthy={store.ollamaHealthy}
             ollamaModels={store.ollamaModels}
-            onCreateAgent={onCreateAgent as any}
-            onDeleteAgent={onDeleteAgent as any}
-            onUpdateAgent={onUpdateAgent as any}
+            onCreateAgent={onCreateAgent as unknown as AgentsViewProps['onCreateAgent']}
+            onDeleteAgent={onDeleteAgent as unknown as AgentsViewProps['onDeleteAgent']}
+            onUpdateAgent={onUpdateAgent as unknown as AgentsViewProps['onUpdateAgent']}
             inline
           />
         )
@@ -117,10 +121,10 @@ export const InlineRenderer: React.FC = () => {
           <SkillsView
             skills={store.skills}
             tools={store.tools}
-            onCreateSkill={onCreateSkill as any}
-            onViewSkillDetail={onViewSkillDetail as any}
-            onDeleteSkill={onDeleteSkill as any}
-            onRunSkill={onRunSkill as any}
+            onCreateSkill={onCreateSkill as unknown as SkillsViewProps['onCreateSkill']}
+            onViewSkillDetail={onViewSkillDetail as unknown as SkillsViewProps['onViewSkillDetail']}
+            onDeleteSkill={onDeleteSkill as unknown as SkillsViewProps['onDeleteSkill']}
+            onRunSkill={onRunSkill as unknown as SkillsViewProps['onRunSkill']}
             inline
           />
         )
@@ -128,10 +132,10 @@ export const InlineRenderer: React.FC = () => {
         return (
           <ToolsView
             tools={store.tools}
-            onCreateTool={onCreateTool as any}
-            onEditTool={onEditTool as any}
-            onDeleteTool={onDeleteTool as any}
-            onExecuteTool={onExecuteTool as any}
+            onCreateTool={onCreateTool as unknown as ToolsViewProps['onCreateTool']}
+            onEditTool={onEditTool as unknown as ToolsViewProps['onEditTool']}
+            onDeleteTool={onDeleteTool as unknown as ToolsViewProps['onDeleteTool']}
+            onExecuteTool={onExecuteTool as unknown as ToolsViewProps['onExecuteTool']}
             inline
           />
         )
@@ -139,9 +143,9 @@ export const InlineRenderer: React.FC = () => {
         return (
           <ComponentsView
             components={store.registryComponents}
-            onUpdateComponentStatus={onUpdateComponentStatus as any}
-            onRegisterComponent={onRegisterComponent as any}
-            onGetComponent={onGetComponent as any}
+            onUpdateComponentStatus={onUpdateComponentStatus as unknown as ComponentsViewProps['onUpdateComponentStatus']}
+            onRegisterComponent={onRegisterComponent as unknown as ComponentsViewProps['onRegisterComponent']}
+            onGetComponent={onGetComponent as unknown as ComponentsViewProps['onGetComponent']}
             inline
           />
         )

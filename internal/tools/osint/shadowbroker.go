@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sync"
@@ -32,18 +33,21 @@ type simpleCache struct {
 	ttl time.Duration
 }
 
-func newSimpleCache(size int, ttl time.Duration) *simpleCache {
+func newSimpleCache(size int, ttl time.Duration) (*simpleCache, error) {
 	l, err := lru.New[string, *cacheEntry](size)
 	if err != nil {
-		panic(fmt.Sprintf("failed to create LRU cache: %v", err))
+		return nil, fmt.Errorf("failed to create LRU cache: %w", err)
 	}
 	return &simpleCache{
 		lru: l,
 		ttl: ttl,
-	}
+	}, nil
 }
 
 func (c *simpleCache) Get(key string) (interface{}, bool) {
+	if c == nil || c.lru == nil {
+		return nil, false
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	entry, ok := c.lru.Get(key)
@@ -57,6 +61,9 @@ func (c *simpleCache) Get(key string) (interface{}, bool) {
 }
 
 func (c *simpleCache) Set(key string, value interface{}) {
+	if c == nil || c.lru == nil {
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.lru.Add(key, &cacheEntry{value: value, expiration: time.Now().Add(c.ttl)})
@@ -183,10 +190,14 @@ func NewShadowbroker(config ShadowbrokerConfig, ssrfValidator func(string) error
 	if config.Timeout == 0 {
 		config.Timeout = 30 * time.Second
 	}
+	cache, err := newSimpleCache(1000, 5*time.Minute)
+	if err != nil {
+		slog.Warn("shadowbroker: LRU cache unavailable, running without cache", "error", err)
+	}
 	return &Shadowbroker{
 		config:         config,
 		client:         &http.Client{Timeout: config.Timeout},
-		cache:          newSimpleCache(1000, 5*time.Minute),
+		cache:          cache,
 		circuitBreaker: NewCircuitBreaker(5, 30*time.Second),
 		rateLimiter:    NewRateLimiter(config.RateLimit),
 		ssrfValidator:  ssrfValidator,

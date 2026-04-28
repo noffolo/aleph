@@ -45,7 +45,24 @@ func NewEngine(cfg EngineConfig) *Engine {
 // Plan implements DecisionEngine.Plan.
 // It builds tool definitions from hardcoded + registered tools,
 // creates the initial plan with the user's intent.
+// When provider is nil, operates in degraded mode with heuristic-based planning.
 func (e *Engine) Plan(ctx context.Context, msg string, projectID string, agentID string, ontContent []byte, agent *alephv1.Agent) (*PlanResult, error) {
+	if e.provider == nil {
+		return &PlanResult{
+			Intent: Intent{
+				PrimaryGoal:   msg,
+				NeededTools:   e.inferToolsFromMessage(ctx, msg, e.buildToolDefinitions(ctx)),
+				TargetObjects: nil,
+				Confidence:    0.5,
+			},
+			Steps: []PlannedStep{{
+				ToolName:  "query_dispatch",
+				Arguments: map[string]interface{}{"query": msg},
+			}},
+			CanProceed: true,
+			Reason:     "degraded mode: heuristic planning (no LLM provider)",
+		}, nil
+	}
 	// Build tool definitions for LLM use
 	toolDefs := e.buildToolDefinitions(ctx)
 
@@ -241,7 +258,7 @@ func (e *Engine) inferToolsFromMessage(ctx context.Context, msg string, toolDefs
 
 	// Also check registered tools
 	if e.metaRepo != nil {
-		registeredTools, err := e.metaRepo.ListTools(context.Background())
+		registeredTools, err := e.metaRepo.ListTools(ctx)
 		if err == nil {
 			for _, t := range registeredTools {
 				if strings.Contains(lower, strings.ToLower(t.Name)) {
@@ -312,7 +329,7 @@ func (e *Engine) buildToolDefinitions(ctx context.Context) []ToolDefinition {
 
 	// Add registered tools from metadata repository
 	if e.metaRepo != nil {
-		registeredTools, err := e.metaRepo.ListTools(context.Background())
+		registeredTools, err := e.metaRepo.ListTools(ctx)
 		if err == nil {
 			for _, t := range registeredTools {
 				fn := FunctionDef{
@@ -332,8 +349,8 @@ func (e *Engine) buildToolDefinitions(ctx context.Context) []ToolDefinition {
 
 // BuildToolsMap converts typed ToolDefinitions to map format expected by llm.Provider.
 // This is used by the handler to pass tools to the LLM.
-func (e *Engine) BuildToolsMap() []map[string]interface{} {
-	defs := e.buildToolDefinitions(context.Background())
+func (e *Engine) BuildToolsMap(ctx context.Context) []map[string]interface{} {
+	defs := e.buildToolDefinitions(ctx)
 	result := make([]map[string]interface{}, 0, len(defs))
 	for _, d := range defs {
 		fnMap := map[string]interface{}{

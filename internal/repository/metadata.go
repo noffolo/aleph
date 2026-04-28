@@ -87,7 +87,10 @@ type IngestionTaskRecord struct {
 
 func (r *MetadataRepository) UpdateTaskProgress(id string, progress int32, status string) error {
 	_, err := r.db.Exec("UPDATE system_tasks SET progress = $1, status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3", progress, status, id)
-	return fmt.Errorf("updateTaskProgress: %w", err)
+	if err != nil {
+		return fmt.Errorf("updateTaskProgress: %w", err)
+	}
+	return nil
 }
 
 func (r *MetadataRepository) GetTaskProgress(taskID string) (int32, error) {
@@ -122,7 +125,10 @@ func (r *MetadataRepository) CreateTask(t *IngestionTaskRecord) error {
 		"INSERT INTO system_tasks (id, project_id, name, source_type, config_json, schedule, status, progress) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
 		t.ID, t.ProjectID, t.Name, t.SourceType, t.ConfigJSON, t.Schedule, t.Status, t.Progress,
 	)
-	return fmt.Errorf("createTask: %w", err)
+	if err != nil {
+		return fmt.Errorf("createTask: %w", err)
+	}
+	return nil
 }
 
 func (r *MetadataRepository) GetTaskByID(taskID string) (*IngestionTaskRecord, error) {
@@ -136,7 +142,10 @@ func (r *MetadataRepository) GetTaskByID(taskID string) (*IngestionTaskRecord, e
 
 func (r *MetadataRepository) DeleteTask(id, projectID string) error {
 	_, err := r.db.Exec("DELETE FROM system_tasks WHERE project_id = $1 AND id = $2", projectID, id)
-	return fmt.Errorf("deleteTask: %w", err)
+	if err != nil {
+		return fmt.Errorf("deleteTask: %w", err)
+	}
+	return nil
 }
 
 // ─── Chat Messages ─────────────────────────────────────────────────────────
@@ -151,7 +160,10 @@ type ChatMessage struct {
 
 func (r *MetadataRepository) SaveChatMessage(ctx context.Context, projectID, agentID, role, content, toolCall string) error {
 	_, err := r.db.ExecContext(ctx, "INSERT INTO system_chat_history (id, project_id, agent_id, role, content, tool_call) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)", projectID, agentID, role, content, toolCall)
-	return fmt.Errorf("saveChatMessage: %w", err)
+	if err != nil {
+		return fmt.Errorf("saveChatMessage: %w", err)
+	}
+	return nil
 }
 
 func (r *MetadataRepository) GetChatMessages(ctx context.Context, projectID, agentID string) ([]ChatMessage, error) {
@@ -207,11 +219,13 @@ func (r *MetadataRepository) ConfirmAgentInProject(agentID, projectID string) (b
 
 func (r *MetadataRepository) GetAgentForChat(agentID string) (*AgentRecord, error) {
 	var a AgentRecord
+	var skillIDs sql.NullString
 	err := r.db.QueryRow("SELECT provider, model, api_key, system_prompt, skill_ids, base_url FROM system_agents WHERE id = $1", agentID).
-		Scan(&a.Provider, &a.Model, &a.ApiKey, &a.SystemPrompt, &a.SkillIDsJSON, &a.BaseURL)
+		Scan(&a.Provider, &a.Model, &a.ApiKey, &a.SystemPrompt, &skillIDs, &a.BaseURL)
 	if err != nil {
 		return nil, err
 	}
+	a.SkillIDsJSON = skillIDs.String
 	a.ID = agentID
 	if r.encryptionKey != nil && a.ApiKey != "" {
 		plaintext, err := crypto.Decrypt(a.ApiKey, r.encryptionKey)
@@ -232,9 +246,11 @@ func (r *MetadataRepository) ListAgents(projectID string) ([]*AgentRecord, error
 	var agents []*AgentRecord
 	for rows.Next() {
 		var a AgentRecord
-		if err := rows.Scan(&a.ID, &a.Name, &a.Provider, &a.Model, &a.ApiKey, &a.SystemPrompt, &a.SkillIDsJSON, &a.BaseURL); err != nil {
+		var skillIDs sql.NullString
+		if err := rows.Scan(&a.ID, &a.Name, &a.Provider, &a.Model, &a.ApiKey, &a.SystemPrompt, &skillIDs, &a.BaseURL); err != nil {
 			continue
 		}
+		a.SkillIDsJSON = skillIDs.String
 		a.ProjectID = projectID
 		if r.encryptionKey != nil && a.ApiKey != "" {
 			plaintext, err := crypto.Decrypt(a.ApiKey, r.encryptionKey)
@@ -269,9 +285,11 @@ func (r *MetadataRepository) ListAgentsCursor(projectID, cursor string, limit in
 	var agents []*AgentRecord
 	for rows.Next() {
 		var a AgentRecord
-		if err := rows.Scan(&a.ID, &a.Name, &a.Provider, &a.Model, &a.ApiKey, &a.SystemPrompt, &a.SkillIDsJSON, &a.BaseURL); err != nil {
+		var skillIDs sql.NullString
+		if err := rows.Scan(&a.ID, &a.Name, &a.Provider, &a.Model, &a.ApiKey, &a.SystemPrompt, &skillIDs, &a.BaseURL); err != nil {
 			continue
 		}
+		a.SkillIDsJSON = skillIDs.String
 		a.ProjectID = projectID
 		if r.encryptionKey != nil && a.ApiKey != "" {
 			plaintext, err := crypto.Decrypt(a.ApiKey, r.encryptionKey)
@@ -296,12 +314,18 @@ func (r *MetadataRepository) CreateAgent(a *AgentRecord) error {
 		apiKey = encrypted
 	}
 	_, err := r.db.Exec("INSERT INTO system_agents (id, project_id, name, provider, model, api_key, system_prompt, skill_ids, base_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)", a.ID, a.ProjectID, a.Name, a.Provider, a.Model, apiKey, a.SystemPrompt, a.SkillIDsJSON, a.BaseURL)
-	return fmt.Errorf("createAgent: %w", err)
+	if err != nil {
+		return fmt.Errorf("createAgent: %w", err)
+	}
+	return nil
 }
 
 func (r *MetadataRepository) DeleteAgent(agentID, projectID string) error {
 	_, err := r.db.Exec("DELETE FROM system_agents WHERE project_id = $1 AND id = $2", projectID, agentID)
-	return fmt.Errorf("deleteAgent: %w", err)
+	if err != nil {
+		return fmt.Errorf("deleteAgent: %w", err)
+	}
+	return nil
 }
 
 func (r *MetadataRepository) UpdateAgent(a *AgentRecord) error {
@@ -314,7 +338,10 @@ func (r *MetadataRepository) UpdateAgent(a *AgentRecord) error {
 		apiKey = encrypted
 	}
 	_, err := r.db.Exec("UPDATE system_agents SET name = $1, provider = $2, model = $3, api_key = $4, system_prompt = $5, skill_ids = $6, base_url = $7 WHERE id = $8 AND project_id = $9", a.Name, a.Provider, a.Model, apiKey, a.SystemPrompt, a.SkillIDsJSON, a.BaseURL, a.ID, a.ProjectID)
-	return fmt.Errorf("updateAgent: %w", err)
+	if err != nil {
+		return fmt.Errorf("updateAgent: %w", err)
+	}
+	return nil
 }
 
 // ─── Tools ─────────────────────────────────────────────────────────────────
@@ -406,7 +433,10 @@ func (r *MetadataRepository) CreateTool(t *ToolRecord) error {
 	if err == nil {
 		r.toolCache.Invalidate("list_tools")
 	}
-	return fmt.Errorf("createTool: %w", err)
+	if err != nil {
+		return fmt.Errorf("createTool: %w", err)
+	}
+	return nil
 }
 
 func (r *MetadataRepository) UpdateToolCode(ctx context.Context, toolID, code string) error {
@@ -414,7 +444,10 @@ func (r *MetadataRepository) UpdateToolCode(ctx context.Context, toolID, code st
 	if err == nil {
 		r.toolCache.Invalidate("list_tools")
 	}
-	return fmt.Errorf("updateToolCode: %w", err)
+	if err != nil {
+		return fmt.Errorf("updateToolCode: %w", err)
+	}
+	return nil
 }
 
 func (r *MetadataRepository) UpdateHealthStatus(toolID, status string) error {
@@ -422,7 +455,10 @@ func (r *MetadataRepository) UpdateHealthStatus(toolID, status string) error {
 	if err == nil {
 		r.toolCache.Invalidate("list_tools")
 	}
-	return fmt.Errorf("updateHealthStatus: %w", err)
+	if err != nil {
+		return fmt.Errorf("updateHealthStatus: %w", err)
+	}
+	return nil
 }
 
 func (r *MetadataRepository) GetToolCode(ctx context.Context, toolID string) (string, error) {
@@ -439,7 +475,10 @@ func (r *MetadataRepository) DeleteTool(id string) error {
 	if err == nil {
 		r.toolCache.Invalidate("list_tools")
 	}
-	return fmt.Errorf("deleteTool: %w", err)
+	if err != nil {
+		return fmt.Errorf("deleteTool: %w", err)
+	}
+	return nil
 }
 
 // ─── Skills ────────────────────────────────────────────────────────────────
@@ -502,7 +541,10 @@ func (r *MetadataRepository) ListSkillsCursor(projectID, cursor string, limit in
 
 func (r *MetadataRepository) CreateSkill(s *SkillRecord) error {
 	_, err := r.db.Exec("INSERT INTO system_skills (id, project_id, name, description, tool_ids) VALUES ($1, $2, $3, $4, $5)", s.ID, s.ProjectID, s.Name, s.Description, s.ToolIDsJSON)
-	return fmt.Errorf("createSkill: %w", err)
+	if err != nil {
+		return fmt.Errorf("createSkill: %w", err)
+	}
+	return nil
 }
 
 func (r *MetadataRepository) GetSkillToolIDs(skillID string) (string, error) {
@@ -516,7 +558,10 @@ func (r *MetadataRepository) GetSkillToolIDs(skillID string) (string, error) {
 
 func (r *MetadataRepository) DeleteSkill(id, projectID string) error {
 	_, err := r.db.Exec("DELETE FROM system_skills WHERE project_id = $1 AND id = $2", projectID, id)
-	return fmt.Errorf("deleteSkill: %w", err)
+	if err != nil {
+		return fmt.Errorf("deleteSkill: %w", err)
+	}
+	return nil
 }
 
 // ─── API Keys ──────────────────────────────────────────────────────────────
@@ -550,7 +595,10 @@ func (r *MetadataRepository) ListAPIKeys(projectID string) ([]APIKeyRecord, erro
 
 func (r *MetadataRepository) CreateAPIKey(id, projectID, label, hashedKey string) error {
 	_, err := r.db.Exec("INSERT INTO system_api_keys (id, project_id, label, key) VALUES ($1, $2, $3, $4)", id, projectID, label, hashedKey)
-	return fmt.Errorf("createAPIKey: %w", err)
+	if err != nil {
+		return fmt.Errorf("createAPIKey: %w", err)
+	}
+	return nil
 }
 
 func (r *MetadataRepository) ValidateAPIKey(hashedKey string) (string, error) {
@@ -564,5 +612,8 @@ func (r *MetadataRepository) ValidateAPIKey(hashedKey string) (string, error) {
 
 func (r *MetadataRepository) DeleteAPIKey(id, projectID string) error {
 	_, err := r.db.Exec("DELETE FROM system_api_keys WHERE project_id = $1 AND id = $2", projectID, id)
-	return fmt.Errorf("deleteAPIKey: %w", err)
+	if err != nil {
+		return fmt.Errorf("deleteAPIKey: %w", err)
+	}
+	return nil
 }

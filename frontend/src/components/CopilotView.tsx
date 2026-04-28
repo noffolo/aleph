@@ -7,7 +7,7 @@ import { InlineErrorBoundary } from './InlineErrorBoundary'
 import { SplitSquareHorizontal } from 'lucide-react'
 import { ChatSearchBar } from './ChatSearchBar'
 import { ChatExportMenu } from './ChatExportMenu'
-import { ChatMessage } from '../store/types'
+import type { ChatMessage } from '../store/types'
 
 interface Agent {
   id: string
@@ -34,12 +34,30 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
   chat, input, setInput, onSend, isStreaming, onCancelStream, onConfirmAction, onClearChat
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const { splitView, setSplitView, chatSearchQuery, setChatSearchQuery } = useStore()
   const [selectedMsgIndex, setSelectedMsgIndex] = useState<number | null>(null)
+  const [isAtBottom, setIsAtBottom] = useState(true)
 
   useEffect(() => {
-    scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)
-  }, [chat, isStreaming])
+    if (!sentinelRef.current) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsAtBottom(entry.isIntersecting)
+      },
+      { threshold: 1.0 }
+    )
+
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (isAtBottom) {
+      scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)
+    }
+  }, [chat, isStreaming, isAtBottom])
 
   const filteredChat = chat.filter(msg => 
     msg.content.toLowerCase().includes(chatSearchQuery.toLowerCase()) || 
@@ -101,15 +119,28 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
         matchCount={filteredChat.length} 
       />
 
-      <div className="flex-1 flex overflow-hidden">
-        <div ref={scrollRef} className={`flex-1 overflow-auto transition-all duration-200 ${splitView ? 'max-w-1/2' : 'w-full'}`}>
-          <TerminalOutput 
-            lines={terminalLines} 
-            isStreaming={isStreaming} 
-            onMessageClick={(id) => setSelectedMsgIndex(id)}
-          />
-        </div>
-        {splitView && (
+       <div className="flex-1 flex overflow-hidden">
+         <div ref={scrollRef} className={`relative flex-1 overflow-auto transition-all duration-200 ${splitView ? 'max-w-1/2' : 'w-full'}`}>
+           <TerminalOutput 
+             lines={terminalLines} 
+             isStreaming={isStreaming} 
+             onMessageClick={(id) => setSelectedMsgIndex(id)}
+           />
+           <div ref={sentinelRef} className="h-px w-full" />
+           {!isAtBottom && (
+             <button
+               onClick={() => {
+                 scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+                 setIsAtBottom(true)
+               }}
+               className="absolute bottom-4 right-4 w-8 h-8 rounded-full bg-primary text-background flex items-center justify-center shadow-lg hover:bg-primary/80 transition-all z-10"
+               title="Torna in fondo"
+             >
+               ↓
+             </button>
+           )}
+         </div>
+         {splitView && (
           <div className="w-1/2 border-l border-border bg-background/30 overflow-auto p-4 font-mono text-xs text-text">
             {selectedMsgIndex !== null && chat[selectedMsgIndex] ? (
               <div className="space-y-4">

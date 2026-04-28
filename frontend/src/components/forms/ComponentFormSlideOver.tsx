@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useStore } from '../../store/useStore'
 import { useComponentActions } from '../../hooks/domain/useComponentActions'
 import { t } from '../../i18n'
+import { RegistryComponentSchema } from '../../schemas'
+
+type FormErrors = Partial<Record<string, string>>
 
 interface ComponentFormSlideOverProps {
   title?: string
@@ -25,10 +28,13 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
   const [outputSchemaJson, setOutputSchemaJson] = useState('{}')
   const [promptTemplate, setPromptTemplate] = useState('')
   const [toolIdsJson, setToolIdsJson] = useState('[]')
+  const [errors, setErrors] = useState<FormErrors>({})
 
   const handleSubmit = () => {
+    setErrors({})
+
     if (!name.trim()) {
-      alert('Il nome è obbligatorio')
+      setErrors({ name: 'Il nome è obbligatorio' })
       return
     }
 
@@ -38,14 +44,16 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
       JSON.parse(inputSchemaJson)
       JSON.parse(outputSchemaJson)
       JSON.parse(toolIdsJson)
-    } catch (e) {
-      alert('JSON non valido')
+    } catch {
+      setErrors({ configSchemaJson: 'JSON non valido' })
       return
     }
 
-    onRegisterComponent({
+    const parsed = RegistryComponentSchema.safeParse({
+      id: '',
       name,
       description,
+      version: '1.0.0',
       type,
       category,
       source,
@@ -58,7 +66,12 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
       outputSchemaJson,
       promptTemplate,
       toolIdsJson,
-    } as any)
+    })
+    if (!parsed.success) {
+      setErrors(parsed.error.flatten().fieldErrors as FormErrors)
+      return
+    }
+    onRegisterComponent(parsed.data as unknown as import('../../store/types').RegistryComponent)
 
     onClose()
   }

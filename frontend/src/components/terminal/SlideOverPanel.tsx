@@ -25,12 +25,14 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
       if (e.key === 'Tab') {
         const focusableElements = panelRef.current
           ?.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-          .asList();
+          ;
 
-        if (!focusableElements || focusableElements.length === 0) return;
+        const focusableElementsArray = focusableElements ? Array.from(focusableElements) : [];
 
-        const firstElement = focusableElements[0] as HTMLElement;
-        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+        if (focusableElementsArray.length === 0) return;
+
+        const firstElement = focusableElementsArray[0] as HTMLElement;
+        const lastElement = focusableElementsArray[focusableElementsArray.length - 1] as HTMLElement;
 
         if (e.shiftKey) {
           if (document.activeElement === firstElement) {

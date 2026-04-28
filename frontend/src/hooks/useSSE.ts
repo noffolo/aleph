@@ -48,7 +48,7 @@ const RECONNECT_BASE_DELAY = 1000
 const RECONNECT_MAX_DELAY = 30000
 
 export function useSSE(handlers: SSEHandlers = {}) {
-  const eventSourceRef = useRef<EventSource | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reconnectDelayRef = useRef(RECONNECT_BASE_DELAY)
   const handlersRef = useRef(handlers)
@@ -65,77 +65,109 @@ export function useSSE(handlers: SSEHandlers = {}) {
     return unsub
   }, [])
 
-  const connect = useCallback(() => {
-    if (eventSourceRef.current?.readyState === EventSource.OPEN) return
+  const connect = useCallback(async () => {
+    if (abortRef.current) return // already connected/connecting
 
     const baseUrl = window.location.origin
     const url = new URL('/api/v1/events', baseUrl)
 
-    if (apiKeyRef.current) {
-      url.searchParams.set('api_key', apiKeyRef.current)
+    // Sync lastEventIdRef from module-level tracker (updated by handleSSEEvent)
+    if (lastEventIdInternal) {
+      lastEventIdRef.current = lastEventIdInternal
     }
+
+    // Last-Event-ID is a forbidden header for fetch() in browsers,
+    // so we send it as a query param. The api_key is sent as a header.
     if (lastEventIdRef.current) {
       url.searchParams.set('lastEventId', lastEventIdRef.current)
     }
 
-    const es = new EventSource(url.toString())
-    eventSourceRef.current = es
-
-    es.onopen = () => {
-      reconnectDelayRef.current = RECONNECT_BASE_DELAY
-      handlersRef.current.onOpen?.()
+    const headers: Record<string, string> = {}
+    if (apiKeyRef.current) {
+      headers['X-Aleph-Api-Key'] = apiKeyRef.current
     }
 
-    es.addEventListener('tool_status', (event: MessageEvent) => {
-      try {
-        handlersRef.current.onToolStatus?.(JSON.parse(event.data))
-      } catch { /**/ }
-    })
+    const abortController = new AbortController()
+    abortRef.current = abortController
 
-    es.addEventListener('notification', (event: MessageEvent) => {
-      try {
-        handlersRef.current.onNotification?.(JSON.parse(event.data))
-      } catch { /**/ }
-    })
+    try {
+      const response = await fetch(url.toString(), {
+        headers,
+        signal: abortController.signal,
+      })
 
-    es.addEventListener('ingestion_progress', (event: MessageEvent) => {
-      try {
-        handlersRef.current.onIngestionProgress?.(JSON.parse(event.data))
-      } catch { /**/ }
-    })
-
-    es.addEventListener('system_alert', (event: MessageEvent) => {
-      try {
-        handlersRef.current.onSystemAlert?.(JSON.parse(event.data))
-      } catch { /**/ }
-    })
-
-    es.onerror = (event: Event) => {
-      handlersRef.current.onError?.(event)
-      es.close()
-      eventSourceRef.current = null
-
-      if (mountedRef.current) {
-        const delay = Math.min(reconnectDelayRef.current, RECONNECT_MAX_DELAY)
-        reconnectDelayRef.current = Math.min(
-          reconnectDelayRef.current * 2,
-          RECONNECT_MAX_DELAY,
-        )
-        reconnectTimerRef.current = setTimeout(() => {
-          if (mountedRef.current) connect()
-        }, delay)
+      if (!response.ok) {
+        // Non-200: trigger error reconnection
+        abortRef.current = null
+        handlersRef.current.onError?.(new Event('error'))
+        scheduleReconnect()
+        return
       }
+
+      handlersRef.current.onOpen?.()
+      reconnectDelayRef.current = RECONNECT_BASE_DELAY
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        handlersRef.current.onError?.(new Event('error'))
+        scheduleReconnect()
+        return
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      // Read the SSE stream
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const events = extractSSEEvents(buffer)
+          buffer = events.remainder
+
+          for (const evt of events.parsed) {
+            handleSSEEvent(handlersRef.current, evt)
+          }
+        }
+      } catch (err: unknown) {
+        // AbortError = intentional disconnect, don't reconnect
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return
+        }
+      }
+    } catch {
+      // Network error: reconnect
+    }
+
+    abortRef.current = null
+
+    // Stream ended (server closed or network error): reconnect
+    if (mountedRef.current) {
+      scheduleReconnect()
     }
   }, [])
+
+  function scheduleReconnect() {
+    const delay = Math.min(reconnectDelayRef.current, RECONNECT_MAX_DELAY)
+    reconnectDelayRef.current = Math.min(
+      reconnectDelayRef.current * 2,
+      RECONNECT_MAX_DELAY,
+    )
+    reconnectTimerRef.current = setTimeout(() => {
+      if (mountedRef.current) connect()
+    }, delay)
+  }
 
   const disconnect = useCallback(() => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current)
       reconnectTimerRef.current = null
     }
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close()
-      eventSourceRef.current = null
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
     }
   }, [])
 
@@ -192,3 +224,96 @@ export function useNotificationSSE() {
     },
   })
 }
+
+// SSE stream parsing utilities
+
+interface ParsedSSEEvent {
+  event: string
+  data: string
+  id: string
+}
+
+function extractSSEEvents(buffer: string): { parsed: ParsedSSEEvent[]; remainder: string } {
+  const parsed: ParsedSSEEvent[] = []
+  const lines = buffer.split('\n')
+  let current: Partial<ParsedSSEEvent> = {}
+  let remainder = ''
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+    if (line === '') {
+      // Empty line = end of event
+      if (current.event !== undefined || current.data !== undefined) {
+        parsed.push({
+          event: current.event || '',
+          data: current.data || '',
+          id: current.id || '',
+        })
+        current = {}
+      }
+      i++
+      continue
+    }
+
+    if (line.startsWith('event: ')) {
+      current.event = line.slice(7)
+    } else if (line.startsWith('data: ')) {
+      if (current.data) {
+        current.data += '\n' + line.slice(6)
+      } else {
+        current.data = line.slice(6)
+      }
+    } else if (line.startsWith('id: ')) {
+      current.id = line.slice(4)
+    } else if (line.startsWith('retry: ')) {
+      // retry is informational, skip
+    }
+    // :keepalive lines have no event field - ignore them
+    i++
+  }
+
+  // Any uncompleted event data stays in the buffer
+  if (current.event !== undefined || current.data !== undefined) {
+    remainder = ''
+    if (current.event !== undefined) remainder += 'event: ' + current.event + '\n'
+    if (current.data !== undefined) remainder += 'data: ' + current.data + '\n'
+    if (current.id !== undefined) remainder += 'id: ' + current.id + '\n'
+  }
+
+  return { parsed, remainder }
+}
+
+function handleSSEEvent(handlers: SSEHandlers, evt: ParsedSSEEvent) {
+  if (evt.id) {
+    // Track last event ID for reconnection
+    lastEventIdInternal = evt.id
+  }
+
+  if (!evt.event) return // keepalive or unknown
+
+  try {
+    const data = evt.data ? JSON.parse(evt.data) : undefined
+    switch (evt.event) {
+      case 'tool_status':
+        handlers.onToolStatus?.(data)
+        break
+      case 'notification':
+        handlers.onNotification?.(data)
+        break
+      case 'ingestion_progress':
+        handlers.onIngestionProgress?.(data)
+        break
+      case 'system_alert':
+        handlers.onSystemAlert?.(data)
+        break
+      default:
+      // Unknown event type, skip
+    }
+  } catch {
+    // JSON parse error, skip
+  }
+}
+
+// Module-level last-event-id tracker for reconnection
+let lastEventIdInternal: string | null = null

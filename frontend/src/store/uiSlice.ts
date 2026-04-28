@@ -1,5 +1,5 @@
-import { StateCreator } from 'zustand'
-import { Asset } from './types'
+import type { StateCreator } from 'zustand'
+import type { Asset } from './types'
 
 export interface ToastMessage {
   id: string

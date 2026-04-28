@@ -32,7 +32,7 @@ interface ComponentMetadata {
   lastUpdatedTimestamp?: Timestamp | string;
 }
 
-interface ComponentsViewProps {
+export interface ComponentsViewProps {
   components: ComponentMetadata[];
   onUpdateComponentStatus: (id: string, status: string) => void;
   onRegisterComponent: (metadata: Partial<ComponentMetadata>) => void;

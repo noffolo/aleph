@@ -102,7 +102,7 @@ func TestTimeoutFromContext(t *testing.T) {
 	
 	handler := interceptor.WrapUnary(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		timeout := TimeoutFromContext(ctx)
-		assert.Equal(t, 5*time.Second, timeout, "QueryService should have DB timeout")
+		assert.Equal(t, 10*time.Second, timeout, "QueryService should have DB timeout")
 		return nil, nil
 	})
 
@@ -111,11 +111,14 @@ func TestTimeoutFromContext(t *testing.T) {
 }
 
 func TestTimeoutInterceptor_StreamingHandler(t *testing.T) {
-	interceptor := NewTimeoutInterceptor(nil)
-	
+	shortConfig := &TimeoutConfig{
+		DBTimeout: 3 * time.Second,
+	}
+	interceptor := NewTimeoutInterceptor(shortConfig)
+
 	handler := interceptor.WrapStreamingHandler(func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		select {
-		case <-time.After(6 * time.Second): // Exceeds DB timeout of 5s
+		case <-time.After(6 * time.Second): // Exceeds short DB timeout of 3s
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()

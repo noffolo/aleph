@@ -13,12 +13,11 @@ import (
 )
 
 type DuckDB struct {
-	db       *sql.DB
-	path     string
-	mu       sync.RWMutex
-	backupMu sync.Mutex
-	sem      *semaphore.Weighted
-	HasVSS   bool
+	db     *sql.DB
+	path   string
+	mu     sync.RWMutex
+	sem    *semaphore.Weighted
+	HasVSS bool
 }
 
 func NewDuckDB(dbPath string) (*DuckDB, error) {
@@ -104,7 +103,10 @@ func (d *DuckDB) Cleanup() {
 }
 
 func (d *DuckDB) Close() error {
-	return fmt.Errorf("duckdbClose: %w", d.db.Close())
+	if err := d.db.Close(); err != nil {
+		return fmt.Errorf("duckdbClose: %w", err)
+	}
+	return nil
 }
 
 func (d *DuckDB) QueryRow(query string, args ...interface{}) *sql.Row {
@@ -115,12 +117,24 @@ func (d *DuckDB) QueryRow(query string, args ...interface{}) *sql.Row {
 
 func (d *DuckDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
 	if !d.sem.TryAcquire(1) {
-		return d.db.QueryRowContext(ctx, "SELECT 'duckdb resource exhausted'")
+		return nil
 	}
 	defer d.sem.Release(1)
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	return d.db.QueryRowContext(ctx, scopeQuery(ctx, query), args...)
+}
+
+// QueryRowContextOrError is like QueryRowContext but returns (row, error) for callers
+// that need to handle semaphore exhaustion explicitly with CodeResourceExhausted.
+func (d *DuckDB) QueryRowContextOrError(ctx context.Context, query string, args ...interface{}) (*sql.Row, error) {
+	if !d.sem.TryAcquire(1) {
+		return nil, fmt.Errorf("duckdb resource exhausted: too many concurrent queries")
+	}
+	defer d.sem.Release(1)
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.db.QueryRowContext(ctx, scopeQuery(ctx, query), args...), nil
 }
 
 func (d *DuckDB) DB() *sql.DB {
@@ -229,7 +243,8 @@ func (t *TX) Commit() error {
 
 	err := t.tx.Commit()
 
-	// Release the parent DuckDB-level lock.
+	// Release the parent DuckDB-level lock AFTER Commit returns,
+	// so the lock is held during the actual commit operation.
 	if t.isReadTx {
 		t.parentMu.RUnlock()
 	} else {
@@ -237,7 +252,10 @@ func (t *TX) Commit() error {
 	}
 	t.sem.Release(1)
 
-	return fmt.Errorf("txCommit: %w", err)
+	if err != nil {
+		return fmt.Errorf("txCommit: %w", err)
+	}
+	return nil
 }
 
 // Rollback rolls back the transaction and releases the acquired locks and semaphore.
@@ -253,7 +271,8 @@ func (t *TX) Rollback() error {
 
 	err := t.tx.Rollback()
 
-	// Release the parent DuckDB-level lock.
+	// Release the parent DuckDB-level lock AFTER Rollback returns,
+	// so the lock is held during the actual rollback operation.
 	if t.isReadTx {
 		t.parentMu.RUnlock()
 	} else {
@@ -261,7 +280,10 @@ func (t *TX) Rollback() error {
 	}
 	t.sem.Release(1)
 
-	return fmt.Errorf("txRollback: %w", err)
+	if err != nil {
+		return fmt.Errorf("txRollback: %w", err)
+	}
+	return nil
 }
 
 // Query executes a query on the transaction with a read lock.

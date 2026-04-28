@@ -11,6 +11,18 @@ interface Prediction {
   explanation: string;
 }
 
+interface StreamPredictionChunk {
+  entityId?: string;
+  probability?: number;
+  predictedState?: string;
+  explanation?: string;
+}
+
+interface SentimentResponse {
+  score?: number;
+  label?: string;
+}
+
 export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
   const { projectID, predictions, setPredictions } = useStore();
   const [isLoading, setIsLoading] = React.useState(false);
@@ -35,11 +47,12 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
       try {
         for await (const res of nlpClient.streamPredictions({ contextId: projectID, ontologyQuery: "*" }, { signal: ac.signal })) {
           if (ac.signal.aborted) break;
+          const chunk = res as unknown as StreamPredictionChunk;
           const p: Prediction = {
-            entityId: (res as any).entityId || '',
-            probability: (res as any).probability || 0,
-            predictedState: (res as any).predictedState || '',
-            explanation: (res as any).explanation || ''
+            entityId: chunk.entityId || '',
+            probability: chunk.probability || 0,
+            predictedState: chunk.predictedState || '',
+            explanation: chunk.explanation || ''
           };
           predsRef.current = [...predsRef.current, p];
           setPredictions(predsRef.current);
@@ -78,7 +91,7 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
     if (!sentimentText.trim()) return;
     setSentimentLoading(true);
     try {
-      const res = await nlpClient.analyzeSentiment({ text: sentimentText }) as any;
+      const res = await nlpClient.analyzeSentiment({ text: sentimentText }) as unknown as SentimentResponse;
       setSentimentResult({ score: res.score || 0, label: (res.label || 'neutral').toLowerCase() });
     } catch (err: any) {
       setSentimentResult({ score: 0, label: 'error' });

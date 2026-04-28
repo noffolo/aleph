@@ -9,9 +9,11 @@ import (
 
 func TestLoadConfig_Defaults(t *testing.T) {
 	// Unset env vars to test defaults
-	for _, k := range []string{"PORT", "DATA_ROOT", "POSTGRES_DSN", "DUCKDB_PATH", "NLP_ADDR", "OLLAMA_BASE_URL", "MCP_SERVER_URIS", "KEY_ENCRYPTION_KEY", "BACKUP_INTERVAL", "BACKUP_DIR", "BACKUP_KEEP"} {
+	for _, k := range []string{"PORT", "DATA_ROOT", "POSTGRES_DSN", "DUCKDB_PATH", "NLP_ADDR", "OLLAMA_BASE_URL", "MCP_SERVER_URIS", "BACKUP_INTERVAL", "BACKUP_DIR", "BACKUP_KEEP"} {
 		os.Unsetenv(k)
 	}
+	os.Setenv("KEY_ENCRYPTION_KEY", "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
+	defer os.Unsetenv("KEY_ENCRYPTION_KEY")
 
 	cfg, err := LoadConfig()
 	assert.NoError(t, err)
@@ -21,8 +23,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	assert.Equal(t, "localhost:8001", cfg.NLPAddr)
 	assert.Equal(t, "http://localhost:11434", cfg.OllamaBaseURL)
 	assert.Empty(t, cfg.MCPServerURIs)
-	assert.Empty(t, cfg.KeyEncryptionKey)
-	assert.Nil(t, cfg.EncryptionKey)
+	assert.Equal(t, 32, len(cfg.EncryptionKey))
 	assert.Equal(t, 7, cfg.BackupKeep)
 }
 
@@ -58,7 +59,11 @@ func TestLoadConfig_WithEnv(t *testing.T) {
 
 func TestLoadConfig_EmptyMCPURIs(t *testing.T) {
 	os.Setenv("MCP_SERVER_URIS", "")
-	defer os.Unsetenv("MCP_SERVER_URIS")
+	os.Setenv("KEY_ENCRYPTION_KEY", "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
+	defer func() {
+		os.Unsetenv("MCP_SERVER_URIS")
+		os.Unsetenv("KEY_ENCRYPTION_KEY")
+	}()
 
 	cfg, err := LoadConfig()
 	assert.NoError(t, err)
@@ -67,6 +72,12 @@ func TestLoadConfig_EmptyMCPURIs(t *testing.T) {
 
 func TestLoadConfig_OllamaDefault(t *testing.T) {
 	os.Unsetenv("OLLAMA_BASE_URL")
+	os.Setenv("KEY_ENCRYPTION_KEY", "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
+	defer func() {
+		os.Unsetenv("OLLAMA_BASE_URL")
+		os.Unsetenv("KEY_ENCRYPTION_KEY")
+	}()
+
 	cfg, err := LoadConfig()
 	assert.NoError(t, err)
 	assert.Equal(t, "http://localhost:11434", cfg.OllamaBaseURL)

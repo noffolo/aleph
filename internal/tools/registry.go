@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 )
 
 // ParamDef describes a single parameter accepted by a tool.
@@ -150,7 +151,9 @@ func (r *ToolRegistry) Execute(category, name string, params map[string]any) (an
 	if !ok {
 		return nil, fmt.Errorf("tool not found: %q in category %q", name, category)
 	}
-	return def.Execute(context.Background(), params)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return def.Execute(ctx, params)
 }
 
 // ExecuteContext runs a tool by category and name with the given context and parameters.

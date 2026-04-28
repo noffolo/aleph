@@ -15,9 +15,9 @@ import (
 
 // Backup creates a consistent snapshot of the DuckDB database at destPath.
 // It runs CHECKPOINT to flush the WAL, then copies the database file.
-// Only one backup runs at a time (via backupMu). During the checkpoint +
-// file-copy window the read lock (mu.RLock) prevents concurrent writes
-// without blocking concurrent reads. In-memory databases return an error.
+// During the checkpoint + file-copy window the write lock (mu.Lock)
+// blocks ALL concurrent reads and writes to guarantee consistency.
+// In-memory databases return an error.
 func (d *DuckDB) Backup(destPath string) error {
 	if d.path == ":memory:" || d.path == "" {
 		return fmt.Errorf("cannot backup an in-memory database; use a file-based DuckDB path")
@@ -27,18 +27,12 @@ func (d *DuckDB) Backup(destPath string) error {
 		return fmt.Errorf("create backup parent directory: %w", err)
 	}
 
-	// Serialize backups against each other.
-	d.backupMu.Lock()
-	defer d.backupMu.Unlock()
+	// Hold the write lock during CHECKPOINT + file copy so neither reads nor
+	// writes can proceed during the backup window, guaranteeing a consistent
+	// on-disk snapshot.
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-	// Hold the read lock during CHECKPOINT + file copy so no writes can
-	// modify the database while we capture the snapshot. Other readers
-	// (the vast majority of traffic) proceed in parallel.
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	// CHECKPOINT flushes the DuckDB WAL into the main database file so our
-	// file copy captures a consistent on-disk state.
 	if _, err := d.db.Exec("CHECKPOINT;"); err != nil {
 		slog.Warn("CHECKPOINT before backup failed, snapshot may be incomplete",
 			"error", err)

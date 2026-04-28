@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 )
 
 // ValidateSSRF checks a URL against SSRF protection rules.
@@ -51,36 +52,56 @@ func ValidateSSRF(rawURL string) error {
 	return nil
 }
 
+var (
+	cidrOnce       sync.Once
+	privateNets    []*net.IPNet
+	validateCIDRErr error
+)
+
+func initPrivateNets() {
+	cidrOnce.Do(func() {
+		cidrStrs := []string{
+			"10.0.0.0/8",
+			"172.16.0.0/12",
+			"192.168.0.0/16",
+			"100.64.0.0/10",   // Carrier-grade NAT
+			"169.254.0.0/16",   // Link-local
+			"127.0.0.0/8",      // Loopback
+			"::1/128",           // IPv6 loopback
+			"fc00::/7",          // IPv6 unique local
+			"fe80::/10",         // IPv6 link-local
+		}
+		for _, s := range cidrStrs {
+			_, net, err := net.ParseCIDR(s)
+			if err != nil {
+				validateCIDRErr = fmt.Errorf("invalid CIDR %q: %w", s, err)
+				return
+			}
+			privateNets = append(privateNets, net)
+		}
+	})
+}
+
+// ValidatePrivateRanges initializes the private IP ranges lazily.
+// It returns an error if any built-in CIDR string fails to parse.
+// Safe for concurrent use.
+func ValidatePrivateRanges() error {
+	initPrivateNets()
+	return validateCIDRErr
+}
+
 // isPrivateIP checks if an IP is in a private/reserved range.
 func isPrivateIP(ip net.IP) bool {
-	privateRanges := []struct {
-		network *net.IPNet
-	}{
-		{mustParseCIDR("10.0.0.0/8")},
-		{mustParseCIDR("172.16.0.0/12")},
-		{mustParseCIDR("192.168.0.0/16")},
-		{mustParseCIDR("100.64.0.0/10")},   // Carrier-grade NAT
-		{mustParseCIDR("169.254.0.0/16")},   // Link-local
-		{mustParseCIDR("127.0.0.0/8")},      // Loopback
-		{mustParseCIDR("::1/128")},           // IPv6 loopback
-		{mustParseCIDR("fc00::/7")},          // IPv6 unique local
-		{mustParseCIDR("fe80::/10")},          // IPv6 link-local
+	initPrivateNets()
+	if validateCIDRErr != nil {
+		return false
 	}
-
-	for _, r := range privateRanges {
-		if r.network.Contains(ip) {
+	for _, n := range privateNets {
+		if n.Contains(ip) {
 			return true
 		}
 	}
 	return false
-}
-
-func mustParseCIDR(s string) *net.IPNet {
-	_, network, err := net.ParseCIDR(s)
-	if err != nil {
-		panic(fmt.Sprintf("invalid CIDR %q: %v", s, err))
-	}
-	return network
 }
 
 // ParseMCPURI parses an mcp:// URI into components.

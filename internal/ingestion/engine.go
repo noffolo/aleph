@@ -31,6 +31,23 @@ import (
 
 var validIdentifier = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
+var validName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func validateSQLName(name string) error {
+	if !validName.MatchString(name) {
+		return fmt.Errorf("invalid SQL identifier: %q", name)
+	}
+	return nil
+}
+
+func stripAndValidateName(name string) (string, error) {
+	cleaned := strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(name, "_"))
+	if !validName.MatchString(cleaned) {
+		return "", fmt.Errorf("invalid identifier after sanitization: %q", cleaned)
+	}
+	return cleaned, nil
+}
+
 const SentimentUnavailable = -1.0
 
 func computeChecksum(data []byte) string {
@@ -68,6 +85,7 @@ type Engine struct {
 	mu           sync.RWMutex
 	tasks        map[string]*v1.IngestionTask
 	safeClient   *http.Client
+	wg           sync.WaitGroup
 }
 
 // NLPAnalyzer abstracts sentiment analysis for ingestion enrichment.
@@ -190,17 +208,20 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	}
 
 	// Metadati Temporali: ogni riga riceve un timestamp di ingestion
-	if !validIdentifier.MatchString(task.Id) {
-		fmt.Fprintf(f, "Attenzione: Identificativo task non valido: %s\n", task.Id)
+	tableNameForSQL := resolveTableName(task)
+	if !validName.MatchString(tableNameForSQL) {
+		fmt.Fprintf(f, "Attenzione: Nome tabella non valido dopo sanitizzazione: %s\n", tableNameForSQL)
 		e.updateProgress(task.Id, 0, "fallito")
-		return fmt.Errorf("identificativo task non valido (solo alfanumerici, _ e -): %s", task.Id)
+		return fmt.Errorf("nome tabella non valido dopo sanitizzazione: %s", tableNameForSQL)
 	}
-	timestampSQL := fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN IF NOT EXISTS _aleph_ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP", task.Id)
+	timestampSQL := fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN IF NOT EXISTS _aleph_ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP", tableNameForSQL)
 	e.db.Exec(timestampSQL)
 
 	// Arricchimento Predittivo Vettoriale (Asincrono)
+	e.wg.Add(1)
 	go func() {
-		enrichCtx, enrichCancel := context.WithTimeout(ctx, 30*time.Minute)
+		defer e.wg.Done()
+		enrichCtx, enrichCancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer enrichCancel()
 		resolvedTableName := resolveTableName(task)
 		e.enrichPredictiveMetadata(enrichCtx, projectID, resolvedTableName)
@@ -222,7 +243,15 @@ func resolveTableName(task *v1.IngestionTask) string {
 	if task.Name != "" {
 		return strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(task.Name, "_"))
 	}
-	return task.Id
+	// Sanitize task.Id as a fallback — it may contain non-identifier characters
+	// (e.g. UUIDs with hyphens, or user-supplied strings with special chars).
+	sanitized := strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(task.Id, "_"))
+	if !validName.MatchString(sanitized) {
+		// Last resort: generate a deterministic safe name so we never pass
+		// a SQL-injectable string through fmt.Sprintf.
+		sanitized = "task_" + computeChecksum([]byte(task.Id))[:16]
+	}
+	return sanitized
 }
 
 func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableName string) {
@@ -319,6 +348,7 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 
 func (e *Engine) Close() error {
 	log.Println("[Engine] Closing ingestion engine...")
+	e.wg.Wait()
 	return nil
 }
 
@@ -340,6 +370,10 @@ func (e *Engine) registerViews(projectID string) error {
 			if err != nil { continue }
 			
 			viewName := fmt.Sprintf("%s_%s", projectID, stmt.Object.Name)
+			if err := validateSQLName(viewName); err != nil {
+				log.Printf("[Engine] Invalid view name %q: %v", viewName, err)
+				continue
+			}
 			createViewSql := fmt.Sprintf("CREATE OR REPLACE VIEW \"%s\" AS %s", viewName, sql)
 			if _, err := e.db.Exec(createViewSql); err != nil {
 				log.Printf("[Engine] Failed to create view %s: %v", viewName, err)
@@ -399,6 +433,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 
 	tableName := task.Id
 	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(precompiled): %w", err) }
+	if err := validateSQLName(tableName); err != nil { return fmt.Errorf("validateTableName(precompiled): %w", err) }
 	contentType := resp.Header.Get("Content-Type")
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	os.MkdirAll(filepath.Join(projectPath, "raw"), 0755)
@@ -481,6 +516,7 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 	contentType := resp.Header.Get("Content-Type")
 	tableName := task.Id
 	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(urlfetch): %w", err) }
+	if err := validateSQLName(tableName); err != nil { return fmt.Errorf("validateTableName(urlfetch): %w", err) }
 	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
 	os.MkdirAll(projectPath, 0755)
 
@@ -523,6 +559,9 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 }
 
 func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File) error {
+	if err := validateSQLName(tableName); err != nil {
+		return fmt.Errorf("invalid table name for JSON array insert: %w", err)
+	}
 	if len(arr) == 0 {
 		fmt.Fprintf(w, "Array vuoto, nessun dato da inserire\n")
 		return nil
@@ -543,6 +582,9 @@ func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File
 
 	escapedCols := make([]string, len(columns))
 	for i, c := range columns {
+		if !validName.MatchString(c) {
+			return fmt.Errorf("invalid column name in JSON data: %q", c)
+		}
 		escapedCols[i] = fmt.Sprintf(`"%s"`, c)
 	}
 
@@ -622,6 +664,7 @@ func (e *Engine) runCSVLoad(ctx context.Context, w *os.File, projectID string, t
 	}
 	tableName = strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(tableName, "_"))
 	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(csvload): %w", err) }
+	if err := validateSQLName(tableName); err != nil { return fmt.Errorf("validateTableName(csvload): %w", err) }
 	if err := sanitizeFilePath(config.Path); err != nil { return fmt.Errorf("sanitizeFilePath: %w", err) }
 
 	readerFunc := "read_csv_auto"
@@ -663,6 +706,7 @@ func (e *Engine) runPostgresLoad(ctx context.Context, w *os.File, projectID stri
 
 	tableName := task.Id
 	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(postgres): %w", err) }
+	if err := validateSQLName(tableName); err != nil { return fmt.Errorf("validateTableName(postgres): %w", err) }
 
 	_, err := e.db.Exec("INSTALL postgres_scanner")
 	if err != nil {
@@ -732,6 +776,10 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 	for _, entry := range entries {
 		if entry.IsDir() { continue }
 		tableName := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
+		if err := validateSQLName(tableName); err != nil {
+			fmt.Fprintf(w, "Warning: skipping invalid table name %q: %v\n", tableName, err)
+			continue
+		}
 		filePath := filepath.Join(destPath, entry.Name())
 		ext := strings.ToLower(filepath.Ext(entry.Name()))
 		var createSQL string
@@ -847,6 +895,9 @@ func (e *Engine) runEmailFetch(ctx context.Context, w *os.File, projectID string
 	}
 
 	tableName := task.Id
+	if err := validateSQLName(tableName); err != nil {
+		return fmt.Errorf("invalid table name for email fetch: %w", err)
+	}
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	
 	escapedPass := strconv.Quote(config.Pass)

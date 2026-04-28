@@ -24,11 +24,11 @@ type TimeoutConfig struct {
 
 // DefaultTimeoutConfig provides the recommended timeouts for the Aleph system.
 var DefaultTimeoutConfig = TimeoutConfig{
-	DBTimeout:           5 * time.Second,
-	LLMTimeout:          30 * time.Second,
-	NLPTimeout:          10 * time.Second,
-	ExternalHTTPTimeout: 15 * time.Second,
-	DefaultTimeout:      60 * time.Second,
+	DBTimeout:           10 * time.Second,
+	LLMTimeout:          5 * time.Minute,
+	NLPTimeout:          30 * time.Second,
+	ExternalHTTPTimeout: 30 * time.Second,
+	DefaultTimeout:      5 * time.Minute,
 }
 
 // timeoutKey is a private context key for timeout middleware.
@@ -80,6 +80,11 @@ func (t *TimeoutInterceptor) WrapStreamingClient(next connect.StreamingClientFun
 
 // timeoutForProcedure determines the appropriate timeout duration based on the procedure name.
 func (t *TimeoutInterceptor) timeoutForProcedure(procedure string) time.Duration {
+	// Chat is an LLM operation even though it's under QueryService
+	if strings.Contains(procedure, "/Chat") {
+		return t.config.LLMTimeout
+	}
+
 	// Check for DB operations
 	if strings.Contains(procedure, "QueryService") ||
 		strings.Contains(procedure, "ProjectService") ||

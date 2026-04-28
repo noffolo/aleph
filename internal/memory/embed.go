@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -11,6 +12,9 @@ import (
 	"strings"
 	"time"
 )
+
+// ErrEmptyInput is returned by ProcessText when the input text is empty.
+var ErrEmptyInput = errors.New("empty input text")
 
 const (
 	chunkSize    = 512
@@ -114,7 +118,7 @@ func Chunk(text string) []string {
 func (e *Embedder) ProcessText(ctx context.Context, text string) ([]string, [][]float32, error) {
 	chunks := Chunk(text)
 	if len(chunks) == 0 {
-		return nil, nil, nil
+		return nil, nil, ErrEmptyInput
 	}
 
 	embeddings := make([][]float32, 0, len(chunks))

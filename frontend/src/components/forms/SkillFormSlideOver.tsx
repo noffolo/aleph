@@ -4,6 +4,9 @@ import { useAppActions } from '../../hooks/useAppActions'
 import { useSkillActions } from '../../hooks/domain/useSkillActions'
 import type { Skill, Tool } from '../../store/types'
 import { t } from '../../i18n'
+import { SkillSchema } from '../../schemas'
+
+type FormErrors = Partial<Record<string, string>>
 
 interface SkillFormSlideOverProps {
   skill?: Skill
@@ -19,10 +22,14 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
   const [name, setName] = useState(skill?.name || '')
   const [description, setDescription] = useState(skill?.description || '')
   const [toolIds, setToolIds] = useState<string[]>(skill?.toolIds || [])
+  const [errors, setErrors] = useState<FormErrors>({})
 
   const handleSubmit = () => {
-    if (!name.trim()) {
-      alert('Il nome è obbligatorio')
+    setErrors({})
+
+    const parsed = SkillSchema.safeParse({ id: skill?.id || '', name, description, toolIds })
+    if (!parsed.success) {
+      setErrors(parsed.error.flatten().fieldErrors as unknown as FormErrors)
       return
     }
 

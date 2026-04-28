@@ -3,6 +3,7 @@ package mcp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -12,6 +13,9 @@ import (
 
 	"github.com/ff3300/aleph-v2/internal/repository"
 )
+
+// ErrToolNotFound is returned by findToolByName when no tool matches.
+var ErrToolNotFound = errors.New("tool not found")
 
 // DiscoveryConfig holds configuration for the MCP discovery engine.
 type DiscoveryConfig struct {
@@ -136,7 +140,7 @@ func (d *DiscoveryEngine) Discover(ctx context.Context) error {
 
 			// Check if tool already exists (by name)
 			existing, err := d.findToolByName(ctx, toolRecord.Name)
-			if err != nil {
+			if err != nil && !errors.Is(err, ErrToolNotFound) {
 				d.logger.Warn("failed to check existing tool", "name", toolRecord.Name, "error", err)
 				continue
 			}
@@ -250,7 +254,7 @@ func (d *DiscoveryEngine) findToolByName(ctx context.Context, name string) (*rep
 			return &t, nil
 		}
 	}
-	return nil, nil
+	return nil, ErrToolNotFound
 }
 
 // healthLoop periodically health checks MCP servers and updates tool health status.

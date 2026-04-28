@@ -50,7 +50,10 @@ func (r *AuditRepository) InsertAuditLog(ctx context.Context, entry AuditEntry) 
 		entry.Timestamp,
 		entry.Diff,
 	)
-	return fmt.Errorf("insertAuditLog: %w", err)
+	if err != nil {
+		return fmt.Errorf("insertAuditLog: %w", err)
+	}
+	return nil
 }
 
 func (r *AuditRepository) QueryAuditLog(ctx context.Context, filters AuditFilters) ([]AuditEntry, error) {
