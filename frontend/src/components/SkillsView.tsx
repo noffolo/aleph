@@ -37,9 +37,9 @@ export const SkillsView: React.FC<SkillsViewProps> = React.memo(({ skills: initi
   const { items: skills, hasMore, loadMore, loading } = useCursorPagination({
     clientMethod: skillClient.listSkills,
     requestBuilder: useCallback((cursor: string) => new ListSkillsRequest({ projectId, after: cursor, limit: 25 }), [projectId]),
-    responseExtractor: (res) => ({ items: res.skills, nextCursor: res.nextCursor }),
-    storeSetter: setSkills,
-    initialItems: initialSkills,
+    responseExtractor: (res) => ({ items: (res.skills || []) as any[], nextCursor: res.nextCursor }),
+    storeSetter: setSkills as (items: any[]) => void,
+    initialItems: initialSkills as any[],
   });
 
   const filteredSkills = skills.filter(s => 
@@ -97,10 +97,10 @@ export const SkillsView: React.FC<SkillsViewProps> = React.memo(({ skills: initi
               <p className="text-sm text-textMuted leading-relaxed mb-4">{s.description}</p>
               {s.toolIds && s.toolIds.length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-4">
-                   {s.toolIds.map(tid => {
-                     const tool = tools.find(t => t.id === tid);
-                     return <span key={tid} className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded font-mono">{tool?.name || tid}</span>;
-                   })}
+                    {s.toolIds.map((tid: string) => {
+                      const tool = tools.find(t => t.id === tid);
+                      return <span key={tid} className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded font-mono">{tool?.name || tid}</span>;
+                    })}
                 </div>
               )}
               <div className="flex space-x-2">

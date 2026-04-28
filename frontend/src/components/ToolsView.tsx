@@ -31,9 +31,9 @@ export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialT
   const { items: tools, hasMore, loadMore, loading } = useCursorPagination({
     clientMethod: toolClient.listTools,
     requestBuilder: useCallback((cursor: string) => new ListToolsRequest({ projectId, after: cursor, limit: 25 }), [projectId]),
-    responseExtractor: (res) => ({ items: res.tools, nextCursor: res.nextCursor }),
-    storeSetter: setTools,
-    initialItems: initialTools,
+    responseExtractor: (res) => ({ items: (res.tools || []) as any[], nextCursor: res.nextCursor }),
+    storeSetter: setTools as (items: any[]) => void,
+    initialItems: initialTools as any[],
   });
 
   const filteredTools = tools.filter(t => 
