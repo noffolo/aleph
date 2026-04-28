@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.24 (align CI), ConnectRPC, DuckDB, React 18+TS+Vite+Tailwind, gRPC Python sidecar (Prophet/GBM/Optimum ONNX), Docker Compose, Ollama/OpenAI/Anthropic LLM providers.
 
-**Plan location:** `docs/superpowers/plans/2026-04-28-aleph-production-grade-plan.md`
+**Plan location:** `docs/superpowers/plans/aleph-plan-evolution.md`
 **Preceding analysis:** Metis risk analysis (bg_118e5505), Oracle architecture (bg_dd9da03e)
 **User confirmed choices:** Hybrid product, Genesis suggestions-only + per-tool veto, chat-first UX, DuckDB volume mount to Python, self-hosted Docker
 
