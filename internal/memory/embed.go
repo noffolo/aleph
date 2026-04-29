@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 // ErrEmptyInput is returned by ProcessText when the input text is empty.
@@ -46,7 +48,7 @@ func NewEmbedder(baseURL, model string) *Embedder {
 	return &Embedder{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		model:   model,
-		client:  &http.Client{Timeout: embedTimeout},
+		client:  ssrf.NewClient(),
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/middleware"
 	"github.com/ff3300/aleph-v2/internal/repository"
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 type AgentHandler struct {
@@ -96,7 +97,7 @@ func (h *AgentHandler) ListModels(
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := ssrf.NewClient()
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/tags", nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, err)

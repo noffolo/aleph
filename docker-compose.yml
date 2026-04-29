@@ -12,6 +12,7 @@ services:
       SERVER_ADDRESS: ":8080"
       ALEPH_API_KEY_SECRET_BACKEND: "${ALEPH_API_KEY_SECRET_BACKEND}"
       NLP_ADDR: "aleph-nlp-sidecar:8001"
+      OLLAMA_BASE_URL: "http://ollama:11434"
       KEY_ENCRYPTION_KEY: "${KEY_ENCRYPTION_KEY}"
     ports:
       - "8080:8080"
@@ -22,6 +23,22 @@ services:
     depends_on:
       aleph-db:
         condition: service_healthy
+      ollama:
+        condition: service_started
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: aleph-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
 
   aleph-python-sidecar:
     build:
@@ -39,7 +56,7 @@ services:
       - ./nlp/models:/app/onnx_model
       - ./data:/data
     healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; channel=grpc.insecure_channel('localhost:50051'); stub=grpc.channel_ready_future(channel); stub.result(timeout=5); print('healthy')"]
+      test: ["CMD", "python", "-c", "import grpc; channel=grpc.insecure_channel('localhost:8001'); stub=grpc.channel_ready_future(channel); stub.result(timeout=5); print('healthy')"]
       interval: 30s
       timeout: 10s
       start_period: 10s
@@ -83,6 +100,7 @@ volumes:
   aleph-pgdata:
   aleph-data:
   aleph-duckdb:
+  ollama-models:
 
 networks:
   default:

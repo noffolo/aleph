@@ -58,6 +58,7 @@ type RegisterConfig struct {
 	ToolExecHandler   *handler.ToolExecuteHandler
 	CodeFlowHandler   *handler.CodeFlowHandler
 	SuggestPipeline   http.Handler
+	SessionHandler    *handler.SessionHandler
 
 	Interceptors []connect.HandlerOption
 }
@@ -105,6 +106,19 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 	mux.Handle(v1connect.NewIngestionServiceHandler(cfg.IngestionHandler, cfg.Interceptors...))
 	mux.Handle(v1connect.NewSandboxServiceHandler(cfg.SandboxHandler, cfg.Interceptors...))
 	mux.Handle(v1connect.NewRegistryServiceHandler(cfg.RegistryHandler, cfg.Interceptors...))
+
+	// Session management (unauthenticated — validates credentials then sets cookie)
+	mux.HandleFunc("/api/v1/auth/session", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			cfg.SessionHandler.HandleCreateSession(w, r)
+			return
+		}
+		if r.Method == http.MethodDelete {
+			cfg.SessionHandler.HandleDeleteSession(w, r)
+			return
+		}
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	})
 
 	// Raw HTTP routes (protected by AuthMiddleware)
 	authMW := func(next http.HandlerFunc) http.Handler {

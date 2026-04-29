@@ -44,7 +44,7 @@ func TestGetUnifiedToolIntel_WithMultipleDataSources(t *testing.T) {
 	err = ut.RecordUsage(context.Background(), "user2", "multi-source-tool", "research")
 	assert.NoError(t, err)
 
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 	intel, err := se.GetUnifiedToolIntel(context.Background(), "multi-source-tool")
 	assert.NoError(t, err)
@@ -82,7 +82,7 @@ func searchString(s, substr string) bool {
 func TestGetCrossContextRecommendations_ScoreBounds(t *testing.T) {
 	cf := codeflow.NewCodeFlow()
 	ut := he.NewToolUsageTracker()
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 
 	err := cf.RecordExecution(context.Background(), "bad-tool", codeflow.ExecutionMetrics{
@@ -106,7 +106,7 @@ func TestGetCrossContextRecommendations_ScoreBounds(t *testing.T) {
 func TestToolRecommendation_ReasonValues(t *testing.T) {
 	cf := codeflow.NewCodeFlow()
 	ut := he.NewToolUsageTracker()
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 
 	err := cf.RecordExecution(context.Background(), "good-tool", codeflow.ExecutionMetrics{
@@ -129,7 +129,7 @@ func TestToolRecommendation_ReasonValues(t *testing.T) {
 func TestMultipleRecs(t *testing.T) {
 	cf := codeflow.NewCodeFlow()
 	ut := he.NewToolUsageTracker()
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 
 	for _, toolID := range []string{"tool-a", "tool-b", "tool-c"} {

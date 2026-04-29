@@ -1,27 +1,24 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
-import type { Interceptor } from "@connectrpc/connect";
 
-const STORAGE_KEY = "aleph_api_key";
-
-export const getStoredApiKey = () => sessionStorage.getItem(STORAGE_KEY) || "";
-
-export const setApiKey = (key: string) => {
-  sessionStorage.setItem(STORAGE_KEY, key);
+export const createSession = async (apiKey: string) => {
+  const res = await fetch("/api/v1/auth/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: apiKey }),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Invalid API key");
+  return res.json();
 };
 
-export const clearApiKey = () => {
-  sessionStorage.removeItem(STORAGE_KEY);
-};
-
-const authInterceptor: Interceptor = (next) => async (req) => {
-  const key = getStoredApiKey();
-  if (key) {
-    req.header.set("X-Aleph-Api-Key", key);
-  }
-  return await next(req);
+export const deleteSession = async () => {
+  await fetch("/api/v1/auth/session", {
+    method: "DELETE",
+    credentials: "include",
+  });
 };
 
 export const transport = createConnectTransport({
   baseUrl: "",
-  interceptors: [authInterceptor],
+  credentials: "include",
 });

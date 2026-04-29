@@ -119,11 +119,6 @@ func TestOpenBBMarketDataTool(t *testing.T) {
 	tool := NewOpenBBMarketDataTool()
 	ctx := context.Background()
 
-	// Disable SSRF validation for tests that don't make real HTTP calls
-	originalValidate := validateSSRF
-	validateSSRF = func(url string) error { return nil }
-	t.Cleanup(func() { validateSSRF = originalValidate })
-
 	tests := []struct {
 		name    string
 		args    map[string]any
@@ -517,19 +512,6 @@ func TestSetNLPAdapter(t *testing.T) {
 	}
 	tool.SetNLPAdapter(mock)
 	assert.NotNil(t, tool.nlpAdapter)
-}
-
-func TestValidateSSRFDefault(t *testing.T) {
-	// The package-level validateSSRF should be set to mcp.ValidateSSRF
-	assert.NotNil(t, validateSSRF, "validateSSRF should be initialized")
-	// Check it rejects private IPs
-	err := validateSSRF("http://localhost:8080/data")
-	assert.Error(t, err)
-	err = validateSSRF("http://192.168.1.1/data")
-	assert.Error(t, err)
-	// Check it allows public URLs
-	err = validateSSRF("https://query1.finance.yahoo.com/v8/finance/chart/AAPL")
-	assert.NoError(t, err)
 }
 
 func TestMathRounding(t *testing.T) {

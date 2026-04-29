@@ -12,7 +12,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/ff3300/aleph-v2/internal/mcp"
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 type ShadowbrokerConfig struct {
@@ -180,13 +180,9 @@ type Shadowbroker struct {
 	cache          *simpleCache
 	circuitBreaker *CircuitBreaker
 	rateLimiter    *RateLimiter
-	ssrfValidator  func(url string) error
 }
 
-func NewShadowbroker(config ShadowbrokerConfig, ssrfValidator func(string) error) *Shadowbroker {
-	if ssrfValidator == nil {
-		ssrfValidator = mcp.ValidateSSRF
-	}
+func NewShadowbroker(config ShadowbrokerConfig) *Shadowbroker {
 	if config.Timeout == 0 {
 		config.Timeout = 30 * time.Second
 	}
@@ -196,11 +192,10 @@ func NewShadowbroker(config ShadowbrokerConfig, ssrfValidator func(string) error
 	}
 	return &Shadowbroker{
 		config:         config,
-		client:         &http.Client{Timeout: config.Timeout},
+		client:         ssrf.NewClient(),
 		cache:          cache,
 		circuitBreaker: NewCircuitBreaker(5, 30*time.Second),
 		rateLimiter:    NewRateLimiter(config.RateLimit),
-		ssrfValidator:  ssrfValidator,
 	}
 }
 
@@ -217,7 +212,7 @@ func (s *Shadowbroker) Request(ctx context.Context, endpoint string, params map[
 		target = target + "?" + q.Encode()
 	}
 
-	if err := s.ssrfValidator(target); err != nil {
+	if err := ssrf.ValidateURL(target); err != nil {
 		return nil, fmt.Errorf("SSRF validation failed: %w", err)
 	}
 

@@ -13,11 +13,12 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
-	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/decision"
+	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/middleware"
 	"github.com/ff3300/aleph-v2/internal/registry"
 	"github.com/ff3300/aleph-v2/internal/repository"
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 	"github.com/ff3300/aleph-v2/internal/storage"
 )
 
@@ -42,6 +43,7 @@ func (h *QueryHandler) SetDecisionEngine(eng decision.DecisionEngine, exec decis
 }
 
 var validName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+var validProjectID = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_-]*$`)
 
 func NewQueryHandler(db *storage.DuckDB, projectsRoot string, metaRepo *repository.MetadataRepository, nlpHandler *NLPHandler, reg *registry.DuckDBRegistry) *QueryHandler {
 	return &QueryHandler{
@@ -49,7 +51,7 @@ func NewQueryHandler(db *storage.DuckDB, projectsRoot string, metaRepo *reposito
 		projectsRoot: projectsRoot,
 		programs:     newProgramCache(),
 		metaRepo:     metaRepo,
-		httpClient:   &http.Client{Timeout: 10 * time.Minute},
+		httpClient:   ssrf.NewClient(),
 		nlpHandler:   nlpHandler,
 		registry:     reg,
 	}
@@ -137,6 +139,9 @@ func (h *QueryHandler) ExecuteQuery(
 	if !validName.MatchString(lowerObjName) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("nome oggetto non valido: %s", objName))
 	}
+	if projectID != "" && !validProjectID.MatchString(projectID) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project_id"))
+	}
 
 	limit := req.Msg.Limit
 	if limit <= 0 {
@@ -144,12 +149,13 @@ func (h *QueryHandler) ExecuteQuery(
 	}
 
 	sql := ""
-	checkRows, err2 := h.db.Query(fmt.Sprintf("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'main' AND table_name = '%s'", lowerObjName))
+	checkRows, err2 := h.db.QueryContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2", "main", lowerObjName)
 	if err2 == nil {
 		var count int
 		if checkRows.Next() { checkRows.Scan(&count) }
 		checkRows.Close()
 		if count > 0 {
+			// Identifier cannot be parameterized; validated by validName regex above
 			sql = fmt.Sprintf("SELECT * FROM \"%s\" LIMIT %d", lowerObjName, limit)
 		}
 	}
@@ -180,12 +186,13 @@ func (h *QueryHandler) ExecuteQuery(
 			return nil, connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("query analysis timed out (limit: 30s)"))
 		}
 		if strings.Contains(err.Error(), "No files found") || strings.Contains(err.Error(), "IO Error") {
-			checkRows, err2 := h.db.Query(fmt.Sprintf("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'main' AND table_name = '%s'", lowerObjName))
+			checkRows, err2 := h.db.QueryContext(queryCtx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2", "main", lowerObjName)
 			if err2 == nil {
 				var count int
 				if checkRows.Next() { checkRows.Scan(&count) }
 				checkRows.Close()
 				if count > 0 {
+					// Identifier cannot be parameterized; validated by validName regex above
 					sql = fmt.Sprintf("SELECT * FROM \"%s\" LIMIT %d", lowerObjName, limit)
 					rows, err = h.db.QueryContext(queryCtx, sql)
 					if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
@@ -274,6 +281,7 @@ func (h *QueryHandler) GetDataStats(ctx context.Context, req *connect.Request[v1
 	}
 
 	// Query 2: Single batch — MIN/MAX/COUNT/COUNT(DISTINCT) for ALL columns (1 query total)
+	// Build aggregate SELECT parts — column names validated by validName regex; SQL identifiers cannot be parameterized
 	var selectParts []string
 	var scanTargets []interface{}
 	for i, c := range cols {
@@ -350,9 +358,13 @@ func (h *QueryHandler) GetDataLineage(ctx context.Context, req *connect.Request[
 	if projectID == "" || tableName == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("project_id and table_name are required"))
 	}
+	if !validProjectID.MatchString(projectID) || !validName.MatchString(tableName) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project_id or table_name"))
+	}
 	var columnsCount int64
 	var rowsCount int64
 	var jsonCols string
+	// Schema/table identifiers validated by validProjectID/validName regex; SQL identifiers cannot be parameterized
 	row := h.db.QueryRowContext(ctx,
 		"SELECT (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2), (SELECT COUNT(*) FROM \""+projectID+"\".\""+tableName+"\"), json_group_array(column_name || ':' || data_type) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2",
 		projectID, tableName,
@@ -383,6 +395,7 @@ func (h *QueryHandler) GetChecksum(ctx context.Context, req *connect.Request[v1.
 	}
 
 	// Compute checksum from DuckDB table using hash aggregation
+	// Schema/table identifiers validated by validProjectID/validName regex; SQL identifiers cannot be parameterized
 	var checksum string
 	row1 := h.db.QueryRowContext(ctx,
 		"SELECT md5(CAST(SUM(hash(TO_JSON(*))) AS VARCHAR)) FROM \""+projectID+"\".\""+tableName+"\"",

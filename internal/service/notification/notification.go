@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
-	"net/url"
-	"strings"
 	"sync"
-	"time"
+
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 type WebhookJob struct {
@@ -27,7 +25,7 @@ type NotificationService struct {
 
 func NewNotificationService() *NotificationService {
 	svc := &NotificationService{
-		client: &http.Client{Timeout: 10 * time.Second},
+		client: ssrf.NewClient(),
 		jobs:   make(chan WebhookJob, 100),
 		stop:   make(chan struct{}),
 	}
@@ -78,7 +76,7 @@ func (s *NotificationService) Stop() {
 }
 
 func (s *NotificationService) SendWebhook(rawURL string, payload interface{}) error {
-	if err := validateWebhookURL(rawURL); err != nil {
+	if err := ssrf.ValidateURL(rawURL); err != nil {
 		return fmt.Errorf("URL webhook non valido: %w", err)
 	}
 	select {
@@ -90,57 +88,3 @@ func (s *NotificationService) SendWebhook(rawURL string, payload interface{}) er
 	}
 }
 
-func validateWebhookURL(rawURL string) error {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return fmt.Errorf("validateWebhookURL: %w", err)
-	}
-	if u.Scheme != "https" && u.Scheme != "http" {
-		return fmt.Errorf("schema non permesso: %s", u.Scheme)
-	}
-	host := u.Hostname()
-	if host == "" {
-		return fmt.Errorf("host vuoto")
-	}
-	ip := net.ParseIP(host)
-	if ip != nil {
-		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
-			return fmt.Errorf("indirizzo IP interno non permesso: %s", host)
-		}
-	}
-	if looksLikeBypassIP(host) {
-		return fmt.Errorf("possibile IP bypass rilevato: %s", host)
-	}
-	if strings.HasSuffix(host, ".internal") || strings.HasSuffix(host, ".local") || host == "localhost" {
-		return fmt.Errorf("host interno non permesso: %s", host)
-	}
-	return nil
-}
-
-// looksLikeBypassIP checks if a host string looks like an IP address in
-// octal, hex, or integer form — often used to bypass URL validation.
-func looksLikeBypassIP(host string) bool {
-	// Check octal (leading zero octets): 0177.0.0.1 (but 0.0.0.0 is regular)
-	if strings.HasPrefix(host, "0.") {
-		return false
-	}
-	if strings.HasPrefix(host, "0") && len(host) > 1 && host[0] == '0' && host[1] != 'x' && host[1] != 'X' && strings.Contains(host, ".") {
-		return true
-	}
-	// Check hex IP: 0x7f.0.0.1
-	if strings.HasPrefix(host, "0x") || strings.HasPrefix(host, "0X") {
-		return true
-	}
-	// Check integer IP: 2130706433
-	if !strings.Contains(host, ".") && !strings.Contains(host, ":") {
-		for _, c := range host {
-			if c < '0' || c > '9' {
-				return false
-			}
-		}
-		if len(host) > 3 { // longer than "255" suggests integer-form IP
-			return true
-		}
-	}
-	return false
-}

@@ -2,6 +2,7 @@ package dsl
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -10,6 +11,8 @@ type Compiler struct {
 	Program  *Program
 	DataRoot string
 }
+
+var validFilterValue = regexp.MustCompile(`^[a-zA-Z0-9 _\-.%]+$`)
 
 func NewCompiler(p *Program, dataRoot string) *Compiler {
 	return &Compiler{Program: p, DataRoot: dataRoot}
@@ -110,6 +113,9 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 		sqlOp := opMap[f.Op]
 		val := f.Value
 		if !isNumeric(val) {
+			if !validFilterValue.MatchString(val) {
+				return "", fmt.Errorf("invalid filter value: %q contains disallowed characters", val)
+			}
 			val = fmt.Sprintf("'%s'", strings.ReplaceAll(val, "'", "''"))
 		}
 		whereClauses = append(whereClauses, fmt.Sprintf("\"%s\".\"%s\" %s %s", objName, f.Field, sqlOp, val))

@@ -31,6 +31,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/diagnostic"
 	"github.com/ff3300/aleph-v2/internal/health"
 	"github.com/ff3300/aleph-v2/internal/ingestion"
+	"github.com/ff3300/aleph-v2/internal/llm"
 	"github.com/ff3300/aleph-v2/internal/mcp"
 	"github.com/ff3300/aleph-v2/internal/memory"
 	"github.com/ff3300/aleph-v2/internal/middleware"
@@ -42,6 +43,8 @@ import (
 	"github.com/ff3300/aleph-v2/internal/routes"
 	"github.com/ff3300/aleph-v2/internal/sandbox"
 	"github.com/ff3300/aleph-v2/internal/service/notification"
+	"github.com/ff3300/aleph-v2/internal/service/tracker"
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 	"github.com/ff3300/aleph-v2/internal/storage"
 	"github.com/ff3300/aleph-v2/internal/telemetry"
 	"github.com/ff3300/aleph-v2/internal/tools/adaptation"
@@ -71,6 +74,7 @@ type AlephApp struct {
 	sseBroker        *sse.Broker
 	rlCleanup        func()
 	memStore         *memory.MemoryStore
+	usageTracker     tracker.Tracker
 }
 
 func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
@@ -89,6 +93,9 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 		log.Printf("Warning: Some migrations failed: %v", err)
 		// Continue without migrations for backward compatibility
 	}
+
+	// Usage Tracking (W1.5-04)
+	usageTracker := tracker.NewDuckDBTracker(db.DB())
 
 	// System DB (PostgreSQL) - System Records & Consistency
 	pg, err := storage.NewPostgres(cfg.PostgresDSN)
@@ -132,6 +139,7 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 		nlpHandler:   nlpHandler,
 		ctx:          ctx,
 		cancel:       cancel,
+		usageTracker: usageTracker,
 	}, nil
 }
 
@@ -147,6 +155,7 @@ func (a *AlephApp) Serve(port int) error {
 	timeoutInterceptor := middleware.NewTimeoutInterceptor(nil) // defaults
 	retryInterceptor := middleware.NewRetryInterceptor(nil)     // defaults
 	bulkheadInterceptor := middleware.NewBulkheadInterceptor(nil) // defaults
+	trackingInterceptor := tracker.NewTrackingInterceptor(a.usageTracker)
 
 	interceptors := []connect.HandlerOption{
 		connect.WithInterceptors(
@@ -156,6 +165,7 @@ func (a *AlephApp) Serve(port int) error {
 			timeoutInterceptor,
 			retryInterceptor,
 			bulkheadInterceptor,
+			trackingInterceptor,
 		),
 	}
 
@@ -192,6 +202,7 @@ func (a *AlephApp) Serve(port int) error {
 	notificationHandler := handler.NewNotificationHandler(a.notificationSvc, a.metaRepo)
 
 	authHandler := handler.NewAuthHandler(a.metaRepo)
+	sessionHandler := handler.NewSessionHandler(a.metaRepo)
 	ingestionHandler := handler.NewIngestionHandler(projectsRoot, a.eng, a.metaRepo)
 	sandboxManager := sandbox.NewExecSandbox(a.logger, nil, a.metaRepo, "python3", "go")
 	sandboxHandler := handler.NewSandboxServiceHandler(sandboxManager, a.logger)
@@ -199,7 +210,7 @@ func (a *AlephApp) Serve(port int) error {
 
 	// ── Tool Execution & CodeFlow ─────────────────────────────────────────────
 	codeFlow := codeflow.NewCodeFlow()
-	shadowbroker := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	shadowbroker := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	duckdbLayer := humanecosystems.NewDuckDBLayer(a.db)
 	toolExecHandler := handler.NewToolExecuteHandler(a.metaRepo, shadowbroker, duckdbLayer)
 	codeFlowHandler := handler.NewCodeFlowHandler(codeFlow)
@@ -223,7 +234,7 @@ func (a *AlephApp) Serve(port int) error {
 	)
 
 	engineCfg := decision.EngineConfig{
-		Provider:    nil,
+		Provider:    llm.NewProvider("ollama", a.cfg.OllamaBaseURL, ssrf.NewClient()),
 		MetaRepo:    metaRepoAdapter,
 		Executor:    helperExec,
 		Registry:    registryAdapter,
@@ -264,6 +275,7 @@ func (a *AlephApp) Serve(port int) error {
 		NLPHandler:        a.nlpHandler,
 		NotificationHandler: notificationHandler,
 		AuthHandler:       authHandler,
+		SessionHandler:    sessionHandler,
 		IngestionHandler:  ingestionHandler,
 		SandboxHandler:    sandboxHandler,
 		RegistryHandler:   registryHandler,
@@ -406,6 +418,13 @@ func newH2CClient() *http.Client {
 		Transport: &http2.Transport{
 			AllowHTTP: true,
 			DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+				// Validate the gRPC dial address for SSRF before connecting
+				host, port, err := net.SplitHostPort(addr)
+				if err == nil {
+					if err := ssrf.ValidateHostname(host, port); err != nil {
+						return nil, fmt.Errorf("SSRF validation of gRPC target %s: %w", addr, err)
+					}
+				}
 				var d net.Dialer
 				return d.DialContext(ctx, network, addr)
 			},

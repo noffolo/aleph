@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +9,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 // MCPHealthChecker checks the availability and health of MCP servers.
@@ -20,16 +21,11 @@ type MCPHealthChecker struct {
 
 // NewMCPHealthChecker creates a health checker for MCP servers.
 func NewMCPHealthChecker() *MCPHealthChecker {
+	client := ssrf.NewClient()
+	client.Timeout = 10 * time.Second
 	return &MCPHealthChecker{
-		client: &http.Client{
-			Timeout: 10 * time.Second,
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					MinVersion: tls.VersionTLS12,
-				},
-			},
-		},
-		defaultTimeout: 10 * time.Second,
+		client:          client,
+		defaultTimeout:  10 * time.Second,
 	}
 }
 
@@ -411,14 +407,8 @@ func (h *MCPHealthChecker) VerifyCertificate(serverURL string) error {
 		return fmt.Errorf("verifyCertificateSSRF: %w", err)
 	}
 
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12,
-			},
-		},
-	}
+	client := ssrf.NewClient()
+	client.Timeout = 5 * time.Second
 	defer client.CloseIdleConnections()
 
 	resp, err := client.Get(serverURL)

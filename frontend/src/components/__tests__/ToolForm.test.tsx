@@ -23,7 +23,7 @@ describe('ToolForm', () => {
 
   it('has submit and cancel buttons', () => {
     render(<ToolForm {...defaultProps} />)
-    expect(screen.getByText(/Crea Tool/i)).toBeInTheDocument()
+    expect(screen.getByText(/Nuovo Tool/i)).toBeInTheDocument()
     expect(screen.getByText(/Annulla/i)).toBeInTheDocument()
   })
 
@@ -36,9 +36,9 @@ describe('ToolForm', () => {
   it('submits form on valid data and calls fetch', async () => {
     (global.fetch as any).mockResolvedValueOnce({ ok: true, json: async () => ({}) })
     render(<ToolForm {...defaultProps} />)
-    const input = screen.getByPlaceholderText(/Analizzatore/i)
+    const input = screen.getByPlaceholderText(/Analizzatore CSV/i)
     fireEvent.change(input, { target: { value: 'My Tool' } })
-    fireEvent.click(screen.getByText(/Crea Tool/i))
+    fireEvent.click(screen.getByText(/Nuovo Tool/i))
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalled()
     }, { timeout: 3000 })

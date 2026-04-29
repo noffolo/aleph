@@ -2,106 +2,16 @@ package mcp
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 	"strings"
-	"sync"
+
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 // ValidateSSRF checks a URL against SSRF protection rules.
-// It blocks private/internal IPs and disallowed schemes.
+// It delegates to the consolidated ssrf package.
 func ValidateSSRF(rawURL string) error {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return fmt.Errorf("invalid URL: %w", err)
-	}
-
-	// Only allow http and https schemes
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return fmt.Errorf("disallowed scheme %q: only http and https are permitted", u.Scheme)
-	}
-
-	// Resolve hostname and check for private IPs
-	host := u.Hostname()
-	if host == "" {
-		return fmt.Errorf("empty hostname in URL")
-	}
-
-	// Block obvious private/internal hostnames
-	lowerHost := strings.ToLower(host)
-	if lowerHost == "localhost" || lowerHost == "127.0.0.1" || lowerHost == "::1" {
-		return fmt.Errorf("localhost addresses are not permitted")
-	}
-	if strings.HasSuffix(lowerHost, ".local") || strings.HasSuffix(lowerHost, ".internal") {
-		return fmt.Errorf("internal DNS names are not permitted")
-	}
-
-	// Resolve IP and check for private ranges
-	ips, err := net.LookupIP(host)
-	if err != nil {
-		// If we can't resolve, block it — fails closed
-		return fmt.Errorf("cannot resolve hostname %q: %w", host, err)
-	}
-
-	for _, ip := range ips {
-		if isPrivateIP(ip) {
-			return fmt.Errorf("private IP address %s is not permitted", ip)
-		}
-	}
-
-	return nil
-}
-
-var (
-	cidrOnce       sync.Once
-	privateNets    []*net.IPNet
-	validateCIDRErr error
-)
-
-func initPrivateNets() {
-	cidrOnce.Do(func() {
-		cidrStrs := []string{
-			"10.0.0.0/8",
-			"172.16.0.0/12",
-			"192.168.0.0/16",
-			"100.64.0.0/10",   // Carrier-grade NAT
-			"169.254.0.0/16",   // Link-local
-			"127.0.0.0/8",      // Loopback
-			"::1/128",           // IPv6 loopback
-			"fc00::/7",          // IPv6 unique local
-			"fe80::/10",         // IPv6 link-local
-		}
-		for _, s := range cidrStrs {
-			_, net, err := net.ParseCIDR(s)
-			if err != nil {
-				validateCIDRErr = fmt.Errorf("invalid CIDR %q: %w", s, err)
-				return
-			}
-			privateNets = append(privateNets, net)
-		}
-	})
-}
-
-// ValidatePrivateRanges initializes the private IP ranges lazily.
-// It returns an error if any built-in CIDR string fails to parse.
-// Safe for concurrent use.
-func ValidatePrivateRanges() error {
-	initPrivateNets()
-	return validateCIDRErr
-}
-
-// isPrivateIP checks if an IP is in a private/reserved range.
-func isPrivateIP(ip net.IP) bool {
-	initPrivateNets()
-	if validateCIDRErr != nil {
-		return false
-	}
-	for _, n := range privateNets {
-		if n.Contains(ip) {
-			return true
-		}
-	}
-	return false
+	return ssrf.ValidateURL(rawURL)
 }
 
 // ParseMCPURI parses an mcp:// URI into components.
@@ -132,4 +42,10 @@ func ParseMCPURI(uri string) (scheme, host, port, path string, err error) {
 	}
 
 	return scheme, host, port, path, nil
+}
+
+// ValidatePrivateRanges remains for backward compatibility.
+// The ssrf package now handles all CIDR initialization.
+func ValidatePrivateRanges() error {
+	return nil
 }

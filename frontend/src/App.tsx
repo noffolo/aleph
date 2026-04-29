@@ -12,7 +12,7 @@ import { ToastContainer } from './components/Toast'
 import { ToastBar } from './components/ToastBar'
 import { useStore } from './store/useStore'
 import { useAppActions } from './hooks/useAppActions'
-import { setApiKey, getStoredApiKey } from './api/client'
+import { createSession } from './api/client'
 
 const SlideOverContent = lazy(() => import('./components/terminal/SlideOverContent').then(module => ({ default: module.SlideOverContent })))
 
@@ -84,7 +84,7 @@ function App() {
         <SetupWizard
           onCreateProject={async (n: string) => { const r = await projectClient.createProject({ id: n.toLowerCase(), name: n }); return r.project?.id ?? n.toLowerCase() }}
           onCreateApiKey={async (pid: string, l: string) => { const r = await authClient.createApiKey({ projectId: pid, label: l }); return r.key?.key ?? '' }}
-          onComplete={(pid: string, key: string) => { setApiKey(key); store.setProjectContext(pid, key); store.setShowWizard(false); store.setShowOnboarding(false) }}
+          onComplete={async (pid: string, key: string) => { await createSession(key); store.setProjectContext(pid, key); store.setShowWizard(false); store.setShowOnboarding(false) }}
         />
       </Suspense>
     </AlephErrorBoundary>
@@ -95,8 +95,8 @@ function App() {
       <Suspense fallback={<div className="flex items-center justify-center h-screen text-textDim text-xs font-mono">Caricamento Onboarding...</div>}>
         <WorkspaceOnboarding
           projects={store.projects}
-          onSelectProject={(id: string, key: string) => { setApiKey(key); store.setProjectContext(id, key); store.setShowOnboarding(false) }}
-          onDeleteProject={(id: string, key: string) => { setApiKey(key); projectClient.deleteProject({ id }).then(() => projectClient.listProjects({}).then((res: { projects: any[] }) => store.setProjects(res.projects))).catch((e) => handleError(e, 'deleteProject')) }}
+          onSelectProject={async (id: string, key: string) => { await createSession(key); store.setProjectContext(id, key); store.setShowOnboarding(false) }}
+          onDeleteProject={async (id: string, key: string) => { await createSession(key); projectClient.deleteProject({ id }).then(() => projectClient.listProjects({}).then((res: { projects: any[] }) => store.setProjects(res.projects))).catch((e) => handleError(e, 'deleteProject')) }}
           onCreateProject={() => store.setShowWizard(true)}
         />
       </Suspense>
@@ -116,7 +116,7 @@ function App() {
           onSelectProject={(id: string) => {
             const p = store.projects.find((x: any) => x.id === id)
             if (p) {
-              store.setProjectContext(p.id, getStoredApiKey() || '')
+              store.setProjectContext(p.id, '')
               store.setShowOnboarding(false)
             } else {
               store.setShowOnboarding(true)

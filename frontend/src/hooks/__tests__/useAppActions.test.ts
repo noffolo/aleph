@@ -91,7 +91,10 @@ describe('useAppActions', () => {
       await result.current.loadProjectData();
     });
 
-    expect(projectClient.getOntology).toHaveBeenCalledWith({ projectId: 'test-project' });
+    expect(projectClient.getOntology).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: 'test-project' }),
+      expect.any(Object),
+    );
     expect(mockStore.setOntologyRaw).toHaveBeenCalledWith('def');
     expect(mockStore.setAvailableObjects).toHaveBeenCalledWith(['Obj1']);
     expect(mockStore.setOllamaModels).toHaveBeenCalledWith(['llama3']);

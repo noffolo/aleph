@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type mockServerInfo struct {
@@ -262,7 +263,11 @@ var ssrfMaliciousURLs = []struct {
 }
 
 func discoverServerInfo(serverURL string) (mockServerInfo, error) {
-	resp, err := http.Get(serverURL)
+	// Note: plain http.Client is intentional — these helpers only connect
+	// to httptest.NewServer instances (localhost). SSRF protection is
+	// validated separately by TestMCPConnectivitySSRF.
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(serverURL)
 	if err != nil {
 		return mockServerInfo{}, fmt.Errorf("GET %s: %w", serverURL, err)
 	}
@@ -285,6 +290,10 @@ func discoverServerInfo(serverURL string) (mockServerInfo, error) {
 }
 
 func enumerateTools(serverURL string) ([]ToolDefinition, error) {
+	// Note: plain http.Client is intentional — these helpers only connect
+	// to httptest.NewServer instances (localhost). SSRF protection is
+	// validated separately by TestMCPConnectivitySSRF.
+	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest(http.MethodPost, serverURL+"/tools/list", bytes.NewReader([]byte(`{}`)))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -292,7 +301,7 @@ func enumerateTools(serverURL string) ([]ToolDefinition, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("POST /tools/list: %w", err)
 	}
@@ -311,7 +320,11 @@ func enumerateTools(serverURL string) ([]ToolDefinition, error) {
 }
 
 func enumerateResources(serverURL string) ([]mockResourceEntry, error) {
-	resp, err := http.Get(serverURL + "/resources/list")
+	// Note: plain http.Client is intentional — these helpers only connect
+	// to httptest.NewServer instances (localhost). SSRF protection is
+	// validated separately by TestMCPConnectivitySSRF.
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(serverURL + "/resources/list")
 	if err != nil {
 		return nil, fmt.Errorf("GET /resources/list: %w", err)
 	}

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ff3300/aleph-v2/internal/repository"
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 // ErrToolNotFound is returned by findToolByName when no tool matches.
@@ -32,15 +33,18 @@ type DiscoveryEngine struct {
 	mu       sync.Mutex
 	running  bool
 	cancel   context.CancelFunc
+
+	httpClient *http.Client // SSRF-protected HTTP client
 }
 
 // NewDiscoveryEngine creates a new MCP discovery engine.
 func NewDiscoveryEngine(logger *slog.Logger, metaRepo *repository.MetadataRepository, config DiscoveryConfig) *DiscoveryEngine {
 	return &DiscoveryEngine{
-		logger:   logger,
-		metaRepo: metaRepo,
-		health:   NewMCPHealthChecker(),
-		config:   config,
+		logger:     logger,
+		metaRepo:   metaRepo,
+		health:     NewMCPHealthChecker(),
+		config:     config,
+		httpClient: ssrf.NewClient(),
 	}
 }
 
@@ -181,7 +185,7 @@ func (d *DiscoveryEngine) extractTools(ctx context.Context, serverURL string) ([
 		return nil, fmt.Errorf("empty server URL")
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := d.httpClient
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, listURL, bytes.NewReader([]byte(`{}`)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -218,7 +222,7 @@ func (d *DiscoveryEngine) extractTools(ctx context.Context, serverURL string) ([
 func (d *DiscoveryEngine) extractToolsGet(ctx context.Context, serverURL string) ([]ToolDefinition, error) {
 	listURL := serverURL + "/tools/list"
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := d.httpClient
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, listURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GET request: %w", err)

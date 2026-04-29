@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { createWorkspaceSlice } from '../workspaceSlice';
-import * as Y from 'yjs';
 
 const createMockSet = () => {
   let state: any = {};

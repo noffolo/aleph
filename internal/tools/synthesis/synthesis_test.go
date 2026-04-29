@@ -53,7 +53,7 @@ func TestGetUnifiedToolIntel_EmptyToolID(t *testing.T) {
 func TestGetUnifiedToolIntel_NewTool(t *testing.T) {
 	cf := codeflow.NewCodeFlow()
 	ut := he.NewToolUsageTracker()
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 
 	intel, err := se.GetUnifiedToolIntel(context.Background(), "new-tool")
@@ -79,7 +79,7 @@ func TestGetUnifiedToolIntel_WithCodeFlowData(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 	intel, err := se.GetUnifiedToolIntel(context.Background(), "my-tool")
 	assert.NoError(t, err)
@@ -98,7 +98,7 @@ func TestGetUnifiedToolIntel_WithUsageData(t *testing.T) {
 	err = ut.RecordUsage(context.Background(), "user2", "my-tool", "another context")
 	assert.NoError(t, err)
 
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 	intel, err := se.GetUnifiedToolIntel(context.Background(), "my-tool")
 	assert.NoError(t, err)
@@ -121,7 +121,7 @@ func TestGetCrossContextRecommendations_EmptyUserID(t *testing.T) {
 func TestGetCrossContextRecommendations_NoData(t *testing.T) {
 	cf := codeflow.NewCodeFlow()
 	ut := he.NewToolUsageTracker()
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 
 	recs, err := se.GetCrossContextRecommendations(context.Background(), "user1")
@@ -132,7 +132,7 @@ func TestGetCrossContextRecommendations_NoData(t *testing.T) {
 func TestGetCrossContextRecommendations_WithData(t *testing.T) {
 	cf := codeflow.NewCodeFlow()
 	ut := he.NewToolUsageTracker()
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	// Add some execution data
 	err := cf.RecordExecution(context.Background(), "tool-a", codeflow.ExecutionMetrics{
@@ -159,7 +159,7 @@ func TestGetCrossContextRecommendations_WithData(t *testing.T) {
 func TestGetCrossContextRecommendations_HighErrorRate(t *testing.T) {
 	cf := codeflow.NewCodeFlow()
 	ut := he.NewToolUsageTracker()
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "buggy-tool", codeflow.ExecutionMetrics{
 		Duration:    100,
@@ -226,7 +226,7 @@ func TestToolRecommendation_Fields(t *testing.T) {
 func TestGetCrossContextRecommendations_WithTimeDecay(t *testing.T) {
 	cf := codeflow.NewCodeFlow()
 	ut := he.NewToolUsageTracker()
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "tool-a", codeflow.ExecutionMetrics{
 		Duration:    100,
@@ -251,7 +251,7 @@ func TestGetCrossContextRecommendations_WithTimeDecay(t *testing.T) {
 func TestGetCrossContextRecommendations_EmptyAfterNoExecutions(t *testing.T) {
 	cf := codeflow.NewCodeFlow()
 	ut := he.NewToolUsageTracker()
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 
 	// No executions recorded but usage tracked
@@ -266,7 +266,7 @@ func TestGetCrossContextRecommendations_EmptyAfterNoExecutions(t *testing.T) {
 func TestGetUnifiedToolIntel_MultipleCalls(t *testing.T) {
 	cf := codeflow.NewCodeFlow()
 	ut := he.NewToolUsageTracker()
-	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{}, nil)
+	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 
 	// Multiple calls for the same tool should work

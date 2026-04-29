@@ -11,18 +11,13 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/ff3300/aleph-v2/internal/mcp"
 	"github.com/ff3300/aleph-v2/internal/repository"
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 const (
-	defaultMarketDataTimeout = 30 * time.Second
-	maxMarketDataRetries     = 3
+	maxMarketDataRetries = 3
 )
-
-// validateSSRF is a package-level function pointer for SSRF validation.
-// Defaults to mcp.ValidateSSRF; overridable in tests.
-var validateSSRF = mcp.ValidateSSRF
 
 // OpenBBMarketDataArgs represents the input arguments for market data.
 type OpenBBMarketDataArgs struct {
@@ -47,9 +42,7 @@ type OpenBBMarketDataTool struct {
 // NewOpenBBMarketDataTool returns a new OpenBBMarketDataTool instance.
 func NewOpenBBMarketDataTool() *OpenBBMarketDataTool {
 	return &OpenBBMarketDataTool{
-		httpClient: &http.Client{
-			Timeout: defaultMarketDataTimeout,
-		},
+		httpClient: ssrf.NewClient(),
 	}
 }
 
@@ -101,7 +94,7 @@ func (t *OpenBBMarketDataTool) fetchWithRetry(ctx context.Context, symbol, dataT
 func (t *OpenBBMarketDataTool) fetchMarketData(ctx context.Context, symbol, dataType string) (*OpenBBMarketDataResult, error) {
 	url := fmt.Sprintf("https://query1.finance.yahoo.com/v8/finance/chart/%s", symbol)
 
-	if err := validateSSRF(url); err != nil {
+	if err := ssrf.ValidateURL(url); err != nil {
 		return nil, fmt.Errorf("SSRF validation failed: %w", err)
 	}
 

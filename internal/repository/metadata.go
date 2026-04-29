@@ -605,6 +605,10 @@ func (r *MetadataRepository) CreateAPIKey(id, projectID, label, hashedKey string
 	return nil
 }
 
+// ValidateAPIKey looks up an API key by its exact stored hash.
+// Deprecated: This function performs a direct hash comparison and is
+// incompatible with argon2id (which uses unique salts per hash).
+// Use GetAPIKeyByID + auth.VerifyAPIKey instead.
 func (r *MetadataRepository) ValidateAPIKey(hashedKey string) (string, error) {
 	var projectID string
 	err := r.db.QueryRow("SELECT project_id FROM system_api_keys WHERE key = $1", hashedKey).Scan(&projectID)
@@ -612,6 +616,16 @@ func (r *MetadataRepository) ValidateAPIKey(hashedKey string) (string, error) {
 		return "", err
 	}
 	return projectID, nil
+}
+
+// GetAPIKeyByID looks up an API key record by its ID and returns the stored
+// argon2id hash and the associated project ID.
+func (r *MetadataRepository) GetAPIKeyByID(id string) (hashedKey string, projectID string, err error) {
+	err = r.db.QueryRow("SELECT key, project_id FROM system_api_keys WHERE id = $1", id).Scan(&hashedKey, &projectID)
+	if err != nil {
+		return "", "", fmt.Errorf("getAPIKeyByID: %w", err)
+	}
+	return hashedKey, projectID, nil
 }
 
 func (r *MetadataRepository) DeleteAPIKey(id, projectID string) error {

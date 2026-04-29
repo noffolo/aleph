@@ -321,7 +321,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
+
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 // __NAME__Input represents the input parameters for __NAME__.
@@ -335,9 +336,9 @@ __OUTPUT_FIELDS__
 }
 
 // httpClient is reused across API connector tool calls.
-var httpClient = &http.Client{
-	Timeout: 30 * time.Second,
-}
+// Uses ssrf.NewClient() for SSRF protection (private IP blocking,
+// DNS rebinding prevention, redirect validation).
+var httpClient = ssrf.NewClient()
 
 // Handle__NAME__ calls an external API and returns structured results.
 // __DESCRIPTION__
@@ -364,8 +365,10 @@ __OUTPUT_INIT__
 }
 
 func init() {
-	// Ensure io import is used (required for response body reading)
+	// Ensure imports are used (required for response body reading and SSRF protection)
 	var _ = io.Discard
+	var _ = http.DefaultClient
+	_ = ssrf.NewClient
 }
 `
 

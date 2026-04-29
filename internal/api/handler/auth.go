@@ -3,12 +3,13 @@ package handler
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"connectrpc.com/connect"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
+	"github.com/ff3300/aleph-v2/internal/auth"
 	"github.com/ff3300/aleph-v2/internal/repository"
 )
 
@@ -48,15 +49,18 @@ func (h *AuthHandler) CreateApiKey(
 	label := req.Msg.Label
 
 	b := make([]byte, 16)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("generate api key: %w", err))
+	}
 	key := hex.EncodeToString(b)
 	id := hex.EncodeToString(b[:4])
 
-	hsh := sha256.New()
-	hsh.Write([]byte(key))
-	hashedKey := hex.EncodeToString(hsh.Sum(nil))
+	hashedKey, err := auth.HashAPIKey(key)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
-	err := h.metaRepo.CreateAPIKey(id, projectID, label, hashedKey)
+	err = h.metaRepo.CreateAPIKey(id, projectID, label, hashedKey)
 	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
 
 	return connect.NewResponse(&v1.CreateApiKeyResponse{

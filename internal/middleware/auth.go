@@ -2,12 +2,11 @@ package middleware
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"net/http"
 	"strings"
 
+	"github.com/ff3300/aleph-v2/internal/auth"
 	"github.com/ff3300/aleph-v2/internal/repository"
 )
 
@@ -21,17 +20,27 @@ type authCtxKey string
 
 const authCtxProjectID authCtxKey = "projectID"
 
-// ValidateAPIKey hashes the given API key with SHA-256 and validates it
-// against the repository. Returns the associated project ID on success.
+// ValidateAPIKey validates an API key against the repository using argon2id.
+// The first 8 characters of the API key are used as the key ID to look up
+// the stored argon2id hash, then the full key is verified against that hash.
+// Returns the associated project ID on success.
 func ValidateAPIKey(metaRepo *repository.MetadataRepository, apiKey string) (string, error) {
-	h := sha256.New()
-	h.Write([]byte(apiKey))
-	hashed := hex.EncodeToString(h.Sum(nil))
+	if len(apiKey) < 8 {
+		return "", ErrInvalidAPIKey
+	}
 
-	projectID, err := metaRepo.ValidateAPIKey(hashed)
+	keyID := apiKey[:8]
+
+	storedHash, projectID, err := metaRepo.GetAPIKeyByID(keyID)
 	if err != nil {
 		return "", ErrInvalidAPIKey
 	}
+
+	ok, err := auth.VerifyAPIKey(apiKey, storedHash)
+	if err != nil || !ok {
+		return "", ErrInvalidAPIKey
+	}
+
 	return projectID, nil
 }
 
@@ -55,6 +64,15 @@ func ExtractAPIKeyFromHeader(r *http.Request) string {
 	return ExtractAPIKey(r.Header)
 }
 
+// ExtractAPIKeyFromCookie extracts an API key from the aleph_session cookie.
+func ExtractAPIKeyFromCookie(r *http.Request) string {
+	c, err := r.Cookie("aleph_session")
+	if err != nil {
+		return ""
+	}
+	return c.Value
+}
+
 // ExtractAPIKey extracts an API key from an http.Header.
 // Checks X-Aleph-Api-Key first, then Authorization: Bearer.
 func ExtractAPIKey(h http.Header) string {
@@ -74,6 +92,9 @@ func ExtractAPIKey(h http.Header) string {
 func AuthMiddleware(metaRepo *repository.MetadataRepository, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		apiKey := ExtractAPIKeyFromHeader(r)
+		if apiKey == "" {
+			apiKey = ExtractAPIKeyFromCookie(r)
+		}
 		if apiKey == "" {
 			http.Error(w, ErrNoAPIKey.Error(), http.StatusUnauthorized)
 			return

@@ -10,7 +10,6 @@ import (
 	"go/token"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/repository"
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 	"github.com/ff3300/aleph-v2/internal/storage"
 )
 
@@ -95,38 +95,11 @@ type NLPAnalyzer interface {
 	AnalyzeSentiment(ctx context.Context, text string) (score float32, label string, err error)
 }
 
-var safeHTTPClient = &http.Client{
-	Timeout: 60 * time.Second,
-	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		if len(via) >= 5 {
-			return fmt.Errorf("troppi redirect")
-		}
-		return validateHTTPRequest(req)
-	},
-}
+var safeHTTPClient = ssrf.NewClient()
 
 func init() {
-	safeHTTPClient.Transport = &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			host, _, err := net.SplitHostPort(addr)
-			if err != nil { host = addr }
-			ip := net.ParseIP(host)
-			if ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()) {
-				return nil, fmt.Errorf("accesso a rete interna non permesso: %s", addr)
-			}
-			var d net.Dialer
-			return d.DialContext(ctx, network, addr)
-		},
-	}
-}
-
-func validateHTTPRequest(req *http.Request) error {
-	host := req.URL.Hostname()
-	ip := net.ParseIP(host)
-	if ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()) {
-		return fmt.Errorf("accesso a rete interna non permesso: %s", host)
-	}
-	return nil
+	// safeHTTPClient is now created via ssrf.NewClient() which handles
+	// DNS-resolving SSRF protection at the connection level.
 }
 
 func NewEngine(projectsRoot string, metaRepo *repository.MetadataRepository, db *storage.DuckDB, nlp NLPAnalyzer) *Engine {
@@ -480,9 +453,7 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 	if err != nil {
 		return fmt.Errorf("URL non valido: %w", err)
 	}
-	if err := validateHTTPRequest(&http.Request{URL: parsedURL}); err != nil {
-		return fmt.Errorf("URL non permesso: %w", err)
-	}
+	_ = parsedURL // URL validation done by safeHTTPClient's SSRF DialContext
 
 	fmt.Fprintf(w, "Fetching URL: %s\n", config.URL)
 	e.updateProgress(task.Id, 10, "running")
@@ -843,6 +814,21 @@ func (e *Engine) runDynamic(ctx context.Context, w *os.File, projectID string, t
 
 var blockedImports = map[string]bool{
 	"os/signal": true, "syscall": true, "net": true, "os/exec": true,
+	"unsafe": true, "reflect": true,
+	"os": true, "io": true,
+	"crypto": true, "crypto/aes": true, "crypto/cipher": true, "crypto/des": true,
+	"crypto/dsa": true, "crypto/ecdsa": true, "crypto/ed25519": true, "crypto/elliptic": true,
+	"crypto/hmac": true, "crypto/md5": true, "crypto/rand": true, "crypto/rc4": true,
+	"crypto/rsa": true, "crypto/sha1": true, "crypto/sha256": true, "crypto/sha512": true,
+	"crypto/subtle": true, "crypto/tls": true, "crypto/x509": true, "crypto/x509/pkix": true,
+	"encoding": true, "encoding/ascii85": true, "encoding/asn1": true, "encoding/base32": true,
+	"encoding/base64": true, "encoding/binary": true, "encoding/csv": true,
+	"encoding/gob": true, "encoding/hex": true, "encoding/json": true,
+	"encoding/pem": true, "encoding/xml": true,
+	"net/http": true, "net/http/cgi": true, "net/http/cookiejar": true,
+	"net/http/fcgi": true, "net/http/httptest": true, "net/http/httptrace": true,
+	"net/http/httputil": true, "net/mail": true, "net/rpc": true, "net/rpc/jsonrpc": true,
+	"net/smtp": true, "net/textproto": true, "net/url": true,
 }
 
 func validateCode(code string) error {
@@ -900,15 +886,12 @@ func (e *Engine) runEmailFetch(ctx context.Context, w *os.File, projectID string
 	}
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	
-	escapedPass := strconv.Quote(config.Pass)
-	escapedUser := strconv.Quote(config.User)
-	escapedFolder := strconv.Quote(config.Folder)
+	tmpDir, err := os.MkdirTemp("", "aleph-email-*")
+	if err != nil { return fmt.Errorf("createEmailTempDir: %w", err) }
+	defer os.RemoveAll(tmpDir)
 
-	escapedHost := strconv.Quote(config.Host)
-	escapedAddr := strconv.Quote(addr)
-
-	script := fmt.Sprintf(`
-import imaplib, email, json, sys, csv, io
+	script := `
+import imaplib, email, json, sys, csv, io, os
 from email.header import decode_header
 
 def decode_str(s):
@@ -922,10 +905,15 @@ def decode_str(s):
             result.append(part)
     return ''.join(result)
 
-host, port = %s.split(':') if ':' in %s else (%s, 993)
-mail = imaplib.IMAP4_SSL(host, int(port))
-mail.login(%s, %s)
-mail.select(%s, True)
+host = os.environ['ALEPH_EMAIL_HOST']
+port_str = os.environ.get('ALEPH_EMAIL_PORT', '993')
+user = os.environ['ALEPH_EMAIL_USER']
+password = os.environ['ALEPH_EMAIL_PASS']
+folder = os.environ.get('ALEPH_EMAIL_FOLDER', 'INBOX')
+
+mail = imaplib.IMAP4_SSL(host, int(port_str))
+mail.login(user, password)
+mail.select(folder, True)
 _, msg_ids = mail.search(None, 'ALL')
 ids = msg_ids[0].split()
 rows = []
@@ -954,16 +942,22 @@ if rows:
     writer.writeheader()
     writer.writerows(rows)
     print(out.getvalue())
-`, escapedAddr, escapedHost, escapedHost, escapedUser, escapedPass, escapedFolder)
-
-	tmpDir, err := os.MkdirTemp("", "aleph-email-*")
-	if err != nil { return fmt.Errorf("createEmailTempDir: %w", err) }
-	defer os.RemoveAll(tmpDir)
+`
 
 	scriptPath := filepath.Join(tmpDir, "fetch_emails.py")
-	os.WriteFile(scriptPath, []byte(script), 0600)
+	if err := os.WriteFile(scriptPath, []byte(script), 0400); err != nil {
+		return fmt.Errorf("writeEmailScript: %w", err)
+	}
 
 	cmd := exec.CommandContext(ctx, "python3", scriptPath)
+	cmd.Env = []string{
+		fmt.Sprintf("ALEPH_EMAIL_HOST=%s", config.Host),
+		fmt.Sprintf("ALEPH_EMAIL_PORT=%s", addr),
+		fmt.Sprintf("ALEPH_EMAIL_USER=%s", config.User),
+		fmt.Sprintf("ALEPH_EMAIL_PASS=%s", config.Pass),
+		fmt.Sprintf("ALEPH_EMAIL_FOLDER=%s", config.Folder),
+		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -1001,108 +995,4 @@ func containsColon(s string) bool {
 		if c == ':' { return true }
 	}
 	return false
-}
-
-func looksLikeNonDecimalIP(host string) bool {
-	if host == "" {
-		return false
-	}
-	parts := strings.Split(host, ".")
-	if len(parts) == 4 {
-		for _, p := range parts {
-			if looksLikeNonDecimalPart(p) {
-				return true
-			}
-		}
-		return false
-	}
-	if len(parts) == 1 {
-		if _, err := strconv.Atoi(host); err == nil {
-			return len(host) > 3 || host == "0"
-		}
-	}
-	return false
-}
-
-func looksLikeNonDecimalPart(part string) bool {
-	if part == "" {
-		return false
-	}
-	if part[0] == '0' && len(part) > 1 {
-		if part[1] != 'x' && part[1] != 'X' {
-			return true
-		}
-	}
-	if len(part) > 2 && (part[0:2] == "0x" || part[0:2] == "0X") {
-		return true
-	}
-	return false
-}
-
-var ssrfBlockedIPNets []*net.IPNet
-
-func init() {
-	for _, cidr := range []string{
-		"0.0.0.0/8", "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12",
-		"192.168.0.0/16", "169.254.0.0/16",
-	} {
-		_, n, err := net.ParseCIDR(cidr)
-		if err == nil {
-			ssrfBlockedIPNets = append(ssrfBlockedIPNets, n)
-		}
-	}
-}
-
-func blockSSRF(rawURL string) error {
-	if rawURL == "" {
-		return fmt.Errorf("url vuota")
-	}
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return fmt.Errorf("url non valida: %w", err)
-	}
-	host := u.Hostname()
-	if host == "" {
-		return fmt.Errorf("host vuoto")
-	}
-	lower := strings.ToLower(host)
-	if lower == "localhost" || strings.HasSuffix(lower, ".local") || strings.HasSuffix(lower, ".internal") || strings.HasSuffix(lower, ".arpa") {
-		return fmt.Errorf("host locale non permesso: %s", host)
-	}
-	ip := net.ParseIP(host)
-	if ip != nil {
-		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() {
-			return fmt.Errorf("indirizzo IP privato/loopback non permesso: %s", host)
-		}
-	}
-	for _, n := range ssrfBlockedIPNets {
-		if ip := net.ParseIP(host); ip != nil && n.Contains(ip) {
-			return fmt.Errorf("indirizzo IP bloccato: %s", host)
-		}
-	}
-	if looksLikeNonDecimalIP(host) {
-		return fmt.Errorf("formato IP non decimale sospetto: %s", host)
-	}
-	// Handle short IP forms like "127.1" (meaning 127.0.0.1) or "0" (0.0.0.0).
-	parts := strings.Split(host, ".")
-	if len(parts) > 0 && len(parts) < 4 {
-		padded := make([]string, 4)
-		// First (len-1) parts go left-to-right.
-		for i := 0; i < len(parts)-1; i++ {
-			padded[i] = parts[i]
-		}
-		// Last part goes to the final octet.
-		padded[3] = parts[len(parts)-1]
-		// Middle octets default to "0".
-		for i := len(parts) - 1; i < 3; i++ {
-			if padded[i] == "" {
-				padded[i] = "0"
-			}
-		}
-		full := net.ParseIP(strings.Join(padded, "."))
-		if full != nil && (full.IsLoopback() || full.IsPrivate()) {
-			return fmt.Errorf("indirizzo IP locale (short form): %s", host)
-		}
-	}
-	return nil
 }

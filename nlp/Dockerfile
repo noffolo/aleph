@@ -18,7 +18,7 @@ RUN groupadd -r aleph && useradd -r -g aleph aleph && \
 USER aleph
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD python -c "import grpc; channel=grpc.insecure_channel('localhost:50051'); stub=grpc.channel_ready_future(channel); stub.result(timeout=5); print('healthy')" || exit 1
+  CMD python -c "import grpc; channel=grpc.insecure_channel('localhost:8001'); stub=grpc.channel_ready_future(channel); stub.result(timeout=5); print('healthy')" || exit 1
 
 EXPOSE 8001
 ENTRYPOINT ["python", "main.py"]
