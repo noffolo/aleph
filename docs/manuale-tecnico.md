@@ -227,7 +227,7 @@ Registra ogni operazione mutations (create, update, delete) con timestamp, proje
 **GenesisEngine** (`internal/genesis/`):
 - `Suggest()`: Suggester.Analyze() → Sandbox.Validate() → VetoRegistry.Register()
 - `Approve()`: delega a VetoRegistry.Approve()
-- `Suggester`: V1 stub che ritorna lista vuota (futuro: NLP-based suggestions)
+- `Suggester`: motore euristico multi-pass (chat patterns, tool usage, query patterns) con deduplica e output pending.
 - `Sandbox.Validate()`: controlla 9 dangerous patterns (os/exec, syscall, unsafe, reflect, os.Remove, os.RemoveAll, os.Chmod, net.Listen, net.Dial) con ctx cancellation
 - `VetoRegistry`: Register/Approve/Reject/ListPending con TTL, cleanup goroutine, `Shutdown()` per context cancellation
 
@@ -679,7 +679,7 @@ make clean           # Rimuovi artefatti build
 | Package | Test principali |
 |---------|----------------|
 | `decision/` | 13 test — Plan, PlanWithProvider, Act, Observe, Reflect, Admit, BuildToolsMap, inferTools, isKnownTool |
-| `genesis/` | 15 test — Sandbox Validate (9 pattern + ctx cancellation), VetoRegistry (Register/Approve/Reject/ListPending/TTL/concurrent/Shutdown), Suggester stub, GenesisEngine |
+| `genesis/` | 15 test — Sandbox Validate (9 pattern + ctx cancellation), VetoRegistry (Register/Approve/Reject/ListPending/TTL/concurrent/Shutdown), Suggester euristico, GenesisEngine |
 | `sandbox/` | ExecSandbox, SecurityScanner, CommandAllowlist |
 | `health/` | HealthChecker, HistoryStore |
 | `diagnostic/` | Pattern classification |

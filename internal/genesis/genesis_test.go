@@ -192,7 +192,7 @@ func TestVetoRegistry_Shutdown(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 }
 
-func TestSuggester_Analyze_Stub(t *testing.T) {
+func TestSuggester_Analyze_EmptyInput(t *testing.T) {
 	s := NewSuggester()
 	ctx := context.Background()
 	input := SuggesterInput{
@@ -204,7 +204,7 @@ func TestSuggester_Analyze_Stub(t *testing.T) {
 		t.Fatalf("Analyze returned error: %v", err)
 	}
 	if len(suggestions) != 0 {
-		t.Errorf("expected empty suggestions from stub, got %d", len(suggestions))
+		t.Errorf("expected empty suggestions, got %d", len(suggestions))
 	}
 }
 
@@ -240,5 +240,88 @@ func TestGenesisEngine_Approve(t *testing.T) {
 	err := engine.Approve(ctx, "s1")
 	if err != nil {
 		t.Fatalf("Approve returned error: %v", err)
+	}
+}
+func TestSuggester_Analyze_GeneratesOntologySuggestions(t *testing.T) {
+	s := NewSuggester()
+	ctx := context.Background()
+
+	input := SuggesterInput{
+		ProjectID: "proj1",
+		AgentID:   "agent1",
+		ChatHistory: []ChatMessage{
+			{Role: "user", Content: "Mercury is important for our model."},
+			{Role: "user", Content: "Mercury appears in this dataset too."},
+			{Role: "user", Content: "We should enrich Mercury signals."},
+			{Role: "user", Content: "what about Saturn?"},
+		},
+	}
+
+	suggestions, err := s.Analyze(ctx, input)
+	if err != nil {
+		t.Fatalf("Analyze returned error: %v", err)
+	}
+	if len(suggestions) == 0 {
+		t.Fatal("expected suggestions, got 0")
+	}
+
+	foundMercury := false
+	foundSaturn := false
+	for _, sug := range suggestions {
+		if sug.Status != "pending" {
+			t.Fatalf("expected suggestion status pending, got %q", sug.Status)
+		}
+		if sug.Name == "Mercury" && sug.Type == "ontology" {
+			foundMercury = true
+		}
+		if sug.Name == "Saturn" && sug.Type == "ontology" {
+			foundSaturn = true
+		}
+	}
+
+	if !foundMercury {
+		t.Error("expected ontology suggestion for Mercury")
+	}
+	if !foundSaturn {
+		t.Error("expected ontology suggestion for Saturn")
+	}
+}
+
+func TestGenesisEngine_Suggest_RegistersPendingSuggestions(t *testing.T) {
+	ctx := context.Background()
+	suggester := NewSuggester()
+	sandbox := NewSandbox(5 * time.Second)
+	veto := NewVetoRegistry(ctx, 1*time.Hour)
+	defer veto.Shutdown()
+
+	engine := NewGenesisEngine(suggester, sandbox, veto)
+	suggestions, err := engine.Suggest(ctx, "proj1", "agent1")
+	if err != nil {
+		t.Fatalf("Suggest returned error: %v", err)
+	}
+	if len(suggestions) != 0 {
+		t.Fatalf("expected empty suggestions with no history, got %d", len(suggestions))
+	}
+
+	inputSuggestions, err := suggester.Analyze(ctx, SuggesterInput{
+		ProjectID: "proj1",
+		AgentID:   "agent1",
+		ChatHistory: []ChatMessage{
+			{Role: "user", Content: "what about Pluto?"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Analyze returned error: %v", err)
+	}
+	for _, sug := range inputSuggestions {
+		veto.Register(sug)
+	}
+
+	pending, err := veto.ListPending(ctx)
+	if err != nil {
+		t.Fatalf("ListPending returned error: %v", err)
+	}
+	if len(pending) == 0 {
+		t.Fatal("expected pending suggestions to be registered")
 	}
 }
