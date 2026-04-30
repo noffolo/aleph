@@ -13,20 +13,25 @@ internal/
     sse/         — Server-Sent Events broker
   config/        — Env-based configuration
   crypto/        — AES-256-GCM encryption
+  decision/      — PAORA decision engine (Plan→Act→Observe→Reflect→Admit)
   diagnostic/    — Error pattern detection
   dsl/           — Domain-specific language compiler
   health/        — Periodic health checker
-  ingestion/     — Data ingestion pipeline
+  ingestion/     — Data ingestion pipeline with sources (RSS, GitHub, CSV, JSON, sitemap, sheets, email)
+  llm/           — Provider interface for LLMs (Ollama, OpenAI)
   mcp/           — MCP discovery engine
-  middleware/    — Auth, audit, timeout, retry, bulkhead, error handler
+  memory/        — VSS memory store (DuckDB array_cosine_similarity)
+  middleware/    — 8 middleware: Auth, Audit, CORS, CSRF, Rate-limit (X-Forwarded-For), Timeout, Bulkhead, Security (CSP)
   migrate/       — DuckDB + PostgreSQL migrations
   nlp_adapter/   — Python sidecar adapter
   predict/       — Brier score monitoring
   registry/      — DuckDB registry
-  repair/        — Auto-repair engine (874 lines, fully tested)
+  repair/        — Auto-repair engine (7 fix strategies, 1173 lines)
   repository/    — Metadata + audit persistence
   sandbox/       — Tool execution + verification
-  service/       — Notification service
+  service/
+    watcher/     — File system watcher (fsnotify) for auto-ingestion
+    notification/— Notification service
   storage/       — DuckDB + PostgreSQL connections
   telemetry/     — OpenTelemetry instrumentation
   tools/
@@ -42,7 +47,7 @@ internal/
 ```
 nlp/
   ensemble.py    — Model ensemble (calibrated)
-  main.py        — gRPC server
+  main.py        — gRPC server with logging
   requirements.txt
 ```
 
@@ -50,17 +55,19 @@ nlp/
 ```
 frontend/
   src/
-    api/         — Connect RPC clients + hooks
-    components/  — UI components
-    store/       — Zustand slices (navigation, ui, health, auth, settings)
+    api/         — Connect RPC clients + hooks (12 services)
+    components/  — UI components (Terminal, Copilot, CommandPalette, SlideOver, ...)
+    store/       — Zustand slices (navigation, ui, health, auth, settings, workspace, copilot)
     views/       — Page-level components
-    schemas/     — Zod validation schemas
+    schemas/     — Zod validation schemas (22 schemas)
     lib/         — Utilities
+    commands/    — Slash commands (16 built-in)
+    styles/      — Design tokens, base CSS
 ```
 
 ## Data Flow
 ```
-Client → HTTP/h2c → CORS → Telemetry → Middleware stack → Handler → Repository/Service
+Client → HTTP/h2c → CORS → CSRF → Telemetry → Middleware stack → Handler → Repository/Service
                                          ↓
                               SSE Broker ← Health/MCP/Diagnostic monitors
 ```
@@ -71,3 +78,5 @@ Client → HTTP/h2c → CORS → Telemetry → Middleware stack → Handler → 
 3. **SSE** for unidirectional server→client push — simpler than gRPC-Web for EventSource
 4. **No React Router** — View switching via Zustand navigationSlice
 5. **Zod schemas** for runtime validation on frontend
+6. **PAORA loop** — Plan → Act → Observe → Reflect → Admit for every chat interaction
+7. **VSS via DuckDB** — Vector similarity search built on native DuckDB array_cosine_similarity

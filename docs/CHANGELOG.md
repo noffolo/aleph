@@ -56,3 +56,25 @@ All notable changes to the Aleph-v2 project are documented in this file.
 - W-A11Y: Skip-link + landmarks, focus trap modals, aria-labels views
 - W-PERF: d3 lazy-loaded (separate chunk 439KB), ToolCache 5min TTL, React.memo
 - W-DEPLOY: Docker HEALTHCHECK, CI docker-push, .env.example
+
+### W4 — Production Gate: Core Systems (Apr 2026)
+- **Sources ingestion**: GitHub, sitemap, JSON API, Google Sheets ingesters wired into Engine
+- **MemoryStore**: Full VSS with array_cosine_similarity, 9 tests
+- **File Watcher**: fsnotify auto-ingestion with debounce
+- **Genesis Suggester**: 3 heuristic analysis passes (chat→ontology, tool usage→tool, query patterns)
+- **fixPerformance**: 4 anti-pattern detectors (sequential HTTP, missing ctx cancellation, string concat, repeated reads)
+- **NLP Polish**: 11 print() → logging.*() conversions
+
+### W5 — CI/CD & Infrastructure
+- CI: go test -race -count=1, go vet, removed wasteful ESLint install
+- docker-compose: Ollama auto-pulls llama3 + nomic-embed-text
+- Security workflow: gitleaks secrets scan
+- Deploy workflow: tag-triggered (v*)
+
+### W6 — Security Hardening
+- **CSP**: removed 'unsafe-inline' from style-src, inline <style> → CSS files
+- **Rate limiting**: extractClientIP() with X-Forwarded-For → X-Real-IP → RemoteAddr chain
+- **CSRF middleware**: Origin/Referer validation, 5 tests
+- **SSE auth**: already implemented, verified
+- **Release checklist**: docs/release-checklist.md
+- **NLP health port**: 8001 (consistent with docker-compose)

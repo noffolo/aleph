@@ -10,12 +10,20 @@ import (
 type Compiler struct {
 	Program  *Program
 	DataRoot string
+	// UseViews, when true, generates DuckDB views (CREATE OR REPLACE VIEW) instead
+	// of inline read_parquet() calls. Set at construction or via SetUseViews().
+	UseViews bool
 }
 
 var validFilterValue = regexp.MustCompile(`^[a-zA-Z0-9 _\-.%]+$`)
 
 func NewCompiler(p *Program, dataRoot string) *Compiler {
 	return &Compiler{Program: p, DataRoot: dataRoot}
+}
+
+// SetUseViews controls whether CompileObject generates view-based SQL.
+func (c *Compiler) SetUseViews(useViews bool) {
+	c.UseViews = useViews
 }
 
 func (c *Compiler) CompileObject(objName string) (string, error) {
@@ -38,7 +46,6 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 			sourceField = prop.Name
 		}
 
-		// Full-Quote both table and field for absolute safety
 		safeSource := fmt.Sprintf("\"%s\".\"%s\"", objName, sourceField)
 		clause := fmt.Sprintf("%s AS \"%s\"", safeSource, prop.Name)
 
@@ -50,13 +57,12 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 
 		// Phase 2: Factor Decomposition Support
 		for _, f := range obj.Factors {
-			selectClauses = append(selectClauses, fmt.Sprintf("0.0 AS \"_factor_%s\"", f.Name)) // Placeholder
+			selectClauses = append(selectClauses, fmt.Sprintf("0.0 AS \"_factor_%s\"", f.Name))
 		}
 
 		if len(prop.Maps) > 0 {
 			caseExpr := "CASE " + safeSource
 			for _, m := range prop.Maps {
-				// Escape single quotes for SQL string literals
 				safeFrom := strings.ReplaceAll(m.From, "'", "''")
 				safeTo := strings.ReplaceAll(m.To, "'", "''")
 				caseExpr += fmt.Sprintf(" WHEN '%s' THEN '%s'", safeFrom, safeTo)
@@ -68,7 +74,6 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 		selectClauses = append(selectClauses, clause)
 	}
 
-	// Basic Relation/JOIN support with full quoting
 	var joinClauses []string
 	for _, stmt := range c.Program.Statements {
 		if stmt.Relation != nil && stmt.Relation.From == objName {
@@ -80,9 +85,16 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 				}
 			}
 			if targetObj != nil {
+				var source string
+				if c.UseViews {
+					source = fmt.Sprintf("\"%s\"", stmt.Relation.To)
+				} else {
+					source = fmt.Sprintf("read_parquet('%s/%s/latest/*.parquet') AS \"%s\"",
+						c.DataRoot, targetObj.FromSource, stmt.Relation.To)
+				}
 				joinClauses = append(joinClauses, fmt.Sprintf(
-					" LEFT JOIN read_parquet('%s/%s/latest/*.parquet') AS \"%s\" ON \"%s\".\"%s\" = \"%s\".\"%s\"",
-					c.DataRoot, targetObj.FromSource, stmt.Relation.To, 
+					" LEFT JOIN %s ON \"%s\".\"%s\" = \"%s\".\"%s\"",
+					source,
 					objName, stmt.Relation.LeftOn, stmt.Relation.To, stmt.Relation.RightOn,
 				))
 			}
@@ -131,16 +143,55 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 		groupByClause = " GROUP BY " + strings.Join(groupByClauses, ", ")
 	}
 
+	var fromSource string
+	if c.UseViews {
+		fromSource = fmt.Sprintf("\"%s\"", objName)
+	} else {
+		fromSource = fmt.Sprintf("read_parquet('%s/%s/latest/*.parquet') AS \"%s\"",
+			c.DataRoot, obj.FromSource, objName)
+	}
+
 	sql := fmt.Sprintf(
-		"SELECT %s FROM read_parquet('%s/%s/latest/*.parquet') AS \"%s\" %s%s%s",
+		"SELECT %s FROM %s%s%s%s",
 		strings.Join(selectClauses, ", "),
-		c.DataRoot, obj.FromSource, objName,
+		fromSource,
 		strings.Join(joinClauses, " "),
 		whereClause,
 		groupByClause,
 	)
 
 	return sql, nil
+}
+
+// CompileDDL generates CREATE OR REPLACE VIEW statements for all objects
+// in the program, replacing inline read_parquet() calls with persistent views.
+// Returns a slice of DDL statements that can be executed against DuckDB.
+func (c *Compiler) CompileDDL() ([]string, error) {
+	var ddls []string
+	for _, stmt := range c.Program.Statements {
+		if stmt.Object == nil {
+			continue
+		}
+		obj := stmt.Object
+		var selectClauses []string
+		for _, prop := range obj.Properties {
+			sourceField := prop.From
+			if sourceField == "" {
+				sourceField = prop.Name
+			}
+			safeSource := fmt.Sprintf("source.\"%s\"", sourceField)
+			clause := fmt.Sprintf("%s AS \"%s\"", safeSource, prop.Name)
+			selectClauses = append(selectClauses, clause)
+		}
+		ddl := fmt.Sprintf("CREATE OR REPLACE VIEW \"%s\" AS SELECT %s FROM read_parquet('%s/%s/latest/*.parquet') AS source",
+			obj.Name,
+			strings.Join(selectClauses, ", "),
+			c.DataRoot,
+			obj.FromSource,
+		)
+		ddls = append(ddls, ddl)
+	}
+	return ddls, nil
 }
 
 func (c *Compiler) CompileActions() ([]map[string]interface{}, error) {

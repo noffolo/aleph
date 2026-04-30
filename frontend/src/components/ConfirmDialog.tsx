@@ -69,19 +69,6 @@ export function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: C
           </button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes confirm-dialog-in {
-          from {
-            opacity: 0;
-            transform: scale(0.95) translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 }

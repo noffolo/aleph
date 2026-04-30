@@ -148,6 +148,12 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 	mux.Handle("/api/v1/codeflow/executions", authMW(cfg.CodeFlowHandler.HandleListExecutions))
 	mux.Handle("/api/v1/codeflow/engines", authMW(cfg.CodeFlowHandler.HandleListEngines))
 
+	// Ontology Negotiation routes (W2C-01)
+	mux.Handle("/api/v1/ontology/propose", authMW(cfg.ProjectHandler.NegotiatePropose))
+	mux.Handle("/api/v1/ontology/accept", authMW(cfg.ProjectHandler.NegotiateAccept))
+	mux.Handle("/api/v1/ontology/reject", authMW(cfg.ProjectHandler.NegotiateReject))
+	mux.Handle("/api/v1/ontology/versions", authMW(cfg.ProjectHandler.NegotiateList))
+
 	// Diagnostic patterns
 	mux.Handle("/api/v1/diagnostic/patterns", authMW(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

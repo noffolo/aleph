@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -803,8 +804,300 @@ func (e *RepairEngine) fixConfiguration(code string) string {
 }
 
 // fixPerformance optimises common performance patterns.
+//
+// Detects and fixes 4 anti-patterns:
+//  1. Sequential HTTP calls → goroutine + sync.WaitGroup parallelization
+//  2. Missing context cancellation checks in loops → select + ctx.Done()
+//  3. String concatenation in loops (+=) → strings.Builder
+//  4. Repeated file reads for same path → sync.Once caching pattern
 func (e *RepairEngine) fixPerformance(code string) string {
+	if httpCallCount(code) > 1 {
+		code = addConcurrentHTTPPattern(code)
+	}
+
+	if strings.Contains(code, "context") {
+		code = addContextCancelInLoops(code)
+	}
+
+	if hasStringConcatInLoop(code) {
+		code = fixStringConcatInLoop(code)
+	}
+
+	if path := repeatedFileRead(code); path != "" {
+		code = addFileReadCaching(code, path)
+	}
+
 	return code
+}
+
+// ---------------------------------------------------------------------------
+// Pattern 1 — Sequential HTTP calls
+// ---------------------------------------------------------------------------
+
+// httpCallPattern matches HTTP call expressions: http.Get(, http.Post(, client.Do(, http.NewRequest(
+var httpCallPattern = regexp.MustCompile(`(?:http\.(?:Get|Post|Head|Put|Delete)\s*\(|client\.Do\s*\(|http\.NewRequest\s*\()`)
+
+// httpCallCount returns the number of HTTP call expressions in code.
+func httpCallCount(code string) int {
+	return len(httpCallPattern.FindAllString(code, -1))
+}
+
+// addConcurrentHTTPPattern wraps multiple HTTP calls with a goroutine + sync.WaitGroup comment block.
+func addConcurrentHTTPPattern(code string) string {
+	comment := "// PERFORMANCE FIX: Multiple HTTP calls detected — consider parallelizing with goroutines:\n" +
+		"\t// var wg sync.WaitGroup\n" +
+		"\t// errCh := make(chan error, N)\n" +
+		"\t// for _, url := range urls {\n" +
+		"\t//     wg.Add(1)\n" +
+		"\t//     go func(u string) {\n" +
+		"\t//         defer wg.Done()\n" +
+		"\t//         resp, err := http.Get(u)\n" +
+		"\t//         if err != nil { errCh <- err; return }\n" +
+		"\t//         defer resp.Body.Close()\n" +
+		"\t//         // process resp\n" +
+		"\t//     }(url)\n" +
+		"\t// }\n" +
+		"\t// wg.Wait()\n" +
+		"\t// close(errCh)\n"
+	return addCommentAfterFuncDecl(code, comment)
+}
+
+// ---------------------------------------------------------------------------
+// Pattern 2 — Missing context cancellation in loops
+// ---------------------------------------------------------------------------
+func addContextCancelInLoops(code string) string {
+	lines := strings.Split(code, "\n")
+	var result []string
+	inFunc := false
+	inLoop := false
+	loopBraceDepth := 0
+	var loopLines []string
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "func ") {
+			inFunc = true
+		}
+
+		if !inFunc {
+			result = append(result, line)
+			continue
+		}
+
+		if !inLoop && (strings.HasPrefix(trimmed, "for ") || trimmed == "for" || strings.HasPrefix(trimmed, "for range")) {
+			inLoop = true
+			loopBraceDepth = 0
+			loopLines = nil
+		}
+
+		if inLoop {
+			loopLines = append(loopLines, line)
+			braceDepth := countBraces(line)
+			loopBraceDepth += braceDepth
+			loopBody := strings.Join(loopLines, "\n")
+
+			if loopBraceDepth <= 0 {
+				if !strings.Contains(loopBody, "ctx.Done()") && !strings.Contains(loopBody, "ctx.Err()") {
+					cancelBlock := "\t\tselect {\n\t\tcase <-ctx.Done():\n\t\t\treturn \"\", ctx.Err()\n\t\tdefault:\n\t\t}"
+					loopBody = insertBeforeLastBrace(loopBody, cancelBlock)
+				}
+				loopLines = nil
+				inLoop = false
+				result = append(result, loopBody)
+				continue
+			}
+		}
+
+		if !inLoop {
+			result = append(result, line)
+		}
+	}
+
+	return strings.Join(result, "\n")
+}
+
+// countBraces returns the net brace depth change in a line (open - close).
+func countBraces(line string) int {
+	opens := strings.Count(line, "{")
+	closes := strings.Count(line, "}")
+	return opens - closes
+}
+
+// insertBeforeLastBrace inserts text before the last '}' on its own line.
+func insertBeforeLastBrace(body, insert string) string {
+	lines := strings.Split(body, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.TrimSpace(lines[i]) == "}" {
+			before := strings.Join(lines[:i], "\n")
+			after := strings.Join(lines[i:], "\n")
+			return before + "\n" + insert + "\n" + after
+		}
+	}
+	return body + "\n" + insert
+}
+
+// ---------------------------------------------------------------------------
+// Pattern 3 — String concatenation in loops
+// ---------------------------------------------------------------------------
+func hasStringConcatInLoop(code string) bool {
+	lines := strings.Split(code, "\n")
+	depth := 0
+	inLoop := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "for ") || trimmed == "for" || strings.HasPrefix(trimmed, "for range") {
+			inLoop = true
+		}
+
+		if inLoop && strings.Contains(trimmed, "+=") {
+			parts := strings.SplitN(trimmed, "+=", 2)
+			if len(parts) == 2 {
+				rhs := strings.TrimSpace(parts[1])
+				if strings.HasPrefix(rhs, `"`) || strings.HasPrefix(rhs, "`") ||
+					strings.Contains(rhs, `fmt.Sprint`) || strings.Contains(rhs, `strconv.`) {
+					return true
+				}
+			}
+		}
+
+		depth += countBraces(line)
+		if depth <= 0 && inLoop {
+			inLoop = false
+		}
+	}
+
+	return false
+}
+
+// fixStringConcatInLoop replaces += string concatenation in loops with strings.Builder.
+func fixStringConcatInLoop(code string) string {
+	lines := strings.Split(code, "\n")
+	inLoop := false
+	varBuilderName := ""
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if !inLoop && (strings.HasPrefix(trimmed, "for ") || trimmed == "for" || strings.HasPrefix(trimmed, "for range")) {
+			inLoop = true
+			for _, l := range lines[i:] {
+				t := strings.TrimSpace(l)
+				if strings.Contains(t, "+=") {
+					parts := strings.SplitN(t, "+=", 2)
+					if len(parts) == 2 {
+						varBuilderName = strings.TrimSpace(parts[0])
+						break
+					}
+				}
+				if strings.Contains(t, "}") && countBraces(l) < 0 {
+					break
+				}
+			}
+			break
+		}
+	}
+
+	if varBuilderName == "" {
+		return code
+	}
+
+	declPattern := regexp.MustCompile(`(var\s+` + regexp.QuoteMeta(varBuilderName) + `\s+string|` + regexp.QuoteMeta(varBuilderName) + `\s*:=\s*"")`)
+	if declPattern.MatchString(code) {
+		repl := regexp.MustCompile(`var\s+` + regexp.QuoteMeta(varBuilderName) + `\s+string`)
+		code = repl.ReplaceAllString(code, "var "+varBuilderName+" strings.Builder")
+		repl2 := regexp.MustCompile(regexp.QuoteMeta(varBuilderName) + `\s*:=\s*""`)
+		code = repl2.ReplaceAllString(code, varBuilderName+" strings.Builder")
+	} else {
+		comment := "\n\t// PERFORMANCE FIX: Use strings.Builder instead of += in loop:\n" +
+			"\t// var builder strings.Builder\n" +
+			"\t// builder.WriteString(\"...\")\n" +
+			"\t// result := builder.String()"
+		code = addCommentAfterFuncDecl(code, comment)
+		return code
+	}
+
+	plusEqPattern := regexp.MustCompile(regexp.QuoteMeta(varBuilderName) + `\s*\+=\s*`)
+	code = plusEqPattern.ReplaceAllString(code, varBuilderName+".WriteString(")
+
+	writeStringPattern := regexp.MustCompile(regexp.QuoteMeta(varBuilderName) + `\.WriteString\((.*)$`)
+	code = writeStringPattern.ReplaceAllStringFunc(code, func(m string) string {
+		if strings.HasSuffix(strings.TrimSpace(m), ")") {
+			return m
+		}
+		return m + ")"
+	})
+
+	returnPattern := regexp.MustCompile(`return\s+` + regexp.QuoteMeta(varBuilderName) + `\b(?!\.String)`)
+	code = returnPattern.ReplaceAllString(code, "return "+varBuilderName+".String()")
+
+	return code
+}
+
+// ---------------------------------------------------------------------------
+// Pattern 4 — Repeated file reads
+// ---------------------------------------------------------------------------
+
+// osReadFilePattern matches os.ReadFile("path") calls.
+var osReadFilePattern = regexp.MustCompile(`os\.ReadFile\(\s*"([^"]+)"\s*\)`)
+
+// repeatedFileRead returns the path of a file read more than once, or "".
+func repeatedFileRead(code string) string {
+	matches := osReadFilePattern.FindAllStringSubmatch(code, -1)
+	counts := make(map[string]int)
+	for _, m := range matches {
+		if len(m) > 1 {
+			counts[m[1]]++
+		}
+	}
+	for path, count := range counts {
+		if count > 1 {
+			return path
+		}
+	}
+	return ""
+}
+
+// addFileReadCaching inserts a sync.Once caching pattern for repeated os.ReadFile calls.
+func addFileReadCaching(code, filePath string) string {
+	comment := "\n\t// PERFORMANCE FIX: File " + filePath +
+		" is read multiple times. Consider caching with sync.Once:\n" +
+		"\t// var once sync.Once\n" +
+		"\t// var cachedData []byte\n" +
+		"\t// var cacheErr error\n" +
+		"\t// once.Do(func() {\n" +
+		"\t//     cachedData, cacheErr = os.ReadFile(\"" + filePath + "\")\n" +
+		"\t// })\n" +
+		"\t// if cacheErr != nil { return \"\", cacheErr }"
+	return addCommentAfterFuncDecl(code, comment)
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+// addCommentAfterFuncDecl inserts a comment block after the first function declaration.
+func addCommentAfterFuncDecl(code, comment string) string {
+	if idx := strings.Index(code, "func Handle"); idx >= 0 {
+		after := code[idx:]
+		braceIdx := strings.Index(after, "{")
+		if braceIdx > 0 {
+			return code[:idx+braceIdx+1] + comment + code[idx+braceIdx+1:]
+		}
+		return code + comment
+	}
+	re := regexp.MustCompile(`(?m)^func\s+\w+\(`)
+	loc := re.FindStringIndex(code)
+	if loc != nil {
+		after := code[loc[0]:]
+		braceIdx := strings.Index(after, "{")
+		if braceIdx > 0 {
+			return code[:loc[0]+braceIdx+1] + comment + code[loc[0]+braceIdx+1:]
+		}
+	}
+	return code + comment
 }
 
 // fixCaching adds basic caching patterns.

@@ -8,7 +8,10 @@ import (
 type Suggestion struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
+	Type        string    `json:"type"`
 	Description string    `json:"description"`
+	Priority    int       `json:"priority"`
+	Confidence  float64   `json:"confidence"`
 	Code        string    `json:"code,omitempty"`
 	Parameters  string    `json:"parameters,omitempty"`
 	Status      string    `json:"status"`

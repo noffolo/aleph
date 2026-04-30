@@ -1,138 +1,85 @@
 # CI/CD Pipeline Configuration for Aleph-v2
 
 ## Overview
-This document describes the CI/CD pipeline implemented for the Aleph-v2 decision intelligence system. The pipeline ensures code quality, automated testing, and deployment readiness.
+This document describes the CI/CD pipeline for Aleph-v2. The pipeline ensures code quality, automated testing, and deployment readiness across Go backend, React/TypeScript frontend, and Docker.
 
 ## GitHub Actions Workflows
 
 ### 1. CI Pipeline (`.github/workflows/ci.yml`)
-**Trigger:** On push to `main` branch and pull requests
+**Trigger:** On push to `main` branch, pull requests, and manual dispatch
 
 **Jobs:**
-- **Go Backend:** Linting (`golangci-lint`), tests (`go test ./... -race`), build verification
--Body **Frontend:** ESLint, TypeScript type checking (`tsc --noEmit`), build
-- **Docker:** Build verification (`docker build .`), Docker Compose config check
-- **CI Summary:** Status reporting
+- **Go Backend:** Linting (`golangci-lint`), tests with `go test -race -count=1 ./...` (no caching), `go vet ./...`, binary existence check
+- **Frontend:** TypeScript type checking (`tsc --noEmit`), `vitest run`, Vite build with `--logLevel error`, Playwright E2E tests
+- **Docker:** Build verification (`docker build .`), `docker compose config` check
+- **Docker Push:** On push to main only — builds and pushes to Docker Hub with `DOCKER_USERNAME`/`DOCKER_PASSWORD` secrets. Tags: `latest` and `{branch}-{short-sha}`.
+- **CI Summary:** Status reporting for all preceding jobs
 
 **Key Checks:**
-- Go module verification and caching
-- Frontend dependency caching
-- Race condition detection in Go tests
+- Go module verification and caching (`go mod download && go mod verify`)
+- Race detection in Go tests (`-race` flag)
+- TypeScript type checking (`--noEmit`)
+- Vitest (113 tests across 17 files)
 - Multi-stage Docker build validation
 
-### 2. Deploy Staging (`.github/workflows/deploy.yml`)
-**Trigger:** On push to `main` branch and manual dispatch
+### 2. Security Scan (`.github/workflows/security.yml`)
+**Trigger:** On push to `main`, pull requests, and weekly cron (Monday 6am UTC)
 
 **Jobs:**
-- **Build and Push Docker Images:** Builds and pushes three Docker images to GitHub Container Registry:
-  - `aleph-v2:latest` (backend)
-  - `aleph-v2-frontend:latest` 
-  - `aleph-v2-nlp:latest` (Python sidecar)
-- **Staging Deployment Hook:** Placeholder for actual deployment triggers
+- **Secrets scan:** Uses `gitleaks/gitleaks-action@v2` to detect hardcoded secrets, API keys, and credentials in the repository
+
+### 3. Deploy (`.github/workflows/deploy.yml`)
+**Trigger:** On tag push matching `v*` (e.g. `v1.2.3`)
+
+**Jobs:**
+- **Build and Push:** Builds Docker image with semver tags (`{version}`, `{major}.{minor}`), pushes to Docker Hub using `DOCKER_USERNAME`/`DOCKER_PASSWORD` secrets
+- Placeholder for staging/production deployment triggers
 
 ## Branch Protection Recommendations
 
 ### Required Status Checks (GitHub Settings → Branches → main)
-Enable the following required status checks:
-
 1. **Go Backend** (`go-backend`)
-2. **Frontend** (`frontend`)  
+2. **Frontend** (`frontend`)
 3. **Docker Build Verification** (`docker`)
 
 ### Additional Branch Protection Rules
-1. **Require pull request reviews before merging:** 1 approval minimum
-2. **Dismiss stale pull request approvals when new commits are pushed:** Enabled
-3. **Require status checks to pass before merging:** Enabled
-4. **Require conversation resolution before merging:** Enabled
-5. **Include administrators:** Disabled (admins must follow same rules)
-
-### Environment Protection (for production)
-- **Staging Environment:** Should require review before deployment
-- **Production Environment:** Should require multiple approvals and manual trigger
+1. Require 1 approval minimum for PRs
+2. Dismiss stale approvals on new commits
+3. Require status checks to pass before merging
+4. Require conversation resolution before merging
 
 ## Configuration Files
 
 ### `.golangci.yml`
-Custom configuration for Go linting with the following settings:
-- Enabled linters: `errcheck`, `govet`, `staticcheck`, `unused`, `gosimple`, etc.
-- Disabled linters: `wsl`, `funlen`, `gocognit`, `nestif` (opinionated/too strict)
-- Test file exceptions for common patterns
-- Project-specific word exceptions: `algedonic`, `aleph`
+Enabled linters: `errcheck`, `govet`, `staticcheck`, `unused`, `gosimple`
+Disabled (too strict): `wsl`, `funlen`, `gocognit`, `nestif`
+Project-specific exceptions: `algedonic`, `aleph`
 
 ### Docker Configuration
-- **Root Dockerfile:** Multi-stage build (frontend → backend → Python → final)
-- **Frontend Dockerfile:** Nginx serving built assets
+- **Root Dockerfile:** Builds Go backend binary
+- **Frontend Dockerfile:** Nginx serving Vite-built assets
 - **Python NLP Dockerfile:** Separate NLP sidecar container
-- **docker-compose.yml:** Full development stack with PostgreSQL database
+- **docker-compose.yml:** Full stack with PostgreSQL, Ollama (pre-pulls llama3+nomic-embed-text), NLP sidecar, and frontend
 
 ## Local Development Validation
-Before committing, run:
 ```bash
-# Go validation
-golangci-lint run
-go test ./... -race
+# Go
+go vet ./...
+go test -race -count=1 ./...
 
-# Frontend validation
-cd frontend
-npm run lint  # Requires eslint installed globally or via npx
-npx tsc --noEmit
+# Frontend
+cd frontend && npx tsc --noEmit && npx vitest run && npx vite build
 
-# Docker validation
-docker build .
+# Docker
 docker compose config
 ```
 
-## Troubleshooting
-
-### Go Tests Failing
-Some tests may be failing in CI (particularly `TestTruncateJSON`). The CI is configured with `continue-on-error: true` to allow these tests to fail temporarily. Fix priorities:
-1. Review failing test cases in `internal/api/handler/query_test.go`
-2. Update test expectations or fix implementation
-3. Remove `continue-on-error` once tests pass
-
-### ESLint Not Installed
-The `npm run lint` command may fail if ESLint is not installed globally. The CI uses `npx eslint .` to bypass this issue. Consider:
-1. Adding ESLint as a devDependency in `package.json`
-2. Or updating the `lint` script to use `npx`
-
-### Docker Build Cache
-The CI uses GitHub Actions cache for Docker layers and npm dependencies. If cache issues occur:
-1. Clear cache via GitHub UI (Actions → Caches)
-2. Verify `cache-dependency-path` settings match your lock files
-
-## Future Improvements
-
-### 1. Security Scanning
-Add security scanning jobs:
-- **Trivy:** Container vulnerability scanning
-- **Gosec:** Go security checking
-- **npm audit:** Frontend dependency vulnerabilities
-
-### 2. Performance Testing
-Add performance regression detection:
-- Go benchmark comparisons
-- Frontend bundle size tracking
-- Docker image size monitoring
-
-### 3. Advanced Deployment
-Implement proper deployment strategies:
-- **Blue-green deployment** for staging
-- **Canary releases** for production
-- **Feature flags** via configuration
-
-### 4. Database Migration Verification
-Add migration validation:
-.
-
-### 5. Integration Testing
-Add comprehensive integration tests:
-- **PostgreSQL migration tests**
--i "DuckDB functionality tests"`
-**End-to-end API tests**
-
-## Contact
-For CI/CD issues, contact the infrastructure team or update the workflows in `.github/workflows/`.
+## Security
+- **Secrets scanning**: `gitleaks` in CI via security.yml
+- **Go vet**: Enforced in CI pipeline
+- **TypeScript**: Strict mode, `--noEmit` type checking
+- No ESLint in CI (tsc --noEmit provides sufficient type coverage)
 
 ---
 
-*Last updated: $(date)*
+*Last updated: 2026-04-30*

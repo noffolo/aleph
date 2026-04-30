@@ -83,11 +83,11 @@ export const OntologyView: React.FC<OntologyViewProps> = ({ ontologyRaw, setOnto
                          </div>
                          {block.props.length > 0 && (
                            <div className="space-y-1 mb-2">
-                             {block.props.map(p => (
-                               <div key={p} className="text-[10px] text-primary font-mono flex items-center space-x-1"><span>•</span><span>{p}</span></div>
-                             ))}
-                           </div>
-                         )}
+                           {block.props.map(p => (
+                             <div key={p} className="text-[10px] text-primary font-mono flex items-center space-x-1"><span>•</span><span>{p}</span></div>
+                           ))}
+                         </div>
+                       )}
                          {block.relations.length > 0 && (
                            <div className="space-y-1 mb-2">
                              {block.relations.map(r => (

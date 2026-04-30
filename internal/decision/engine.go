@@ -3,10 +3,12 @@ package decision
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	alephv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
+	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/gnn"
 	"github.com/ff3300/aleph-v2/internal/llm"
 )
@@ -88,8 +90,9 @@ func (e *Engine) PlanWithProvider(
 	}
 
 	intent := Intent{
-		PrimaryGoal: msg,
-		Confidence:  0.7,
+		PrimaryGoal:   msg,
+		TargetObjects: e.extractObjectReferencesWithOntology(msg, ontContent),
+		Confidence:    0.7,
 	}
 
 	steps := make([]PlannedStep, 0, len(completion.ToolCalls))
@@ -118,7 +121,7 @@ func (e *Engine) Plan(ctx context.Context, msg string, projectID string, agentID
 			Intent: Intent{
 				PrimaryGoal:   msg,
 				NeededTools:   e.inferToolsFromMessage(ctx, msg, e.buildToolDefinitions(ctx)),
-				TargetObjects: nil,
+				TargetObjects: e.extractObjectReferencesWithOntology(msg, ontContent),
 				Confidence:    0.5,
 			},
 			Steps: []PlannedStep{{
@@ -137,7 +140,7 @@ func (e *Engine) Plan(ctx context.Context, msg string, projectID string, agentID
 	intent := Intent{
 		PrimaryGoal:   msg,
 		NeededTools:   neededTools,
-		TargetObjects: e.extractObjectReferences(msg),
+		TargetObjects: e.extractObjectReferencesWithOntology(msg, ontContent),
 		Confidence:    0.8,
 	}
 
@@ -338,10 +341,71 @@ func (e *Engine) inferToolsFromMessage(ctx context.Context, msg string, toolDefs
 }
 
 // extractObjectReferences pulls potential ontology object names from the message.
+// Uses a simple heuristic: split msg by spaces, look for words that start with
+// an uppercase letter (suggesting object names).
 func (e *Engine) extractObjectReferences(msg string) []string {
-	// Simple heuristic: look for capitalized words that could be object names
-	// The LLM handles actual object resolution — this is just a best guess
-	return nil
+	seen := make(map[string]bool)
+	var refs []string
+	for _, word := range strings.Fields(msg) {
+		// Strip trailing punctuation for cleaner matching
+		word = strings.TrimRight(word, ".,;:!?()[]{}'\"")
+		if word == "" {
+			continue
+		}
+		// Words starting with uppercase are candidate object references
+		r := []rune(word)
+		if r[0] >= 'A' && r[0] <= 'Z' && !seen[word] {
+			seen[word] = true
+			refs = append(refs, word)
+		}
+	}
+	return refs
+}
+
+// extractObjectReferencesWithOntology checks the msg against named objects
+// parsed from ontology DSL content. If ontContent is empty/nil, falls back
+// to the heuristic extractObjectReferences. Otherwise parses the DSL,
+// collects ObjectDefinition names, and returns those found in the message
+// (case-insensitive, whole-word matching).
+func (e *Engine) extractObjectReferencesWithOntology(msg string, ontContent []byte) []string {
+	if len(ontContent) == 0 {
+		return e.extractObjectReferences(msg)
+	}
+
+	prog, err := dsl.Parse(string(ontContent))
+	if err != nil {
+		return e.extractObjectReferences(msg)
+	}
+
+	var objNames []string
+	for _, stmt := range prog.Statements {
+		if stmt.Object != nil {
+			objNames = append(objNames, stmt.Object.Name)
+		}
+	}
+
+	if len(objNames) == 0 {
+		return nil
+	}
+
+	lowerMsg := strings.ToLower(msg)
+	seen := make(map[string]bool)
+	var matched []string
+
+	for _, name := range objNames {
+		if seen[name] {
+			continue
+		}
+		// Case-insensitive whole-word matching using \b word boundaries
+		pattern := `\b` + regexp.QuoteMeta(name) + `\b`
+		matchedRE, err := regexp.MatchString("(?i)"+pattern, lowerMsg)
+		if err == nil && matchedRE {
+			seen[name] = true
+			matched = append(matched, name)
+		}
+	}
+
+	return matched
 }
 
 // buildToolDefinitions creates typed tool definitions similar to the hardcoded

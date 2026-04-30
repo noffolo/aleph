@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -101,6 +102,23 @@ func contains(s, substr string) bool {
 	return false
 }
 
+// extractClientIP extracts the client IP from the request, checking
+// X-Forwarded-For and X-Real-IP headers before falling back to RemoteAddr.
+func extractClientIP(r *http.Request) string {
+	// Check X-Forwarded-For first (comma-separated list, client is first)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if i := strings.Index(xff, ","); i > 0 {
+			return strings.TrimSpace(xff[:i])
+		}
+		return strings.TrimSpace(xff)
+	}
+	// Fallback to X-Real-IP
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return strings.TrimSpace(xri)
+	}
+	return r.RemoteAddr
+}
+
 func (rl *ipRateLimiter) Close() {
 	close(rl.stopCh)
 }
@@ -114,7 +132,7 @@ func RateLimitMiddleware(config *RateLimitConfig) (func(http.Handler) http.Handl
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := r.RemoteAddr
+			ip := extractClientIP(r)
 			limit, burst, category := rl.limitForPath(r.URL.Path)
 			key := ip + ":" + category
 			limiter := rl.getLimiter(key, limit, burst)

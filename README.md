@@ -116,9 +116,12 @@ Go · Connect RPC
 | Area | Tecnologia |
 |---|---|
 | Backend | Go, Connect RPC |
-| Database / analisi locale | DuckDB |
+| Database / analisi locale | DuckDB + PostgreSQL 16 |
+| VSS (Vector Similarity Search) | DuckDB array_cosine_similarity |
 | Intelligence | Python, ONNX, Prophet, GBM, PyTorch (fallback) |
 | Frontend | React, TypeScript, Vite, Tailwind CSS |
+| Auto-repair engine | Go (7 fix strategies: deprecation, config, caching, timeout, retry, pipeline, validation) |
+| Decision Intelligence | PAORA cycle (Plan → Act → Observe → Reflect → Admit) |
 | Orchestrazione | Docker, Docker Compose |
 
 ---
@@ -202,17 +205,25 @@ docker compose down         # ferma i servizi
 
 ```
 .
-├── frontend/              # Interfaccia web
-├── internal/              # Codice backend Go
-├── nlp/                   # Componenti NLP / intelligence
-├── aleph_tools/           # Strumenti di supporto
-├── docs/                  # Documentazione
-├── migrations/            # Migrazioni dati
-├── .github/               # Workflow GitHub
+├── frontend/              # Interfaccia web React/TypeScript
+├── internal/              # Codice backend Go (33+ package)
+│   ├── api/               # Handler, protobuf, SSE, routes
+│   ├── decision/          # PAORA decision engine
+│   ├── ingestion/         # Data ingestion pipeline (RSS, GitHub, CSV, JSON, sitemap, sheets, email)
+│   ├── memory/            # VSS memory store (DuckDB array_cosine_similarity)
+│   ├── genesis/           # Auto-suggestion engine (Suggester → Sandbox → VetoRegistry)
+│   ├── genesis/           # Gestione suggerimenti tool
+│   ├── repair/            # Auto-repair engine (7 fix strategies)
+│   ├── middleware/        # 8 middleware (auth, audit, CORS, CSRF, rate-limit, timeout, bulkhead, security)
+│   ├── sandbox/           # Esecuzione tool isolata
+│   ├── mcp/               # MCP discovery engine + SSRF protection
+│   └── ...
+├── nlp/                   # Python NLP sidecar (gRPC, ONNX, Prophet, GBM)
+├── migrations/            # DuckDB + PostgreSQL migrazioni
+├── .github/workflows/     # CI (Go + Frontend + Docker) + Security (gitleaks) + Deploy
 ├── Dockerfile
-├── docker-compose.yml
-├── go.mod
-├── main.go
+├── docker-compose.yml     # 4 servizi + Ollama
+├── docs/                  # manuale-tecnico, ARCHITECTURE, release-checklist, ...
 ├── README.md
 ├── SECURITY.md
 └── LICENSE
@@ -235,17 +246,25 @@ Una previsione con alta confidenza non è una garanzia. Una previsione con bassa
 
 ## Stato del progetto
 
-Aleph-v2 è in fase **beta**.
+Aleph-v2 è in fase **produzione**.
 
-Alcune funzionalità possono cambiare. Le API possono essere modificate. L'interfaccia può evolvere. Le analisi prodotte dal sistema devono essere considerate come supporto esplorativo, non come raccomandazioni definitive. Qualsiasi decisione importante richiede giudizio umano.
+| Verifica | Stato |
+|----------|-------|
+| `go build ./...` | ✅ |
+| `go test -race -count=1 ./...` | ✅ (30+ package) |
+| `go vet ./...` | ✅ (solo warning pre-esistenti participle) |
+| `npx tsc --noEmit` | ✅ (0 errori) |
+| `npx vite build` | ✅ (< 3s) |
+| `npx vitest run` | ✅ |
+| `docker compose config` | ✅ |
+| Gitleaks secrets scan | ✅ |
 
-### Roadmap indicativa
+### Roadmap
 
 - stabilizzare le API e i workflow degli agenti
-- migliorare documentazione ed esempi pratici
 - aggiungere dataset e casi d'uso concreti
-- rafforzare test e CI
-- migliorare osservabilità, logging e metriche
+- monitoring e metriche di utilizzo
+- iterare su feedback utente reale
 
 ---
 

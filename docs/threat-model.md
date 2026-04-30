@@ -34,8 +34,7 @@ This document outlines the threat model for the Aleph-v2 sandbox isolation syste
 ### Language-Level Restrictions
 
 #### Go Import Blocklist
-The following Go packages are blocked during AST analysis:
-, os/exec, net, net/http, net/url, net/smtp, net/rpc, syscall, unsafe, reflect
+The following Go packages are blocked during AST analysis: `unsafe`, `reflect`, `os/*`, `io/*`, `crypto/*`, `encoding/*`, `net/*`, `syscall`, `embed`, `plugin`, `os/exec`, `os/signal`.
 
 Implementation: AST-based parsing of Go source code before execution, with fallback to string scanning.
 
@@ -60,7 +59,7 @@ Implementation: Regex pattern matching on Python source code lines.
 - `security_opt: no-new-privileges:true` - Prevent privilege escalation
 
 #### Resource Limits
--env: Environment variables limited to those explicitly allowed
+- Environment variables limited to those explicitly allowed
 
 #### Network Restrictions
 - Default Docker network provides some isolation
@@ -69,7 +68,10 @@ Implementation: Regex pattern matching on Python source code lines.
 ### Runtime Restrictions
 
 #### Timeouts
-.
+- Go sandbox: 60s timeout via `context.WithTimeout`
+- All HTTP fetches: 30s timeout (configured per-source via `RateLimitedClient`)
+- Ollama embedding: 30s timeout (`embedTimeout`)
+- gRPC sidecar health: 3s timeout per check
 
 #### Environment Hardening
 - `PATH=/usr/bin:/bin` - Restricted PATH variable
@@ -77,7 +79,9 @@ Implementation: Regex pattern matching on Python source code lines.
 - Limited environment variables exposed
 
 #### Process Isolation
--
+- `runDynamic()` builds Go code in isolated temp dir, runs as separate process with minimal env vars
+- Python email fetch runs as subprocess inside Docker container with read-only filesystem
+- `security_opt: no-new-privileges:true` prevents privilege escalation
 
 ## Security Testing Verification
 
@@ -114,6 +118,12 @@ See `internal/sandbox/validation_test.go` and `internal/sandbox/exec_sandbox_sec
 
 ## Future Enhancements
 
+### Short-term (Implemented in W7)
+1. CSP: removed `unsafe-inline` from `style-src`, moved all inline styles to CSS files — ✅ done
+2. Rate limiting: `extractClientIP()` with X-Forwarded-For → X-Real-IP → RemoteAddr chain — ✅ done
+3. CSRF: Origin/Referer validation middleware on all non-GET requests — ✅ done
+4. Release gate: `docs/release-checklist.md` with build/security/Docker/CI-CD checks — ✅ done
+
 ### Short-term (Next Release)
 1. Implement `network_mode: none` for complete network isolation
 2. Add disk quotas for `/tmp` tmpfs
@@ -144,8 +154,10 @@ See `internal/sandbox/validation_test.go` and `internal/sandbox/exec_sandbox_sec
 ## Compliance Considerations
 
 ### Data Protection
--
-- 
+- AES-256-GCM encryption for API keys via `KEY_ENCRYPTION_KEY` (mandatory — startup FATAL if missing)
+- Argon2id hashing for API key verification (SHA-256 legacy fallback detected)
+- httpOnly+Secure+SameSite=Strict cookies for session management
+- SSRF protection: DNS-resolving DialContext blocks private IPs/bipass forms 
 
 ### Audit Requirements
 - All sandbox execution attempts logged with validation results

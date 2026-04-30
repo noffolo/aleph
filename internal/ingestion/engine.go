@@ -24,6 +24,7 @@ import (
 
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/dsl"
+	"github.com/ff3300/aleph-v2/internal/ingestion/sources"
 	"github.com/ff3300/aleph-v2/internal/repository"
 	"github.com/ff3300/aleph-v2/internal/ssrf"
 	"github.com/ff3300/aleph-v2/internal/storage"
@@ -86,6 +87,15 @@ type Engine struct {
 	tasks        map[string]*v1.IngestionTask
 	safeClient   *http.Client
 	wg           sync.WaitGroup
+
+	// Lazy-init source ingesters
+	githubIngester  *sources.GitHubIngester
+	sitemapIngester *sources.SitemapIngester
+	jsonapiIngester *sources.JSONAPIIngester
+	sheetsIngester  *sources.SheetsIngester
+
+	// Probe runner for auto-detection (lazy-init)
+	probeRunner *ProbeRunner
 }
 
 // NLPAnalyzer abstracts sentiment analysis for ingestion enrichment.
@@ -148,7 +158,7 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	
 	var taskErr error
 	switch task.SourceType {
-	case "rss", "rest", "github":
+	case "rss", "rest":
 		taskErr = e.runPrecompiled(taskCtx, f, projectID, task)
 	case "url":
 		taskErr = e.runURLFetch(taskCtx, f, projectID, task)
@@ -162,6 +172,14 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 		taskErr = e.runEmailFetch(taskCtx, f, projectID, task)
 	case "custom_code":
 		taskErr = e.runDynamic(taskCtx, f, projectID, task)
+	case "github":
+		taskErr = e.runGitHubSource(taskCtx, f, projectID, task)
+	case "sitemap":
+		taskErr = e.runSitemapSource(taskCtx, f, projectID, task)
+	case "jsonapi":
+		taskErr = e.runJSONAPISource(taskCtx, f, projectID, task)
+	case "sheets":
+		taskErr = e.runSheetsSource(taskCtx, f, projectID, task)
 	default:
 		taskErr = fmt.Errorf("tipo di sorgente sconosciuto: %s", task.SourceType)
 	}
@@ -987,6 +1005,380 @@ if rows:
 	}
 
 	fmt.Fprintf(w, "Email ingestion complete. Table '%s' created.\n", tableName)
+	return nil
+}
+
+// =============================================================================
+// Lazy-init source ingesters
+// =============================================================================
+
+func (e *Engine) getOrCreateGitHubIngester(task *v1.IngestionTask) *sources.GitHubIngester {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.githubIngester != nil {
+		return e.githubIngester
+	}
+	var config struct {
+		Token string `json:"token"`
+	}
+	json.Unmarshal([]byte(task.ConfigJson), &config)
+	e.githubIngester = sources.NewGitHubIngester(config.Token)
+	return e.githubIngester
+}
+
+func (e *Engine) getOrCreateSitemapIngester() *sources.SitemapIngester {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.sitemapIngester != nil {
+		return e.sitemapIngester
+	}
+	e.sitemapIngester = sources.NewSitemapIngester()
+	return e.sitemapIngester
+}
+
+func (e *Engine) getOrCreateJSONAPIIngester() *sources.JSONAPIIngester {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.jsonapiIngester != nil {
+		return e.jsonapiIngester
+	}
+	e.jsonapiIngester = sources.NewJSONAPIIngester()
+	return e.jsonapiIngester
+}
+
+func (e *Engine) getOrCreateSheetsIngester(task *v1.IngestionTask) *sources.SheetsIngester {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.sheetsIngester != nil {
+		return e.sheetsIngester
+	}
+	var config struct {
+		APIKey string `json:"api_key"`
+	}
+	json.Unmarshal([]byte(task.ConfigJson), &config)
+	e.sheetsIngester = sources.NewSheetsIngester(config.APIKey)
+	return e.sheetsIngester
+}
+
+func (e *Engine) getOrCreateProbeRunner() *ProbeRunner {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.probeRunner != nil {
+		return e.probeRunner
+	}
+	e.probeRunner = NewProbeRunner(nil)
+	return e.probeRunner
+}
+
+// =============================================================================
+// GitHub source ingestion
+// =============================================================================
+
+func (e *Engine) runGitHubSource(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
+	var config struct {
+		Owner string `json:"owner"`
+		Repo  string `json:"repo"`
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
+		return fmt.Errorf("github config JSON non valido: %w", err)
+	}
+	if config.Owner == "" || config.Repo == "" {
+		return fmt.Errorf("github config richiede owner e repo")
+	}
+
+	fmt.Fprintf(w, "GitHub: fetching %s/%s\n", config.Owner, config.Repo)
+	e.updateProgress(task.Id, 10, "running")
+
+	ingester := e.getOrCreateGitHubIngester(task)
+	results, err := ingester.FetchAll(ctx, config.Owner, config.Repo)
+	if err != nil {
+		return fmt.Errorf("github fetch %s/%s: %w", config.Owner, config.Repo, err)
+	}
+
+	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
+	os.MkdirAll(projectPath, 0755)
+
+	for _, kind := range []string{"issues", "pulls", "commits"} {
+		data, ok := results[kind]
+		if !ok || len(data) == 0 {
+			fmt.Fprintf(w, "Nessun dato per %s\n", kind)
+			continue
+		}
+
+		tableName := task.Id + "_" + kind
+		tableName = strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(tableName, "_"))
+		if err := validateSQLName(tableName); err != nil {
+			fmt.Fprintf(w, "Warning: skip %s: %v\n", kind, err)
+			continue
+		}
+
+		jsonPath := filepath.Join(projectPath, tableName+".json")
+		if err := os.WriteFile(jsonPath, data, 0644); err != nil {
+			return fmt.Errorf("scrittura %s fallita: %w", kind, err)
+		}
+
+		createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_json_auto('%s', ignore_errors=true)`,
+			tableName, strings.ReplaceAll(jsonPath, "'", "''"))
+		if _, err := e.db.Exec(createSQL); err != nil {
+			fmt.Fprintf(w, "Warning: creazione tabella %s fallita: %v\n", tableName, err)
+		} else {
+			fmt.Fprintf(w, "Tabella \"%s\" creata (%d bytes)\n", tableName, len(data))
+		}
+	}
+
+	e.updateProgress(task.Id, 100, "completed")
+	fmt.Fprintf(w, "GitHub ingestion completa per %s/%s\n", config.Owner, config.Repo)
+	return nil
+}
+
+// =============================================================================
+// Sitemap source ingestion
+// =============================================================================
+
+func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
+	var config struct {
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
+		return fmt.Errorf("sitemap config JSON non valido: %w", err)
+	}
+	if config.URL == "" {
+		return fmt.Errorf("sitemap config richiede url")
+	}
+
+	fmt.Fprintf(w, "Sitemap: crawling %s\n", config.URL)
+	e.updateProgress(task.Id, 10, "running")
+
+	ingester := e.getOrCreateSitemapIngester()
+	crawlResult, err := ingester.CrawlSitemap(ctx, config.URL)
+	if err != nil {
+		return fmt.Errorf("sitemap crawl %s: %w", config.URL, err)
+	}
+
+	fmt.Fprintf(w, "Trovate %d pagine\n", len(crawlResult.URLs))
+
+	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
+	os.MkdirAll(projectPath, 0755)
+
+	type pageRow struct {
+		URL     string `json:"url"`
+		Status  int    `json:"status"`
+		Size    int64  `json:"size"`
+		Content string `json:"content"`
+	}
+
+	rows := make([]pageRow, 0, len(crawlResult.URLs))
+	for _, p := range crawlResult.URLs {
+		contentStr := ""
+		if p.Content != nil {
+			contentStr = string(p.Content)
+		}
+		rows = append(rows, pageRow{
+			URL:     p.URL,
+			Status:  p.Status,
+			Size:    p.Size,
+			Content: contentStr,
+		})
+	}
+
+	tableName := task.Id
+	if err := validateSQLName(tableName); err != nil {
+		tableName = "sitemap_" + computeChecksum([]byte(task.Id))[:16]
+	}
+	if err := validateSQLName(tableName); err != nil {
+		return fmt.Errorf("invalid table name for sitemap: %w", err)
+	}
+
+	jsonData, err := json.Marshal(rows)
+	if err != nil {
+		return fmt.Errorf("marshal sitemap rows: %w", err)
+	}
+
+	jsonPath := filepath.Join(projectPath, tableName+".json")
+	if err := os.WriteFile(jsonPath, jsonData, 0644); err != nil {
+		return fmt.Errorf("scrittura sitemap JSON fallita: %w", err)
+	}
+
+	createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_json_auto('%s', ignore_errors=true)`,
+		tableName, strings.ReplaceAll(jsonPath, "'", "''"))
+	if _, err := e.db.Exec(createSQL); err != nil {
+		return fmt.Errorf("creazione tabella sitemap fallita: %w", err)
+	}
+
+	e.updateProgress(task.Id, 100, "completed")
+	fmt.Fprintf(w, "Sitemap ingestion completa. Tabella \"%s\" (%d righe)\n", tableName, len(rows))
+	return nil
+}
+
+// =============================================================================
+// JSON API source ingestion
+// =============================================================================
+
+func (e *Engine) runJSONAPISource(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
+	var config struct {
+		URL            string `json:"url"`
+		PaginationType string `json:"pagination"`
+		PageParam      string `json:"pageParam"`
+		LimitParam     string `json:"limitParam"`
+		Limit          int    `json:"limit"`
+		DataPath       string `json:"dataPath"`
+		MaxPages       int    `json:"maxPages"`
+		AutoDetect     bool   `json:"autoDetect"`
+	}
+	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
+		return fmt.Errorf("jsonapi config JSON non valido: %w", err)
+	}
+	if config.URL == "" {
+		return fmt.Errorf("jsonapi config richiede url")
+	}
+
+	fmt.Fprintf(w, "JSON API: fetching %s\n", config.URL)
+	e.updateProgress(task.Id, 10, "running")
+
+	ingester := e.getOrCreateJSONAPIIngester()
+
+	// If autoDetect or missing pagination type, use ProbeRunner to classify
+	if config.AutoDetect || config.PaginationType == "" {
+		probe := e.getOrCreateProbeRunner()
+		probeResult, err := probe.Probe(ctx, config.URL)
+		if err != nil {
+			fmt.Fprintf(w, "Warning: probe fallito: %v — proseguo con configurazione di default\n", err)
+		} else {
+			fmt.Fprintf(w, "Probe: rilevato tipo %q, paginazione %q\n", probeResult.SourceType(), probeResult.Pagination().Type)
+			if probeResult.SourceType() == "sitemap" || probeResult.SourceType() == "rss" {
+				fmt.Fprintf(w, "Probe ha rilevato sitemap/rss, ma il task è jsonapi — procedo comunque con il JSON\n")
+			}
+			if config.PaginationType == "" && probeResult.Pagination().Type != "none" && probeResult.Pagination().Type != "" {
+				switch probeResult.Pagination().Type {
+				case "offset", "page", "cursor":
+					config.PaginationType = probeResult.Pagination().Type
+					if config.PageParam == "" {
+						config.PageParam = probeResult.Pagination().PageParam
+					}
+					if config.LimitParam == "" {
+						config.LimitParam = probeResult.Pagination().LimitParam
+					}
+				}
+			}
+		}
+	}
+
+	apiCfg := sources.APIConfig{
+		BaseURL:        config.URL,
+		PaginationType: config.PaginationType,
+		PageParam:      config.PageParam,
+		LimitParam:     config.LimitParam,
+		Limit:          config.Limit,
+		DataPath:       config.DataPath,
+		MaxPages:       config.MaxPages,
+	}
+	if apiCfg.Limit <= 0 {
+		apiCfg.Limit = 100
+	}
+
+	// Auto-detect DataPath if not configured
+	if apiCfg.DataPath == "" {
+		probeCfg, err := ingester.DetectConfig(ctx, config.URL)
+		if err == nil && probeCfg != nil {
+			apiCfg.DataPath = probeCfg.DataPath
+			if apiCfg.PaginationType == "" {
+				apiCfg.PaginationType = probeCfg.PaginationType
+			}
+			if apiCfg.PageParam == "" {
+				apiCfg.PageParam = probeCfg.PageParam
+			}
+			if apiCfg.LimitParam == "" {
+				apiCfg.LimitParam = probeCfg.LimitParam
+			}
+			fmt.Fprintf(w, "Auto-rilevato: dataPath=%q pagination=%q\n", apiCfg.DataPath, apiCfg.PaginationType)
+		}
+	}
+
+	data, err := ingester.FetchAll(ctx, apiCfg)
+	if err != nil {
+		return fmt.Errorf("jsonapi fetch %s: %w", config.URL, err)
+	}
+
+	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
+	os.MkdirAll(projectPath, 0755)
+
+	tableName := task.Id
+	if err := validateSQLName(tableName); err != nil {
+		return fmt.Errorf("invalid table name for jsonapi: %w", err)
+	}
+
+	jsonPath := filepath.Join(projectPath, tableName+".json")
+	if err := os.WriteFile(jsonPath, data, 0644); err != nil {
+		return fmt.Errorf("scrittura JSON fallita: %w", err)
+	}
+
+	createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_json_auto('%s', ignore_errors=true)`,
+		tableName, strings.ReplaceAll(jsonPath, "'", "''"))
+	if _, err := e.db.Exec(createSQL); err != nil {
+		return fmt.Errorf("creazione tabella jsonapi fallita: %w", err)
+	}
+
+	e.updateProgress(task.Id, 100, "completed")
+	fmt.Fprintf(w, "JSON API ingestion completa. Tabella \"%s\"\n", tableName)
+	return nil
+}
+
+// =============================================================================
+// Google Sheets source ingestion
+// =============================================================================
+
+func (e *Engine) runSheetsSource(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
+	var config struct {
+		SpreadsheetID string `json:"spreadsheet_id"`
+		APIKey        string `json:"api_key"`
+		SheetRange    string `json:"range"`
+	}
+	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
+		return fmt.Errorf("sheets config JSON non valido: %w", err)
+	}
+	if config.SpreadsheetID == "" {
+		return fmt.Errorf("sheets config richiede spreadsheet_id")
+	}
+
+	fmt.Fprintf(w, "Sheets: fetching spreadsheet %s\n", config.SpreadsheetID)
+	e.updateProgress(task.Id, 10, "running")
+
+	ingester := e.getOrCreateSheetsIngester(task)
+
+	// Fetch metadata for all sheets first
+	allSheets, err := ingester.FetchAllSheets(ctx, config.SpreadsheetID)
+	if err != nil {
+		return fmt.Errorf("sheets fetch %s: %w", config.SpreadsheetID, err)
+	}
+
+	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
+	os.MkdirAll(projectPath, 0755)
+
+	for sheetName, data := range allSheets {
+		tableName := task.Id + "_" + sheetName
+		tableName = strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(tableName, "_"))
+		if err := validateSQLName(tableName); err != nil {
+			fmt.Fprintf(w, "Warning: skip sheet %q: %v\n", sheetName, err)
+			continue
+		}
+
+		jsonPath := filepath.Join(projectPath, tableName+".json")
+		if err := os.WriteFile(jsonPath, data, 0644); err != nil {
+			return fmt.Errorf("scrittura sheet %q fallita: %w", sheetName, err)
+		}
+
+		createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_json_auto('%s', ignore_errors=true)`,
+			tableName, strings.ReplaceAll(jsonPath, "'", "''"))
+		if _, err := e.db.Exec(createSQL); err != nil {
+			fmt.Fprintf(w, "Warning: creazione tabella %s fallita: %v\n", tableName, err)
+		} else {
+			fmt.Fprintf(w, "Tabella \"%s\" creata da sheet %q\n", tableName, sheetName)
+		}
+	}
+
+	e.updateProgress(task.Id, 100, "completed")
+	fmt.Fprintf(w, "Sheets ingestion completa per %s (%d sheet)\n", config.SpreadsheetID, len(allSheets))
 	return nil
 }
 

@@ -20,13 +20,13 @@ cd aleph-v2
 
 ### 2. Environment Configuration
 
-Create your local environment file:
-
 ```bash
 cp .env.example .env
+# REQUIRED: set KEY_ENCRYPTION_KEY
+echo "KEY_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
 ```
 
-Edit `.env` with your configuration values.
+Edit `.env` with your configuration values. `KEY_ENCRYPTION_KEY` is mandatory — `LoadConfig()` returns FATAL if missing.
 
 ### 3. Install Dependencies
 
@@ -37,7 +37,7 @@ go mod download
 
 **Frontend:**
 ```bash
-npm install
+cd frontend && npm install
 ```
 
 ### 4. Start Development Environment
@@ -56,20 +56,32 @@ This starts both backend and frontend with hot reload enabled.
 go build ./...
 ```
 
-Run tests:
+Run tests with race detection:
 ```bash
-go test ./...
+go test -race -count=1 ./...
+```
+
+Run vet:
+```bash
+go vet ./...
 ```
 
 ### Frontend
 
 ```bash
-npm run build
+cd frontend && npx vite build
 ```
 
 Run tests:
 ```bash
-npx playwright test
+cd frontend && npx vitest run && npx tsc --noEmit
+```
+
+### Docker
+
+```bash
+docker compose config   # validate YAML
+docker compose build    # build all services
 ```
 
 ## Development Workflow
@@ -79,10 +91,50 @@ npx playwright test
 - **Frontend:** `http://localhost:5173`
 - **Backend API:** `http://localhost:8080`
 - **API Documentation:** `http://localhost:8080/swagger.json`
+- **PostgreSQL:** `localhost:5432`
+- **Ollama:** `localhost:11434`
 
 ### Hot Reload
 
-The `make dev` command enables hot reload for both backend and frontend during development.
+- Backend: Air (`.air.toml`) — `make dev` triggers rebuild on file changes
+- Frontend: Vite HMR — instant hot module replacement
+
+## Testing
+
+### Go Tests
+
+```bash
+# All tests with race detector
+go test -race -count=1 ./...
+
+# Specific package
+go test -race -count=1 ./internal/middleware/...
+
+# Single test
+go test -race -count=1 -run TestCSRF ./internal/middleware/
+
+# Integration tests (require DuckDB + PostgreSQL)
+go test -count=1 ./internal/integration/...
+```
+
+### Frontend Tests
+
+```bash
+# Vitest (unit + integration)
+cd frontend && npx vitest run
+
+# TypeScript type check (no emit)
+cd frontend && npx tsc --noEmit
+
+# E2E (Playwright) — requires built frontend
+cd frontend && npx playwright test
+```
+
+### Python NLP Tests
+
+```bash
+cd nlp && python3 -m pytest tests/ -v
+```
 
 ## Coding Standards
 
@@ -90,32 +142,30 @@ The `make dev` command enables hot reload for both backend and frontend during d
 
 - Format code with `go fmt` before committing
 - Run `go vet` for static analysis
-- Follow Go best practices and standard library conventions
-- Use meaningful variable and function names
-- Document public APIs with godoc comments
+- Document exported symbols with godoc comments
+- Use `%w` for error wrapping
+- Parameterize all SQL queries — never use `fmt.Sprintf` for user input
 
 ### TypeScript
 
-- Strict mode enabled in `tsconfig.json`
-- No implicit `any` types
-- Use TypeScript interfaces for API contracts
-- Follow React best practices (functional components, hooks)
-- Run `npm run lint` before committing
+- Strict mode in `tsconfig.json`
+- No `as any` in production code (tests: 75 as any for Zustand mocks; prod: 16 allowed in D3 callbacks)
+- Use Zod schemas for runtime validation
+- Prefer Zustand over prop drilling for global state
 
 ### CSS/Tailwind
 
-- Use Tailwind utility classes for styling
-- Follow the design token system (see `docs/`)
-- Maintain dark palette `#080810` as base
-- Use CSS variables for theme values
+- Prefer Tailwind utility classes
+- CSS variables for theme values (see `design-tokens.json`)
+- Dark palette `#080810` as background base
+- Volatility layers: `.vol-static`, `.vol-structural`, `.vol-interactive`, `.vol-signal`
 
 ## Pull Request Process
 
 ### 1. Branch from Main
 
 ```bash
-git checkout main
-git pull
+git checkout main && git pull
 git checkout -b feature/your-feature-name
 ```
 
@@ -123,11 +173,11 @@ git checkout -b feature/your-feature-name
 
 - Keep changes focused and atomic
 - Write tests for new functionality
-- Update documentation as needed
+- Run full test suite before pushing: `go test -race -count=1 ./... && cd frontend && npx vitest run && npx tsc --noEmit`
 
 ### 3. Commit Messages
 
-Use [Conventional Commits](https://www.conventionalcommits.org/) format:
+Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 feat: add tool suggestion endpoint
@@ -136,37 +186,16 @@ docs: update API reference
 refactor: extract SSE broker logic
 ```
 
-Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
-
-### 4. Squash Commits
-
-Before merging, squash related commits into logical units:
-
-```bash
-git rebase -i main
-```
-
-### 5. Create Pull Request
+### 4. Create Pull Request
 
 - Push your branch: `git push origin feature/your-feature-name`
-- Open a PR on GitHub
-- Fill out the PR template
+- Ensure CI checks pass (Go + Frontend + Docker)
 - Request review from maintainers
-
-### 6. Review Process
-
-- Address review feedback
-- Ensure CI checks pass
-- Maintain code quality standards
 
 ## Architecture Overview
 
-For architecture details, see:
-
+For architecture details:
 - [`AGENTS.md`](../AGENTS.md) — Agent system and workflow
 - [`docs/API.md`](./API.md) — API reference
 - [`docs/CHANGELOG.md`](./CHANGELOG.md) — Release history
-
-## Questions?
-
-Open an issue for clarification on any aspect of development.
+- [`docs/manuale-tecnico.md`](./manuale-tecnico.md) — Full technical manual (Italian)

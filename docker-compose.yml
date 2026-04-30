@@ -29,6 +29,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: aleph-ollama
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 2 && ollama pull llama3 && ollama pull nomic-embed-text && wait"]
     ports:
       - "11434:11434"
     volumes:
@@ -62,7 +63,7 @@ services:
       start_period: 10s
       retries: 3
     depends_on:
-      aleph-backend:
+      aleph-db:
         condition: service_started
 
   aleph-frontend:

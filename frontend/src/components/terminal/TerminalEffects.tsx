@@ -73,24 +73,6 @@ export const TerminalEffects: React.FC<{ className?: string }> = ({
         />
       )}
 
-      <style>{`
-        @keyframes scanline-scroll {
-          0% { background-position: 0 0; }
-          100% { background-position: 0 12px; }
-        }
-        @keyframes flicker {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.97; }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slideInRight {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      `}</style>
     </div>
   )
 }

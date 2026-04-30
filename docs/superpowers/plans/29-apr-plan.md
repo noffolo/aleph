@@ -133,66 +133,66 @@ git tag checkpoint/wave-{W}
 
 ---
 
-### Wave 1 — Fix Infrastructure + Security Criticals (10-12h)
+### Wave 1 — Fix Infrastructure + Security Criticals (10-12h) ✅ COMPLETATA
 *Test funzionanti + security critiche. Tutti i P0 fixati.*
 
-| ID | Cosa | Dove | Stima |
-|----|------|------|-------|
-| W1-01 | Fix NLP healthcheck port 50051→8001 | `nlp/Dockerfile:21`, `docker-compose.yml:42` | 5min |
-| W1-02 | Fix vitest failures (3 tests, i18n IT) | `frontend/src/` test files | 1h |
-| W1-03 | Fix TS typecheck — yjs come devDep | `frontend/package.json` | 30min |
-| W1-04 | SQL injection — parameterize 5 vettori (con whitelist per DDL) | `query.go`, `engine.go`, `compiler.go` | 4h |
-| W1-05 | Code execution — bloccare unsafe/reflect/os/io/crypto/encoding | `engine.go blockedImports` | 1h |
-| W1-06 | API key — sessionStorage → httpOnly cookie | `frontend/src/store/authSlice.ts` | 2h |
-| W1-07 | SHA-256 → argon2 con sale | `internal/handler/auth.go` | 1.5h |
-| W1-08 | KEY_ENCRYPTION_KEY enforced in config validation | `internal/config/config.go` | 30min |
-| W1-09 | **SSRF fail-closed + dedup** — unificare due meccanismi in `internal/ssrf/validator.go` | `engine.go Transport` + `blockSSRF` | 2h |
-| W1-10 | **Email credential leak** — fix tmpdir Python script | `ingestion/engine.go runEmailFetch` | 1h |
+| ID | Cosa | Dove | Stima | Stato |
+|----|------|------|-------|-------|
+| W1-01 | Fix NLP healthcheck port 50051→8001 | `nlp/Dockerfile:21`, `docker-compose.yml:42` | 5min | ✅ |
+| W1-02 | Fix vitest failures (3 tests, i18n IT) | `frontend/src/` test files | 1h | ✅ |
+| W1-03 | Fix TS typecheck — yjs come devDep | `frontend/package.json` | 30min | ✅ |
+| W1-04 | SQL injection — parameterize 5 vettori (con whitelist per DDL) | `query.go`, `engine.go`, `compiler.go` | 4h | ✅ |
+| W1-05 | Code execution — bloccare unsafe/reflect/os/io/crypto/encoding | `engine.go blockedImports` | 1h | ✅ |
+| W1-06 | API key — sessionStorage → httpOnly cookie | `frontend/src/store/authSlice.ts` | 2h | ✅ |
+| W1-07 | SHA-256 → argon2 con sale | `internal/handler/auth.go` | 1.5h | ✅ |
+| W1-08 | KEY_ENCRYPTION_KEY enforced in config validation | `internal/config/config.go` | 30min | ✅ |
+| W1-09 | **SSRF fail-closed + dedup** — unificare due meccanismi in `internal/ssrf/validator.go` | `engine.go Transport` + `blockSSRF` | 2h | ✅ |
+| W1-10 | **Email credential leak** — fix tmpdir Python script | `ingestion/engine.go runEmailFetch` | 1h | ✅ |
 
 ---
 
-### Wave 1.5 — LLM Wiring + Infrastructure (4-5h) [NUOVA]
+### Wave 1.5 — LLM Wiring + Infrastructure (4-5h) ✅ COMPLETATA
 *Prerequisito per W2, W3, W4. LLM Provider attualmente nil.*
 
-| ID | Cosa | Dove | Stima |
-|----|------|------|-------|
-| W1.5-01 | Wire `llm.Provider` non-nil a DecisionEngine e handlers | `internal/app/app.go:226` | 1.5h |
-| W1.5-02 | **Ollama service** in docker-compose.yml (model download + healthcheck) | `docker-compose.yml` | 30min |
-| W1.5-03 | DuckDB VSS capability test + fallback strategy document | `internal/storage/duckdb.go` | 1h |
-| W1.5-04 | **Usage tracking subsystem**: middleware che intercetta tool calls → DuckDB | `internal/service/tracker/` | 2h |
+| ID | Cosa | Dove | Stima | Stato |
+|----|------|------|-------|-------|
+| W1.5-01 | Wire `llm.Provider` non-nil a DecisionEngine e handlers | `internal/app/app.go:226` | 1.5h | ✅ |
+| W1.5-02 | **Ollama service** in docker-compose.yml (model download + healthcheck) | `docker-compose.yml` | 30min | ✅ |
+| W1.5-03 | DuckDB VSS capability test + fallback strategy document | `internal/storage/duckdb.go` | 1h | ✅ |
+| W1.5-04 | **Usage tracking subsystem**: middleware che intercetta tool calls → DuckDB | `internal/service/tracker/` | 2h | ✅ |
 
 ---
 
-### Wave 2A — Ontology: Types + API Contract (4-5h) [SPLITTO DA W2]
+### Wave 2A — Ontology: Types + API Contract (4-5h) ✅ COMPLETATA
 *Prima di toccare codice ontology: definire tipi e protocollo.*
 
-| ID | Cosa | Dove | Stima |
-|----|------|------|-------|
-| W2A-01 | Definire `OntologySuggestion`, `Relationship`, `NegotiationState` types | `internal/dsl/ontology_types.go` | 1.5h |
-| W2A-02 | Protobuf per `ProposeOntologyDiff`, `AcceptDiff`, `RejectDiff`, `ListVersions` | `api/ontology.proto` | 1.5h |
-| W2A-03 | DB schema per ontology versioning (DuckDB o filesystem versionato) | `internal/repository/ontology.go` | 1.5h |
+| ID | Cosa | Dove | Stima | Stato |
+|----|------|------|-------|-------|
+| W2A-01 | Definire `OntologySuggestion`, `Relationship`, `NegotiationState` types | `internal/dsl/ontology_types.go` | 1.5h | ✅ |
+| W2A-02 | Protobuf per `ProposeOntologyDiff`, `AcceptDiff`, `RejectDiff`, `ListVersions` | `api/ontology.proto` | 1.5h | ✅ |
+| W2A-03 | DB schema per ontology versioning (DuckDB o filesystem versionato) | `internal/repository/ontology.go` | 1.5h | ✅ |
 
 ---
 
-### Wave 2B — Ontology: LLM Emerge + Relationship Detection (7-8h)
+### Wave 2B — Ontology: LLM Emerge + Relationship Detection (7-8h) ✅ COMPLETATA
 *Dipende da W1.5 (LLM wired). Prompt convergence con 3 test case.*
 
-| ID | Cosa | Dettaglio | Stima |
-|----|------|-----------|-------|
-| W2B-01 | **LLM Emerge** — prompt: descrivi sorgente → oggetti + relazioni. 3 test case per convergenza. | `project.go` | 4h |
-| W2B-02 | **Relationship detection** — FK inference, name matching, content overlap | `project.go` | 3h |
-| W2B-03 | **DSL compiler fix** — read_parquet() → DuckDB views | `dsl/compiler.go` | 1.5h |
+| ID | Cosa | Dettaglio | Stima | Stato |
+|----|------|-----------|-------|-------|
+| W2B-01 | **LLM Emerge** — prompt: descrivi sorgente → oggetti + relazioni. 3 test case per convergenza. | `project.go` | 4h | ✅ |
+| W2B-02 | **Relationship detection** — FK inference, name matching, content overlap | `project.go` | 3h | ✅ |
+| W2B-03 | **DSL compiler fix** — read_parquet() → DuckDB views | `dsl/compiler.go` | 1.5h | ✅ |
 
 ---
 
-### Wave 2C — Ontology: Negotiation + Frontend (8-10h)
+### Wave 2C — Ontology: Negotiation + Frontend (8-10h) ✅ COMPLETATA
 *Dipende da W2A (types, proto, DB schema).*
 
-| ID | Cosa | Dettaglio | Stima |
-|----|------|-----------|-------|
-| W2C-01 | **Negotiation API backend** — accept/reject/modify handlers + version storage | `internal/handler/ontology.go` | 3h |
-| W2C-02 | **Ontology frontend** — diff viewer, accept/reject UI, version picker | `OntologyView.tsx` | 5h |
-| W2C-03 | Integration test: emerge → propose → accept → verify view | E2E test | 1.5h |
+| ID | Cosa | Dettaglio | Stima | Stato |
+|----|------|-----------|-------|-------|
+| W2C-01 | **Negotiation API backend** — accept/reject/modify handlers + version storage | `internal/handler/ontology.go` | 3h | ✅ |
+| W2C-02 | **Ontology frontend** — diff viewer, accept/reject UI, version picker | `OntologyView.tsx` | 5h | ✅ |
+| W2C-03 | Integration test: emerge → propose → accept → verify view | E2E test | 1.5h | ✅ |
 
 ---
 

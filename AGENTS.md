@@ -1,10 +1,12 @@
 # AGENTS.md — Aleph-v2 Agent Map
 
-## Current Status (27 Apr 2026)
+## Current Status (30 Apr 2026)
 
-- W0-W6: Complete (W0-W3 100%, W4-W5 100%, W6 80%)
-- Residual: ERR ✅ A11Y ✅ PERF ✅ DEPLOY ⏳ DOCS ⏳
-- Build: go build ✅ | vite build ✅
+- **W0-W7: Complete** — All waves implemented and verified
+- Build: `go build ./...` ✅ | `go test -race -count=1 ./...` ✅ | `go vet ./...` ✅
+- Frontend: `npx tsc --noEmit` ✅ | `npx vite build` ✅ | `npx vitest run` ✅
+- CI: GitHub Actions (Go + Frontend + Docker) | Security (gitleaks) | Deploy (tag-triggered)
+- Docker: `docker compose config` ✅ with Ollama, PostgreSQL, NLP sidecar
 
 ## Build Agents
 - **Sisyphus** (orchestrator) — Delegates work, verifies builds, ships waves
@@ -26,5 +28,5 @@ User Request → Sisyphus (classify + decompose) → Parallel subagents → Veri
 ```
 
 ## State Files
-- `plans/` — Execution plans
+- `.sisyphus/plans/` — Execution plans
 - `docs/` — Architecture, security, evaluation documents

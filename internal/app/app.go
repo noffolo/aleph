@@ -193,6 +193,8 @@ func (a *AlephApp) Serve(port int) error {
 	registryMgr, _ := registry.NewDuckDBRegistryFromDuckDB(a.db, a.logger)
 	queryHandler := handler.NewQueryHandler(a.db, projectsRoot, a.metaRepo, a.nlpHandler, registryMgr)
 	projectHandler := handler.NewProjectHandler(projectsRoot, a.db)
+	ontoRepo := repository.NewOntologyRepository(a.pg.DB())
+	projectHandler.SetOntologyRepository(ontoRepo)
 	agentHandler := handler.NewAgentHandler(projectsRoot, a.metaRepo, a.cfg.OllamaBaseURL)
 	skillHandler := handler.NewSkillHandler(projectsRoot, a.metaRepo)
 	toolHandler := handler.NewToolHandler(projectsRoot, a.metaRepo)
@@ -247,6 +249,8 @@ func (a *AlephApp) Serve(port int) error {
 
 	decisionEngine := decision.NewEngine(engineCfg)
 
+	projectHandler.SetLLMProvider(engineCfg.Provider)
+
 	queryHandler.SetDecisionEngine(decisionEngine, helperExec)
 
 	// ── Tool Suggestion Pipeline ──────────────────────────────────────────────
@@ -288,7 +292,8 @@ func (a *AlephApp) Serve(port int) error {
 	corsHandler := routes.CORSHandler(mux, a.cfg.CORSAllowedOrigins, a.logger)
 	telemetryHandler := telemetry.Middleware(corsHandler)
 	recoveryHandler := middleware.Recovery(telemetryHandler)
-	secureHandler := middleware.SecurityHeaders(recoveryHandler)
+	csrfHandler := middleware.CSRFProtection(a.cfg.CORSAllowedOrigins)(recoveryHandler)
+	secureHandler := middleware.SecurityHeaders(csrfHandler)
 	ridHandler := middleware.RequestID(secureHandler)
 
 	rateLimitCfg := middleware.RateLimitConfig{

@@ -14,7 +14,7 @@ func SecurityHeaders(next http.Handler) http.Handler {
 
 		csp := "default-src 'self'; " +
 			"script-src 'self'; " +
-			"style-src 'self' 'unsafe-inline'; " +
+			"style-src 'self'; " +
 			"img-src 'self' data:; " +
 			"font-src 'self'; " +
 			"connect-src 'self' ws://localhost:*;"

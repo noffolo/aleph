@@ -32,6 +32,12 @@ export interface WorkspaceSlice {
   setIngestionTasks: (t: IngestionTask[]) => void
   ontologyRaw: string
   setOntologyRaw: (o: string) => void
+  ontologyVersions: any[]
+  setOntologyVersions: (v: any[]) => void
+  selectedVersionId: string | null
+  setSelectedVersionId: (id: string | null) => void
+  isVersionHistoryOpen: boolean
+  setVersionHistoryOpen: (open: boolean) => void
   availableObjects: string[]
   setAvailableObjects: (o: string[]) => void
   taskLogs: string
@@ -65,6 +71,12 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set) => {
     setIngestionTasks: (t) => set({ ingestionTasks: t }),
     ontologyRaw: '',
     setOntologyRaw: (o) => set({ ontologyRaw: o }),
+    ontologyVersions: [],
+    setOntologyVersions: (v) => set({ ontologyVersions: v }),
+    selectedVersionId: null,
+    setSelectedVersionId: (id) => set({ selectedVersionId: id }),
+    isVersionHistoryOpen: false,
+    setVersionHistoryOpen: (open) => set({ isVersionHistoryOpen: open }),
     availableObjects: [],
     setAvailableObjects: (o) => set({ availableObjects: o }),
     taskLogs: '',

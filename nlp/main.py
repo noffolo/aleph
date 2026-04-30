@@ -11,6 +11,9 @@ import sys
 import signal
 import time
 import hashlib
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [NLP] %(levelname)s %(message)s')
 
 import nlp_pb2
 import nlp_pb2_grpc
@@ -77,7 +80,7 @@ def load_history_from_duckdb(context_id, duckdb_path):
         df = df.dropna(subset=["ds", "y"])
         return df
     except Exception as e:
-        print(f"[NLP] DuckDB read failed: {e}")
+        logging.warning("DuckDB read failed: %s", e)
         return None
 
 
@@ -113,19 +116,19 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
         try:
             if not os.path.exists(model_dir):
                 raise FileNotFoundError("ONNX model directory not found")
-            print(f"[NLP] Loading ONNX model from {model_dir}...")
+            logging.info("Loading ONNX model from %s...", model_dir)
             self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
             self.model = ORTModelForFeatureExtraction.from_pretrained(model_dir)
             self.is_onnx = True
         except Exception as e:
-            print(f"[NLP] ONNX loading failed ({e}), falling back to PyTorch...")
+            logging.warning("ONNX loading failed (%s), falling back to PyTorch...", e)
             try:
                 self.tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
                 from transformers import AutoModel
                 self.model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
                 self.is_onnx = False
             except Exception as e2:
-                print(f"[NLP] PyTorch loading also failed ({e2}). Model unavailable.")
+                logging.error("PyTorch loading also failed (%s). Model unavailable.", e2)
                 self.model = None
                 self.is_onnx = False
 
@@ -133,7 +136,7 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
         self.ensemble = PredictiveEnsemble()
         self.markets = MarketPredictor()
         self.duckdb_path = DUCKDB_PATH
-        print("[NLP] Ensemble (Prophet/GBM) and Market Predictor loaded.")
+        logging.info("Ensemble (Prophet/GBM) and Market Predictor loaded.")
 
     def AnalyzeSentiment(self, request, context):
         text = request.text
@@ -145,7 +148,7 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
         return nlp_pb2.AnalyzeSentimentResponse(score=score_norm, label=label)
 
     def RecordFeedback(self, request, context):
-        print(f"[NLP] Feedback received for {request.entity_id}: Correct={request.is_correct}")
+        logging.info("Feedback received for %s: Correct=%s", request.entity_id, request.is_correct)
         log_dir = os.path.dirname(os.path.abspath("feedback_log.jsonl"))
         os.makedirs(log_dir, exist_ok=True)
         try:
@@ -157,13 +160,13 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
                     "timestamp": time.time()
                 }) + "\n")
         except IOError as e:
-            print(f"[NLP] Failed to write feedback log: {e}")
+            logging.error("Failed to write feedback log: %s", e)
         return nlp_pb2.RecordFeedbackResponse(success=True)
 
     def StreamPredictions(self, request, context):
         context_id = request.context_id
         ontology_query = request.ontology_query
-        print(f"[NLP] Generating Scenario Proposals for: {context_id}, query: {ontology_query}")
+        logging.info("Generating Scenario Proposals for: %s, query: %s", context_id, ontology_query)
         try:
             market_prob = None
             if context_id:
@@ -206,7 +209,7 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
                 is_synthetic=is_synthetic
             )
         except Exception as e:
-            print(f"[NLP] StreamPredictions error: {e}")
+            logging.error("StreamPredictions error: %s", e)
             yield nlp_pb2.StreamPredictionsResponse(
                 entity_id="ERROR",
                 probability=0.0,
@@ -245,7 +248,7 @@ def serve():
     )
 
     def handle_shutdown(signum, frame):
-        print(f"Received signal {signum}, shutting down gracefully...")
+        logging.info("Received signal %s, shutting down gracefully...", signum)
         server.stop(5)
         sys.exit(0)
 
@@ -254,7 +257,7 @@ def serve():
 
     address = os.environ.get("GRPC_SERVER_ADDRESS", "[::]:8001")
     server.add_insecure_port(address)
-    print(f"[NLP] Predictive Service started on {address}")
+    logging.info("Predictive Service started on %s", address)
     server.start()
     server.wait_for_termination()
 

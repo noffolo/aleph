@@ -112,7 +112,7 @@ Aleph-v2 è una piattaforma di intelligenza predittiva multi-agente con architet
 
 ### 3.1 Struttura dei Package
 
-Il backend è organizzato in 33 package sotto `internal/`, seguendo il principio di separazione delle responsabilità:
+Il backend è organizzato in 35+ package sotto `internal/`, seguendo il principio di separazione delle responsabilità:
 
 ```
 internal/
@@ -127,40 +127,47 @@ internal/
 ├── genesis/             # Suggester → Sandbox → VetoRegistry pipeline
 ├── gnn/                 # Graph Neural Network per link prediction
 ├── health/              # HealthChecker + HistoryStore (ring buffer)
+├── ingestion/           # Engine + sources (RSS, GitHub, CSV, JSON, sitemap, sheets, email)
 ├── llm/                 # Provider interface per LLM (Ollama, OpenAI)
 ├── mcp/                 # DiscoveryEngine, MCPService, SSRF protection
-├── middleware/           # 7 HTTP + 6 ConnectRPC interceptor
+├── memory/              # VSS MemoryStore (DuckDB array_cosine_similarity)
+├── middleware/           # 8 HTTP middleware + 6 ConnectRPC interceptor
 ├── repository/          # MetadataRepository (30+ CRUD), AuditRepository, ToolCache
 ├── sandbox/              # ExecSandbox, Verifier, SecurityScanner, CommandAllowlist
+├── service/
+│   ├── watcher/         # File Watcher (fsnotify) con auto-ingestion
+│   └── notification/    # Servizio notifiche
 ├── telemetry/            # OTel + Prometheus dual instrumentation
 └── tools/                # Registry + 5 subpackage (finance, osint, humanecosystems, codeflow, adaptation)
 ```
 
 ### 3.2 Middleware Stack
 
-Ogni richiesta HTTP attraversa 7 middleware nell'ordine:
+Ogni richiesta HTTP attraversa 8 middleware nell'ordine:
 
 ```
-CORSHandler → AuthMiddleware → ErrorMiddleware → AuditMiddleware
+CORSHandler → CSRFProtection → AuthMiddleware → SecurityHeaders → AuditMiddleware
     → RateLimitMiddleware → TimeoutMiddleware → BulkheadMiddleware
 ```
 
-Per ConnectRPC, 6 intercettori si aggiungono:
+Per ConnectRPC, 7 intercettori si aggiungono:
 
 ```
-RecoveryInterceptor → AuthInterceptor → AuditInterceptor
+RecoveryInterceptor → AuthInterceptor → SecurityHeaders → AuditInterceptor
     → RateLimitInterceptor → TimeoutInterceptor → BulkheadInterceptor
 ```
 
 **AuthMiddleware/Interceptor**: legge l'header `X-Aleph-Api-Key`, calcola SHA-256, confronta con il database (cifrato AES-256-GCM a riposo). Restituisce `projectID` nel context. Gli endpoint `/readyz`, `/livez`, `/api/v1/healthz` e `/metrics` sono esclusi dall'autenticazione.
 
-**ErrorMiddleware**: converte errori interni in `APIError` con codici ITA localizzati (vedi sez. 12). Risposte JSON strutturate con `code`, `message`, `details`.
+**ErrorMiddleware (handler)**: converte errori interni in `APIError` con codici ITA localizzati (vedi sez. 12). Risposte JSON strutturate con `code`, `message`, `details`.
 
-**RateLimitMiddleware**: limita richieste per IP e per projectID. Configurabile via environment.
+**SecurityHeaders**: applica Content-Security-Policy (`default-src 'self'`, `script-src 'self'`, `style-src 'self'`, niente `unsafe-inline`), X-Content-Type-Options, X-Frame-Options, Referrer-Policy.
+
+**CSRFProtection**: middleware per richieste non-GET. Valida header Origin/Referer contro la lista origins consentite. Le richieste senza Origin/Referer (CLI, script) sono permesse.
+
+**RateLimitMiddleware**: limita richieste per IP, usando `X-Forwarded-For` se presente, con fallback a `X-Real-IP` e infine `RemoteAddr`. Configurabile via environment.
 
 **BulkheadMiddleware**: limita concorrenza per endpoint. Default: 100 connessioni simultanee per `/api/v1/events` (SSE).
-
-**TimeoutMiddleware**: context deadline per ogni richiesta. Default: 30s per RPC, 120s per SSE stream.
 
 ### 3.3 Handler Principali
 
