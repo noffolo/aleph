@@ -570,17 +570,18 @@ func (e *RepairEngine) ExecutePlan(ctx context.Context, plan *RepairPlan) error 
 // ---------------------------------------------------------------------------
 
 // executeRegenerate regenerates tool code from DSL definition.
-// It requires the compiler to produce a full GeneratedTool and extracts
-// the appropriate code string (Go or Python).
+//
+// It calls CompiledCodeProvider.CompileToolDefinition with a ToolDefinition
+// constructed from the plan metadata, deploys the result, and verifies it.
+// If verification fails, it rolls back to the backup.
+//
+// Capability: production — uses the DSL compiler interface to produce
+// structurally correct code, then verifies via sandbox.Verifier.
 func (e *RepairEngine) executeRegenerate(ctx context.Context, action *RepairAction, plan *RepairPlan) error {
 	if e.compiler == nil {
 		return fmt.Errorf("compiler not available, cannot regenerate")
 	}
 
-	// For regeneration, we create a minimal ToolDefinition from the plan metadata.
-	// In a full implementation, the ToolDefinition would be stored alongside
-	// the tool code in the repository. Here we use a placeholder that at least
-	// runs through the compiler to produce structurally correct code.
 	def := &dsl.ToolDefinition{
 		Name:        plan.ToolID,
 		Description: fmt.Sprintf("Regenerated tool: %s", plan.ToolID),
@@ -593,33 +594,47 @@ func (e *RepairEngine) executeRegenerate(ctx context.Context, action *RepairActi
 		Deps: []*dsl.ToolDep{},
 	}
 
+	e.logger.Info("regenerating tool code",
+		"tool_id", plan.ToolID,
+		"action_id", action.ID,
+	)
+
 	gt, err := e.compiler.CompileToolDefinition(ctx, def)
 	if err != nil {
 		return fmt.Errorf("regeneration via compiler: %w", err)
 	}
 
-	// Choose language based on handler.
+	if gt == nil {
+		return fmt.Errorf("regeneration produced nil result for tool %q", plan.ToolID)
+	}
+
 	code := gt.GoCode
-	if action.Description != "" {
-		code = gt.GoCode
-		_ = gt.PythonCode
+	if code == "" {
+		code = gt.PythonCode
+	}
+	if code == "" {
+		return fmt.Errorf("regeneration produced empty code for tool %q (template=%s)", plan.ToolID, gt.Template)
 	}
 
 	e.logger.Info("code regenerated",
 		"tool_id", plan.ToolID,
 		"template", gt.Template,
+		"go_code_len", len(gt.GoCode),
+		"python_code_len", len(gt.PythonCode),
 	)
 
 	if err := e.writer.UpdateToolCode(ctx, plan.ToolID, code); err != nil {
 		return fmt.Errorf("deploy regenerated code: %w", err)
 	}
 
-	// Now verify the deployed code.
 	vResult := e.verifier.VerifyToolCode(code)
 	if !vResult.Passed {
-		// Verification failed — rollback immediately.
+		e.logger.Warn("regenerated code failed verification, rolling back",
+			"tool_id", plan.ToolID,
+			"verification_error", vResult.Error,
+		)
 		if restoreErr := e.writer.UpdateToolCode(ctx, plan.ToolID, plan.BackupCode); restoreErr != nil {
-			return fmt.Errorf("regenerated code failed verification and restore also failed: %v (restore: %v)", vResult.Error, restoreErr)
+			return fmt.Errorf("regenerated code failed verification (%s) and restore also failed: %v", vResult.Error, restoreErr)
 		}
 		return fmt.Errorf("regenerated code failed verification: %s", vResult.Error)
 	}
@@ -628,8 +643,9 @@ func (e *RepairEngine) executeRegenerate(ctx context.Context, action *RepairActi
 }
 
 // executeFix applies a predefined fix action to the tool code.
-// For now this performs targeted string replacements. In production,
-// this would use AST-based transformations.
+// Dispatches to the appropriate fix function based on action ID.
+//
+// Capability: varies per strategy — see individual fix function docs.
 func (e *RepairEngine) executeFix(code string, action RepairAction) (string, error) {
 	// Apply fix based on action ID.
 	// Each action performs a specific transformation on the code.
@@ -670,6 +686,11 @@ func (e *RepairEngine) executeFix(code string, action RepairAction) (string, err
 // ---------------------------------------------------------------------------
 
 // fixMissingImports adds common missing imports.
+//
+// Capability: heuristic (string-matching) — scans for usage patterns of
+// standard library packages and adds missing import declarations.
+// Not AST-verified; may produce duplicate or misplaced imports in edge cases
+// (e.g., imports inside strings or comments).
 func (e *RepairEngine) fixMissingImports(code string) string {
 	if !strings.Contains(code, "import") {
 		return code
@@ -749,6 +770,9 @@ func addImportToBlock(code, importPath string) string {
 }
 
 // fixImportPath corrects common import path issues.
+//
+// Capability: heuristic (string-matching) — applies known mapping of
+// deprecated import paths to replacements. Limited to hardcoded mappings.
 func (e *RepairEngine) fixImportPath(code string) string {
 	// Replace common incorrect import paths.
 	return strings.NewReplacer(
@@ -760,6 +784,9 @@ func (e *RepairEngine) fixImportPath(code string) string {
 }
 
 // fixSyntaxError attempts to fix common syntax errors.
+//
+// Capability: heuristic (string-matching) — counts braces/parens without
+// AST awareness. May miscount braces inside string literals or comments.
 func (e *RepairEngine) fixSyntaxError(code string) string {
 	// Check for unmatched braces.
 	open := strings.Count(code, "{")
@@ -784,6 +811,10 @@ func (e *RepairEngine) fixSyntaxError(code string) string {
 }
 
 // fixDeprecatedAPI replaces known deprecated API calls.
+//
+// Capability: heuristic (string-matching) — applies known mapping of
+// deprecated ioutil.* calls to modern equivalents. Safe because each
+// replacement is a well-known API migration with no false-positive risk.
 func (e *RepairEngine) fixDeprecatedAPI(code string) string {
 	return strings.NewReplacer(
 		"ioutil.ReadAll", "io.ReadAll",
@@ -798,18 +829,31 @@ func (e *RepairEngine) fixDeprecatedAPI(code string) string {
 }
 
 // fixConfiguration corrects common configuration issues.
+//
+// Capability: heuristic (string-matching) — replaces hardcoded localhost
+// with env var lookup. Limited to a single known pattern.
 func (e *RepairEngine) fixConfiguration(code string) string {
-	// Replace hardcoded test configs with environment variable lookups.
 	return strings.ReplaceAll(code, `"localhost:8080"`, `os.Getenv("ALEPH_ENDPOINT")`)
 }
 
-// fixPerformance optimises common performance patterns.
+// nestedLoopPattern matches a for-loop inside another for-loop.
+var nestedLoopPattern = regexp.MustCompile(`(?ms)for\s+[^{]*\{[^}]*for\s+`)
+
+// sequentialDBPattern matches sequential database query calls
+// (e.g., multiple db.Query/QueryRow/Exec calls in the same function).
+var sequentialDBPattern = regexp.MustCompile(`(?m)(db\.\s*(?:Query|QueryRow|Exec)\s*\()`)
+
+// fixPerformance detects and fixes performance anti-patterns.
 //
-// Detects and fixes 4 anti-patterns:
-//  1. Sequential HTTP calls → goroutine + sync.WaitGroup parallelization
-//  2. Missing context cancellation checks in loops → select + ctx.Done()
-//  3. String concatenation in loops (+=) → strings.Builder
-//  4. Repeated file reads for same path → sync.Once caching pattern
+// Capability: heuristic (regex-based) — detects 6 anti-patterns and applies
+// structured fixes or suggestions. Not AST-verified; regex may match inside
+// strings or comments. Patterns detected:
+//  1. Sequential HTTP calls → goroutine + sync.WaitGroup comment
+//  2. Missing context cancellation in loops → select + ctx.Done()
+//  3. String concatenation in loops → strings.Builder
+//  4. Repeated file reads → sync.Once caching comment
+//  5. Nested loops without break conditions → break/limit comment
+//  6. Sequential DB calls that could be batched → batch suggestion comment
 func (e *RepairEngine) fixPerformance(code string) string {
 	if httpCallCount(code) > 1 {
 		code = addConcurrentHTTPPattern(code)
@@ -825,6 +869,14 @@ func (e *RepairEngine) fixPerformance(code string) string {
 
 	if path := repeatedFileRead(code); path != "" {
 		code = addFileReadCaching(code, path)
+	}
+
+	if nestedLoopPattern.MatchString(code) {
+		code = addNestedLoopBreakSuggestion(code)
+	}
+
+	if dbCallCount(code) > 1 {
+		code = addBatchDBSuggestion(code)
 	}
 
 	return code
@@ -1075,6 +1127,41 @@ func addFileReadCaching(code, filePath string) string {
 }
 
 // ---------------------------------------------------------------------------
+// Pattern 5 — Nested loops without break
+// ---------------------------------------------------------------------------
+
+// addNestedLoopBreakSuggestion adds a comment about adding break conditions
+// or limiting iterations in nested loops.
+func addNestedLoopBreakSuggestion(code string) string {
+	comment := "\n\t// PERFORMANCE FIX: Nested loops detected — consider adding break conditions\n" +
+		"\t// or limiting inner iterations to prevent O(n²) or worse behavior:\n" +
+		"\t// for i := 0; i < len(outer); i++ {\n" +
+		"\t//     for j := 0; j < len(inner) && j < maxIterations; j++ {\n" +
+		"\t//         if condition { break }\n" +
+		"\t//     }\n" +
+		"\t// }"
+	return addCommentAfterFuncDecl(code, comment)
+}
+
+// ---------------------------------------------------------------------------
+// Pattern 6 — Sequential DB calls
+// ---------------------------------------------------------------------------
+
+// dbCallCount returns the number of database query calls in code.
+func dbCallCount(code string) int {
+	return len(sequentialDBPattern.FindAllString(code, -1))
+}
+
+// addBatchDBSuggestion adds a comment about batching database operations.
+func addBatchDBSuggestion(code string) string {
+	comment := "\n\t// PERFORMANCE FIX: Multiple database calls detected — consider batching:\n" +
+		"\t// 1. Use a single query with JOINs instead of N+1 queries\n" +
+		"\t// 2. Use db.Query with IN clause for batch lookups\n" +
+		"\t// 3. Use transactions for multiple writes: tx, err := db.Begin()"
+	return addCommentAfterFuncDecl(code, comment)
+}
+
+// ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
@@ -1100,27 +1187,103 @@ func addCommentAfterFuncDecl(code, comment string) string {
 	return code + comment
 }
 
-// fixCaching adds basic caching patterns.
+// fixCaching detects caching anti-patterns and suggests proper alternatives.
+//
+// Capability: heuristic (regex-based) — detects sync.Map usage and manual
+// map-based cache patterns, suggests sync.Pool or singleflight. Also detects
+// missing caching for repeated computations. May match inside comments/strings.
+var (
+	syncMapPattern    = regexp.MustCompile(`(?m)sync\.Map\b`)
+	manualCachePattern = regexp.MustCompile(`(?m)(?:var|map\[)\w*_cache\b|\bcache\s*:=\s*make\(map\[`)
+)
+
 func (e *RepairEngine) fixCaching(code string) string {
-	// Add TODO comment suggesting caching.
-	if !strings.Contains(code, "cache") {
+	if syncMapPattern.MatchString(code) {
+		code = addCommentAfterFuncDecl(code,
+			"\n\t// CACHING FIX: sync.Map detected — for typed key-value caches with\n"+
+				"\t// predictable access patterns, consider sync.Pool for allocation reuse\n"+
+				"\t// or singleflight.Group to deduplicate concurrent computations.")
+	}
+	if manualCachePattern.MatchString(code) && !strings.Contains(code, "sync.") {
+		code = addCommentAfterFuncDecl(code,
+			"\n\t// CACHING FIX: Manual map-based cache detected — consider using sync.Map\n"+
+				"\t// for concurrent access, or adding an LRU eviction policy with\n"+
+				"\t// time-based TTL to prevent unbounded memory growth.")
+	}
+	if !strings.Contains(code, "cache") && !syncMapPattern.MatchString(code) && !manualCachePattern.MatchString(code) {
 		code = strings.Replace(code, "func Handle", "// TODO: consider adding caching/connection pooling for performance\nfunc Handle", 1)
 	}
 	return code
 }
 
-// fixTimeout increases timeout values in the code.
+// fixTimeout replaces timeout patterns with context-aware alternatives.
+//
+// Capability: heuristic (regex-based) — detects context.WithTimeout,
+// time.After, time.Sleep, and hardcoded timeout durations. Applies semantic
+// regex replacements that match full call expressions rather than bare strings,
+// reducing risk of corrupting non-target code compared to simple ReplaceAll.
+var (
+	contextTimeoutPattern = regexp.MustCompile(`context\.WithTimeout\s*\(\s*[^,]+,\s*\d+\s*\*\s*time\.(?:Milli|Nano|Micro)?Second\s*\)`)
+	timeAfterPattern      = regexp.MustCompile(`time\.After\s*\(\s*\d+\s*\*\s*time\.(?:Milli|Nano|Micro)?Second\s*\)`)
+	timeSleepPattern      = regexp.MustCompile(`time\.Sleep\s*\(\s*\d+\s*\*\s*time\.(?:Milli|Nano|Micro)?Second\s*\)`)
+	shortTimeoutPattern   = regexp.MustCompile(`(\d+)\s*\*\s*time\.Millisecond`)
+	mediumTimeoutPattern  = regexp.MustCompile(`(\d+)\s*\*\s*time\.Second\b`)
+	jsonTimeoutPattern    = regexp.MustCompile(`"timeout"\s*:\s*(\d+)`)
+)
+
 func (e *RepairEngine) fixTimeout(code string) string {
-	// Replace short timeouts with longer ones.
-	code = strings.ReplaceAll(code, "100 * time.Millisecond", "5 * time.Second")
-	code = strings.ReplaceAll(code, "500 * time.Millisecond", "5 * time.Second")
-	code = strings.ReplaceAll(code, "1 * time.Second", "10 * time.Second")
-	code = strings.ReplaceAll(code, `"timeout": 1`, `"timeout": 10`)
-	code = strings.ReplaceAll(code, `"timeout": 5`, `"timeout": 30`)
+	if contextTimeoutPattern.MatchString(code) || timeAfterPattern.MatchString(code) || timeSleepPattern.MatchString(code) {
+		comment := "\n\t// TIMEOUT FIX: Consider adding context cancellation and timeout propagation:\n" +
+			"\t// - Replace time.After with select on ctx.Done() for cancellation support\n" +
+			"\t// - Replace time.Sleep with select + ctx.Done() to allow cancellation\n" +
+			"\t// - Propagate context through call chains for cascading cancellation"
+		code = addCommentAfterFuncDecl(code, comment)
+	}
+
+	// Detect time.After/time.Sleep patterns even if the duration was already normalized.
+	if !strings.Contains(code, "TIMEOUT FIX") {
+		if strings.Contains(code, "time.After(") || strings.Contains(code, "time.Sleep(") {
+			comment := "\n\t// TIMEOUT FIX: time.After/time.Sleep detected — consider using\n" +
+				"\t// select on ctx.Done() instead for cancellation support"
+			code = addCommentAfterFuncDecl(code, comment)
+		}
+	}
+
+	code = shortTimeoutPattern.ReplaceAllString(code, "5 * time.Second")
+	code = mediumTimeoutPattern.ReplaceAllStringFunc(code, func(match string) string {
+		sub := mediumTimeoutPattern.FindStringSubmatch(match)
+		if len(sub) > 1 {
+			val := sub[1]
+			if val == "1" {
+				return "10 * time.Second"
+			}
+			if val == "2" || val == "3" || val == "5" {
+				return "30 * time.Second"
+			}
+		}
+		return match
+	})
+	code = jsonTimeoutPattern.ReplaceAllStringFunc(code, func(match string) string {
+		sub := jsonTimeoutPattern.FindStringSubmatch(match)
+		if len(sub) > 1 {
+			val := sub[1]
+			if val == "1" {
+				return `"timeout": 10`
+			}
+			if val == "5" || val == "10" {
+				return `"timeout": 30`
+			}
+		}
+		return match
+	})
+
 	return code
 }
 
 // fixRetry adds retry logic with exponential backoff.
+//
+// Capability: placeholder (template injection) — injects a retry loop template
+// into functions containing "TODO". Does not adapt to actual code structure.
 func (e *RepairEngine) fixRetry(code string) string {
 	// Add retry logic comment if not present.
 	if !strings.Contains(code, "retry") {
@@ -1134,6 +1297,9 @@ func (e *RepairEngine) fixRetry(code string) string {
 }
 
 // fixDataPipeline adds data pipeline error handling.
+//
+// Capability: heuristic (string-matching) — only handles a single known
+// json.Unmarshal pattern. Does not generalize to other pipeline stages.
 func (e *RepairEngine) fixDataPipeline(code string) string {
 	if strings.Contains(code, "json.Unmarshal") && !strings.Contains(code, "json.Decode") {
 		code = strings.Replace(code,
@@ -1144,6 +1310,9 @@ func (e *RepairEngine) fixDataPipeline(code string) string {
 }
 
 // fixDataValidation adds input validation.
+//
+// Capability: placeholder (template insertion) — only handles a single
+// __NAME__Input placeholder pattern. Requires manual customization.
 func (e *RepairEngine) fixDataValidation(code string) string {
 	if !strings.Contains(code, "if input.") {
 		code = strings.Replace(code,

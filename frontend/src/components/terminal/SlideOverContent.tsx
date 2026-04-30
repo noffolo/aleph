@@ -11,6 +11,7 @@ import { ComponentFormSlideOver } from '../forms/ComponentFormSlideOver'
 import { ComponentDetailSlideOver } from '../forms/ComponentDetailSlideOver'
 import { AssetDetailSlideOver } from '../forms/AssetDetailSlideOver'
 import { DetailSlideOver } from '../forms/DetailSlideOver'
+import { ScenarioComparisonView } from '../../views/ScenarioComparisonView'
 
 export function SlideOverContent() {
   const store = useStore()
@@ -71,7 +72,11 @@ export function SlideOverContent() {
         return <DetailSlideOver data={detailData} title={content.title} onClose={() => store.setSlideOverContent(null)} />
       }
      
-     default:
+      case 'scenario-comparison': {
+        return <ScenarioComparisonView />
+      }
+     
+      default:
        return null
   }
 }

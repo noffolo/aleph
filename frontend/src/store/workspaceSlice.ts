@@ -7,6 +7,7 @@ import type {
   QueryData,
   Row,
   SandboxResult,
+  Scenario,
   Skill,
   Tool,
 } from './types'
@@ -40,6 +41,10 @@ export interface WorkspaceSlice {
   setVersionHistoryOpen: (open: boolean) => void
   availableObjects: string[]
   setAvailableObjects: (o: string[]) => void
+  scenarios: Scenario[]
+  setScenarios: (s: Scenario[]) => void
+  selectedScenarioIds: string[]
+  setSelectedScenarioIds: (ids: string[]) => void
   taskLogs: string
   setTaskLogs: (l: string) => void
   skills: Skill[]
@@ -79,6 +84,10 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set) => {
     setVersionHistoryOpen: (open) => set({ isVersionHistoryOpen: open }),
     availableObjects: [],
     setAvailableObjects: (o) => set({ availableObjects: o }),
+    scenarios: [],
+    setScenarios: (s) => set({ scenarios: s }),
+    selectedScenarioIds: [],
+    setSelectedScenarioIds: (ids) => set({ selectedScenarioIds: ids }),
     taskLogs: '',
     setTaskLogs: (l) => set({ taskLogs: l }),
     skills: [],
@@ -95,6 +104,8 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set) => {
       ingestionTasks: [],
       ontologyRaw: '',
       availableObjects: [],
+      scenarios: [],
+      selectedScenarioIds: [],
       taskLogs: '',
       skills: [],
       tools: [],

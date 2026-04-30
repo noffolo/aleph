@@ -36,7 +36,7 @@ func (h *SessionHandler) HandleCreateSession(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	projectID, err := middleware.ValidateAPIKey(h.metaRepo, req.APIKey)
+	projectID, _, err := middleware.ValidateAPIKey(h.metaRepo, req.APIKey)
 	if err != nil {
 		http.Error(w, `{"error":"invalid api key"}`, http.StatusUnauthorized)
 		return

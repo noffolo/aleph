@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+
+	"github.com/ff3300/aleph-v2/internal/safeident"
 )
 
 // SearchResult holds a single result from a vector similarity or text search.
@@ -42,6 +44,11 @@ func NewMemoryStore(db *sql.DB, schema string, embeddingDim int) (*MemoryStore, 
 	}
 	if embeddingDim <= 0 {
 		return nil, fmt.Errorf("memory: embedding dimension must be positive, got %d", embeddingDim)
+	}
+	if schema != "" {
+		if err := safeident.ValidateIdentifier(schema); err != nil {
+			return nil, fmt.Errorf("memory: invalid schema name: %w", err)
+		}
 	}
 	return &MemoryStore{db: db, schema: schema, dim: embeddingDim}, nil
 }

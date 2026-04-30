@@ -13,9 +13,13 @@ interface SlideOverPanelProps {
 export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose, title, children, fullscreen: initialFullscreen = false }) => {
   const [isFullscreen, setIsFullscreen] = useState(initialFullscreen);
   const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
+
+    // Save the element that triggered the panel open (currently focused element)
+    triggerRef.current = document.activeElement as HTMLElement;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -50,12 +54,19 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
 
     window.addEventListener('keydown', handleKeyDown);
     
+    // Focus the first focusable element inside the panel (not the last)
     const focusable = panelRef.current?.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
     if (focusable && focusable.length > 0) {
-      (focusable[focusable.length - 1] as HTMLElement).focus();
+      (focusable[0] as HTMLElement).focus();
     }
 
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      // Return focus to the element that triggered the panel
+      if (triggerRef.current) {
+        triggerRef.current.focus();
+      }
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -72,7 +83,7 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Slide over panel"
+        aria-label={title || 'Slide over panel'}
         className="h-full glass-panel border-l border-border shadow-2xl flex flex-col pointer-events-auto animate-slide-in-right"
       >
         <div className="h-12 flex items-center justify-between px-5 border-b border-border shrink-0">

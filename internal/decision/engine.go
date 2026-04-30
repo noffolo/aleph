@@ -11,6 +11,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/gnn"
 	"github.com/ff3300/aleph-v2/internal/llm"
+	"github.com/ff3300/aleph-v2/internal/telemetry"
 )
 
 // Engine is the concrete implementation of DecisionEngine.
@@ -180,6 +181,7 @@ func (e *Engine) Plan(ctx context.Context, msg string, projectID string, agentID
 		}
 	}
 
+	telemetry.RecordPAORACycle("plan", "success")
 	return &PlanResult{
 		Intent:     intent,
 		Steps:      steps,
@@ -214,6 +216,12 @@ func (e *Engine) Act(ctx context.Context, step PlannedStep, projectID string) (*
 		result.Step = step
 	}
 
+	outcome := "success"
+	if err != nil {
+		outcome = "error"
+	}
+	telemetry.RecordPAORACycle("act", outcome)
+
 	return result, nil
 }
 
@@ -237,6 +245,12 @@ func (e *Engine) Observe(ctx context.Context, step PlannedStep, result *ActResul
 		obs.Issues = append(obs.Issues, "tool returned empty output")
 	}
 
+	outcome := "success"
+	if !obs.Success {
+		outcome = "error"
+	}
+	telemetry.RecordPAORACycle("observe", outcome)
+
 	return obs, nil
 }
 
@@ -252,6 +266,7 @@ func (e *Engine) Reflect(ctx context.Context, plan *PlanResult, observations []O
 	if len(observations) > 0 {
 		lastObs := observations[len(observations)-1]
 		if !lastObs.Success {
+			telemetry.RecordPAORACycle("reflect", "error")
 			return &PlanResult{
 				Intent:     plan.Intent,
 				Steps:      plan.Steps,
@@ -262,6 +277,7 @@ func (e *Engine) Reflect(ctx context.Context, plan *PlanResult, observations []O
 	}
 
 	// No reflection needed — Chat loop handles iteration
+	telemetry.RecordPAORACycle("reflect", "success")
 	return plan, nil
 }
 
@@ -272,19 +288,20 @@ func (e *Engine) Admit(ctx context.Context, results []*ActResult, maxAttempts in
 		maxAttempts = e.maxAttempts
 	}
 
-	// If we've used all attempts, stop
 	if len(results) >= maxAttempts {
+		telemetry.RecordPAORACycle("admit", "max_attempts")
 		return true, nil
 	}
 
-	// If the last result had an error, admit (stop the loop)
 	if len(results) > 0 {
 		last := results[len(results)-1]
 		if last.Error != "" {
+			telemetry.RecordPAORACycle("admit", "error")
 			return true, nil
 		}
 	}
 
+	telemetry.RecordPAORACycle("admit", "continue")
 	return false, nil
 }
 

@@ -85,6 +85,12 @@ def load_history_from_duckdb(context_id, duckdb_path):
 
 
 def analyze_sentiment_simple(text: str) -> tuple:
+    """Word-frequency heuristic for sentiment. NOT machine learning.
+
+    Returns (score, label) where score is uncalibrated and label is one of
+    'positive', 'negative', 'neutral'. The confidence of this method is low
+    (~0.3) and it should never be presented as an ML-based classifier.
+    """
     positive_words = {"buono", "ottimo", "eccellente", "positivo", "crescita", "successo", "good", "great", "excellent", "positive", "growth", "success", "up", "increase", "profit", "gain"}
     negative_words = {"cattivo", "pessimo", "negativo", "calo", "fallimento", "bad", "terrible", "negative", "decline", "failure", "down", "decrease", "loss", "risk", "crisis"}
     words = set(text.lower().split())
@@ -101,18 +107,12 @@ def analyze_sentiment_simple(text: str) -> tuple:
     return score, "neutral"
 
 
-def generate_synthetic_history():
-    return pd.DataFrame({
-        'ds': pd.date_range(start='2026-01-01', periods=20, freq='D'),
-        'y': np.linspace(100, 110, 20) + np.random.normal(0, 1, 20)
-    })
-
-
 class NLPService(nlp_pb2_grpc.NLPServiceServicer):
     def __init__(self):
         model_dir = "onnx_model"
         self.model = None
         self.is_onnx = False
+        self._sentiment_method = "heuristic"
         try:
             if not os.path.exists(model_dir):
                 raise FileNotFoundError("ONNX model directory not found")
@@ -120,6 +120,7 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
             self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
             self.model = ORTModelForFeatureExtraction.from_pretrained(model_dir)
             self.is_onnx = True
+            logging.info("ONNX model loaded (feature extraction only, not sentiment classification)")
         except Exception as e:
             logging.warning("ONNX loading failed (%s), falling back to PyTorch...", e)
             try:
@@ -127,8 +128,9 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
                 from transformers import AutoModel
                 self.model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
                 self.is_onnx = False
+                logging.info("PyTorch model loaded (feature extraction only, not sentiment classification)")
             except Exception as e2:
-                logging.error("PyTorch loading also failed (%s). Model unavailable.", e2)
+                logging.error("PyTorch loading also failed (%s). Embedding model unavailable.", e2)
                 self.model = None
                 self.is_onnx = False
 
@@ -136,16 +138,23 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
         self.ensemble = PredictiveEnsemble()
         self.markets = MarketPredictor()
         self.duckdb_path = DUCKDB_PATH
+        logging.info("Sentiment method: heuristic (word-frequency, NOT ML-based, confidence ~0.3)")
         logging.info("Ensemble (Prophet/GBM) and Market Predictor loaded.")
 
     def AnalyzeSentiment(self, request, context):
         text = request.text
         if not text or not text.strip():
-            return nlp_pb2.AnalyzeSentimentResponse(score=0.5, label="NEUTRAL")
+            return nlp_pb2.AnalyzeSentimentResponse(
+                score=0.5, label="NEUTRAL",
+                method="heuristic", is_calibrated=False
+            )
         score, label_str = analyze_sentiment_simple(text)
         score_norm = max(0.0, min(1.0, 0.5 + score * 0.5))
         label = "POSITIVE" if score_norm > 0.6 else "NEGATIVE" if score_norm < 0.4 else "NEUTRAL"
-        return nlp_pb2.AnalyzeSentimentResponse(score=score_norm, label=label)
+        return nlp_pb2.AnalyzeSentimentResponse(
+            score=score_norm, label=label,
+            method="heuristic", is_calibrated=False
+        )
 
     def RecordFeedback(self, request, context):
         logging.info("Feedback received for %s: Correct=%s", request.entity_id, request.is_correct)
@@ -175,10 +184,13 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
                 market_prob = 0.5
 
             history_df = load_history_from_duckdb(context_id, self.duckdb_path)
-            data_source = "duckdb"
             if history_df is None:
-                history_df = generate_synthetic_history()
-                data_source = "synthetic"
+                context.set_code(grpc.StatusCode.NOT_FOUND)
+                context.set_details(
+                    f"No DuckDB data available for context_id '{context_id}'. "
+                    "Predictions require real data and are not generated from synthetic fallback."
+                )
+                return
 
             S0 = float(history_df["y"].iloc[-1])
             forecast = self.ensemble.generate_ensemble_forecast(S0, history_df)
@@ -191,32 +203,28 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
             event_prob = self.ensemble.predict_probs(features)
             final_prob = self.markets.calibrate(forecast["drift_detected"], {"polymarket": market_prob})
 
-            is_synthetic = data_source == "synthetic"
             if final_prob > 0.7:
                 yield nlp_pb2.StreamPredictionsResponse(
                     entity_id=f"ACTION_PROPOSAL_{context_id or 'ENSEMBLE'}",
                     probability=final_prob,
                     predicted_state="ACTION_REQUIRED",
                     explanation=f"Rischio calibrato {final_prob:.2f} (Internal + Market). Azione suggerita per contrastare il drift rilevato.",
-                    is_synthetic=is_synthetic
+                    is_synthetic=False
                 )
 
             yield nlp_pb2.StreamPredictionsResponse(
                 entity_id=f"PREDICTION_{context_id or 'MEAN'}",
                 probability=event_prob,
                 predicted_state="STABLE_TREND",
-                explanation=f"Media attesa: {stats['p50']:.2f}. P90: {stats['p90']:.2f}. Event prob: {event_prob:.2f}. Data source: {data_source}",
-                is_synthetic=is_synthetic
-            )
-        except Exception as e:
-            logging.error("StreamPredictions error: %s", e)
-            yield nlp_pb2.StreamPredictionsResponse(
-                entity_id="ERROR",
-                probability=0.0,
-                predicted_state="ERROR",
-                explanation=f"Prediction failed: {str(e)}",
+                explanation=f"Media attesa: {stats['p50']:.2f}. P90: {stats['p90']:.2f}. Event prob: {event_prob:.2f}. Data source: duckdb",
                 is_synthetic=False
             )
+        except grpc.RpcError:
+            raise
+        except Exception as e:
+            logging.error("StreamPredictions error: %s", e)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Prediction failed: {str(e)}")
 
     def GenerateEmbedding(self, text):
         if self.model is None:

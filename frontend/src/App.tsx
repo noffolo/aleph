@@ -14,6 +14,11 @@ import { useStore } from './store/useStore'
 import { useAppActions } from './hooks/useAppActions'
 import { createSession } from './api/client'
 
+// Expose store's setState for Playwright e2e tests (no dynamic import needed)
+if (typeof window !== 'undefined') {
+  (window as any).__setStoreState = (patch: any) => useStore.setState(patch);
+}
+
 const SlideOverContent = lazy(() => import('./components/terminal/SlideOverContent').then(module => ({ default: module.SlideOverContent })))
 
 import { projectClient, authClient, queryClient } from './api/factory'
@@ -133,7 +138,7 @@ function App() {
           {store.lastError && (
             <div className="mx-4 mt-4 px-4 py-2 bg-danger/10 border border-danger/30 text-danger rounded text-sm font-mono flex items-center justify-between">
               <span>{store.lastError}</span>
-              <button onClick={() => store.setLastError(null)} className="text-danger/60 hover:text-danger ml-4">✕</button>
+              <button onClick={() => store.setLastError(null)} className="text-danger/60 hover:text-danger ml-4 focus:ring-2 focus:ring-primary rounded" aria-label="Dismiss error">✕</button>
             </div>
           )}
 

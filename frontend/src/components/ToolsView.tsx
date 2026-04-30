@@ -59,7 +59,7 @@ export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialT
         </div>
         <button 
           onClick={openCreate} 
-          className="flex items-center space-x-2 bg-primary text-background px-6 py-3 rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg"
+          className="flex items-center space-x-2 bg-primary text-background px-6 py-3 rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg focus:ring-2 focus:ring-primary"
           aria-label="Create new tool"
         >
            <Plus size={20} />
@@ -72,7 +72,7 @@ export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialT
          value={searchQuery}
          onChange={e => setSearchQuery(e.target.value)}
          placeholder={t('tools.search')}
-         className="w-full max-w-md px-4 py-2 bg-surface-alt border border-border rounded-lg text-sm font-mono text-textPrimary placeholder-textDim focus:outline-none focus:border-primary/50"
+         className="w-full max-w-md px-4 py-2 bg-surface-alt border border-border rounded-lg text-sm font-mono text-textPrimary placeholder-textDim focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary"
        />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -81,8 +81,8 @@ export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialT
 
                <button 
                   onClick={(e) => { e.stopPropagation(); if (confirm('Eliminare questo strumento?')) onDeleteTool(t.id); }}
-                  className="absolute top-8 right-8 p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                  aria-label="Delete tool"
+                  className="absolute top-8 right-8 p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:ring-2 focus:ring-primary"
+                  aria-label={`Delete tool ${t.name}`}
                >
                  <Trash2 size={16} />
               </button>
@@ -98,8 +98,8 @@ export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialT
                <div className="flex space-x-2">
                   <button 
                     onClick={() => onExecuteTool(t.id)} 
-                    className="flex-1 py-3 bg-primary text-background rounded-lg text-xs font-bold hover:bg-primary/90 transition-colors uppercase tracking-widest flex items-center justify-center space-x-1"
-                    aria-label="Execute tool"
+                    className="flex-1 py-3 bg-primary text-background rounded-lg text-xs font-bold hover:bg-primary/90 transition-colors uppercase tracking-widest flex items-center justify-center space-x-1 focus:ring-2 focus:ring-primary"
+                    aria-label={`Execute tool ${t.name}`}
                   >
                    <Play size={12} />
                    <span>Esegui</span>

@@ -43,8 +43,8 @@ func (g *GenesisEngine) Suggest(ctx context.Context, projectID string, agentID s
 	}
 
 	for i, s := range suggestions {
-		valid, err := g.sandbox.Validate(ctx, s)
-		if err != nil || !valid {
+		result, err := g.sandbox.Validate(ctx, s)
+		if err != nil || !result.Passed {
 			suggestions[i].Status = "invalid"
 			continue
 		}

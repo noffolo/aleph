@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	nlp "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1/nlpconnect"
+	"github.com/ff3300/aleph-v2/internal/telemetry"
 )
 
 type BrierObserver interface {
@@ -42,9 +43,11 @@ func (h *NLPHandler) AnalyzeSentiment(
 ) (*connect.Response[nlp.AnalyzeSentimentResponse], error) {
 	resp, err := h.nlpClient.AnalyzeSentiment(ctx, req)
 	if err != nil {
+		telemetry.RecordNLPRequest("sentiment", "error")
 		h.logger.Warn("Sidecar sentiment analysis failed", "error", err)
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("sentiment analysis unavailable: %w", err))
 	}
+	telemetry.RecordNLPRequest("sentiment", "success")
 	return resp, nil
 }
 
@@ -55,19 +58,23 @@ func (h *NLPHandler) StreamPredictions(
 ) error {
 	pythonStream, err := h.nlpClient.StreamPredictions(ctx, req)
 	if err != nil {
+		telemetry.RecordNLPRequest("stream_predictions", "error")
 		h.logger.Error("Failed to connect to Python sidecar", "error", err)
 		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("predictions unavailable: %w", err))
 	}
 
 		for pythonStream.Receive() {
 		if err := stream.Send(pythonStream.Msg()); err != nil {
+			telemetry.RecordNLPRequest("stream_predictions", "error")
 			return fmt.Errorf("streamSend: %w", err)
 		}
 	}
 	if err := pythonStream.Err(); err != nil {
+		telemetry.RecordNLPRequest("stream_predictions", "error")
 		h.logger.Error("Stream error from Python sidecar", "error", err)
 		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("prediction stream failed: %w", err))
 	}
+	telemetry.RecordNLPRequest("stream_predictions", "success")
 	return nil
 }
 
@@ -77,6 +84,7 @@ func (h *NLPHandler) RecordFeedback(
 ) (*connect.Response[nlp.RecordFeedbackResponse], error) {
 	resp, err := h.nlpClient.RecordFeedback(ctx, req)
 	if err != nil {
+		telemetry.RecordNLPRequest("record_feedback", "error")
 		h.logger.Warn("Sidecar feedback recording failed", "error", err)
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("feedback recording unavailable: %w", err))
 	}
@@ -92,6 +100,7 @@ func (h *NLPHandler) RecordFeedback(
 		}
 		h.brierMonitor.Observe(prediction, actual)
 	}
+	telemetry.RecordNLPRequest("record_feedback", "success")
 	return resp, nil
 }
 

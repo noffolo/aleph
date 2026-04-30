@@ -43,12 +43,12 @@ export const ToolManagementView: React.FC<ToolManagementViewProps> = ({ inline }
               placeholder={t('tools.search')} 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary/50"
+              className="pl-9 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary"
             />
           </div>
           <button 
             onClick={() => useStore.getState().setSlideOverContent({ type: 'tool-intelligence', title: 'Tool Intelligence' })}
-            className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-bold hover:bg-primary/20 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg text-xs font-bold hover:bg-primary/20 transition-colors focus:ring-2 focus:ring-primary"
           >
             <BarChart3 size={14} />
             Intelligence
@@ -77,10 +77,10 @@ export const ToolManagementView: React.FC<ToolManagementViewProps> = ({ inline }
                 </div>
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="p-1.5 hover:bg-border rounded text-textMuted hover:text-primary transition-colors">
+                <button className="p-1.5 hover:bg-border rounded text-textMuted hover:text-primary transition-colors focus:ring-2 focus:ring-primary" aria-label="Check tool health">
                   <Activity size={14} />
                 </button>
-                <button className="p-1.5 hover:bg-border rounded text-textMuted hover:text-danger transition-colors">
+                <button className="p-1.5 hover:bg-border rounded text-textMuted hover:text-danger transition-colors focus:ring-2 focus:ring-primary" aria-label="Delete tool">
                   <Trash2 size={14} />
                 </button>
               </div>

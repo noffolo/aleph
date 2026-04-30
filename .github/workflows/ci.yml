@@ -43,6 +43,11 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Run govulncheck (Go vulnerability scan)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
       - name: Upload test results (optional)
         if: always()
         uses: actions/upload-artifact@v4
@@ -75,6 +80,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: npm audit (high severity gate)
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
       - name: Check ESLint config exists
         working-directory: frontend
         run: test -f eslint.config.js && echo "ESLint config present"
@@ -97,10 +106,52 @@ jobs:
         run: npx playwright test
         working-directory: frontend
 
+  contract-tests:
+    name: Contract Tests (Go ↔ Python NLP)
+    runs-on: ubuntu-latest
+    needs: [go-backend, frontend]
+
+    env:
+      NLP_SIDECAR_ADDR: localhost:8001
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Start NLP sidecar
+        run: docker compose up -d aleph-python-sidecar
+
+      - name: Wait for sidecar to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            if nc -z localhost 8001 2>/dev/null; then
+              echo "Sidecar ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Sidecar did not start in time"
+          docker compose logs aleph-python-sidecar
+          exit 1
+
+      - name: Run Go contract tests
+        run: go test -tags=contract -v -count=1 ./internal/nlp/...
+
+      - name: Stop sidecar
+        if: always()
+        run: docker compose down aleph-python-sidecar
+
   docker:
     name: Docker Build Verification
     runs-on: ubuntu-latest
-    needs: [go-backend, frontend]
+    needs: [go-backend, frontend, contract-tests]
     
     steps:
       - name: Checkout code
@@ -114,6 +165,10 @@ jobs:
 
       - name: Verify Docker Compose
         run: docker compose config
+
+      - name: Trivy container vulnerability scan
+        run: |
+          docker run --rm aquasec/trivy image --severity=CRITICAL --exit-code=1 aleph-v2:ci
 
       - name: Save Docker image metadata
         run: |
@@ -166,7 +221,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [go-backend, frontend, docker, docker-push]
+    needs: [go-backend, frontend, contract-tests, docker, docker-push]
     
     steps:
       - name: Check CI status
@@ -174,6 +229,7 @@ jobs:
           echo "CI Pipeline completed"
           echo "Go Backend: ${{ needs.go-backend.result }}"
           echo "Frontend: ${{ needs.frontend.result }}"
+          echo "Contract Tests: ${{ needs.contract-tests.result }}"
           echo "Docker: ${{ needs.docker.result }}"
           
           if [[ "${{ needs.go-backend.result }}" == "failure" ]]; then

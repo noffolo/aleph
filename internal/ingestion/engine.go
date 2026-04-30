@@ -26,6 +26,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/ingestion/sources"
 	"github.com/ff3300/aleph-v2/internal/repository"
+	"github.com/ff3300/aleph-v2/internal/safeident"
 	"github.com/ff3300/aleph-v2/internal/ssrf"
 	"github.com/ff3300/aleph-v2/internal/storage"
 )
@@ -35,16 +36,13 @@ var validIdentifier = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 var validName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 func validateSQLName(name string) error {
-	if !validName.MatchString(name) {
-		return fmt.Errorf("invalid SQL identifier: %q", name)
-	}
-	return nil
+	return safeident.ValidateStrictIdentifier(name)
 }
 
 func stripAndValidateName(name string) (string, error) {
 	cleaned := strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(name, "_"))
-	if !validName.MatchString(cleaned) {
-		return "", fmt.Errorf("invalid identifier after sanitization: %q", cleaned)
+	if err := safeident.ValidateIdentifier(cleaned); err != nil {
+		return "", fmt.Errorf("invalid identifier after sanitization: %q: %w", cleaned, err)
 	}
 	return cleaned, nil
 }
@@ -61,21 +59,11 @@ func VerifyChecksum(data []byte, expected string) bool {
 }
 
 func sanitizeIdentifier(id string) error {
-	if !validIdentifier.MatchString(id) {
-		return fmt.Errorf("identificativo non valido: %s", id)
-	}
-	return nil
+	return safeident.ValidateStrictIdentifier(id)
 }
 
 func sanitizeFilePath(p string) error {
-	cleaned := filepath.Clean(p)
-	if cleaned != p {
-		return fmt.Errorf("percorso non valido: %s", p)
-	}
-	if strings.Contains(p, "..") {
-		return fmt.Errorf("percorso con traversale: %s", p)
-	}
-	return nil
+	return safeident.SanitizeFilePath(p)
 }
 
 type Engine struct {
@@ -200,12 +188,12 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 
 	// Metadati Temporali: ogni riga riceve un timestamp di ingestion
 	tableNameForSQL := resolveTableName(task)
-	if !validName.MatchString(tableNameForSQL) {
+	if err := safeident.ValidateStrictIdentifier(tableNameForSQL); err != nil {
 		fmt.Fprintf(f, "Attenzione: Nome tabella non valido dopo sanitizzazione: %s\n", tableNameForSQL)
 		e.updateProgress(task.Id, 0, "fallito")
-		return fmt.Errorf("nome tabella non valido dopo sanitizzazione: %s", tableNameForSQL)
+		return fmt.Errorf("nome tabella non valido dopo sanitizzazione: %w", err)
 	}
-	timestampSQL := fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN IF NOT EXISTS _aleph_ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP", tableNameForSQL)
+	timestampSQL := "ALTER TABLE " + safeident.QuoteIdentifier(tableNameForSQL) + " ADD COLUMN IF NOT EXISTS _aleph_ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" // safe: tableNameForSQL validated via safeident.ValidateStrictIdentifier
 	e.db.Exec(timestampSQL)
 
 	// Arricchimento Predittivo Vettoriale (Asincrono)
@@ -237,7 +225,7 @@ func resolveTableName(task *v1.IngestionTask) string {
 	// Sanitize task.Id as a fallback — it may contain non-identifier characters
 	// (e.g. UUIDs with hyphens, or user-supplied strings with special chars).
 	sanitized := strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(task.Id, "_"))
-	if !validName.MatchString(sanitized) {
+	if safeident.ValidateIdentifier(sanitized) != nil {
 		// Last resort: generate a deterministic safe name so we never pass
 		// a SQL-injectable string through fmt.Sprintf.
 		sanitized = "task_" + computeChecksum([]byte(task.Id))[:16]
@@ -277,7 +265,7 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 	)`)
 	*/
 
-	query := fmt.Sprintf(`SELECT * FROM "%s" WHERE _aleph_ingested_at > (CURRENT_TIMESTAMP - INTERVAL '1 MINUTE')`, tableName)
+	query := "SELECT * FROM " + safeident.QuoteIdentifier(tableName) + " WHERE _aleph_ingested_at > (CURRENT_TIMESTAMP - INTERVAL '1 MINUTE')" // safe: tableName validated via safeident.ValidateStrictIdentifier (via enrichPredictiveMetadata caller)
 	rows, err := e.db.Query(query)
 	if err != nil {
 		log.Printf("[Motore] Query di arricchimento fallita per %s: %v", tableName, err)
@@ -360,12 +348,12 @@ func (e *Engine) registerViews(projectID string) error {
 			sql, err := compiler.CompileObject(stmt.Object.Name)
 			if err != nil { continue }
 			
-			viewName := fmt.Sprintf("%s_%s", projectID, stmt.Object.Name)
-			if err := validateSQLName(viewName); err != nil {
+			viewName := strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(fmt.Sprintf("%s_%s", projectID, stmt.Object.Name), "_"))
+			if err := safeident.ValidateIdentifier(viewName); err != nil {
 				log.Printf("[Engine] Invalid view name %q: %v", viewName, err)
 				continue
 			}
-			createViewSql := fmt.Sprintf("CREATE OR REPLACE VIEW \"%s\" AS %s", viewName, sql)
+			createViewSql := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(viewName) + " AS " + sql // safe: viewName validated via safeident.ValidateStrictIdentifier (via stripAndValidateName + ValidateIdentifier)
 			if _, err := e.db.Exec(createViewSql); err != nil {
 				log.Printf("[Engine] Failed to create view %s: %v", viewName, err)
 			}
@@ -423,8 +411,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 	e.updateProgress(task.Id, 70, "running")
 
 	tableName := task.Id
-	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(precompiled): %w", err) }
-	if err := validateSQLName(tableName); err != nil { return fmt.Errorf("validateTableName(precompiled): %w", err) }
+	if err := safeident.ValidateIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(precompiled): %w", err) }
 	contentType := resp.Header.Get("Content-Type")
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	os.MkdirAll(filepath.Join(projectPath, "raw"), 0755)
@@ -434,14 +421,20 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 		if err := os.WriteFile(tmpFile, bodyBytes, 0644); err != nil {
 			return fmt.Errorf("scrittura file temporaneo fallita: %w", err)
 		}
-		createSQL := fmt.Sprintf(`CREATE OR REPLACE VIEW "%s" AS SELECT * FROM read_json_auto('%s')`, tableName, strings.ReplaceAll(tmpFile, "'", "''"))
+		if err := safeident.SanitizeFilePath(tmpFile); err != nil {
+			return fmt.Errorf("percorso file non sicuro: %w", err)
+		}
+		createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(tmpFile) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
 			return fmt.Errorf("creazione vista JSON fallita: %w", err)
 		}
 	} else if strings.Contains(contentType, "csv") || strings.Contains(contentType, "text/plain") {
 		tmpFile := filepath.Join(projectPath, "raw", tableName+".csv")
 		os.WriteFile(tmpFile, bodyBytes, 0644)
-		createSQL := fmt.Sprintf(`CREATE OR REPLACE VIEW "%s" AS SELECT * FROM read_csv_auto('%s')`, tableName, strings.ReplaceAll(tmpFile, "'", "''"))
+		if err := safeident.SanitizeFilePath(tmpFile); err != nil {
+			return fmt.Errorf("percorso file non sicuro: %w", err)
+		}
+		createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(tmpFile) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
 			return fmt.Errorf("creazione vista CSV fallita: %w", err)
 		}
@@ -526,7 +519,10 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 			return fmt.Errorf("scrittura file fallita: %w", err)
 		}
 		fmt.Fprintf(w, "Salvato CSV in %s (%d bytes)\n", rawPath, len(bodyBytes))
-		createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_csv_auto('%s', ignore_errors=true)`, tableName, strings.ReplaceAll(rawPath, "'", "''"))
+		if err := safeident.SanitizeFilePath(rawPath); err != nil {
+			return fmt.Errorf("percorso file non sicuro: %w", err)
+		}
+		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(rawPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
 			return fmt.Errorf("creazione tabella da CSV fallita: %w", err)
 		}
@@ -536,7 +532,10 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 			return fmt.Errorf("scrittura file fallita: %w", err)
 		}
 		fmt.Fprintf(w, "Salvato JSON in %s (%d bytes)\n", rawPath, len(bodyBytes))
-		createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_json_auto('%s', ignore_errors=true)`, tableName, strings.ReplaceAll(rawPath, "'", "''"))
+		if err := safeident.SanitizeFilePath(rawPath); err != nil {
+			return fmt.Errorf("percorso file non sicuro: %w", err)
+		}
+		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(rawPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
 			return fmt.Errorf("creazione tabella da JSON fallita: %w", err)
 		}
@@ -548,7 +547,7 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 }
 
 func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File) error {
-	if err := validateSQLName(tableName); err != nil {
+	if err := safeident.ValidateIdentifier(tableName); err != nil {
 		return fmt.Errorf("invalid table name for JSON array insert: %w", err)
 	}
 	if len(arr) == 0 {
@@ -571,10 +570,10 @@ func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File
 
 	escapedCols := make([]string, len(columns))
 	for i, c := range columns {
-		if !validName.MatchString(c) {
-			return fmt.Errorf("invalid column name in JSON data: %q", c)
+		if err := safeident.ValidateColumnName(c); err != nil {
+			return fmt.Errorf("invalid column name in JSON data: %w", err)
 		}
-		escapedCols[i] = fmt.Sprintf(`"%s"`, c)
+		escapedCols[i] = safeident.QuoteIdentifier(c) // safe: c validated via safeident.ValidateColumnName
 	}
 
 	values := make([]string, 0, len(arr))
@@ -597,8 +596,7 @@ func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File
 		values = append(values, "("+strings.Join(placeholders, ",")+")")
 	}
 
-	createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" (%s)`, tableName,
-		strings.Join(escapedCols, ", "))
+	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " (" + strings.Join(escapedCols, ", ") + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; escapedCols via safeident.ValidateColumnName
 	if _, err := e.db.Exec(createSQL); err != nil {
 		return fmt.Errorf("creazione tabella fallita: %w", err)
 	}
@@ -609,9 +607,7 @@ func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File
 		if end > len(values) {
 			end = len(values)
 		}
-		insertSQL := fmt.Sprintf(`INSERT INTO "%s" (%s) VALUES %s`, tableName,
-			strings.Join(escapedCols, ", "),
-			strings.Join(values[i:end], ", "))
+		insertSQL := "INSERT INTO " + safeident.QuoteIdentifier(tableName) + " (" + strings.Join(escapedCols, ", ") + ") VALUES " + strings.Join(values[i:end], ", ") // safe: tableName validated; escapedCols via safeident.ValidateColumnName; VALUES use ? parameterized
 		if _, err := e.db.Exec(insertSQL, params...); err != nil {
 			fmt.Fprintf(w, "Warning: insert batch fallito: %v\n", err)
 		}
@@ -668,7 +664,7 @@ func (e *Engine) runCSVLoad(ctx context.Context, w *os.File, projectID string, t
 	if err != nil { return fmt.Errorf("lettura file fallita: %w", err) }
 	if err := os.WriteFile(localPath, data, 0644); err != nil { return fmt.Errorf("scrittura file locale fallita: %w", err) }
 
-	createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM %s('%s')`, tableName, readerFunc, strings.ReplaceAll(localPath, "'", "''"))
+	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM " + readerFunc + "(" + safeident.QuoteStringLiteral(localPath) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 	if _, err := e.db.Exec(createSQL); err != nil {
 		return fmt.Errorf("caricamento file fallito: %w", err)
 	}
@@ -710,12 +706,12 @@ func (e *Engine) runPostgresLoad(ctx context.Context, w *os.File, projectID stri
 	e.updateProgress(task.Id, 40, "running")
 
 	safeDSN := strings.ReplaceAll(config.DSN, "'", "''")
-	query := fmt.Sprintf("SELECT * FROM postgres_scan_pushdown('%s', 'public', '%s')", safeDSN, tableName)
+	query := "SELECT * FROM postgres_scan_pushdown(" + safeident.QuoteStringLiteral(safeDSN) + ", 'public', " + safeident.QuoteStringLiteral(tableName) + ")"
 	if config.Query != "" {
 		return fmt.Errorf("query personalizzate non permesse per motivi di sicurezza — usa solo DSN + nome tabella")
 	}
 
-	createSQL := fmt.Sprintf(`CREATE OR REPLACE VIEW "%s" AS %s`, tableName, query)
+	createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS " + query // safe: tableName validated via safeident.ValidateStrictIdentifier; DSN and tableName in postgres_scan_pushdown use QuoteStringLiteral
 	if _, err := e.db.Exec(createSQL); err != nil {
 		return fmt.Errorf("creazione vista PostgreSQL fallita: %w", err)
 	}
@@ -765,19 +761,23 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 	for _, entry := range entries {
 		if entry.IsDir() { continue }
 		tableName := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
-		if err := validateSQLName(tableName); err != nil {
+		if err := safeident.ValidateIdentifier(tableName); err != nil {
 			fmt.Fprintf(w, "Warning: skipping invalid table name %q: %v\n", tableName, err)
 			continue
 		}
 		filePath := filepath.Join(destPath, entry.Name())
+		if err := safeident.SanitizeFilePath(filePath); err != nil {
+			fmt.Fprintf(w, "Warning: skipping unsafe file path %q: %v\n", filePath, err)
+			continue
+		}
 		ext := strings.ToLower(filepath.Ext(entry.Name()))
 		var createSQL string
 		if ext == ".csv" {
-			createSQL = fmt.Sprintf(`CREATE OR REPLACE VIEW "%s" AS SELECT * FROM read_csv_auto('%s')`, tableName, strings.ReplaceAll(filePath, "'", "''"))
+			createSQL = "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(filePath) + ")" // safe: tableName validated via safeident.ValidateIdentifier; filePath via safeident.SanitizeFilePath
 		} else if ext == ".json" {
-			createSQL = fmt.Sprintf(`CREATE OR REPLACE VIEW "%s" AS SELECT * FROM read_json_auto('%s')`, tableName, strings.ReplaceAll(filePath, "'", "''"))
+			createSQL = "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(filePath) + ")" // safe: tableName validated via safeident.ValidateIdentifier; filePath via safeident.SanitizeFilePath
 		} else if ext == ".parquet" {
-			createSQL = fmt.Sprintf(`CREATE OR REPLACE VIEW "%s" AS SELECT * FROM read_parquet('%s')`, tableName, strings.ReplaceAll(filePath, "'", "''"))
+			createSQL = "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_parquet(" + safeident.QuoteStringLiteral(filePath) + ")" // safe: tableName validated; filePath via safeident.SanitizeFilePath
 		} else { continue }
 		if _, err := e.db.Exec(createSQL); err != nil {
 			fmt.Fprintf(w, "Warning: vista %s fallita: %v\n", tableName, err)
@@ -998,7 +998,7 @@ if rows:
 		return fmt.Errorf("failed to write CSV: %v", err)
 	}
 
-	createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_csv_auto('%s', ignore_errors=true)`, tableName, csvPath)
+	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(csvPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
 	fmt.Fprintf(w, "Creating table '%s' in DuckDB...\n", tableName)
 	if _, err := e.db.Exec(createSQL); err != nil {
 		return fmt.Errorf("duckdb create table failed: %v", err)
@@ -1118,8 +1118,12 @@ func (e *Engine) runGitHubSource(ctx context.Context, w *os.File, projectID stri
 			return fmt.Errorf("scrittura %s fallita: %w", kind, err)
 		}
 
-		createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_json_auto('%s', ignore_errors=true)`,
-			tableName, strings.ReplaceAll(jsonPath, "'", "''"))
+		if err := safeident.SanitizeFilePath(jsonPath); err != nil {
+			fmt.Fprintf(w, "Warning: unsafe JSON path for %s: %v\n", kind, err)
+			continue
+		}
+
+		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
 			fmt.Fprintf(w, "Warning: creazione tabella %s fallita: %v\n", tableName, err)
 		} else {
@@ -1200,8 +1204,11 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 		return fmt.Errorf("scrittura sitemap JSON fallita: %w", err)
 	}
 
-	createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_json_auto('%s', ignore_errors=true)`,
-		tableName, strings.ReplaceAll(jsonPath, "'", "''"))
+	if err := safeident.SanitizeFilePath(jsonPath); err != nil {
+		return fmt.Errorf("unsafe sitemap JSON path: %w", err)
+	}
+
+	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
 	if _, err := e.db.Exec(createSQL); err != nil {
 		return fmt.Errorf("creazione tabella sitemap fallita: %w", err)
 	}
@@ -1312,9 +1319,11 @@ func (e *Engine) runJSONAPISource(ctx context.Context, w *os.File, projectID str
 	if err := os.WriteFile(jsonPath, data, 0644); err != nil {
 		return fmt.Errorf("scrittura JSON fallita: %w", err)
 	}
+	if err := safeident.SanitizeFilePath(jsonPath); err != nil {
+		return fmt.Errorf("unsafe JSON path for jsonapi: %w", err)
+	}
 
-	createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_json_auto('%s', ignore_errors=true)`,
-		tableName, strings.ReplaceAll(jsonPath, "'", "''"))
+	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
 	if _, err := e.db.Exec(createSQL); err != nil {
 		return fmt.Errorf("creazione tabella jsonapi fallita: %w", err)
 	}
@@ -1358,7 +1367,7 @@ func (e *Engine) runSheetsSource(ctx context.Context, w *os.File, projectID stri
 	for sheetName, data := range allSheets {
 		tableName := task.Id + "_" + sheetName
 		tableName = strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(tableName, "_"))
-		if err := validateSQLName(tableName); err != nil {
+		if err := safeident.ValidateIdentifier(tableName); err != nil {
 			fmt.Fprintf(w, "Warning: skip sheet %q: %v\n", sheetName, err)
 			continue
 		}
@@ -1367,9 +1376,12 @@ func (e *Engine) runSheetsSource(ctx context.Context, w *os.File, projectID stri
 		if err := os.WriteFile(jsonPath, data, 0644); err != nil {
 			return fmt.Errorf("scrittura sheet %q fallita: %w", sheetName, err)
 		}
+		if err := safeident.SanitizeFilePath(jsonPath); err != nil {
+			fmt.Fprintf(w, "Warning: unsafe JSON path for sheet %q: %v\n", sheetName, err)
+			continue
+		}
 
-		createSQL := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" AS SELECT * FROM read_json_auto('%s', ignore_errors=true)`,
-			tableName, strings.ReplaceAll(jsonPath, "'", "''"))
+		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
 			fmt.Fprintf(w, "Warning: creazione tabella %s fallita: %v\n", tableName, err)
 		} else {

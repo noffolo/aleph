@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16\x61leph/nlp/v1/nlp.proto\x12\x0c\x61leph.nlp.v1\"o\n\x15RecordFeedbackRequest\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\x12\n\nis_correct\x18\x02 \x01(\x08\x12\x18\n\x10\x63orrection_value\x18\x03 \x01(\t\x12\x15\n\rfeedback_type\x18\x04 \x01(\t\")\n\x16RecordFeedbackResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"\'\n\x17\x41nalyzeSentimentRequest\x12\x0c\n\x04text\x18\x01 \x01(\t\"8\n\x18\x41nalyzeSentimentResponse\x12\r\n\x05score\x18\x01 \x01(\x02\x12\r\n\x05label\x18\x02 \x01(\t\"F\n\x18StreamPredictionsRequest\x12\x12\n\ncontext_id\x18\x01 \x01(\t\x12\x16\n\x0eontology_query\x18\x02 \x01(\t\"\x87\x01\n\x19StreamPredictionsResponse\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\x13\n\x0bprobability\x18\x02 \x01(\x02\x12\x17\n\x0fpredicted_state\x18\x03 \x01(\t\x12\x13\n\x0b\x65xplanation\x18\x04 \x01(\t\x12\x14\n\x0cis_synthetic\x18\x05 \x01(\x08\"\xa6\x01\n\x0f\x41lephPrediction\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\x13\n\x0bprobability\x18\x02 \x01(\x02\x12\x17\n\x0fpredicted_state\x18\x03 \x01(\t\x12\x14\n\x0cmodel_source\x18\x04 \x01(\t\x12\x13\n\x0b\x65xplanation\x18\x05 \x01(\t\x12\x11\n\ttimestamp\x18\x06 \x01(\x03\x12\x14\n\x0cis_synthetic\x18\x07 \x01(\x08\x32\xb4\x02\n\nNLPService\x12\x61\n\x10\x41nalyzeSentiment\x12%.aleph.nlp.v1.AnalyzeSentimentRequest\x1a&.aleph.nlp.v1.AnalyzeSentimentResponse\x12\x66\n\x11StreamPredictions\x12&.aleph.nlp.v1.StreamPredictionsRequest\x1a\'.aleph.nlp.v1.StreamPredictionsResponse0\x01\x12[\n\x0eRecordFeedback\x12#.aleph.nlp.v1.RecordFeedbackRequest\x1a$.aleph.nlp.v1.RecordFeedbackResponseB<Z:github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16aleph/nlp/v1/nlp.proto\x12\x0caleph.nlp.v1"o\n\x15RecordFeedbackRequest\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\x12\n\nis_correct\x18\x02 \x01(\x08\x12\x18\n\x10correction_value\x18\x03 \x01(\t\x12\x15\n\rfeedback_type\x18\x04 \x01(\t")\n\x16RecordFeedbackResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08"\'\n\x17AnalyzeSentimentRequest\x12\x0c\n\x04text\x18\x01 \x01(\t"\x86\x01\n\x18AnalyzeSentimentResponse\x12\r\n\x05score\x18\x01 \x01(\x02\x12\r\n\x05label\x18\x02 \x01(\t\x12\x13\n\x06method\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x1a\n\ris_calibrated\x18\x04 \x01(\x08H\x01\x88\x01\x01B\t\n\x07_methodB\x10\n\x0e_is_calibrated"F\n\x18StreamPredictionsRequest\x12\x12\n\ncontext_id\x18\x01 \x01(\t\x12\x16\n\x0eontology_query\x18\x02 \x01(\t"\x87\x01\n\x19StreamPredictionsResponse\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\x13\n\x0bprobability\x18\x02 \x01(\x02\x12\x17\n\x0fpredicted_state\x18\x03 \x01(\t\x12\x13\n\x0bexplanation\x18\x04 \x01(\t\x12\x14\n\x0cis_synthetic\x18\x05 \x01(\x08"\xa6\x01\n\x0fAlephPrediction\x12\x11\n\tentity_id\x18\x01 \x01(\t\x12\x13\n\x0bprobability\x18\x02 \x01(\x02\x12\x17\n\x0fpredicted_state\x18\x03 \x01(\t\x12\x14\n\x0cmodel_source\x18\x04 \x01(\t\x12\x13\n\x0bexplanation\x18\x05 \x01(\t\x12\x11\n\ttimestamp\x18\x06 \x01(\x03\x12\x14\n\x0cis_synthetic\x18\x07 \x01(\x082\xb4\x02\n\nNLPService\x12a\n\x10AnalyzeSentiment\x12%.aleph.nlp.v1.AnalyzeSentimentRequest\x1a&.aleph.nlp.v1.AnalyzeSentimentResponse\x12f\n\x11StreamPredictions\x12&.aleph.nlp.v1.StreamPredictionsRequest\x1a\'.aleph.nlp.v1.StreamPredictionsResponse0\x01\x12[\n\x0eRecordFeedback\x12#.aleph.nlp.v1.RecordFeedbackRequest\x1a$.aleph.nlp.v1.RecordFeedbackResponseB<Z:github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,20 +32,20 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'aleph.nlp.v1.nlp_pb2', _glo
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z:github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1'
-  _globals['_RECORDFEEDBACKREQUEST']._serialized_start=40
+  _globals['_RECORDFEEDBACKREQUEST']._serialized_start=38
   _globals['_RECORDFEEDBACKREQUEST']._serialized_end=151
-  _globals['_RECORDFEEDBACKRESPONSE']._serialized_start=153
+  _globals['_RECORDFEEDBACKRESPONSE']._serialized_start=151
   _globals['_RECORDFEEDBACKRESPONSE']._serialized_end=194
-  _globals['_ANALYZESENTIMENTREQUEST']._serialized_start=196
+  _globals['_ANALYZESENTIMENTREQUEST']._serialized_start=194
   _globals['_ANALYZESENTIMENTREQUEST']._serialized_end=235
-  _globals['_ANALYZESENTIMENTRESPONSE']._serialized_start=237
-  _globals['_ANALYZESENTIMENTRESPONSE']._serialized_end=293
-  _globals['_STREAMPREDICTIONSREQUEST']._serialized_start=295
-  _globals['_STREAMPREDICTIONSREQUEST']._serialized_end=365
-  _globals['_STREAMPREDICTIONSRESPONSE']._serialized_start=368
-  _globals['_STREAMPREDICTIONSRESPONSE']._serialized_end=503
-  _globals['_ALEPHPREDICTION']._serialized_start=506
-  _globals['_ALEPHPREDICTION']._serialized_end=672
-  _globals['_NLPSERVICE']._serialized_start=675
-  _globals['_NLPSERVICE']._serialized_end=983
+  _globals['_ANALYZESENTIMENTRESPONSE']._serialized_start=235
+  _globals['_ANALYZESENTIMENTRESPONSE']._serialized_end=372
+  _globals['_STREAMPREDICTIONSREQUEST']._serialized_start=372
+  _globals['_STREAMPREDICTIONSREQUEST']._serialized_end=444
+  _globals['_STREAMPREDICTIONSRESPONSE']._serialized_start=444
+  _globals['_STREAMPREDICTIONSRESPONSE']._serialized_end=582
+  _globals['_ALEPHPREDICTION']._serialized_start=582
+  _globals['_ALEPHPREDICTION']._serialized_end=751
+  _globals['_NLPSERVICE']._serialized_start=751
+  _globals['_NLPSERVICE']._serialized_end=1062
 # @@protoc_insertion_point(module_scope)

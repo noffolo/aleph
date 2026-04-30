@@ -188,7 +188,8 @@ export const InlineRenderer: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => store.setShowInlinePanel(false)}
-            className="text-textMuted hover:text-text text-xs transition-colors px-2 py-1 rounded hover:bg-surface-alt"
+            aria-label={t('slideOver.close')}
+            className="text-textMuted hover:text-text text-xs transition-colors px-2 py-1 rounded hover:bg-surface-alt focus:ring-2 focus:ring-primary"
           >
              {t('slideOver.close')}
           </button>

@@ -74,7 +74,7 @@ export const ComponentsView: React.FC<ComponentsViewProps> = ({ components, onUp
           <h2 className="text-3xl font-bold tracking-tight">{t('components.title')}</h2>
           <p className="text-textMuted text-sm mt-1">{t('components.subtitle')}</p>
         </div>
-        <button onClick={openRegister} className="flex items-center space-x-2 bg-primary text-white px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg ">
+        <button onClick={openRegister} className="flex items-center space-x-2 bg-primary text-white px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg focus:ring-2 focus:ring-primary" aria-label="Register new component">
           <Plus size={20} />
           <span>{t('components.register')}</span>
         </button>
@@ -159,16 +159,16 @@ export const ComponentsView: React.FC<ComponentsViewProps> = ({ components, onUp
             <div className="flex items-center justify-between pt-4 border-t border-border">
               <span className="text-[10px] text-textMuted font-mono">{c.source}</span>
               <div className="flex items-center space-x-2">
-                <button onClick={() => openDetail(c.id)} className="flex items-center space-x-1 text-[10px] font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors">
+                <button onClick={() => openDetail(c.id)} className="flex items-center space-x-1 text-[10px] font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors focus:ring-2 focus:ring-primary" aria-label={`View component ${c.name} details`}>
                   <Eye size={12} /><span>Dettagli</span>
                 </button>
                 {c.status === 'active' ? (
-                  <button onClick={() => onUpdateComponentStatus(c.id, 'paused')} className="flex items-center space-x-1 text-[10px] font-bold text-warning bg-warning/10 px-3 py-1.5 rounded-lg hover:bg-warning/10 transition-colors">
+                  <button onClick={() => onUpdateComponentStatus(c.id, 'paused')} className="flex items-center space-x-1 text-[10px] font-bold text-warning bg-warning/10 px-3 py-1.5 rounded-lg hover:bg-warning/10 transition-colors focus:ring-2 focus:ring-primary" aria-label={`Pause component ${c.name}`}>
                     <ToggleLeft size={12} />
                     <span>Pausa</span>
                   </button>
                 ) : (
-                  <button onClick={() => onUpdateComponentStatus(c.id, 'active')} className="flex items-center space-x-1 text-[10px] font-bold text-success bg-success/10 px-3 py-1.5 rounded-lg hover:bg-success/10 transition-colors">
+                  <button onClick={() => onUpdateComponentStatus(c.id, 'active')} className="flex items-center space-x-1 text-[10px] font-bold text-success bg-success/10 px-3 py-1.5 rounded-lg hover:bg-success/10 transition-colors focus:ring-2 focus:ring-primary" aria-label={`Activate component ${c.name}`}>
                     <Zap size={12} />
                     <span>Attiva</span>
                   </button>

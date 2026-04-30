@@ -1,5 +1,12 @@
+import re
+import os
 import requests
 from abc import ABC, abstractmethod
+
+# Environment-configurable API endpoints
+_POLYMARKET_API_URL = os.environ.get("POLYMARKET_API_URL", "https://clob.polymarket.com/markets")
+_METACULUS_API_URL = os.environ.get("METACULUS_API_URL", "https://www.metaculus.com/api2/questions")
+_MARKET_REQUEST_TIMEOUT = int(os.environ.get("MARKET_REQUEST_TIMEOUT", "10"))
 
 class MarketSource(ABC):
     @abstractmethod
@@ -7,11 +14,14 @@ class MarketSource(ABC):
         pass
 
 class PolymarketSource(MarketSource):
-    API_URL = "https://clob.polymarket.com/markets"
+    API_URL = _POLYMARKET_API_URL
 
     def fetch(self, identifier):
+        if not re.match(r'^[a-zA-Z0-9_-]{1,128}$', identifier):
+            print(f"[Markets] Invalid identifier for Polymarket: {identifier}")
+            return None
         try:
-            resp = requests.get(f"{self.API_URL}/{identifier}", timeout=10)
+            resp = requests.get(f"{self.API_URL}/{identifier}", timeout=_MARKET_REQUEST_TIMEOUT)
             resp.raise_for_status()
             data = resp.json()
             if "outcomePrices" in data and data["outcomePrices"]:
@@ -27,11 +37,14 @@ class PolymarketSource(MarketSource):
         return None
 
 class MetaculusSource(MarketSource):
-    API_URL = "https://www.metaculus.com/api2/questions"
+    API_URL = _METACULUS_API_URL
 
     def fetch(self, identifier):
+        if not (isinstance(identifier, int) or (isinstance(identifier, str) and identifier.isdigit())):
+            print(f"[Markets] Invalid identifier for Metaculus: {identifier}")
+            return None
         try:
-            resp = requests.get(f"{self.API_URL}/{identifier}/", timeout=10)
+            resp = requests.get(f"{self.API_URL}/{identifier}/", timeout=_MARKET_REQUEST_TIMEOUT)
             resp.raise_for_status()
             data = resp.json()
             if "community_prediction" in data:

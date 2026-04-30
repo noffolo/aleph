@@ -1,9 +1,20 @@
+import { memo } from 'react'
 import { CopilotView } from '../CopilotView'
 import { useStore } from '../../store/useStore'
 import { useAppActions } from '../../hooks/useAppActions'
 
-export function TerminalView() {
-  const store = useStore()
+const TerminalViewInner = () => {
+  const currentView = useStore(s => s.currentView)
+  const showInlinePanel = useStore(s => s.showInlinePanel)
+  const agents = useStore(s => s.agents)
+  const selectedAgent = useStore(s => s.selectedAgent)
+  const setSelectedAgent = useStore(s => s.setSelectedAgent)
+  const chat = useStore(s => s.chat)
+  const input = useStore(s => s.input)
+  const setInput = useStore(s => s.setInput)
+  const isStreaming = useStore(s => s.isStreaming)
+  const cancelStream = useStore(s => s.cancelStream)
+  const clearChat = useStore(s => s.clearChat)
   const { onSend, onConfirmAction } = useAppActions()
 
   return (
@@ -14,22 +25,24 @@ export function TerminalView() {
         <span className="text-xs font-mono text-textMuted">terminal</span>
         <span className="flex-1" />
         <span className="text-[10px] font-mono text-textDim bg-surfaceAlt px-2 py-0.5 rounded">
-          {store.selectedAgent ? `${store.selectedAgent}` : 'no agent'}
+          {selectedAgent ? `${selectedAgent}` : 'no agent'}
         </span>
       </div>
       <CopilotView
-        agents={store.agents}
-        selectedAgent={store.selectedAgent}
-        setSelectedAgent={store.setSelectedAgent}
-        chat={store.chat}
-        input={store.input}
-        setInput={store.setInput}
+        agents={agents}
+        selectedAgent={selectedAgent}
+        setSelectedAgent={setSelectedAgent}
+        chat={chat}
+        input={input}
+        setInput={setInput}
         onSend={onSend}
-        isStreaming={store.isStreaming}
-        onCancelStream={() => store.cancelStream()}
+        isStreaming={isStreaming}
+        onCancelStream={() => cancelStream()}
         onConfirmAction={onConfirmAction}
-        onClearChat={() => store.clearChat()}
+        onClearChat={() => clearChat()}
       />
     </div>
   )
 }
+
+export const TerminalView = memo(TerminalViewInner)

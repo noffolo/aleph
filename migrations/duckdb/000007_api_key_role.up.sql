@@ -1,0 +1,1 @@
+ALTER TABLE system_api_keys ADD COLUMN role VARCHAR NOT NULL DEFAULT 'user';

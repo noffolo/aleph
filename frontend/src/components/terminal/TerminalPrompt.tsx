@@ -85,7 +85,8 @@ export const TerminalPrompt: React.FC<TerminalPromptProps> = ({
            onKeyDown={handleKeyDown}
            disabled={disabled}
            rows={rows}
-
+          data-testid="terminal-prompt"
+          data-terminal-prompt="true"
           className="flex-1 bg-transparent text-text outline-none resize-none terminal-input placeholder:text-textDim text-base leading-relaxed"
           placeholder={activePlaceholder}
         />

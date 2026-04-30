@@ -156,6 +156,6 @@ func isAuthenticatedForSSE(r *http.Request, metaRepo *repository.MetadataReposit
 	if key == "" {
 		return false
 	}
-	_, err := middleware.ValidateAPIKey(metaRepo, key)
+	_, _, err := middleware.ValidateAPIKey(metaRepo, key)
 	return err == nil
 }

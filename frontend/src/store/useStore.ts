@@ -35,6 +35,7 @@ export interface SlideOverContent {
     | 'component-form'
     | 'component-detail'
     | 'tool-intelligence'
+    | 'scenario-comparison'
   title: string
   data?: unknown
 }

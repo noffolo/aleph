@@ -84,11 +84,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ projectID, onShowOnboarding })
           return (
             <React.Fragment key={item.id}>
               {DIVIDER_AFTER.has(i) && <div className="w-6 h-px bg-border my-2" />}
-                <button
-                  onClick={() => handleClick(item)}
-                  title={item.id}
-                  aria-current={active ? 'page' : undefined}
-                  className={`relative w-9 h-9 flex items-center justify-center rounded transition-colors ${
+                 <button
+                   onClick={() => handleClick(item)}
+                   title={item.id}
+                   data-testid={`sidebar-${item.id.toLowerCase().replace(/\s+/g, '-')}`}
+                   aria-current={active ? 'page' : undefined}
+                  className={`relative w-9 h-9 flex items-center justify-center rounded transition-colors focus:ring-2 focus:ring-primary ${
                     active
                       ? 'bg-primary/10 text-primary border-l-2 border-primary rounded-none pl-[calc(0.75rem-2px)]'
                       : 'text-textMuted hover:text-text hover:bg-surface-alt'
@@ -105,7 +106,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ projectID, onShowOnboarding })
       <button
         onClick={onShowOnboarding}
         title={projectID || 'Select Project'}
-        className="w-9 h-9 flex items-center justify-center rounded text-textMuted hover:text-primary hover:bg-primary/10 transition-colors mt-2"
+        aria-label={projectID ? 'Project settings' : 'Select Project'}
+        className="w-9 h-9 flex items-center justify-center rounded text-textMuted hover:text-primary hover:bg-primary/10 transition-colors mt-2 focus:ring-2 focus:ring-primary"
       >
         <Settings size={16} />
       </button>

@@ -28,12 +28,12 @@ func (a *AuthInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			return nil, connect.NewError(connect.CodeUnauthenticated, ErrNoAPIKey)
 		}
 
-		projectID, err := a.validateKey(apiKey)
+		projectID, role, err := a.validateKey(apiKey)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeUnauthenticated, err)
 		}
 
-		ctx = projectIDToContext(ctx, projectID)
+		ctx = projectIDToContext(ctx, projectID, role)
 		return next(ctx, req)
 	}
 }
@@ -53,17 +53,17 @@ func (a *AuthInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc
 			return connect.NewError(connect.CodeUnauthenticated, ErrNoAPIKey)
 		}
 
-		projectID, err := a.validateKey(apiKey)
+		projectID, role, err := a.validateKey(apiKey)
 		if err != nil {
 			return connect.NewError(connect.CodeUnauthenticated, err)
 		}
 
-		ctx = projectIDToContext(ctx, projectID)
+		ctx = projectIDToContext(ctx, projectID, role)
 		return next(ctx, conn)
 	}
 }
 
-func (a *AuthInterceptor) validateKey(apiKey string) (string, error) {
+func (a *AuthInterceptor) validateKey(apiKey string) (string, Role, error) {
 	return ValidateAPIKey(a.metaRepo, apiKey)
 }
 

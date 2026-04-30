@@ -1,0 +1,1 @@
+ALTER TABLE system_api_keys DROP COLUMN role;

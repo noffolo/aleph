@@ -619,13 +619,13 @@ func (r *MetadataRepository) ValidateAPIKey(hashedKey string) (string, error) {
 }
 
 // GetAPIKeyByID looks up an API key record by its ID and returns the stored
-// argon2id hash and the associated project ID.
-func (r *MetadataRepository) GetAPIKeyByID(id string) (hashedKey string, projectID string, err error) {
-	err = r.db.QueryRow("SELECT key, project_id FROM system_api_keys WHERE id = $1", id).Scan(&hashedKey, &projectID)
+// argon2id hash, the associated project ID, and the role.
+func (r *MetadataRepository) GetAPIKeyByID(id string) (hashedKey string, projectID string, role string, err error) {
+	err = r.db.QueryRow("SELECT key, project_id, role FROM system_api_keys WHERE id = $1", id).Scan(&hashedKey, &projectID, &role)
 	if err != nil {
-		return "", "", fmt.Errorf("getAPIKeyByID: %w", err)
+		return "", "", "", fmt.Errorf("getAPIKeyByID: %w", err)
 	}
-	return hashedKey, projectID, nil
+	return hashedKey, projectID, role, nil
 }
 
 func (r *MetadataRepository) DeleteAPIKey(id, projectID string) error {

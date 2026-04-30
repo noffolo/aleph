@@ -1,0 +1,117 @@
+groups:
+  - name: aleph_slo_burn_rate
+    rules:
+      # 5xx error rate > 1% over 5 minutes
+      - alert: AlephHighErrorRate
+        expr: |
+          (
+            sum(rate(aleph_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(aleph_requests_total[5m]))
+          ) > 0.01
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Aleph 5xx error rate exceeds 1%"
+          description: |
+            Error rate is {{ $value | humanizePercentage }} over the last 5 minutes.
+
+      # 5xx error rate > 5% — fast burn rate SLO violation
+      - alert: AlephCriticalErrorRate
+        expr: |
+          (
+            sum(rate(aleph_requests_total{status_code=~"5.."}[2m]))
+            /
+            sum(rate(aleph_requests_total[2m]))
+          ) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Aleph 5xx error rate exceeds 5%"
+          description: |
+            Critical error rate is {{ $value | humanizePercentage }} over the last 2 minutes.
+
+      # P99 latency > 5 seconds over 5 minutes
+      - alert: AlephHighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(aleph_request_duration_seconds_bucket[5m]))
+            by (le, method, path)
+          ) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Aleph P99 latency exceeds 5s"
+          description: |
+            P99 latency is {{ $value | humanizeDuration }} over the last 5 minutes.
+
+      # NLP sidecar errors > 10% of requests
+      - alert: AlephNLPHighErrorRate
+        expr: |
+          (
+            sum(rate(aleph_nlp_requests_total{status=~"(5..|error)"}[5m]))
+            /
+            sum(rate(aleph_nlp_requests_total[5m]))
+          ) > 0.10
+        for: 3m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "NLP sidecar error rate exceeds 10%"
+          description: |
+            NLP error rate is {{ $value | humanizePercentage }} over the last 5 minutes.
+
+      # PAORA cycle failures
+      - alert: AlephPAORACycleStuck
+        expr: |
+          sum(rate(aleph_paora_cycle_total{outcome="error"}[10m]))
+          >
+          sum(rate(aleph_paora_cycle_total{outcome="success"}[10m])) * 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "PAORA decision engine experiencing high failure rate"
+          description: |
+            PAORA error rate exceeds 50% of successful cycles over 10 minutes.
+
+      # Slow database queries
+      - alert: AlephSlowDBQueries
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aleph_db_query_duration_seconds_bucket[5m]))
+            by (le, operation)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Slow database queries detected (P95 > 2s)"
+          description: |
+            P95 DB query latency is {{ $value | humanizeDuration }}.
+
+  - name: aleph_recording_rules
+    rules:
+      # Recording rule: request rate by method and path
+      - record: aleph:http_requests:rate5m
+        expr: sum(rate(aleph_requests_total[5m])) by (method, path, status_code)
+
+      # Recording rule: average request duration by method and path
+      - record: aleph:http_request_duration:avg5m
+        expr: |
+          sum(rate(aleph_request_duration_seconds_sum[5m]))
+          /
+          sum(rate(aleph_request_duration_seconds_count[5m]))
+
+      # Recording rule: NLP request rate by method and status
+      - record: aleph:nlp_requests:rate5m
+        expr: sum(rate(aleph_nlp_requests_total[5m])) by (method, status)

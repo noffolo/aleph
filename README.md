@@ -74,9 +74,15 @@ Gli strumenti (*tools*) e le skill possono essere:
 
 Il sistema trasforma dati grezzi in scenari leggibili. Uno scenario non è una certezza: è una possibile evoluzione costruita sulla base dei dati disponibili, dei modelli usati e delle ipotesi configurate. Ogni scenario porta con sé un livello di confidenza e le assunzioni su cui si basa.
 
-### Modelli ensemble
+### Analisi del sentiment (NLP)
 
-Aleph combina più approcci analitici: modelli statistici (Prophet), machine learning (GBM), analisi del sentiment tramite NLP, e agenti AI per il dispatch di strumenti. L'idea è che nessun modello sia sufficiente da solo — più prospettive riducono il rischio di interpretazioni parziali o distorte.
+L'analisi del sentiment utilizza un approccio euristico basato su dizionari di parole chiave (italiano e inglese). Non vengono impiegati modelli transformer o reti neurali per la classificazione del testo. Il punteggio è una media pesata di conteggi lessicali, con label `positive`/`negative`/`neutral`. Il flag `is_calibrated` è `false` (punteggi non calibrati probabilisticamente).
+
+Il sidecar Python espone anche endpoint predittivi (`StreamPredictions`) e di feedback (`RecordFeedback`) via gRPC, pensati per scenari sperimentali e simulazioni. I dati possono essere reali o sintetici (flag `is_synthetic`). Le predizioni non sostituiscono giudizio umano.
+
+### Modelli ensemble (sperimentale)
+
+Il sistema include componenti per modelli statistici (Prophet), gradient boosting (GBM) e simulazioni di mercato, in fase di integrazione sperimentale. Questi moduli sono disponibili via gRPC ma non ancora calibrati per uso decisionale in produzione.
 
 ### Workspace adattivo
 
@@ -102,27 +108,33 @@ Backend
 Go · Connect RPC
   │
   ├── Persistenza dati
-  │   DuckDB
+  │   PostgreSQL 16 (metadati) + DuckDB (storage analitico)
   │
-  ├── Intelligence layer
-  │   Python · ONNX · Prophet · GBM · PyTorch (fallback)
+  ├── Intelligence layer (Python sidecar, gRPC)
+  │   NLP euristico · Prophet · GBM · Simulazioni mercato
+  │
+  ├── Monitoraggio
+  │   Prometheus :9090 · Grafana :3000 · Alertmanager :9093
   │
   └── Orchestrazione
-      Docker · Docker Compose
+      Docker · Docker Compose · 8 servizi
 ```
 
 ### Stack tecnologico
 
-| Area | Tecnologia |
-|---|---|
-| Backend | Go, Connect RPC |
-| Database / analisi locale | DuckDB + PostgreSQL 16 |
-| VSS (Vector Similarity Search) | DuckDB array_cosine_similarity |
-| Intelligence | Python, ONNX, Prophet, GBM, PyTorch (fallback) |
-| Frontend | React, TypeScript, Vite, Tailwind CSS |
-| Auto-repair engine | Go (7 fix strategies: deprecation, config, caching, timeout, retry, pipeline, validation) |
-| Decision Intelligence | PAORA cycle (Plan → Act → Observe → Reflect → Admit) |
-| Orchestrazione | Docker, Docker Compose |
+| Area | Tecnologia | Stato |
+|---|---|---|
+| Backend | Go, Connect RPC | produzione |
+| Database | DuckDB + PostgreSQL 16 | produzione |
+| VSS (Vector Similarity Search) | DuckDB array_cosine_similarity | produzione |
+| NLP Sentiment | Python, dizionari euristici (IT/EN) | produzione |
+| NLP Predizioni | Python, Prophet, GBM, simulazioni | sperimentale |
+| Frontend | React, TypeScript, Vite, Tailwind CSS | produzione |
+| Auto-repair engine | Go (7 fix strategies) | produzione |
+| Decision Intelligence | PAORA cycle (Plan → Act → Observe → Reflect → Admit) | produzione |
+| Monitoraggio | Prometheus :9090, Grafana :3000, Alertmanager :9093 | produzione |
+| Contract testing | Go ↔ Python NLP gRPC (build tag) | produzione |
+| Orchestrazione | Docker, Docker Compose (8 servizi) | produzione |
 
 ---
 
@@ -252,12 +264,14 @@ Aleph-v2 è in fase **produzione**.
 |----------|-------|
 | `go build ./...` | ✅ |
 | `go test -race -count=1 ./...` | ✅ (30+ package) |
-| `go vet ./...` | ✅ (solo warning pre-esistenti participle) |
+| `go vet ./...` | ✅ |
+| `go test -tags=contract ./internal/nlp/...` | ✅ (Go ↔ Python gRPC) |
 | `npx tsc --noEmit` | ✅ (0 errori) |
 | `npx vite build` | ✅ (< 3s) |
 | `npx vitest run` | ✅ |
 | `docker compose config` | ✅ |
 | Gitleaks secrets scan | ✅ |
+| Monitoraggio | Prometheus :9090 · Grafana :3000 · Alertmanager :9093 |
 
 ### Roadmap
 

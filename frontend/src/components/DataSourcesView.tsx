@@ -36,7 +36,7 @@ export const DataSourcesView: React.FC<DataSourcesViewProps> = ({
           <h2 className="text-3xl font-bold tracking-tight">{t('datasources.title')}</h2>
           <p className="text-textMuted text-sm mt-1">{t('datasources.subtitle')}</p>
         </div>
-        <button onClick={openForm} className="flex items-center space-x-2 bg-primary text-background px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg">
+        <button onClick={openForm} className="flex items-center space-x-2 bg-primary text-background px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg focus:ring-2 focus:ring-primary" aria-label="Add data source">
            <Plus size={20} />
            <span>Aggiungi Fonte</span>
         </button>
@@ -63,19 +63,20 @@ export const DataSourcesView: React.FC<DataSourcesViewProps> = ({
                 </div>
              </div>
              <div className="flex items-center space-x-3 ml-8 border-l pl-8 border-border">
-                <button onClick={() => onViewLogs(t.id)} className="px-5 py-2.5 text-sm font-bold text-textMuted hover:bg-surface-alt rounded-lg transition-colors">Logs</button>
+                <button onClick={() => onViewLogs(t.id)} className="px-5 py-2.5 text-sm font-bold text-textMuted hover:bg-surface-alt rounded-lg transition-colors focus:ring-2 focus:ring-primary" aria-label={`View logs for ${t.name}`}>Logs</button>
                 <button 
                     onClick={() => onRunTask(t.id)} 
                     disabled={t.status === 'running' || t.status === 'esecuzione'} 
-                     className={`px-8 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center space-x-2 ${(t.status === 'running' || t.status === 'esecuzione') ? 'bg-border text-textMuted' : 'bg-surface-alt text-text hover:bg-border shadow-lg'}`}
+                      className={`px-8 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center space-x-2 focus:ring-2 focus:ring-primary ${(t.status === 'running' || t.status === 'esecuzione') ? 'bg-border text-textMuted' : 'bg-surface-alt text-text hover:bg-border shadow-lg'}`}
                  >
                     <Play size={14} />
                     <span>{(t.status === 'running' || t.status === 'esecuzione') ? 'In corso...' : t.status === 'completato' || t.status === 'completed' ? 'Completato' : t.status === 'fallito' || t.status === 'failed' ? 'Riprova' : 'Esegui'}</span>
                 </button>
-                <button 
-                   onClick={(e) => { e.stopPropagation(); if (confirm('Sei sicuro di voler eliminare questo task?')) onDeleteTask(t.id); }}
-                   className="p-2.5 text-textDim hover:text-danger hover:bg-danger/10 rounded-lg transition-all"
-                >
+                 <button 
+                    onClick={(e) => { e.stopPropagation(); if (confirm('Sei sicuro di voler eliminare questo task?')) onDeleteTask(t.id); }}
+                    className="p-2.5 text-textDim hover:text-danger hover:bg-danger/10 rounded-lg transition-all focus:ring-2 focus:ring-primary"
+                    aria-label={`Delete task ${t.name}`}
+                 >
                    <Trash2 size={18} />
                 </button>
              </div>
@@ -86,7 +87,7 @@ export const DataSourcesView: React.FC<DataSourcesViewProps> = ({
               <Database size={48} className="mx-auto text-textDim mb-4" />
               <p className="text-textDim font-bold uppercase text-xs tracking-[0.2em] mb-2">Nessuna pipeline di ingestion configurata</p>
                 <p className="text-textMuted text-sm">{t('datasources.empty')}</p>
-                <button onClick={openForm} className="mt-6 px-6 py-3 bg-primary text-background rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg">Aggiungi Fonte</button>
+                <button onClick={openForm} className="mt-6 px-6 py-3 bg-primary text-background rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg focus:ring-2 focus:ring-primary" aria-label="Add data source">Aggiungi Fonte</button>
            </div>
         )}
       </div>
@@ -95,7 +96,7 @@ export const DataSourcesView: React.FC<DataSourcesViewProps> = ({
         <div className="mt-8 bg-background rounded-3xl overflow-hidden shadow-2xl border border-border">
            <div className="flex justify-between items-center p-4 bg-border/50 border-b border-border/50">
               <span className="text-[10px] font-mono text-textMuted uppercase tracking-widest font-bold">Output Esecuzione (Log Real-time)</span>
-               <button onClick={() => setTaskLogs('')} className="p-1 hover:bg-surface-alt rounded-lg text-textMuted transition-colors"><X size={14} /></button>
+                <button onClick={() => setTaskLogs('')} className="p-1 hover:bg-surface-alt rounded-lg text-textMuted transition-colors focus:ring-2 focus:ring-primary" aria-label="Close log panel"><X size={14} /></button>
             </div>
             <pre className="p-6 text-success font-mono text-xs overflow-auto max-h-[400px] leading-relaxed custom-scrollbar whitespace-pre-wrap">
               {taskLogs}

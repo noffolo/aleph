@@ -86,6 +86,17 @@ export interface Tool {
   [key: string]: unknown
 }
 
+export interface Scenario {
+  id: string
+  name: string
+  confidence: number
+  signals: { id: string; name: string; strength: number }[]
+  assumptions: string[]
+  trend: 'up' | 'down' | 'neutral'
+  probability: number
+  description?: string
+}
+
 export interface Prediction {
   entityId: string
   probability: number

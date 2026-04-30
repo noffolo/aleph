@@ -39,12 +39,15 @@ func TestSanitizeIdentifier(t *testing.T) {
 		valid bool
 	}{
 		{"my_table", true},
-		{"table-1", true},
+		{"table_1", true},
 		{"abc123", true},
 		{"", false},
+		{"table-1", false},
 		{"table;DROP", false},
 		{"table name", false},
 		{"../../etc", false},
+		{"SELECT", false},
+		{"DROP", false},
 	}
 	for _, tt := range tests {
 		err := sanitizeIdentifier(tt.id)
@@ -59,8 +62,11 @@ func TestSanitizeIdentifier(t *testing.T) {
 func TestSanitizeFilePath(t *testing.T) {
 	assert.NoError(t, sanitizeFilePath("data.csv"))
 	assert.NoError(t, sanitizeFilePath("raw/data.csv"))
+	assert.NoError(t, sanitizeFilePath("/tmp/data.csv"))
 	assert.Error(t, sanitizeFilePath("../etc/passwd"))
 	assert.Error(t, sanitizeFilePath("foo/../../../bar"))
+	assert.Error(t, sanitizeFilePath("file;rm -rf /"))
+	assert.Error(t, sanitizeFilePath("file`whoami`"))
 }
 
 func TestValidateCode(t *testing.T) {

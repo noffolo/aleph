@@ -2,6 +2,7 @@ package genesis
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -11,12 +12,12 @@ func TestSandbox_Validate_EmptyCode(t *testing.T) {
 	s := NewSandbox(5 * time.Second)
 	ctx := context.Background()
 	suggestion := Suggestion{Code: ""}
-	valid, err := s.Validate(ctx, suggestion)
+	result, err := s.Validate(ctx, suggestion)
 	if err != nil {
 		t.Fatalf("Validate returned error: %v", err)
 	}
-	if !valid {
-		t.Error("expected valid=true for empty code")
+	if !result.Passed {
+		t.Error("expected Passed=true for empty code")
 	}
 }
 
@@ -24,12 +25,13 @@ func TestSandbox_Validate_SafeCode(t *testing.T) {
 	s := NewSandbox(5 * time.Second)
 	ctx := context.Background()
 	suggestion := Suggestion{Code: "package main\n\nfunc main() { println(\"hello\") }"}
-	valid, err := s.Validate(ctx, suggestion)
+	result, err := s.Validate(ctx, suggestion)
 	if err != nil {
 		t.Fatalf("Validate returned error: %v", err)
 	}
-	if !valid {
-		t.Error("expected valid=true for safe code")
+	if !result.Passed {
+		t.Errorf("expected Passed=true for safe code, got Passed=false (risk=%.2f, blocked=%v, warnings=%v)",
+			result.RiskScore, result.BlockedPatterns, result.Warnings)
 	}
 }
 
@@ -56,12 +58,12 @@ func TestSandbox_Validate_DangerousPattern(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			suggestion := Suggestion{Code: tc.code}
-			valid, err := s.Validate(ctx, suggestion)
+			result, err := s.Validate(ctx, suggestion)
 			if err != nil {
 				t.Fatalf("Validate returned error: %v", err)
 			}
-			if valid != tc.expected {
-				t.Errorf("expected valid=%v, got %v for pattern %s", tc.expected, valid, tc.name)
+			if result.Passed != tc.expected {
+				t.Errorf("expected Passed=%v, got %v for pattern %s", tc.expected, result.Passed, tc.name)
 			}
 		})
 	}
@@ -72,13 +74,145 @@ func TestSandbox_Validate_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	suggestion := Suggestion{Code: "some code"}
-	valid, err := s.Validate(ctx, suggestion)
+	result, err := s.Validate(ctx, suggestion)
 	if err != context.Canceled {
 		t.Errorf("expected context.Canceled error, got %v", err)
 	}
-	if valid {
-		t.Error("expected valid=false on cancelled context")
+	if result != nil && result.Passed {
+		t.Error("expected Passed=false on cancelled context")
 	}
+}
+
+func TestSandbox_BlocksDangerousPatterns(t *testing.T) {
+	s := NewSandbox(5 * time.Second)
+	ctx := context.Background()
+
+	code := "package main\n\nimport \"os/exec\"\nimport \"syscall\"\n\nfunc main() {}"
+	result, err := s.Validate(ctx, code2Suggestion(code))
+	if err != nil {
+		t.Fatalf("Validate returned error: %v", err)
+	}
+	if result.Passed {
+		t.Error("expected Passed=false for code with os/exec and syscall")
+	}
+	if len(result.BlockedPatterns) < 2 {
+		t.Errorf("expected at least 2 blocked patterns, got %d: %v", len(result.BlockedPatterns), result.BlockedPatterns)
+	}
+	if result.RiskScore <= 0 {
+		t.Error("expected RiskScore > 0 for dangerous patterns")
+	}
+}
+
+func TestSandbox_PassesSafeCode(t *testing.T) {
+	s := NewSandbox(10 * time.Second)
+	ctx := context.Background()
+
+	code := "package main\n\nimport \"fmt\"\n\nfunc main() { fmt.Println(\"hello\") }"
+	result, err := s.Validate(ctx, code2Suggestion(code))
+	if err != nil {
+		t.Fatalf("Validate returned error: %v", err)
+	}
+	// Code may fail go vet subprocess (no go.mod consistency), so check pattern pass only
+	if len(result.BlockedPatterns) > 0 {
+		t.Errorf("expected no blocked patterns for safe code, got %v", result.BlockedPatterns)
+	}
+}
+
+func TestSandbox_TimeoutEnforcement(t *testing.T) {
+	s := NewSandbox(50 * time.Millisecond)
+	ctx := context.Background()
+
+	// Code that would take a long time to vet (infinite loop in init)
+	code := "package main\n\nfunc init() { for {} }\nfunc main() {}"
+	result, err := s.Validate(ctx, code2Suggestion(code))
+	if err != nil {
+		t.Fatalf("Validate returned error: %v", err)
+	}
+	if result.Passed {
+		t.Error("expected Passed=false for code that times out in subprocess")
+	}
+	if result.Duration > 2*time.Second {
+		t.Errorf("expected fast timeout, but validation took %v", result.Duration)
+	}
+}
+
+func TestSandbox_ObfuscationDetection(t *testing.T) {
+	s := NewSandbox(5 * time.Second)
+	ctx := context.Background()
+
+	tests := []struct {
+		name           string
+		code           string
+		expectWarning  bool
+	}{
+		{
+			"base64 decode",
+			"package main\n\nimport \"encoding/base64\"\n\nfunc main() { base64.StdEncoding.DecodeString(\"aGVsbG8=\") }",
+			true,
+		},
+		{
+			"plugin open",
+			"package main\n\nimport \"plugin\"\n\nfunc main() { plugin.Open(\"mal.so\") }",
+			true,
+		},
+		{
+			"cgo escape",
+			"package main\n\n// #include <stdio.h>\nimport \"C\"\n\nfunc main() {}",
+			true,
+		},
+		{
+			"clean code",
+			"package main\n\nimport \"fmt\"\n\nfunc main() { fmt.Println(\"hello\") }",
+			false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := s.Validate(ctx, code2Suggestion(tc.code))
+			if err != nil {
+				t.Fatalf("Validate returned error: %v", err)
+			}
+			hasObfuscationWarning := false
+			for _, w := range result.Warnings {
+				if strings.Contains(w, "obfuscation pattern") {
+					hasObfuscationWarning = true
+					break
+				}
+			}
+			if hasObfuscationWarning != tc.expectWarning {
+				t.Errorf("expected obfuscation warning=%v, got warnings=%v", tc.expectWarning, result.Warnings)
+			}
+		})
+	}
+}
+
+func TestSandboxResult_Structure(t *testing.T) {
+	s := NewSandbox(5 * time.Second)
+	ctx := context.Background()
+
+	code := "package main\n\nimport \"os/exec\"\n\nfunc main() { exec.Command(\"ls\") }"
+	result, err := s.Validate(ctx, code2Suggestion(code))
+	if err != nil {
+		t.Fatalf("Validate returned error: %v", err)
+	}
+
+	if result.Passed {
+		t.Error("expected Passed=false")
+	}
+	if len(result.BlockedPatterns) == 0 {
+		t.Error("expected BlockedPatterns to be populated")
+	}
+	if result.RiskScore <= 0 {
+		t.Error("expected RiskScore > 0")
+	}
+	if result.Duration == 0 {
+		t.Error("expected Duration > 0")
+	}
+}
+
+func code2Suggestion(code string) Suggestion {
+	return Suggestion{Code: code}
 }
 
 func TestVetoRegistry_Register(t *testing.T) {
