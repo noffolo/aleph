@@ -16,7 +16,7 @@ class FakeNLPServicer(nlp_pb2_grpc.NLPServiceServicer):
         text = request.text
         if not text or not text.strip():
             return nlp_pb2.AnalyzeSentimentResponse(
-                score=0.5, label="NEUTRAL",
+                score=0.5, label="neutral",
                 method="heuristic", is_calibrated=False
             )
 
@@ -29,17 +29,17 @@ class FakeNLPServicer(nlp_pb2_grpc.NLPServiceServicer):
 
         if pos_count > neg_count:
             return nlp_pb2.AnalyzeSentimentResponse(
-                score=0.75, label="POSITIVE",
+                score=0.75, label="positive",
                 method="heuristic", is_calibrated=False
             )
         elif neg_count > pos_count:
             return nlp_pb2.AnalyzeSentimentResponse(
-                score=0.25, label="NEGATIVE",
+                score=0.25, label="negative",
                 method="heuristic", is_calibrated=False
             )
         else:
             return nlp_pb2.AnalyzeSentimentResponse(
-                score=0.5, label="NEUTRAL",
+                score=0.5, label="neutral",
                 method="heuristic", is_calibrated=False
             )
 

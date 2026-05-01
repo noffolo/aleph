@@ -77,7 +77,7 @@ func (s *NotificationService) Stop() {
 
 func (s *NotificationService) SendWebhook(rawURL string, payload interface{}) error {
 	if err := ssrf.ValidateURL(rawURL); err != nil {
-		return fmt.Errorf("URL webhook non valido: %w", err)
+		return fmt.Errorf("webhook URL invalid: %w", err)
 	}
 	select {
 	case s.jobs <- WebhookJob{URL: rawURL, Payload: payload}:

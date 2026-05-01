@@ -9,7 +9,8 @@ interface ToolExecuteSlideOverProps {
 }
 
 export function ToolExecuteSlideOver({ tool, title }: ToolExecuteSlideOverProps) {
-  const store = useStore()
+  const sandboxInput = useStore(s => s.sandboxInput)
+  const setSandboxInput = useStore(s => s.setSandboxInput)
   const { loadProjectData } = useAppActions()
   const { onExecuteTool } = useToolActions(loadProjectData)
   const toolId = tool.id
@@ -25,12 +26,12 @@ export function ToolExecuteSlideOver({ tool, title }: ToolExecuteSlideOverProps)
       </div>
       <div>
         <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Parametri Input (JSON)</label>
-        <textarea
-          value={store.sandboxInput}
-          onChange={(e) => store.setSandboxInput(e.target.value)}
-          rows={3}
-          className="w-full p-3 bg-background rounded-lg border border-border text-xs font-mono resize-none focus:outline-none focus:border-primary/50"
-        />
+         <textarea
+           value={sandboxInput}
+           onChange={(e) => setSandboxInput(e.target.value)}
+           rows={3}
+           className="w-full p-3 bg-background rounded-lg border border-border text-xs font-mono resize-none focus:outline-none focus:border-primary/50"
+         />
       </div>
       <button
         onClick={() => onExecuteTool(toolId)}

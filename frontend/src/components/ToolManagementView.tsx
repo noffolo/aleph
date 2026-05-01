@@ -10,10 +10,10 @@ interface ToolManagementViewProps {
 }
 
 export const ToolManagementView: React.FC<ToolManagementViewProps> = ({ inline }) => {
-  const store = useStore();
+  const tools = useStore(s => s.tools)
   const [searchQuery, setSearchQuery] = useQueryState('q', { defaultValue: '' });
   
-  const tools = store.tools.filter(t => 
+  const filteredTools = tools.filter(t => 
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     t.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -58,7 +58,7 @@ export const ToolManagementView: React.FC<ToolManagementViewProps> = ({ inline }
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {tools.length > 0 ? tools.map(tool => (
+        {filteredTools.length > 0 ? filteredTools.map(tool => (
           <div key={tool.id} className="bg-surface p-4 rounded-lg border border-border hover:border-primary/30 transition-all group">
             <div className="flex justify-between items-start mb-3">
               <div className="flex items-center gap-3">

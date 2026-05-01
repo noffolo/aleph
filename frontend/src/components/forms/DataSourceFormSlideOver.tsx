@@ -12,7 +12,6 @@ interface DataSourceFormSlideOverProps {
 type Mode = 'file' | 'api' | 'db'
 
 export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps) {
-  const store = useStore()
   const { loadProjectData } = useAppActions()
   const { onAddSource } = useDataSourceActions(loadProjectData)
   
@@ -79,9 +78,9 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
 
   const handleSubmit = () => {
     if (!validateStep()) return
-
+    
     onAddSource({ name, sourceType, configJson })
-    store.setSlideOverContent(null)
+    useStore.getState().setSlideOverContent(null)
   }
 
   const nextStep = () => {
@@ -108,8 +107,9 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
         {step === 1 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
             <div>
-              <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome Sorgente</label>
+              <label htmlFor="so-ds-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome Sorgente</label>
               <input
+                id="so-ds-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
@@ -121,8 +121,9 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione (Opzionale)</label>
+              <label htmlFor="so-ds-description" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione (Opzionale)</label>
               <textarea
+                id="so-ds-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
@@ -249,9 +250,10 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
             )}
 
             <div>
-              <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Configurazione Avanzata (JSON)</label>
-              <textarea
-                value={configJson}
+            <label htmlFor="so-ds-advanced-config" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Configurazione Avanzata (JSON)</label>
+            <textarea
+              id="so-ds-advanced-config"
+              value={configJson}
                 onChange={(e) => setConfigJson(e.target.value)}
                 rows={6}
                 className={`w-full p-3 bg-background rounded-lg border text-xs font-mono resize-none focus:outline-none focus:border-primary/50 transition-colors ${
@@ -265,10 +267,10 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
       </div>
 
       <div className="flex gap-3 pt-4">
-        <button
-          onClick={step === 1 ? () => store.setSlideOverContent(null) : prevStep}
-          className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border flex items-center justify-center gap-2"
-        >
+         <button
+           onClick={step === 1 ? () => useStore.getState().setSlideOverContent(null) : prevStep}
+           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border flex items-center justify-center gap-2"
+         >
           {step === 1 ? t('confirmDialog.cancel') : <><ChevronLeft size={16} /> Indietro</>}
         </button>
         

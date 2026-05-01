@@ -112,24 +112,24 @@ func RootCauseAnalysis(pattern ErrorPattern) string {
 	switch pattern.Type {
 	case PatternTimeout:
 		if pattern.Component == "nlp" {
-			return "Il servizio NLP non risponde entro il timeout. Possibile sovraccarico o problema di rete."
+			return "NLP service not responding within timeout. Possible overload or network issue."
 		}
-		return "Operazione scaduta. Possibile sovraccarico del sistema o latenza di rete aumentata."
+		return "Operation timed out. Possible system overload or increased network latency."
 	case PatternAuth:
-		return "Fallimenti ripetuti di autenticazione. Possibile token scaduto, credenziali non valide o tentativo di accesso non autorizzato."
+		return "Repeated authentication failures. Possible expired token, invalid credentials, or unauthorized access attempt."
 	case PatternDataIntegrity:
 		if pattern.Component == "ingestion" {
-			return "Dati corrotti o incompleti durante l'ingestione. Possibile problema di checksum o formato dati non valido."
+			return "Corrupted or incomplete data during ingestion. Possible checksum issue or invalid data format."
 		}
-		return "Integrità dei dati compromessa. Possibile corruzione dati o record mancanti."
+		return "Data integrity compromised. Possible data corruption or missing records."
 	case PatternResourceExhaustion:
-		return "Risorse del sistema esaurite. Possibile memory leak, troppe connessioni aperte o sovraccarico di CPU."
+		return "System resources exhausted. Possible memory leak, too many open connections, or CPU overload."
 	case PatternDependencyFailure:
-		return "Servizio esterno non disponibile. Verificare lo stato dei servizi dipendenti (NLP, storage, MCP)."
+		return "External service unavailable. Check the status of dependent services (NLP, storage, MCP)."
 	case PatternConfiguration:
-		return "Configurazione errata o mancante. Verificare le variabili d'ambiente e i parametri di configurazione."
+		return "Configuration error or missing. Check environment variables and configuration parameters."
 	default:
-		return "Causa radice non determinata. Raccomandata analisi manuale."
+		return "Root cause undetermined. Manual analysis recommended."
 	}
 }
 
@@ -137,19 +137,19 @@ func RootCauseAnalysis(pattern ErrorPattern) string {
 func SuggestFix(pattern ErrorPattern) string {
 	switch pattern.Type {
 	case PatternTimeout:
-		return "Aumentare i timeout, verificare la connessione di rete, ridurre il carico sul servizio."
+		return "Increase timeouts, check network connection, reduce service load."
 	case PatternAuth:
-		return "Verificare le credenziali, rinnovare i token, controllare i permessi dell'utente."
+		return "Check credentials, renew tokens, verify user permissions."
 	case PatternDataIntegrity:
-		return "Eseguire la verifica checksum, ripristinare da backup, controllare i formati dei dati in ingresso."
+		return "Run checksum verification, restore from backup, check input data formats."
 	case PatternResourceExhaustion:
-		return "Aumentare le risorse (memoria/CPU), implementare il rate limiting, chiudere le connessioni inutilizzate."
+		return "Increase resources (memory/CPU), implement rate limiting, close unused connections."
 	case PatternDependencyFailure:
-		return "Verificare lo stato dei servizi esterni, implementare circuit breaker, aggiungere retry con backoff."
+		return "Check external service status, implement circuit breaker, add retry with backoff."
 	case PatternConfiguration:
-		return "Verificare le variabili d'ambiente, controllare i file di configurazione, validare i parametri all'avvio."
+		return "Check environment variables, verify configuration files, validate parameters at startup."
 	default:
-		return "Analisi manuale raccomandata."
+		return "Manual analysis recommended."
 	}
 }
 
@@ -246,17 +246,17 @@ func describePattern(patternType string, component string, errMsg string) string
 	case PatternTimeout:
 		return "Timeout: " + component + " - " + truncate(errMsg, 80)
 	case PatternAuth:
-		return "Autenticazione fallita: " + component
+		return "Authentication failed: " + component
 	case PatternDataIntegrity:
-		return "Integrità dati: " + component + " - " + truncate(errMsg, 80)
+		return "Data integrity: " + component + " - " + truncate(errMsg, 80)
 	case PatternResourceExhaustion:
-		return "Risorse esaurite: " + component
+		return "Resources exhausted: " + component
 	case PatternDependencyFailure:
-		return "Servizio dipendente non disponibile: " + component
+		return "Dependent service unavailable: " + component
 	case PatternConfiguration:
-		return "Configurazione errata: " + component
+		return "Configuration error: " + component
 	default:
-		return "Errore: " + component + " - " + truncate(errMsg, 80)
+		return "Error: " + component + " - " + truncate(errMsg, 80)
 	}
 }
 

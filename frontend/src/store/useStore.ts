@@ -20,12 +20,19 @@ export interface InlineContent {
 
 export interface SlideOverContent {
   type:
+    | 'explore'
+    | 'ontology'
+    | 'data'
+    | 'health'
     | 'skill'
     | 'tool'
     | 'sandbox'
     | 'agent'
     | 'datasource'
     | 'component'
+    | 'settings'
+    | 'library'
+    | 'predict'
     | 'asset'
     | 'detail'
     | 'agent-form'
@@ -62,3 +69,7 @@ export const useStore = create<AppState>()((...a) => ({
     set({ projectID, apiKey })
   },
 }))
+
+if (typeof window !== 'undefined') {
+  (window as Window & { __ALEPH_STORE__?: typeof useStore }).__ALEPH_STORE__ = useStore
+}

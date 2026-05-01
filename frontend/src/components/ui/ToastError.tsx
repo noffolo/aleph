@@ -22,8 +22,8 @@ export const ToastError: React.FC<ToastErrorProps> = ({
   }, [onDismiss]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-[300] max-w-sm animate-slide-in-right vol-structural">
-      <div className="bg-surface border border-danger/30 shadow-lg rounded-lg p-4 flex items-start gap-3">
+    <div aria-live="assertive" aria-atomic="true" className="fixed bottom-4 right-4 z-[300] max-w-sm animate-slide-in-right vol-structural">
+      <div role="alert" className="bg-surface border border-danger/30 shadow-lg rounded-lg p-4 flex items-start gap-3">
         <AlertCircle size={18} className="text-danger flex-shrink-0 mt-0.5" />
         
         <div className="flex-1">
@@ -33,12 +33,12 @@ export const ToastError: React.FC<ToastErrorProps> = ({
           
           <div className="flex justify-end gap-2">
             {onRetry && (
-              <button 
-                onClick={onRetry}
-                className="text-meta hover:text-primary transition-colors vol-interactive px-2 py-1 rounded bg-surfaceAlt border border-border"
-              >
-                Riprova
-              </button>
+<button 
+                 onClick={onRetry}
+                 className="text-meta hover:text-primary transition-colors vol-interactive px-2 py-1 rounded bg-surfaceAlt border border-border"
+               >
+                 {t('toast.retry')}
+               </button>
             )}
             <button 
               onClick={onDismiss}

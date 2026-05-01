@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package aleph.registry.v1;
+
+option go_package = "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+message ComponentMetadata {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string version = 4;
+  string type = 5;
+  string category = 6;
+  string source = 7;
+  optional string config_schema_json = 8;
+  optional string execution_command = 9;
+  optional string dependencies_json = 10;
+  optional string input_schema_json = 11;
+  optional string output_schema_json = 12;
+  optional string prompt_template = 13;
+  optional string tool_ids_json = 14;
+  optional double avg_latency_ms = 15;
+  optional double avg_brier_score = 16;
+  optional double avg_cpu_usage = 17;
+  optional double avg_memory_mb = 18;
+  optional double avg_exec_time_ms = 19;
+  string status = 20;
+  string approval_status = 21;
+  optional float trust_score = 22;
+  optional string created_by_agent_id = 23;
+  google.protobuf.Timestamp creation_timestamp = 24;
+  google.protobuf.Timestamp last_updated_timestamp = 25;
+}
+
+message RegisterComponentRequest { ComponentMetadata metadata = 1; }
+message RegisterComponentResponse { string component_id = 1; }
+message GetComponentRequest { string id = 1; }
+message GetComponentResponse { ComponentMetadata metadata = 1; }
+message ListComponentsRequest { map<string, string> filter = 1; }
+message ListComponentsResponse { repeated ComponentMetadata components = 1; }
+message UpdateComponentStatusRequest { string id = 1; string status = 2; }
+message UpdateComponentStatusResponse {}
+
+service RegistryService {
+  rpc RegisterComponent(RegisterComponentRequest) returns (RegisterComponentResponse);
+  rpc GetComponent(GetComponentRequest) returns (GetComponentResponse);
+  rpc ListComponents(ListComponentsRequest) returns (ListComponentsResponse);
+  rpc UpdateComponentStatus(UpdateComponentStatusRequest) returns (UpdateComponentStatusResponse);
+}

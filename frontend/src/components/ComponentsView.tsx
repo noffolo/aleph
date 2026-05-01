@@ -3,6 +3,8 @@ import { Cpu, Search, Zap, ToggleLeft, Plus, Eye } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { t } from '../i18n';
 import { Timestamp } from '@bufbuild/protobuf';
+import { SkeletonLoader } from './SkeletonLoader';
+import { InlineError } from './ui/InlineError';
 
 interface ComponentMetadata {
   id: string;
@@ -38,10 +40,15 @@ export interface ComponentsViewProps {
   onRegisterComponent: (metadata: Partial<ComponentMetadata>) => void;
   onGetComponent: (id: string) => Promise<ComponentMetadata | null>;
   inline?: boolean;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
-export const ComponentsView: React.FC<ComponentsViewProps> = ({ components, onUpdateComponentStatus, onRegisterComponent, onGetComponent, inline = false }) => {
+export const ComponentsView: React.FC<ComponentsViewProps> = React.memo(({ components, onUpdateComponentStatus, onRegisterComponent, onGetComponent, inline = false, isLoading, error }) => {
   const [filter, setFilter] = useState('');
+
+  if (isLoading) return <SkeletonLoader />;
+  if (error) return <div className="max-w-6xl mx-auto"><InlineError message={error} /></div>;
 
   const filtered = components.filter(c =>
     c.name.toLowerCase().includes(filter.toLowerCase()) ||
@@ -188,4 +195,4 @@ export const ComponentsView: React.FC<ComponentsViewProps> = ({ components, onUp
       </div>
     </div>
   );
-};
+});

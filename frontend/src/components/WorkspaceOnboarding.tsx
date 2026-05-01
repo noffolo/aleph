@@ -28,7 +28,7 @@ const DeleteConfirmModal: React.FC<{ project: Project; onConfirm: (apiKey: strin
             <AlertTriangle size={32} />
           </div>
           <h3 className="text-2xl font-black text-danger tracking-tighter uppercase italic">Elimina {project.name}</h3>
-          <p className="text-textMuted text-sm leading-relaxed">Questa azione è irreversibile. Tutti i dati, gli agenti e le ontologie saranno eliminati permanentemente. Inserisci l'API Key dello spazio di lavoro per confermare.</p>
+          <p className="text-textMuted text-sm leading-relaxed">{t('generic.irreversibleDelete')}</p>
         </div>
         <div className="relative">
           <Key className="absolute left-4 top-4 text-textDim" size={20} />

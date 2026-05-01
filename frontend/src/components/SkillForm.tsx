@@ -2,12 +2,9 @@ import React, { useState } from 'react'
 import type { Skill, Tool } from '../store/types'
 import { useStore } from '../store/useStore'
 import { t } from '../i18n'
-
-export interface SkillFormData {
-  name: string
-  description: string
-  toolIds: string[]
-}
+import { apiPost, apiPatch } from '../api/client'
+import { SkillFormSchema } from '../schemas'
+import type { SkillFormData } from '../schemas'
 
 interface SkillFormProps {
   skill?: Skill | null
@@ -26,16 +23,24 @@ export function SkillForm({ skill, tools, onSave, onCancel, title }: SkillFormPr
   const [formData, setFormData] = useState<SkillFormData>({
     name: skill?.name || '',
     description: skill?.description || '',
-    toolIds: skill?.toolIds || [],
+    toolIds: skill?.toolIds ?? [],
   })
 
   const validate = (): boolean => {
-    const newErrors: Partial<Record<keyof SkillFormData, string>> = {}
-    if (!formData.name.trim()) {
-      newErrors.name = 'Il nome è obbligatorio'
+    const result = SkillFormSchema.safeParse(formData)
+    if (!result.success) {
+      const newErrors: Partial<Record<keyof SkillFormData, string>> = {}
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as keyof SkillFormData
+        if (!newErrors[field]) {
+          newErrors[field] = issue.message
+        }
+      }
+      setErrors(newErrors)
+      return false
     }
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    setErrors({})
+    return true
   }
 
   const handleSubmit = async () => {
@@ -45,22 +50,12 @@ export function SkillForm({ skill, tools, onSave, onCancel, title }: SkillFormPr
     setSaveError(null)
 
     try {
-      const apiKey = useStore.getState().apiKey
-      const method = isEdit ? 'PATCH' : 'POST'
       const url = isEdit ? `/api/v1/skills/${skill?.id}` : '/api/v1/skills'
       
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(formData)
-      })
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}))
-        throw new Error(errData.message || `Errore ${response.status}: Impossibilità di salvare la skill`)
+      if (isEdit) {
+        await apiPatch(url, formData)
+      } else {
+        await apiPost(url, formData)
       }
 
       onSave(formData)
@@ -84,8 +79,9 @@ export function SkillForm({ skill, tools, onSave, onCancel, title }: SkillFormPr
 
       <div className="space-y-3">
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
+          <label htmlFor="skill-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
           <input
+            id="skill-name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             disabled={isSaving}
@@ -98,8 +94,9 @@ export function SkillForm({ skill, tools, onSave, onCancel, title }: SkillFormPr
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
+          <label htmlFor="skill-description" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
           <textarea
+            id="skill-description"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             disabled={isSaving}
@@ -110,19 +107,20 @@ export function SkillForm({ skill, tools, onSave, onCancel, title }: SkillFormPr
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Strumenti Associati</label>
+          <label htmlFor="skill-tools" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Strumenti Associati</label>
           <div className={`grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-background rounded-lg border border-border ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}>
             {tools.map(t => (
               <label key={t.id} className="flex items-center space-x-2 p-2 hover:bg-surface-alt rounded cursor-pointer">
                 <input
                   type="checkbox"
                   disabled={isSaving}
-                  checked={formData.toolIds.includes(t.id)}
+                  checked={(formData.toolIds ?? []).includes(t.id)}
                   onChange={(e) => {
+                    const current = formData.toolIds ?? []
                     if (e.target.checked) {
-                      setFormData({ ...formData, toolIds: [...formData.toolIds, t.id] })
+                      setFormData({ ...formData, toolIds: [...current, t.id] })
                     } else {
-                      setFormData({ ...formData, toolIds: formData.toolIds.filter(id => id !== t.id) })
+                      setFormData({ ...formData, toolIds: current.filter(id => id !== t.id) })
                     }
                   }}
                   className="w-4 h-4 rounded border-border focus:ring-primary"

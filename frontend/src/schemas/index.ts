@@ -219,3 +219,62 @@ export const ContentDataSchema = z.object({
   componentId: z.optional(z.string()),
 }).passthrough();
 export type ContentData = z.infer<typeof ContentDataSchema>;
+
+// ──────────────────────────────────────────────
+// Form Schemas — for frontend form validation
+// ──────────────────────────────────────────────
+export const AgentFormSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  provider: z.string().optional(),
+  model: z.string().min(1, 'Model is required'),
+  apiKey: z.string().optional(),
+  baseUrl: z.string().optional().refine(
+    (val) => !val || /^https?:\/\/.+/.test(val),
+    'URL must start with http:// or https://'
+  ),
+  systemPrompt: z.string().optional(),
+})
+export type AgentFormData = z.infer<typeof AgentFormSchema>
+
+export const SkillFormSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional(),
+  toolIds: z.array(z.string()).optional(),
+})
+export type SkillFormData = z.infer<typeof SkillFormSchema>
+
+export const ToolFormSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional(),
+  code: z.string().optional(),
+  category: z.string().optional(),
+})
+export type ToolFormData = z.infer<typeof ToolFormSchema>
+
+export const DataSourceFormSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  sourceType: z.string().min(1),
+  configJson: z.string().refine(
+    (val) => { try { JSON.parse(val); return true } catch { return false } },
+    'Invalid JSON configuration'
+  ),
+})
+export type DataSourceFormData = z.infer<typeof DataSourceFormSchema>
+
+export const ComponentFormSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional(),
+  type: z.string().optional(),
+  category: z.string().optional(),
+  source: z.string().optional(),
+  status: z.string().optional(),
+  approvalStatus: z.string().optional(),
+  configSchemaJson: z.string().optional(),
+  executionCommand: z.string().optional(),
+  dependenciesJson: z.string().optional(),
+  inputSchemaJson: z.string().optional(),
+  outputSchemaJson: z.string().optional(),
+  promptTemplate: z.string().optional(),
+  toolIdsJson: z.string().optional(),
+})
+export type ComponentFormData = z.infer<typeof ComponentFormSchema>

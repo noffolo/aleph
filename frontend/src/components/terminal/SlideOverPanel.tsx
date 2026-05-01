@@ -21,6 +21,19 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
     // Save the element that triggered the panel open (currently focused element)
     triggerRef.current = document.activeElement as HTMLElement;
 
+    // Hide sibling elements from assistive technology while panel is open
+    const siblings: Element[] = [];
+    if (panelRef.current?.parentElement) {
+      const parent = panelRef.current.parentElement;
+      for (let i = 0; i < parent.children.length; i++) {
+        const child = parent.children[i];
+        if (child !== panelRef.current && child.getAttribute('aria-hidden') !== 'true') {
+          child.setAttribute('aria-hidden', 'true');
+          siblings.push(child);
+        }
+      }
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
@@ -33,7 +46,10 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
 
         const focusableElementsArray = focusableElements ? Array.from(focusableElements) : [];
 
-        if (focusableElementsArray.length === 0) return;
+        if (focusableElementsArray.length === 0) {
+          e.preventDefault();
+          return;
+        }
 
         const firstElement = focusableElementsArray[0] as HTMLElement;
         const lastElement = focusableElementsArray[focusableElementsArray.length - 1] as HTMLElement;
@@ -62,6 +78,10 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      // Restore aria-hidden on siblings
+      for (const el of siblings) {
+        el.removeAttribute('aria-hidden');
+      }
       // Return focus to the element that triggered the panel
       if (triggerRef.current) {
         triggerRef.current.focus();
@@ -77,7 +97,6 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
     <div 
       className={`fixed inset-y-0 right-0 z-[90] w-full pointer-events-none transition-all duration-300 ${isFullscreen ? 'max-w-full' : 'max-w-2xl'}`}
       style={{ transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
-      aria-hidden="true"
     >
       <div
         ref={panelRef}

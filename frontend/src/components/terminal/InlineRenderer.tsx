@@ -30,7 +30,38 @@ const AgentsView = React.lazy(() => import('../AgentsView').then(m => ({ default
 const OracleView = React.lazy(() => import('../OracleView').then(m => ({ default: m.OracleView })))
 
 export const InlineRenderer: React.FC = () => {
-  const store = useStore()
+  const inlineContent = useStore(s => s.inlineContent)
+  const showInlinePanel = useStore(s => s.showInlinePanel)
+  const availableObjects = useStore(s => s.availableObjects)
+  const selectedObject = useStore(s => s.selectedObject)
+  const searchQuery = useStore(s => s.searchQuery)
+  const activeView = useStore(s => s.activeView)
+  const globalSearchResults = useStore(s => s.globalSearchResults)
+  const explorerData = useStore(s => s.data)
+  const selectedRow = useStore(s => s.selectedRow)
+  const setSelectedRow = useStore(s => s.setSelectedRow)
+  const isExplorerLoading = useStore(s => s.isExplorerLoading)
+  const agents = useStore(s => s.agents)
+  const ollamaHealthy = useStore(s => s.ollamaHealthy)
+  const ollamaModels = useStore(s => s.ollamaModels)
+  const ontologyRaw = useStore(s => s.ontologyRaw)
+  const setOntologyRaw = useStore(s => s.setOntologyRaw)
+  const ingestionTasks = useStore(s => s.ingestionTasks)
+  const taskLogs = useStore(s => s.taskLogs)
+  const setTaskLogs = useStore(s => s.setTaskLogs)
+  const dataHealthStats = useStore(s => s.dataHealthStats)
+  const skills = useStore(s => s.skills)
+  const tools = useStore(s => s.tools)
+  const registryComponents = useStore(s => s.registryComponents)
+  const apiKeys = useStore(s => s.apiKeys)
+  const notificationChannels = useStore(s => s.notificationChannels)
+  const assets = useStore(s => s.assets)
+  const selectedAssetContent = useStore(s => s.selectedAssetContent)
+  const setSelectedAssetContent = useStore(s => s.setSelectedAssetContent)
+  const selectedAssetId = useStore(s => s.selectedAssetId)
+  const setSelectedObject = useStore(s => s.setSelectedObject)
+  const setSearchQuery = useStore(s => s.setSearchQuery)
+  const setActiveView = useStore(s => s.setActiveView)
   const { loadProjectData } = useAppActions()
   const {
     onCreateAgent, onDeleteAgent, onUpdateAgent,
@@ -56,8 +87,8 @@ export const InlineRenderer: React.FC = () => {
   const {
     onViewAsset, onDeleteAsset, onGetAssetContent, onGeneratePdf, onUploadAsset,
   } = useLibraryActions(loadProjectData)
-  const content = store.inlineContent
-  if (!content || !store.showInlinePanel) return null
+  const content = inlineContent
+  if (!content || !showInlinePanel) return null
 
   const renderView = () => {
     switch (content.type) {
@@ -65,16 +96,16 @@ export const InlineRenderer: React.FC = () => {
         return (
           <InlineErrorBoundary label="ExplorerView">
             <ExplorerView
-              availableObjects={store.availableObjects}
-              selectedObject={store.selectedObject}
-              setSelectedObject={store.setSelectedObject}
-            searchQuery={store.searchQuery}
-            setSearchQuery={store.setSearchQuery}
-            activeView={store.activeView}
-            setActiveView={store.setActiveView}
-            data={store.searchQuery ? store.globalSearchResults : store.data}
-            onRowClick={store.setSelectedRow}
-            isLoading={store.isExplorerLoading}
+              availableObjects={availableObjects}
+              selectedObject={selectedObject}
+              setSelectedObject={setSelectedObject}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            activeView={activeView}
+            setActiveView={setActiveView}
+            data={searchQuery ? globalSearchResults : explorerData}
+            onRowClick={setSelectedRow}
+            isLoading={isExplorerLoading}
             inline
           />
           </InlineErrorBoundary>
@@ -82,9 +113,9 @@ export const InlineRenderer: React.FC = () => {
       case 'agent':
         return (
           <AgentsView
-            agents={store.agents}
-            ollamaHealthy={store.ollamaHealthy}
-            ollamaModels={store.ollamaModels}
+            agents={agents}
+            ollamaHealthy={ollamaHealthy}
+            ollamaModels={ollamaModels}
             onCreateAgent={onCreateAgent as unknown as AgentsViewProps['onCreateAgent']}
             onDeleteAgent={onDeleteAgent as unknown as AgentsViewProps['onDeleteAgent']}
             onUpdateAgent={onUpdateAgent as unknown as AgentsViewProps['onUpdateAgent']}
@@ -94,8 +125,8 @@ export const InlineRenderer: React.FC = () => {
       case 'ontology':
         return (
           <OntologyView
-            ontologyRaw={store.ontologyRaw}
-            setOntologyRaw={store.setOntologyRaw}
+            ontologyRaw={ontologyRaw}
+            setOntologyRaw={setOntologyRaw}
             onEmerge={onEmerge}
             onSave={onSave}
             inline
@@ -104,23 +135,23 @@ export const InlineRenderer: React.FC = () => {
       case 'data':
         return (
           <DataSourcesView
-            tasks={store.ingestionTasks}
+            tasks={ingestionTasks}
             onAddSource={onAddSource}
             onRunTask={onRunTask}
             onViewLogs={onViewLogs}
             onDeleteTask={onDeleteTask}
-            taskLogs={store.taskLogs}
-            setTaskLogs={store.setTaskLogs}
+            taskLogs={taskLogs}
+            setTaskLogs={setTaskLogs}
             inline
           />
         )
       case 'health':
-        return <DataHealthView stats={store.dataHealthStats} inline />
+        return <DataHealthView stats={dataHealthStats} inline />
       case 'skill':
         return (
           <SkillsView
-            skills={store.skills}
-            tools={store.tools}
+            skills={skills}
+            tools={tools}
             onCreateSkill={onCreateSkill as unknown as SkillsViewProps['onCreateSkill']}
             onViewSkillDetail={onViewSkillDetail as unknown as SkillsViewProps['onViewSkillDetail']}
             onDeleteSkill={onDeleteSkill as unknown as SkillsViewProps['onDeleteSkill']}
@@ -131,7 +162,7 @@ export const InlineRenderer: React.FC = () => {
       case 'tool':
         return (
           <ToolsView
-            tools={store.tools}
+            tools={tools}
             onCreateTool={onCreateTool as unknown as ToolsViewProps['onCreateTool']}
             onEditTool={onEditTool as unknown as ToolsViewProps['onEditTool']}
             onDeleteTool={onDeleteTool as unknown as ToolsViewProps['onDeleteTool']}
@@ -142,7 +173,7 @@ export const InlineRenderer: React.FC = () => {
       case 'component':
         return (
           <ComponentsView
-            components={store.registryComponents}
+            components={registryComponents}
             onUpdateComponentStatus={onUpdateComponentStatus as unknown as ComponentsViewProps['onUpdateComponentStatus']}
             onRegisterComponent={onRegisterComponent as unknown as ComponentsViewProps['onRegisterComponent']}
             onGetComponent={onGetComponent as unknown as ComponentsViewProps['onGetComponent']}
@@ -152,8 +183,8 @@ export const InlineRenderer: React.FC = () => {
       case 'settings':
         return (
           <SettingsView
-            apiKeys={store.apiKeys}
-            notificationChannels={store.notificationChannels}
+            apiKeys={apiKeys}
+            notificationChannels={notificationChannels}
             onCreateApiKey={onCreateApiKey}
             onDeleteApiKey={onDeleteApiKey}
             onSendWebhook={onSendWebhook}
@@ -163,16 +194,16 @@ export const InlineRenderer: React.FC = () => {
       case 'library':
         return (
           <LibraryView
-            assets={store.assets}
+            assets={assets}
             onViewAsset={onViewAsset}
             onDeleteAsset={onDeleteAsset}
-            selectedAssetContent={store.selectedAssetContent}
-            setSelectedAssetContent={store.setSelectedAssetContent}
-            selectedAssetName={store.assets.find((a: any) => a.id === store.selectedAssetId)?.name}
+            selectedAssetContent={selectedAssetContent}
+            setSelectedAssetContent={setSelectedAssetContent}
+            selectedAssetName={assets.find((a: any) => a.id === selectedAssetId)?.name}
             onGetAssetContent={onGetAssetContent}
             onGeneratePdf={onGeneratePdf}
             onUploadAsset={onUploadAsset}
-            selectedAssetId={store.selectedAssetId}
+            selectedAssetId={selectedAssetId}
             inline
           />
         )
@@ -187,7 +218,7 @@ export const InlineRenderer: React.FC = () => {
         <span className="text-primary text-xs font-bold">{ '📄 ' + content.title.toUpperCase() }</span>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => store.setShowInlinePanel(false)}
+            onClick={() => useStore.getState().setShowInlinePanel(false)}
             aria-label={t('slideOver.close')}
             className="text-textMuted hover:text-text text-xs transition-colors px-2 py-1 rounded hover:bg-surface-alt focus:ring-2 focus:ring-primary"
           >
@@ -196,7 +227,7 @@ export const InlineRenderer: React.FC = () => {
         </div>
       </div>
       <div className="flex-1 overflow-auto">
-        <Suspense fallback={<div className="p-4 text-textDim text-xs font-mono">Caricamento vista...</div>}>
+        <Suspense fallback={<div className="p-4 text-textDim text-xs font-mono">{t('views.loading')}</div>}>
           {renderView()}
         </Suspense>
       </div>

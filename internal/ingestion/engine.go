@@ -120,7 +120,7 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	e.mu.Lock()
 	if running, ok := e.tasks[task.Id]; ok && running.Status == "running" {
 		e.mu.Unlock()
-		return fmt.Errorf("task %s già in esecuzione", task.Id)
+		return fmt.Errorf("task %s already running", task.Id)
 	}
 	e.tasks[task.Id] = task
 	task.Status = "running"
@@ -134,7 +134,7 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	taskCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 
-	e.updateProgress(task.Id, 0, "esecuzione")
+	e.updateProgress(task.Id, 0, "running")
 	logPath := filepath.Join(e.projectsRoot, projectID, "logs", task.Id+".log")
 	os.MkdirAll(filepath.Dir(logPath), 0755)
 	
@@ -142,7 +142,7 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	if err != nil { return fmt.Errorf("openLogFile: %w", err) }
 	defer f.Close()
 
-	fmt.Fprintf(f, "\n--- Inizio Task: %s alle %s ---\n", task.Id, time.Now().Format(time.RFC3339))
+	fmt.Fprintf(f, "\n--- Task Start: %s at %s ---\n", task.Id, time.Now().Format(time.RFC3339))
 	
 	var taskErr error
 	switch task.SourceType {
@@ -169,29 +169,29 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	case "sheets":
 		taskErr = e.runSheetsSource(taskCtx, f, projectID, task)
 	default:
-		taskErr = fmt.Errorf("tipo di sorgente sconosciuto: %s", task.SourceType)
+		taskErr = fmt.Errorf("unknown source type: %s", task.SourceType)
 	}
 
 	if taskErr != nil {
-		e.updateProgress(task.Id, 0, "fallito")
-		fmt.Fprintf(f, "Errore: %v\n", taskErr)
+		e.updateProgress(task.Id, 0, "failed")
+		fmt.Fprintf(f, "Error: %v\n", taskErr)
 		return taskErr
 	}
 
-	e.updateProgress(task.Id, 100, "completato")
-	fmt.Fprintf(f, "--- Successo ---\n")
+	e.updateProgress(task.Id, 100, "completed")
+	fmt.Fprintf(f, "--- Success ---\n")
 
 	// Registrazione Viste in DuckDB per performance
 	if err := e.registerViews(projectID); err != nil {
-		fmt.Fprintf(f, "Attenzione: Registrazione viste fallita: %v\n", err)
+		fmt.Fprintf(f, "Warning: View registration failed: %v\n", err)
 	}
 
 	// Metadati Temporali: ogni riga riceve un timestamp di ingestion
 	tableNameForSQL := resolveTableName(task)
 	if err := safeident.ValidateStrictIdentifier(tableNameForSQL); err != nil {
-		fmt.Fprintf(f, "Attenzione: Nome tabella non valido dopo sanitizzazione: %s\n", tableNameForSQL)
-		e.updateProgress(task.Id, 0, "fallito")
-		return fmt.Errorf("nome tabella non valido dopo sanitizzazione: %w", err)
+		fmt.Fprintf(f, "Warning: Invalid table name after sanitization: %s\n", tableNameForSQL)
+		e.updateProgress(task.Id, 0, "failed")
+		return fmt.Errorf("invalid table name after sanitization: %w", err)
 	}
 	timestampSQL := "ALTER TABLE " + safeident.QuoteIdentifier(tableNameForSQL) + " ADD COLUMN IF NOT EXISTS _aleph_ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" // safe: tableNameForSQL validated via safeident.ValidateStrictIdentifier
 	e.db.Exec(timestampSQL)
@@ -200,12 +200,12 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	e.wg.Add(1)
 	go func() {
 		defer e.wg.Done()
-		enrichCtx, enrichCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		enrichCtx, enrichCancel := context.WithTimeout(ctx, 30*time.Minute)
 		defer enrichCancel()
 		resolvedTableName := resolveTableName(task)
 		e.enrichPredictiveMetadata(enrichCtx, projectID, resolvedTableName)
 		if err := enrichCtx.Err(); err != nil {
-			log.Printf("[Motore] Arricchimento Predittivo interrotto o scaduto per la tabella %s: %v", resolvedTableName, err)
+			log.Printf("[Engine] Predictive enrichment interrupted or expired for table %s: %v", resolvedTableName, err)
 		}
 	}()
 
@@ -234,7 +234,7 @@ func resolveTableName(task *v1.IngestionTask) string {
 }
 
 func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableName string) {
-	log.Printf("[Motore] Avvio Arricchimento Predittivo per la tabella %s", tableName)
+	log.Printf("[Engine] Starting predictive enrichment for table %s", tableName)
 	
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	ontPath := filepath.Join(projectPath, "ontologies", "core.aleph")
@@ -268,7 +268,7 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 	query := "SELECT * FROM " + safeident.QuoteIdentifier(tableName) + " WHERE _aleph_ingested_at > (CURRENT_TIMESTAMP - INTERVAL '1 MINUTE')" // safe: tableName validated via safeident.ValidateStrictIdentifier (via enrichPredictiveMetadata caller)
 	rows, err := e.db.Query(query)
 	if err != nil {
-		log.Printf("[Motore] Query di arricchimento fallita per %s: %v", tableName, err)
+		log.Printf("[Engine] Enrichment query failed for %s: %v", tableName, err)
 		return
 	}
 	defer rows.Close()
@@ -315,7 +315,7 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 					if sErr == nil {
 						featureValue = float64(score)
 					} else {
-						log.Printf("[Motore] Analisi del sentimento fallita per %s.%s: %v", tableName, col, sErr)
+						log.Printf("[Engine] Sentiment analysis failed for %s.%s: %v", tableName, col, sErr)
 					}
 				}
 				e.db.Exec(`INSERT INTO system_features (project_id, task_id, entity_id, feature_type, feature_value) 
@@ -369,7 +369,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 		Token string `json:"token"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
-		return fmt.Errorf("config JSON non valido: %w", err)
+		return fmt.Errorf("invalid JSON config: %w", err)
 	}
 
 	urlToFetch := config.URL
@@ -377,7 +377,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 		urlToFetch = "https://api.github.com/repos/" + config.Repo + "/contents"
 	}
 	if urlToFetch == "" {
-		return fmt.Errorf("nessun URL o repository specificato nel config")
+		return fmt.Errorf("no URL or repository specified in config")
 	}
 
 	fmt.Fprintf(w, "Fetching: %s\n", urlToFetch)
@@ -385,7 +385,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 
 	req, err := http.NewRequestWithContext(ctx, "GET", urlToFetch, nil)
 	if err != nil {
-		return fmt.Errorf("creazione request fallita: %w", err)
+		return fmt.Errorf("request creation failed: %w", err)
 	}
 	req.Header.Set("Accept", "application/json, text/csv, application/rss+xml, application/atom+xml, */*")
 	if config.Token != "" {
@@ -394,7 +394,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 
 	resp, err := safeHTTPClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("HTTP request fallita: %w", err)
+		return fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -405,7 +405,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 	e.updateProgress(task.Id, 40, "running")
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("lettura body fallita: %w", err)
+		return fmt.Errorf("body read failed: %w", err)
 	}
 
 	e.updateProgress(task.Id, 70, "running")
@@ -419,33 +419,33 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 	if strings.Contains(contentType, "json") || strings.Contains(contentType, "javascript") {
 		tmpFile := filepath.Join(projectPath, "raw", tableName+".json")
 		if err := os.WriteFile(tmpFile, bodyBytes, 0644); err != nil {
-			return fmt.Errorf("scrittura file temporaneo fallita: %w", err)
+			return fmt.Errorf("file write failed: %w", err)
 		}
 		if err := safeident.SanitizeFilePath(tmpFile); err != nil {
-			return fmt.Errorf("percorso file non sicuro: %w", err)
+			return fmt.Errorf("unsafe file path: %w", err)
 		}
 		createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(tmpFile) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
-			return fmt.Errorf("creazione vista JSON fallita: %w", err)
+			return fmt.Errorf("JSON view creation failed: %w", err)
 		}
 	} else if strings.Contains(contentType, "csv") || strings.Contains(contentType, "text/plain") {
 		tmpFile := filepath.Join(projectPath, "raw", tableName+".csv")
 		os.WriteFile(tmpFile, bodyBytes, 0644)
 		if err := safeident.SanitizeFilePath(tmpFile); err != nil {
-			return fmt.Errorf("percorso file non sicuro: %w", err)
+			return fmt.Errorf("unsafe file path: %w", err)
 		}
 		createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(tmpFile) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
-			return fmt.Errorf("creazione vista CSV fallita: %w", err)
+			return fmt.Errorf("CSV view creation failed: %w", err)
 		}
 	} else {
 		tmpFile := filepath.Join(projectPath, "raw", tableName+".dat")
 		os.WriteFile(tmpFile, bodyBytes, 0644)
-		fmt.Fprintf(w, "Dati salvati in %s (content-type: %s)\n", tmpFile, contentType)
+		fmt.Fprintf(w, "Data saved to %s (content-type: %s)\n", tmpFile, contentType)
 	}
 
 	e.updateProgress(task.Id, 100, "completed")
-	fmt.Fprintf(w, "Completato: vista \"%s\" creata da %s\n", tableName, urlToFetch)
+	fmt.Fprintf(w, "Completed: view \"%s\" created from %s\n", tableName, urlToFetch)
 	return nil
 }
 
@@ -454,15 +454,15 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 		URL string `json:"url"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
-		return fmt.Errorf("config JSON non valido: %w", err)
+		return fmt.Errorf("invalid JSON config: %w", err)
 	}
 	if config.URL == "" {
-		return fmt.Errorf("URL vuoto nel config")
+		return fmt.Errorf("empty URL in config")
 	}
 
 	parsedURL, err := url.Parse(config.URL)
 	if err != nil {
-		return fmt.Errorf("URL non valido: %w", err)
+		return fmt.Errorf("invalid URL: %w", err)
 	}
 	_ = parsedURL // URL validation done by safeHTTPClient's SSRF DialContext
 
@@ -471,13 +471,13 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 
 	req, err := http.NewRequestWithContext(ctx, "GET", config.URL, nil)
 	if err != nil {
-		return fmt.Errorf("creazione request fallita: %w", err)
+		return fmt.Errorf("request creation failed: %w", err)
 	}
 	req.Header.Set("Accept", "application/json, text/csv, */*")
 
 	resp, err := safeHTTPClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("HTTP request fallita: %w", err)
+		return fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -485,12 +485,12 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 		return fmt.Errorf("HTTP status %d: %s", resp.StatusCode, resp.Status)
 	}
 
-	fmt.Fprintf(w, "Risposta: %s (%d bytes)\n", resp.Header.Get("Content-Type"), resp.ContentLength)
+	fmt.Fprintf(w, "Response: %s (%d bytes)\n", resp.Header.Get("Content-Type"), resp.ContentLength)
 	e.updateProgress(task.Id, 40, "running")
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("lettura body fallita: %w", err)
+		return fmt.Errorf("body read failed: %w", err)
 	}
 
 	e.updateProgress(task.Id, 70, "running")
@@ -516,33 +516,33 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 	if isCSV {
 		rawPath := filepath.Join(projectPath, tableName+".csv")
 		if err := os.WriteFile(rawPath, bodyBytes, 0644); err != nil {
-			return fmt.Errorf("scrittura file fallita: %w", err)
+			return fmt.Errorf("file write failed: %w", err)
 		}
-		fmt.Fprintf(w, "Salvato CSV in %s (%d bytes)\n", rawPath, len(bodyBytes))
+		fmt.Fprintf(w, "Saved CSV to %s (%d bytes)\n", rawPath, len(bodyBytes))
 		if err := safeident.SanitizeFilePath(rawPath); err != nil {
-			return fmt.Errorf("percorso file non sicuro: %w", err)
+			return fmt.Errorf("unsafe file path: %w", err)
 		}
 		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(rawPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
-			return fmt.Errorf("creazione tabella da CSV fallita: %w", err)
+			return fmt.Errorf("CSV table creation failed: %w", err)
 		}
 	} else {
 		rawPath := filepath.Join(projectPath, tableName+".json")
 		if err := os.WriteFile(rawPath, bodyBytes, 0644); err != nil {
-			return fmt.Errorf("scrittura file fallita: %w", err)
+			return fmt.Errorf("file write failed: %w", err)
 		}
-		fmt.Fprintf(w, "Salvato JSON in %s (%d bytes)\n", rawPath, len(bodyBytes))
+		fmt.Fprintf(w, "Saved JSON to %s (%d bytes)\n", rawPath, len(bodyBytes))
 		if err := safeident.SanitizeFilePath(rawPath); err != nil {
-			return fmt.Errorf("percorso file non sicuro: %w", err)
+			return fmt.Errorf("unsafe file path: %w", err)
 		}
 		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(rawPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
-			return fmt.Errorf("creazione tabella da JSON fallita: %w", err)
+			return fmt.Errorf("JSON table creation failed: %w", err)
 		}
 	}
 
 	e.updateProgress(task.Id, 90, "running")
-	fmt.Fprintf(w, "Caricamento completato nella tabella \"%s\"\n", tableName)
+	fmt.Fprintf(w, "Load completed into table \"%s\"\n", tableName)
 	return nil
 }
 
@@ -551,13 +551,13 @@ func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File
 		return fmt.Errorf("invalid table name for JSON array insert: %w", err)
 	}
 	if len(arr) == 0 {
-		fmt.Fprintf(w, "Array vuoto, nessun dato da inserire\n")
+		fmt.Fprintf(w, "Empty array, no data to insert\n")
 		return nil
 	}
 
 	first, ok := arr[0].(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("il primo elemento non è un oggetto JSON")
+		return fmt.Errorf("first element is not a JSON object")
 	}
 
 	columns := make([]string, 0, len(first))
@@ -566,7 +566,7 @@ func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File
 	}
 	sort.Strings(columns)
 
-	fmt.Fprintf(w, "Colonne rilevate: %v (%d righe)\n", columns, len(arr))
+	fmt.Fprintf(w, "Detected columns: %v (%d rows)\n", columns, len(arr))
 
 	escapedCols := make([]string, len(columns))
 	for i, c := range columns {
@@ -598,7 +598,7 @@ func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " (" + strings.Join(escapedCols, ", ") + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; escapedCols via safeident.ValidateColumnName
 	if _, err := e.db.Exec(createSQL); err != nil {
-		return fmt.Errorf("creazione tabella fallita: %w", err)
+		return fmt.Errorf("table creation failed: %w", err)
 	}
 
 	batchSize := 500
@@ -609,7 +609,7 @@ func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File
 		}
 		insertSQL := "INSERT INTO " + safeident.QuoteIdentifier(tableName) + " (" + strings.Join(escapedCols, ", ") + ") VALUES " + strings.Join(values[i:end], ", ") // safe: tableName validated; escapedCols via safeident.ValidateColumnName; VALUES use ? parameterized
 		if _, err := e.db.Exec(insertSQL, params...); err != nil {
-			fmt.Fprintf(w, "Warning: insert batch fallito: %v\n", err)
+			fmt.Fprintf(w, "Warning: insert batch failed: %v\n", err)
 		}
 	}
 
@@ -631,13 +631,13 @@ func (e *Engine) runCSVLoad(ctx context.Context, w *os.File, projectID string, t
 		TableName string `json:"tableName"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
-		return fmt.Errorf("config JSON non valido: %w", err)
+		return fmt.Errorf("invalid JSON config: %w", err)
 	}
 	if config.Path == "" {
-		return fmt.Errorf("percorso file vuoto nel config")
+		return fmt.Errorf("empty file path in config")
 	}
 
-	fmt.Fprintf(w, "Caricamento CSV/Parquet: %s\n", config.Path)
+	fmt.Fprintf(w, "Loading CSV/Parquet: %s\n", config.Path)
 	e.updateProgress(task.Id, 20, "running")
 
 	tableName := config.TableName
@@ -661,16 +661,16 @@ func (e *Engine) runCSVLoad(ctx context.Context, w *os.File, projectID string, t
 	os.MkdirAll(projectPath, 0755)
 	localPath := filepath.Join(projectPath, tableName+filepath.Ext(config.Path))
 	data, err := os.ReadFile(config.Path)
-	if err != nil { return fmt.Errorf("lettura file fallita: %w", err) }
-	if err := os.WriteFile(localPath, data, 0644); err != nil { return fmt.Errorf("scrittura file locale fallita: %w", err) }
+	if err != nil { return fmt.Errorf("file read failed: %w", err) }
+	if err := os.WriteFile(localPath, data, 0644); err != nil { return fmt.Errorf("local file write failed: %w", err) }
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM " + readerFunc + "(" + safeident.QuoteStringLiteral(localPath) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 	if _, err := e.db.Exec(createSQL); err != nil {
-		return fmt.Errorf("caricamento file fallito: %w", err)
+		return fmt.Errorf("file load failed: %w", err)
 	}
 
 	e.updateProgress(task.Id, 90, "running")
-	fmt.Fprintf(w, "Tabella \"%s\" creata da %s\n", tableName, config.Path)
+	fmt.Fprintf(w, "Table \"%s\" created from %s\n", tableName, config.Path)
 	return nil
 }
 
@@ -680,10 +680,10 @@ func (e *Engine) runPostgresLoad(ctx context.Context, w *os.File, projectID stri
 		Query string `json:"query"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
-		return fmt.Errorf("config JSON non valido: %w", err)
+		return fmt.Errorf("invalid JSON config: %w", err)
 	}
 	if config.DSN == "" {
-		return fmt.Errorf("DSN vuoto nel config")
+		return fmt.Errorf("empty DSN in config")
 	}
 
 	fmt.Fprintf(w, "Loading from PostgreSQL: %s\n", config.DSN)
@@ -696,11 +696,11 @@ func (e *Engine) runPostgresLoad(ctx context.Context, w *os.File, projectID stri
 	_, err := e.db.Exec("INSTALL postgres_scanner")
 	if err != nil {
 		fmt.Fprintf(w, "Warning: postgres_scanner extension not available: %v\n", err)
-		return fmt.Errorf("estensione postgres_scanner non disponibile: %w", err)
+		return fmt.Errorf("postgres_scanner extension unavailable: %w", err)
 	}
 	_, err = e.db.Exec("LOAD postgres_scanner")
 	if err != nil {
-		return fmt.Errorf("caricamento postgres_scanner fallito: %w", err)
+		return fmt.Errorf("postgres_scanner load failed: %w", err)
 	}
 
 	e.updateProgress(task.Id, 40, "running")
@@ -708,16 +708,16 @@ func (e *Engine) runPostgresLoad(ctx context.Context, w *os.File, projectID stri
 	safeDSN := strings.ReplaceAll(config.DSN, "'", "''")
 	query := "SELECT * FROM postgres_scan_pushdown(" + safeident.QuoteStringLiteral(safeDSN) + ", 'public', " + safeident.QuoteStringLiteral(tableName) + ")"
 	if config.Query != "" {
-		return fmt.Errorf("query personalizzate non permesse per motivi di sicurezza — usa solo DSN + nome tabella")
+		return fmt.Errorf("custom queries not allowed for security reasons — use DSN + table name only")
 	}
 
 	createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS " + query // safe: tableName validated via safeident.ValidateStrictIdentifier; DSN and tableName in postgres_scan_pushdown use QuoteStringLiteral
 	if _, err := e.db.Exec(createSQL); err != nil {
-		return fmt.Errorf("creazione vista PostgreSQL fallita: %w", err)
+		return fmt.Errorf("PostgreSQL view creation failed: %w", err)
 	}
 
 	e.updateProgress(task.Id, 100, "completed")
-	fmt.Fprintf(w, "Completato: vista \"%s\" creata da PostgreSQL\n", tableName)
+	fmt.Fprintf(w, "Completed: view \"%s\" created from PostgreSQL\n", tableName)
 	return nil
 }
 
@@ -726,13 +726,13 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 		Source string `json:"source"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
-		return fmt.Errorf("config JSON non valido: %w", err)
+		return fmt.Errorf("invalid JSON config: %w", err)
 	}
 	if config.Source == "" {
-		return fmt.Errorf("progetto sorgente vuoto nel config")
+		return fmt.Errorf("empty source project in config")
 	}
 
-	fmt.Fprintf(w, "Copia da progetto: %s\n", config.Source)
+	fmt.Fprintf(w, "Copying from project: %s\n", config.Source)
 	e.updateProgress(task.Id, 20, "running")
 
 	sourcePath := filepath.Join(e.projectsRoot, config.Source, "raw")
@@ -740,7 +740,7 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 
 	entries, err := os.ReadDir(sourcePath)
 	if err != nil {
-		return fmt.Errorf("lettura directory sorgente fallita: %w", err)
+		return fmt.Errorf("source directory read failed: %w", err)
 	}
 
 	for _, entry := range entries {
@@ -750,10 +750,10 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 		data, err := os.ReadFile(srcFile)
 		if err != nil { continue }
 		if err := os.WriteFile(dstFile, data, 0644); err != nil {
-			fmt.Fprintf(w, "Warning: copia %s fallita: %v\n", entry.Name(), err)
+			fmt.Fprintf(w, "Warning: copy %s failed: %v\n", entry.Name(), err)
 			continue
 		}
-		fmt.Fprintf(w, "Copiato: %s\n", entry.Name())
+		fmt.Fprintf(w, "Copied: %s\n", entry.Name())
 	}
 
 	e.updateProgress(task.Id, 80, "running")
@@ -780,12 +780,12 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 			createSQL = "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_parquet(" + safeident.QuoteStringLiteral(filePath) + ")" // safe: tableName validated; filePath via safeident.SanitizeFilePath
 		} else { continue }
 		if _, err := e.db.Exec(createSQL); err != nil {
-			fmt.Fprintf(w, "Warning: vista %s fallita: %v\n", tableName, err)
+			fmt.Fprintf(w, "Warning: view %s failed: %v\n", tableName, err)
 		}
 	}
 
 	e.updateProgress(task.Id, 100, "completed")
-	fmt.Fprintf(w, "Completato: dati copiati da %s\n", config.Source)
+	fmt.Fprintf(w, "Completed: data copied from %s\n", config.Source)
 	return nil
 }
 
@@ -793,11 +793,11 @@ func (e *Engine) runDynamic(ctx context.Context, w *os.File, projectID string, t
 	var config struct { Code string `json:"code"` }
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil { return fmt.Errorf("unmarshalDynamicConfig: %w", err) }
 	if config.Code == "" {
-		return fmt.Errorf("codice vuoto nel config")
+		return fmt.Errorf("empty code in config")
 	}
 
 	if err := validateCode(config.Code); err != nil {
-		return fmt.Errorf("codice non consentito: %w", err)
+		return fmt.Errorf("code not allowed: %w", err)
 	}
 
 	sandboxCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
@@ -853,7 +853,7 @@ func validateCode(code string) error {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "dynamic.go", code, parser.ImportsOnly)
 	if err != nil {
-		return fmt.Errorf("codice Go non valido: %w", err)
+		return fmt.Errorf("invalid Go code: %w", err)
 	}
 	for _, imp := range f.Imports {
 		path, err := strconv.Unquote(imp.Path.Value)
@@ -861,11 +861,11 @@ func validateCode(code string) error {
 			path = imp.Path.Value
 		}
 		if blockedImports[path] {
-			return fmt.Errorf("import %s non consentito nel codice dinamico", path)
+			return fmt.Errorf("import %s not allowed in dynamic code", path)
 		}
 		for blockedPath := range blockedImports {
 			if strings.HasPrefix(path, blockedPath) && path != blockedPath {
-				return fmt.Errorf("import %s non consentito (sotto-package di modulo bloccato)", path)
+				return fmt.Errorf("import %s not allowed (subpackage of blocked module)", path)
 			}
 		}
 	}
@@ -1081,10 +1081,10 @@ func (e *Engine) runGitHubSource(ctx context.Context, w *os.File, projectID stri
 		Token string `json:"token"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
-		return fmt.Errorf("github config JSON non valido: %w", err)
+		return fmt.Errorf("invalid github JSON config: %w", err)
 	}
 	if config.Owner == "" || config.Repo == "" {
-		return fmt.Errorf("github config richiede owner e repo")
+		return fmt.Errorf("github config requires owner and repo")
 	}
 
 	fmt.Fprintf(w, "GitHub: fetching %s/%s\n", config.Owner, config.Repo)
@@ -1102,7 +1102,7 @@ func (e *Engine) runGitHubSource(ctx context.Context, w *os.File, projectID stri
 	for _, kind := range []string{"issues", "pulls", "commits"} {
 		data, ok := results[kind]
 		if !ok || len(data) == 0 {
-			fmt.Fprintf(w, "Nessun dato per %s\n", kind)
+			fmt.Fprintf(w, "No data for %s\n", kind)
 			continue
 		}
 
@@ -1115,7 +1115,7 @@ func (e *Engine) runGitHubSource(ctx context.Context, w *os.File, projectID stri
 
 		jsonPath := filepath.Join(projectPath, tableName+".json")
 		if err := os.WriteFile(jsonPath, data, 0644); err != nil {
-			return fmt.Errorf("scrittura %s fallita: %w", kind, err)
+			return fmt.Errorf("write %s failed: %w", kind, err)
 		}
 
 		if err := safeident.SanitizeFilePath(jsonPath); err != nil {
@@ -1125,14 +1125,14 @@ func (e *Engine) runGitHubSource(ctx context.Context, w *os.File, projectID stri
 
 		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
-			fmt.Fprintf(w, "Warning: creazione tabella %s fallita: %v\n", tableName, err)
+			fmt.Fprintf(w, "Warning: table %s creation failed: %v\n", tableName, err)
 		} else {
-			fmt.Fprintf(w, "Tabella \"%s\" creata (%d bytes)\n", tableName, len(data))
+			fmt.Fprintf(w, "Table \"%s\" created (%d bytes)\n", tableName, len(data))
 		}
 	}
 
 	e.updateProgress(task.Id, 100, "completed")
-	fmt.Fprintf(w, "GitHub ingestion completa per %s/%s\n", config.Owner, config.Repo)
+	fmt.Fprintf(w, "GitHub ingestion complete for %s/%s\n", config.Owner, config.Repo)
 	return nil
 }
 
@@ -1145,10 +1145,10 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 		URL string `json:"url"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
-		return fmt.Errorf("sitemap config JSON non valido: %w", err)
+		return fmt.Errorf("sitemap config JSON invalid: %w", err)
 	}
 	if config.URL == "" {
-		return fmt.Errorf("sitemap config richiede url")
+		return fmt.Errorf("sitemap config requires url")
 	}
 
 	fmt.Fprintf(w, "Sitemap: crawling %s\n", config.URL)
@@ -1160,7 +1160,7 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 		return fmt.Errorf("sitemap crawl %s: %w", config.URL, err)
 	}
 
-	fmt.Fprintf(w, "Trovate %d pagine\n", len(crawlResult.URLs))
+	fmt.Fprintf(w, "Found %d pages\n", len(crawlResult.URLs))
 
 	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
 	os.MkdirAll(projectPath, 0755)
@@ -1201,7 +1201,7 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 
 	jsonPath := filepath.Join(projectPath, tableName+".json")
 	if err := os.WriteFile(jsonPath, jsonData, 0644); err != nil {
-		return fmt.Errorf("scrittura sitemap JSON fallita: %w", err)
+		return fmt.Errorf("sitemap JSON write failed: %w", err)
 	}
 
 	if err := safeident.SanitizeFilePath(jsonPath); err != nil {
@@ -1210,11 +1210,11 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
 	if _, err := e.db.Exec(createSQL); err != nil {
-		return fmt.Errorf("creazione tabella sitemap fallita: %w", err)
+		return fmt.Errorf("sitemap table creation failed: %w", err)
 	}
 
 	e.updateProgress(task.Id, 100, "completed")
-	fmt.Fprintf(w, "Sitemap ingestion completa. Tabella \"%s\" (%d righe)\n", tableName, len(rows))
+	fmt.Fprintf(w, "Sitemap ingestion complete. Table \"%s\" (%d rows)\n", tableName, len(rows))
 	return nil
 }
 
@@ -1234,10 +1234,10 @@ func (e *Engine) runJSONAPISource(ctx context.Context, w *os.File, projectID str
 		AutoDetect     bool   `json:"autoDetect"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
-		return fmt.Errorf("jsonapi config JSON non valido: %w", err)
+		return fmt.Errorf("jsonapi config JSON invalid: %w", err)
 	}
 	if config.URL == "" {
-		return fmt.Errorf("jsonapi config richiede url")
+		return fmt.Errorf("jsonapi config requires url")
 	}
 
 	fmt.Fprintf(w, "JSON API: fetching %s\n", config.URL)
@@ -1250,11 +1250,11 @@ func (e *Engine) runJSONAPISource(ctx context.Context, w *os.File, projectID str
 		probe := e.getOrCreateProbeRunner()
 		probeResult, err := probe.Probe(ctx, config.URL)
 		if err != nil {
-			fmt.Fprintf(w, "Warning: probe fallito: %v — proseguo con configurazione di default\n", err)
+			fmt.Fprintf(w, "Warning: probe failed: %v — proceeding with default configuration\n", err)
 		} else {
-			fmt.Fprintf(w, "Probe: rilevato tipo %q, paginazione %q\n", probeResult.SourceType(), probeResult.Pagination().Type)
+			fmt.Fprintf(w, "Probe: detected type %q, pagination %q\n", probeResult.SourceType(), probeResult.Pagination().Type)
 			if probeResult.SourceType() == "sitemap" || probeResult.SourceType() == "rss" {
-				fmt.Fprintf(w, "Probe ha rilevato sitemap/rss, ma il task è jsonapi — procedo comunque con il JSON\n")
+				fmt.Fprintf(w, "Probe detected sitemap/rss, but task is jsonapi — proceeding with JSON anyway\n")
 			}
 			if config.PaginationType == "" && probeResult.Pagination().Type != "none" && probeResult.Pagination().Type != "" {
 				switch probeResult.Pagination().Type {
@@ -1298,7 +1298,7 @@ func (e *Engine) runJSONAPISource(ctx context.Context, w *os.File, projectID str
 			if apiCfg.LimitParam == "" {
 				apiCfg.LimitParam = probeCfg.LimitParam
 			}
-			fmt.Fprintf(w, "Auto-rilevato: dataPath=%q pagination=%q\n", apiCfg.DataPath, apiCfg.PaginationType)
+			fmt.Fprintf(w, "Auto-detected: dataPath=%q pagination=%q\n", apiCfg.DataPath, apiCfg.PaginationType)
 		}
 	}
 
@@ -1317,7 +1317,7 @@ func (e *Engine) runJSONAPISource(ctx context.Context, w *os.File, projectID str
 
 	jsonPath := filepath.Join(projectPath, tableName+".json")
 	if err := os.WriteFile(jsonPath, data, 0644); err != nil {
-		return fmt.Errorf("scrittura JSON fallita: %w", err)
+		return fmt.Errorf("JSON write failed: %w", err)
 	}
 	if err := safeident.SanitizeFilePath(jsonPath); err != nil {
 		return fmt.Errorf("unsafe JSON path for jsonapi: %w", err)
@@ -1325,11 +1325,11 @@ func (e *Engine) runJSONAPISource(ctx context.Context, w *os.File, projectID str
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
 	if _, err := e.db.Exec(createSQL); err != nil {
-		return fmt.Errorf("creazione tabella jsonapi fallita: %w", err)
+		return fmt.Errorf("jsonapi table creation failed: %w", err)
 	}
 
 	e.updateProgress(task.Id, 100, "completed")
-	fmt.Fprintf(w, "JSON API ingestion completa. Tabella \"%s\"\n", tableName)
+	fmt.Fprintf(w, "JSON API ingestion complete. Table \"%s\"\n", tableName)
 	return nil
 }
 
@@ -1344,10 +1344,10 @@ func (e *Engine) runSheetsSource(ctx context.Context, w *os.File, projectID stri
 		SheetRange    string `json:"range"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
-		return fmt.Errorf("sheets config JSON non valido: %w", err)
+		return fmt.Errorf("sheets config JSON invalid: %w", err)
 	}
 	if config.SpreadsheetID == "" {
-		return fmt.Errorf("sheets config richiede spreadsheet_id")
+		return fmt.Errorf("sheets config requires spreadsheet_id")
 	}
 
 	fmt.Fprintf(w, "Sheets: fetching spreadsheet %s\n", config.SpreadsheetID)
@@ -1374,7 +1374,7 @@ func (e *Engine) runSheetsSource(ctx context.Context, w *os.File, projectID stri
 
 		jsonPath := filepath.Join(projectPath, tableName+".json")
 		if err := os.WriteFile(jsonPath, data, 0644); err != nil {
-			return fmt.Errorf("scrittura sheet %q fallita: %w", sheetName, err)
+			return fmt.Errorf("sheet %q write failed: %w", sheetName, err)
 		}
 		if err := safeident.SanitizeFilePath(jsonPath); err != nil {
 			fmt.Fprintf(w, "Warning: unsafe JSON path for sheet %q: %v\n", sheetName, err)
@@ -1383,14 +1383,14 @@ func (e *Engine) runSheetsSource(ctx context.Context, w *os.File, projectID stri
 
 		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
 		if _, err := e.db.Exec(createSQL); err != nil {
-			fmt.Fprintf(w, "Warning: creazione tabella %s fallita: %v\n", tableName, err)
+			fmt.Fprintf(w, "Warning: table %s creation failed: %v\n", tableName, err)
 		} else {
-			fmt.Fprintf(w, "Tabella \"%s\" creata da sheet %q\n", tableName, sheetName)
+			fmt.Fprintf(w, "Table \"%s\" created from sheet %q\n", tableName, sheetName)
 		}
 	}
 
 	e.updateProgress(task.Id, 100, "completed")
-	fmt.Fprintf(w, "Sheets ingestion completa per %s (%d sheet)\n", config.SpreadsheetID, len(allSheets))
+	fmt.Fprintf(w, "Sheets ingestion complete for %s (%d sheets)\n", config.SpreadsheetID, len(allSheets))
 	return nil
 }
 

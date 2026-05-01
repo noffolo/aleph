@@ -9,14 +9,20 @@ import { StatusBar } from './components/terminal'
 import { SlideOverPanel } from './components/terminal/SlideOverPanel'
 import { TerminalView } from './components/terminal/TerminalView'
 import { ToastContainer } from './components/Toast'
-import { ToastBar } from './components/ToastBar'
+import { t } from './i18n'
 import { useStore } from './store/useStore'
 import { useAppActions } from './hooks/useAppActions'
 import { createSession } from './api/client'
 
-// Expose store's setState for Playwright e2e tests (no dynamic import needed)
+declare global {
+  interface Window {
+    __ALEPH_STORE__: typeof useStore
+  }
+}
+
+// Expose store state helpers for Playwright e2e tests running against Vite dev mode.
 if (typeof window !== 'undefined') {
-  (window as any).__setStoreState = (patch: any) => useStore.setState(patch);
+  window.__ALEPH_STORE__ = useStore
 }
 
 const SlideOverContent = lazy(() => import('./components/terminal/SlideOverContent').then(module => ({ default: module.SlideOverContent })))
@@ -24,44 +30,55 @@ const SlideOverContent = lazy(() => import('./components/terminal/SlideOverConte
 import { projectClient, authClient, queryClient } from './api/factory'
 
 function App() {
-  const store = useStore()
+  const projects = useStore(s => s.projects)
+  const projectID = useStore(s => s.projectID)
+  const selectedObject = useStore(s => s.selectedObject)
+  const selectedAgent = useStore(s => s.selectedAgent)
+  const showWizard = useStore(s => s.showWizard)
+  const showOnboarding = useStore(s => s.showOnboarding)
+  const isCommandPaletteOpen = useStore(s => s.isCommandPaletteOpen)
+  const availableObjects = useStore(s => s.availableObjects)
+  const lastError = useStore(s => s.lastError)
+  const slideOverContent = useStore(s => s.slideOverContent)
+  const ollamaHealthy = useStore(s => s.ollamaHealthy)
+  const nlpHealthy = useStore(s => s.nlpHealthy)
   const actions = useAppActions()
   const { handleError, loadProjectData, onSend, onConfirmAction } = actions
 
   useEffect(() => {
-    projectClient.listProjects({}).then((res: { projects: any[] }) => store.setProjects(res.projects)).catch((e) => handleError(e, 'listProjects'))
+    projectClient.listProjects({}).then((res: { projects: any[] }) => useStore.getState().setProjects(res.projects)).catch((e) => handleError(e, 'listProjects'))
   }, [])
 
   useEffect(() => { loadProjectData() }, [loadProjectData])
 
   useEffect(() => {
-    if (!store.projectID || !store.selectedObject) return
-    store.setIsExplorerLoading(true)
+    if (!projectID || !selectedObject) return
+    useStore.getState().setIsExplorerLoading(true)
     const opts = {}
     Promise.all([
       (async () => {
         const { queryClient } = await import('./api/factory')
-        const res = await queryClient.executeQuery({ projectId: store.projectID, objectType: store.selectedObject, limit: 100 })
-        store.setData(res)
+        const res = await queryClient.executeQuery({ projectId: projectID, objectType: selectedObject, limit: 100 })
+        useStore.getState().setData(res)
       })(),
       (async () => {
         const { queryClient } = await import('./api/factory')
-        const res = await queryClient.getDataStats({ projectId: store.projectID, objectType: store.selectedObject })
-        store.setDataHealthStats(res.stats || [])
+        const res = await queryClient.getDataStats({ projectId: projectID, objectType: selectedObject })
+        useStore.getState().setDataHealthStats(res.stats || [])
       })(),
     ]).catch((e) => {
-      store.setData(null)
-      store.setDataHealthStats([])
+      useStore.getState().setData(null)
+      useStore.getState().setDataHealthStats([])
       handleError(e, 'loadData')
-    }).finally(() => store.setIsExplorerLoading(false))
-  }, [store.projectID, store.selectedObject])
+    }).finally(() => useStore.getState().setIsExplorerLoading(false))
+  }, [projectID, selectedObject])
 
   useEffect(() => {
-    if (!store.projectID || !store.selectedAgent) return
-    queryClient.getChatHistory({ projectId: store.projectID, agentId: store.selectedAgent }).then((res: { messages?: any[] }) => {
+    if (!projectID || !selectedAgent) return
+    queryClient.getChatHistory({ projectId: projectID, agentId: selectedAgent }).then((res: { messages?: any[] }) => {
       const messages = res.messages
       if (messages && messages.length > 0) {
-        store.setChat(messages.map((m: { role: string; content: string; toolCall?: string; createdAt?: number }) => ({
+        useStore.getState().setChat(messages.map((m: { role: string; content: string; toolCall?: string; createdAt?: number }) => ({
           role: m.role as "user" | "assistant" | "system",
           content: m.content,
           toolCall: m.toolCall || '',
@@ -70,7 +87,7 @@ function App() {
         })))
       }
     }).catch((e) => handleError(e, 'getChatHistory'))
-  }, [store.projectID, store.selectedAgent])
+  }, [projectID, selectedAgent])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -83,26 +100,26 @@ function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  if (store.showWizard) return (
+  if (showWizard) return (
     <AlephErrorBoundary>
-      <Suspense fallback={<div className="flex items-center justify-center h-screen text-textDim text-xs font-mono">Caricamento Setup Wizard...</div>}>
+      <Suspense fallback={<div className="flex items-center justify-center h-screen text-textDim text-xs font-mono">{t('app.loading.setupWizard')}</div>}>
         <SetupWizard
           onCreateProject={async (n: string) => { const r = await projectClient.createProject({ id: n.toLowerCase(), name: n }); return r.project?.id ?? n.toLowerCase() }}
           onCreateApiKey={async (pid: string, l: string) => { const r = await authClient.createApiKey({ projectId: pid, label: l }); return r.key?.key ?? '' }}
-          onComplete={async (pid: string, key: string) => { await createSession(key); store.setProjectContext(pid, key); store.setShowWizard(false); store.setShowOnboarding(false) }}
+          onComplete={async (pid: string, key: string) => { await createSession(key); useStore.getState().setProjectContext(pid, ''); useStore.getState().setShowWizard(false); useStore.getState().setShowOnboarding(false) }}
         />
       </Suspense>
     </AlephErrorBoundary>
   )
 
-  if (store.showOnboarding) return (
+  if (showOnboarding) return (
     <AlephErrorBoundary>
-      <Suspense fallback={<div className="flex items-center justify-center h-screen text-textDim text-xs font-mono">Caricamento Onboarding...</div>}>
+      <Suspense fallback={<div className="flex items-center justify-center h-screen text-textDim text-xs font-mono">{t('app.loading.onboarding')}</div>}>
         <WorkspaceOnboarding
-          projects={store.projects}
-          onSelectProject={async (id: string, key: string) => { await createSession(key); store.setProjectContext(id, key); store.setShowOnboarding(false) }}
-          onDeleteProject={async (id: string, key: string) => { await createSession(key); projectClient.deleteProject({ id }).then(() => projectClient.listProjects({}).then((res: { projects: any[] }) => store.setProjects(res.projects))).catch((e) => handleError(e, 'deleteProject')) }}
-          onCreateProject={() => store.setShowWizard(true)}
+          projects={projects}
+          onSelectProject={async (id: string, key: string) => { await createSession(key); useStore.getState().setProjectContext(id, ''); useStore.getState().setShowOnboarding(false) }}
+          onDeleteProject={async (id: string, key: string) => { await createSession(key); projectClient.deleteProject({ id }).then(() => projectClient.listProjects({}).then((res: { projects: any[] }) => useStore.getState().setProjects(res.projects))).catch((e) => handleError(e, 'deleteProject')) }}
+          onCreateProject={() => useStore.getState().setShowWizard(true)}
         />
       </Suspense>
     </AlephErrorBoundary>
@@ -113,56 +130,55 @@ function App() {
       <AlephErrorBoundary>
         <NavigationStateSync />
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-background focus:rounded-lg">Skip to main content</a>
-        <CommandPalette
-          isOpen={store.isCommandPaletteOpen}
-          onClose={() => store.setIsCommandPaletteOpen(false)}
-          availableObjects={store.availableObjects}
-          projects={store.projects}
-          onSelectProject={(id: string) => {
-            const p = store.projects.find((x: any) => x.id === id)
-            if (p) {
-              store.setProjectContext(p.id, '')
-              store.setShowOnboarding(false)
-            } else {
-              store.setShowOnboarding(true)
-            }
-          }}
-          onSelectObject={(name: string) => {
-            store.setSelectedObject(name)
-            store.setIsCommandPaletteOpen(false)
-          }}
-        />
-        <Sidebar projectID={store.projectID} onShowOnboarding={() => store.setShowOnboarding(true)} />
+         <CommandPalette
+           isOpen={isCommandPaletteOpen}
+           onClose={() => useStore.getState().setIsCommandPaletteOpen(false)}
+           availableObjects={availableObjects}
+           projects={projects}
+           onSelectProject={(id: string) => {
+             const p = projects.find((x: any) => x.id === id)
+             if (p) {
+               useStore.getState().setProjectContext(p.id, '')
+               useStore.getState().setShowOnboarding(false)
+             } else {
+               useStore.getState().setShowOnboarding(true)
+             }
+           }}
+           onSelectObject={(name: string) => {
+             useStore.getState().setSelectedObject(name)
+             useStore.getState().setIsCommandPaletteOpen(false)
+           }}
+         />
+         <Sidebar projectID={projectID} onShowOnboarding={() => useStore.getState().setShowOnboarding(true)} />
 
         <div className="flex-1 flex flex-col overflow-hidden relative">
-          {store.lastError && (
-            <div className="mx-4 mt-4 px-4 py-2 bg-danger/10 border border-danger/30 text-danger rounded text-sm font-mono flex items-center justify-between">
-              <span>{store.lastError}</span>
-              <button onClick={() => store.setLastError(null)} className="text-danger/60 hover:text-danger ml-4 focus:ring-2 focus:ring-primary rounded" aria-label="Dismiss error">✕</button>
-            </div>
-          )}
+           {lastError && (
+             <div className="mx-4 mt-4 px-4 py-2 bg-danger/10 border border-danger/30 text-danger rounded text-sm font-mono flex items-center justify-between">
+               <span>{lastError}</span>
+               <button onClick={() => useStore.getState().setLastError(null)} className="text-danger/60 hover:text-danger ml-4 focus:ring-2 focus:ring-primary rounded" aria-label="Dismiss error">✕</button>
+             </div>
+           )}
 
           <main id="main-content" className="flex-1 overflow-hidden relative">
             <TerminalView />
           </main>
 
-          {store.slideOverContent && (
-            <AlephErrorBoundary>
-              <SlideOverPanel
-                isOpen={true}
-                onClose={() => store.setSlideOverContent(null)}
-                title={store.slideOverContent.title}
-              >
-                <Suspense fallback={<div className="p-4 text-textDim text-xs font-mono">Loading...</div>}>
-                  <SlideOverContent />
-                </Suspense>
-              </SlideOverPanel>
-            </AlephErrorBoundary>
-          )}
+           {slideOverContent && (
+             <AlephErrorBoundary>
+               <SlideOverPanel
+                 isOpen={true}
+                 onClose={() => useStore.getState().setSlideOverContent(null)}
+                 title={slideOverContent.title}
+               >
+                 <Suspense fallback={<div className="p-4 text-textDim text-xs font-mono">Loading...</div>}>
+                   <SlideOverContent />
+                 </Suspense>
+               </SlideOverPanel>
+             </AlephErrorBoundary>
+           )}
 
-          <StatusBar projectID={store.projectID} ollamaHealthy={store.ollamaHealthy} nlpHealthy={store.nlpHealthy} />
-          <ToastContainer />
-          <ToastBar />
+           <StatusBar projectID={projectID} ollamaHealthy={ollamaHealthy} nlpHealthy={nlpHealthy} />
+           <ToastContainer />
         </div>
       </AlephErrorBoundary>
     </div>

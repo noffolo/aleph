@@ -14,9 +14,8 @@ interface ToolFormSlideOverProps {
 }
 
 export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
-  const store = useStore()
   const { loadProjectData } = useAppActions()
-  const { onCreateTool } = useToolActions(loadProjectData)
+  const { onCreateTool, onUpdateTool } = useToolActions(loadProjectData)
   const isEdit = tool && tool.id
   const [name, setName] = useState(tool?.name || '')
   const [description, setDescription] = useState(tool?.description || '')
@@ -32,13 +31,13 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
       return
     }
 
-    if (isEdit && tool?.id) {
-      alert('Update tool non ancora implementato')
-      store.setSlideOverContent(null)
-    } else {
-      onCreateTool(name, description, code)
-      store.setSlideOverContent(null)
-    }
+      if (isEdit && tool?.id) {
+        onUpdateTool({ ...tool, name, description, code })
+        useStore.getState().setSlideOverContent(null)
+      } else {
+        onCreateTool(name, description, code)
+        useStore.getState().setSlideOverContent(null)
+      }
   }
 
   return (
@@ -47,8 +46,9 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
 
       <div className="space-y-3">
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
+          <label htmlFor="so-tool-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
           <input
+            id="so-tool-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -57,8 +57,9 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
+          <label htmlFor="so-tool-description" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
           <textarea
+            id="so-tool-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
@@ -68,8 +69,9 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Codice</label>
+          <label htmlFor="so-tool-code" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Codice</label>
           <textarea
+            id="so-tool-code"
             value={code}
             onChange={(e) => setCode(e.target.value)}
             rows={8}
@@ -80,10 +82,10 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
       </div>
 
       <div className="flex gap-3 pt-2">
-        <button
-          onClick={() => store.setSlideOverContent(null)}
-          className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
-        >
+         <button
+           onClick={() => useStore.getState().setSlideOverContent(null)}
+           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
+         >
           {t('confirmDialog.cancel')}
         </button>
         <button

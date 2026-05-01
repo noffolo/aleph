@@ -17,8 +17,8 @@ vi.mock('@/api/factory', () => {
     ingestionClient: { listTasks: mk() },
     libraryClient: { listAssets: mk(), getAssetContent: mk() },
     authClient: { listApiKeys: mk(), createApiKey: mk(), deleteApiKey: mk() },
-    skillClient: { listSkills: mk() },
-    toolClient: { listTools: mk(), createTool: mk(), editTool: mk(), deleteTool: mk(), executeTool: mk() },
+    skillClient: { listSkills: mk(), updateSkill: mk() },
+    toolClient: { listTools: mk(), createTool: mk(), updateTool: mk(), deleteTool: mk(), executeTool: mk() },
     nlpClient: { analyzeSentiment: mk() },
     registryClient: { listComponents: mk() },
     sandboxClient: { runSkill: mk(), executeTool: mk() },
@@ -68,7 +68,9 @@ describe('useAppActions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useStore as any).mockReturnValue(mockStore);
+    (useStore as any).mockImplementation((selector?: (state: typeof mockStore) => unknown) => (
+      typeof selector === 'function' ? selector(mockStore) : mockStore
+    ));
     (useStore.getState as any).mockReturnValue(mockStore);
   });
 

@@ -3,13 +3,17 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/sync/semaphore"
+
 	_ "github.com/marcboeker/go-duckdb"
+	"github.com/ff3300/aleph-v2/internal/safeident"
 )
 
 type DuckDB struct {
@@ -175,7 +179,7 @@ func (d *DuckDB) BeginTX(ctx context.Context) (*TX, error) {
 
 	// Apply schema at transaction start if set.
 	if schema != "" {
-		if _, err := tx.ExecContext(ctx, fmt.Sprintf("SET schema = '%s'", schema)); err != nil {
+		if _, err := tx.ExecContext(ctx, fmt.Sprintf("SET schema = %s", safeident.QuoteIdentifier(schema))); err != nil {
 			_ = tx.Rollback()
 			d.mu.Unlock()
 			d.sem.Release(1)
@@ -213,7 +217,7 @@ func (d *DuckDB) BeginReadTX(ctx context.Context) (*TX, error) {
 
 	// Apply schema at transaction start if set.
 	if schema != "" {
-		if _, err := tx.ExecContext(ctx, fmt.Sprintf("SET schema = '%s'", schema)); err != nil {
+		if _, err := tx.ExecContext(ctx, fmt.Sprintf("SET schema = %s", safeident.QuoteIdentifier(schema))); err != nil {
 			_ = tx.Rollback()
 			d.mu.RUnlock()
 			d.sem.Release(1)
@@ -228,6 +232,69 @@ func (d *DuckDB) BeginReadTX(ctx context.Context) (*TX, error) {
 		parentMu: &d.mu,
 		isReadTx: true,
 	}, nil
+}
+
+// isSerializationError checks if the error is a serialization failure that warrants retry.
+func isSerializationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "serialization") ||
+		strings.Contains(errStr, "sqlite_busy") ||
+		strings.Contains(errStr, "could not serialize")
+}
+
+// ExecWithRetry wraps ExecContext with up to 3 retries and exponential backoff.
+// Backoff intervals: 10ms, 50ms, 250ms.
+func (d *DuckDB) ExecWithRetry(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	const maxRetries = 3
+	backoffMs := []int{10, 50, 250}
+
+	for i := 0; i <= maxRetries; i++ {
+		result, err := d.ExecContext(ctx, query, args...)
+		if err == nil {
+			return result, nil
+		}
+		if !isSerializationError(err) || i == maxRetries {
+			return nil, err
+		}
+		time.Sleep(time.Duration(backoffMs[i]) * time.Millisecond)
+	}
+	return nil, errors.New("exec with retry: exhausted all retries")
+}
+
+// ExecTx wraps BeginTX + fn + Commit/Rollback with retry on serialization failures.
+// If serialization fails, the transaction is retried up to 3 times.
+func (d *DuckDB) ExecTx(ctx context.Context, fn func(*TX) error) error {
+	const maxRetries = 3
+	backoffMs := []int{10, 50, 250}
+
+	for i := 0; i <= maxRetries; i++ {
+		tx, err := d.BeginTX(ctx)
+		if err != nil {
+			return fmt.Errorf("begin tx: %w", err)
+		}
+
+		err = fn(tx)
+		if err == nil {
+			err = tx.Commit()
+			if err == nil {
+				return nil
+			}
+		}
+
+		// Rollback on error
+		_ = tx.Rollback()
+
+		if !isSerializationError(err) || i == maxRetries {
+			return err
+		}
+
+		time.Sleep(time.Duration(backoffMs[i]) * time.Millisecond)
+	}
+
+	return errors.New("exec tx: exhausted all retries")
 }
 
 // Commit commits the transaction and releases the acquired locks and semaphore.
@@ -335,5 +402,5 @@ func txScopeQuery(schema string, query string) string {
 	if schema == "" {
 		return query
 	}
-	return fmt.Sprintf("SET schema = '%s'; %s", schema, query)
+	return fmt.Sprintf("SET schema = %s; %s", safeident.QuoteIdentifier(schema), query)
 }

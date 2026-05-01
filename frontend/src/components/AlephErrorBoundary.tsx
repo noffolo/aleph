@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Binary } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { t } from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -39,14 +40,14 @@ export class AlephErrorBoundary extends Component<Props, State> {
           <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-primary text-white mb-8 shadow-lg">
             <Binary size={40} />
           </div>
-          <h2 className="text-2xl font-bold text-text mb-2">Modalità Raw — Servizio Degradato</h2>
-          <p className="text-textMuted text-center max-w-md mb-8">Il sistema predittivo è temporaneamente offline. Visualizzazione dati grezzi attiva.</p>
-          <button
-            onClick={this.handleRetry}
-            className="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg"
-          >
-            Riprova
-          </button>
+<h2 className="text-2xl font-bold text-text mb-2">{t('errors.rawMode')}</h2>
+           <p className="text-textMuted text-center max-w-md mb-8">{t('errors.rawModeDesc')}</p>
+<button
+             onClick={this.handleRetry}
+             className="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg"
+           >
+             {t('toast.retry')}
+           </button>
         </div>
       );
     }

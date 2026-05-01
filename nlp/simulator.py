@@ -1,4 +1,7 @@
+import logging
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 class StochasticSimulator:
     def __init__(self, dt=1/252): # Passo temporale giornaliero (anno finanziario)

@@ -28,6 +28,8 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
+require github.com/getsentry/sentry-go v0.46.1 // indirect
+
 require (
 	github.com/apache/arrow-go/v18 v18.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

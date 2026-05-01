@@ -109,15 +109,16 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 
 	// Session management (unauthenticated — validates credentials then sets cookie)
 	mux.HandleFunc("/api/v1/auth/session", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
+		switch r.Method {
+		case http.MethodPost:
 			cfg.SessionHandler.HandleCreateSession(w, r)
-			return
-		}
-		if r.Method == http.MethodDelete {
+		case http.MethodGet:
+			cfg.SessionHandler.HandleValidateSession(w, r)
+		case http.MethodDelete:
 			cfg.SessionHandler.HandleDeleteSession(w, r)
-			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	})
 
 	// Raw HTTP routes (protected by AuthMiddleware)

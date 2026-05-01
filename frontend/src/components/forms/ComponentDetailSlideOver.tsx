@@ -9,8 +9,8 @@ interface ComponentDetailSlideOverProps {
 }
 
 export function ComponentDetailSlideOver({ componentId, title, onClose }: ComponentDetailSlideOverProps) {
-  const store = useStore()
-  const component = store.registryComponents.find(c => c.id === componentId)
+  const registryComponents = useStore(s => s.registryComponents)
+  const component = registryComponents.find(c => c.id === componentId)
 
   if (!component) return null
 

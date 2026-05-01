@@ -66,6 +66,9 @@ func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[
 	inputJSON, _ := json.Marshal(input)
 
 	if strings.HasPrefix(code, "# python") || strings.HasPrefix(code, "#!/usr/bin/env python") {
+		if err := ValidatePythonCode(code); err != nil {
+			return ExecutionResult{Error: "python validation failed: " + err.Error(), ExitCode: -1}, nil
+		}
 		tmpFile := filepath.Join(tmpDir, "tool.py")
 		if err := os.WriteFile(tmpFile, []byte(code), 0644); err != nil {
 			return ExecutionResult{Error: "failed to write tool file: " + err.Error(), ExitCode: -1}, nil
@@ -93,6 +96,9 @@ func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[
 	}
 
 	tmpFile := filepath.Join(tmpDir, "main.go")
+	if err := ValidateGoCode(code); err != nil {
+		return ExecutionResult{Error: "go validation failed: " + err.Error(), ExitCode: -1}, nil
+	}
 	if err := os.WriteFile(tmpFile, []byte(code), 0644); err != nil {
 		return ExecutionResult{Error: "failed to write tool file: " + err.Error(), ExitCode: -1}, nil
 	}

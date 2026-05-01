@@ -9,10 +9,10 @@ interface AssetDetailSlideOverProps {
 }
 
 export function AssetDetailSlideOver({ assetId, title, onClose }: AssetDetailSlideOverProps) {
-  const store = useStore()
+  const assets = useStore(s => s.assets)
   const { loadProjectData } = useAppActions()
   const { onGetAssetContent, onGeneratePdf } = useLibraryActions(loadProjectData)
-  const asset = store.assets.find(a => a.id === assetId)
+  const asset = assets.find(a => a.id === assetId)
 
   if (!asset) return null
 

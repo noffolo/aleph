@@ -52,6 +52,8 @@ import (
 	"github.com/ff3300/aleph-v2/internal/tools/humanecosystems"
 	"github.com/ff3300/aleph-v2/internal/tools/osint"
 	"log/slog"
+
+	"github.com/getsentry/sentry-go"
 )
 
 type AlephApp struct {
@@ -80,6 +82,19 @@ type AlephApp struct {
 func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+
+	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
+		if err := sentry.Init(sentry.ClientOptions{
+			Dsn:         dsn,
+			Environment: "production",
+			ServerName:  "aleph-backend",
+			Release:     os.Getenv("APP_VERSION"),
+		}); err != nil {
+			slog.Warn("sentry init failed", "error", err)
+		} else {
+			slog.Info("sentry error monitoring initialized")
+		}
+	}
 
 	// Data DB (DuckDB) - Analytic Engine
 	db, err := storage.NewDuckDB(cfg.DuckDBPath)
@@ -344,10 +359,11 @@ func (a *AlephApp) Close(ctx context.Context) error {
 		a.memStore.Close()
 	}
 
-	// Cancel root context → stops watchSidecar, enrichment goroutines, etc.
 	if a.cancel != nil {
 		a.cancel()
 	}
+
+	sentry.Flush(2 * time.Second)
 
 	if a.server != nil {
 		a.server.Shutdown(ctx)
@@ -364,7 +380,7 @@ func (a *AlephApp) makeSentimentHelper() func(ctx context.Context, text string) 
 	return func(ctx context.Context, text string) (string, error) {
 		if a.nlpHandler == nil {
 			slog.Warn("sentiment analysis unavailable — NLP sidecar not configured")
-			return `{"score": 0, "label": "neutral", "error": "NLP sidecar non disponibile"}`, nil
+			return `{"score": 0, "label": "neutral", "error": "NLP sidecar unavailable"}`, nil
 		}
 		resp, err := a.nlpHandler.AnalyzeSentiment(ctx, connect.NewRequest(&nlpv1.AnalyzeSentimentRequest{Text: text}))
 		if err != nil {
@@ -383,11 +399,11 @@ func (a *AlephApp) makeSentimentHelper() func(ctx context.Context, text string) 
 func (a *AlephApp) makeTrustScoreHelper(reg *registry.DuckDBRegistry) func(ctx context.Context, entityID string) (string, error) {
 	return func(ctx context.Context, entityID string) (string, error) {
 		if reg == nil {
-			return `{"error": "registry non disponibile"}`, nil
+			return `{"error": "registry unavailable"}`, nil
 		}
 		comp, err := reg.GetComponentByID(ctx, entityID)
 		if err != nil || comp == nil {
-			return "", fmt.Errorf("entità %s non trovata", entityID)
+			return "", fmt.Errorf("entity %s not found", entityID)
 		}
 		result := map[string]interface{}{
 			"entity_id":       entityID,
@@ -399,12 +415,12 @@ func (a *AlephApp) makeTrustScoreHelper(reg *registry.DuckDBRegistry) func(ctx c
 	}
 }
 
-func (a *AlephApp) makeComponentByIDHelper(reg *registry.DuckDBRegistry) func(id string) (*decision.ComponentMetadata, error) {
-	return func(id string) (*decision.ComponentMetadata, error) {
+func (a *AlephApp) makeComponentByIDHelper(reg *registry.DuckDBRegistry) func(ctx context.Context, id string) (*decision.ComponentMetadata, error) {
+	return func(ctx context.Context, id string) (*decision.ComponentMetadata, error) {
 		if reg == nil {
-			return nil, fmt.Errorf("registry non disponibile")
+			return nil, fmt.Errorf("registry unavailable")
 		}
-		comp, err := reg.GetComponentByID(context.Background(), id)
+		comp, err := reg.GetComponentByID(ctx, id)
 		if err != nil || comp == nil {
 			return nil, err
 		}
@@ -444,10 +460,10 @@ func (a *AlephApp) watchSidecar(nlpHandler *handler.NLPHandler) {
 		addr = strings.TrimPrefix(addr, "https://")
 	}
 	
-	slog.Info("avvio monitoraggio neurale", "addr", addr)
+	slog.Info("starting neural monitoring", "addr", addr)
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		slog.Error("connessione al sidecar fallita", "error", err)
+		slog.Error("connection to sidecar failed", "error", err)
 		return
 	}
 	defer conn.Close()

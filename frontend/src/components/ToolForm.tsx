@@ -2,12 +2,9 @@ import React, { useState } from 'react'
 import type { Tool } from '../store/types'
 import { useStore } from '../store/useStore'
 import { t } from '../i18n'
-
-export interface ToolFormData {
-  name: string
-  description: string
-  code: string
-}
+import { apiPost, apiPatch } from '../api/client'
+import { ToolFormSchema } from '../schemas'
+import type { ToolFormData } from '../schemas'
 
 interface ToolFormProps {
   tool?: Tool | null
@@ -29,12 +26,20 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
   })
 
   const validate = (): boolean => {
-    const newErrors: Partial<Record<keyof ToolFormData, string>> = {}
-    if (!formData.name.trim()) {
-      newErrors.name = 'Il nome è obbligatorio'
+    const result = ToolFormSchema.safeParse({ ...formData, category: 'general' })
+    if (!result.success) {
+      const newErrors: Partial<Record<keyof ToolFormData, string>> = {}
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as keyof ToolFormData
+        if (!newErrors[field]) {
+          newErrors[field] = issue.message
+        }
+      }
+      setErrors(newErrors)
+      return false
     }
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    setErrors({})
+    return true
   }
 
   const handleSubmit = async () => {
@@ -44,25 +49,17 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
     setSaveError(null)
     
     try {
-      const apiKey = useStore.getState().apiKey
-      const method = isEdit ? 'PATCH' : 'POST'
       const url = isEdit ? `/api/v1/tools/${tool?.id}` : '/api/v1/tools'
       
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          ...formData,
-          category: 'general'
-        })
-      })
+      const body = {
+        ...formData,
+        category: 'general'
+      }
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}))
-        throw new Error(errData.message || `Errore ${response.status}: Impossibile salvare lo strumento`)
+      if (isEdit) {
+        await apiPatch(url, body)
+      } else {
+        await apiPost(url, body)
       }
 
       onSave(formData)
@@ -86,8 +83,9 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
 
       <div className="space-y-3">
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
+          <label htmlFor="tool-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
           <input
+            id="tool-name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             disabled={isSaving}
@@ -100,8 +98,9 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
+          <label htmlFor="tool-description" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
           <textarea
+            id="tool-description"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             disabled={isSaving}
@@ -112,8 +111,9 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Codice</label>
+          <label htmlFor="tool-code" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Codice</label>
           <textarea
+            id="tool-code"
             value={formData.code}
             onChange={(e) => setFormData({ ...formData, code: e.target.value })}
             disabled={isSaving}

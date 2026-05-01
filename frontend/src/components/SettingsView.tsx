@@ -2,6 +2,8 @@ import React, { memo, useState } from 'react';
 import { Key, Plus, Trash2, Bell, Globe, Shield, Monitor, Sparkles, ScanLine } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { t } from '../i18n';
+import { SkeletonLoader } from './SkeletonLoader';
+import { InlineError } from './ui/InlineError';
 
 interface ApiKey {
   id: string;
@@ -24,17 +26,24 @@ interface SettingsViewProps {
   onDeleteApiKey: (id: string) => void;
   onSendWebhook: (url: string, payloadJson: string, secret: string) => void;
   inline?: boolean;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
 const SettingsViewComponent: React.FC<SettingsViewProps> = ({
-   apiKeys, notificationChannels, onCreateApiKey, onDeleteApiKey, onSendWebhook, inline = false
+   apiKeys, notificationChannels, onCreateApiKey, onDeleteApiKey, onSendWebhook, inline = false, isLoading, error
  }) => {
-   const store = useStore();
-   const [webhookUrl, setWebhookUrl] = useState('');
+    const enableScanline = useStore(s => s.enableScanline)
+    const enableGlow = useStore(s => s.enableGlow)
+    const enableFlicker = useStore(s => s.enableFlicker)
+    const [webhookUrl, setWebhookUrl] = useState('');
 
   const [webhookPayload, setWebhookPayload] = useState('{}');
   const [webhookSecret, setWebhookSecret] = useState('');
   const [newKeyLabel, setNewKeyLabel] = useState('');
+
+  if (isLoading) return <SkeletonLoader />;
+  if (error) return <div className="max-w-4xl mx-auto"><InlineError message={error} /></div>;
 
   return (
     <div 
@@ -66,13 +75,13 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
               <span className="font-bold text-sm">{t('settings.scanlines')}</span>
             </div>
               <button 
-                onClick={() => store.setEnableScanline(!store.enableScanline)}
-                className={`w-10 h-5 rounded-full relative transition-colors focus:ring-2 focus:ring-primary ${store.enableScanline ? 'bg-primary' : 'bg-border'}`}
+                onClick={() => useStore.getState().setEnableScanline(!enableScanline)}
+                className={`w-10 h-5 rounded-full relative transition-colors focus:ring-2 focus:ring-primary ${enableScanline ? 'bg-primary' : 'bg-border'}`}
                 aria-label="Toggle scanlines"
                role="switch"
-               aria-checked={store.enableScanline}
+               aria-checked={enableScanline}
              >
-              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${store.enableScanline ? 'left-6' : 'left-1'}`} />
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${enableScanline ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
           <div className="flex items-center justify-between p-4 bg-surface-alt rounded-2xl">
@@ -81,13 +90,13 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
               <span className="font-bold text-sm">{t('settings.glow')}</span>
             </div>
               <button 
-                onClick={() => store.setEnableGlow(!store.enableGlow)}
-                className={`w-10 h-5 rounded-full relative transition-colors focus:ring-2 focus:ring-primary ${store.enableGlow ? 'bg-primary' : 'bg-border'}`}
+                onClick={() => useStore.getState().setEnableGlow(!enableGlow)}
+                className={`w-10 h-5 rounded-full relative transition-colors focus:ring-2 focus:ring-primary ${enableGlow ? 'bg-primary' : 'bg-border'}`}
                 aria-label="Toggle glow effect"
                role="switch"
-               aria-checked={store.enableGlow}
+               aria-checked={enableGlow}
              >
-              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${store.enableGlow ? 'left-6' : 'left-1'}`} />
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${enableGlow ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
           <div className="flex items-center justify-between p-4 bg-surface-alt rounded-2xl">
@@ -96,13 +105,13 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
               <span className="font-bold text-sm">{t('settings.flicker')}</span>
             </div>
               <button 
-                onClick={() => store.setEnableFlicker(!store.enableFlicker)}
-                className={`w-10 h-5 rounded-full relative transition-colors focus:ring-2 focus:ring-primary ${store.enableFlicker ? 'bg-primary' : 'bg-border'}`}
+                onClick={() => useStore.getState().setEnableFlicker(!enableFlicker)}
+                className={`w-10 h-5 rounded-full relative transition-colors focus:ring-2 focus:ring-primary ${enableFlicker ? 'bg-primary' : 'bg-border'}`}
                 aria-label="Toggle flicker effect"
                role="switch"
-               aria-checked={store.enableFlicker}
+               aria-checked={enableFlicker}
              >
-              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${store.enableFlicker ? 'left-6' : 'left-1'}`} />
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${enableFlicker ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
         </div>

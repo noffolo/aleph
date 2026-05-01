@@ -31,9 +31,9 @@ export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialT
   const { items: tools, hasMore, loadMore, loading } = useCursorPagination({
     clientMethod: toolClient.listTools,
     requestBuilder: useCallback((cursor: string) => new ListToolsRequest({ projectId, after: cursor, limit: 25 }), [projectId]),
-    responseExtractor: (res) => ({ items: (res.tools || []) as any[], nextCursor: res.nextCursor }),
-    storeSetter: setTools as (items: any[]) => void,
-    initialItems: initialTools as any[],
+    responseExtractor: (res) => ({ items: (res.tools || []) as Tool[], nextCursor: res.nextCursor }),
+    storeSetter: setTools as (items: Tool[]) => void,
+    initialItems: initialTools as Tool[],
   });
 
   const filteredTools = tools.filter(t => 
@@ -127,7 +127,7 @@ export const ToolsView: React.FC<ToolsViewProps> = React.memo(({ tools: initialT
             disabled={loading}
             className="rounded-lg border border-border px-4 py-2 text-sm text-textMuted hover:text-textPrimary hover:border-textMuted transition-colors disabled:opacity-50"
           >
-            {loading ? 'Caricamento...' : 'Carica Altri'}
+            {loading ? t('generic.loadingLower') : t('generic.loadMore')}
           </button>
         </div>
       )}

@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package aleph.v1;
+
+option go_package = "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1";
+
+service NotificationService {
+  rpc SendWebhook(SendWebhookRequest) returns (SendWebhookResponse);
+  rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse);
+}
+
+message SendWebhookRequest {
+  string url = 1;
+  string payload_json = 2;
+  string secret = 3;
+}
+
+message SendWebhookResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message ListChannelsRequest {
+  string project_id = 1;
+}
+
+message ListChannelsResponse {
+  repeated NotificationChannel channels = 1;
+}
+
+message NotificationChannel {
+  string id = 1;
+  string name = 2;
+  string type = 3; // "webhook", "email", "slack"
+  string config_json = 4;
+}

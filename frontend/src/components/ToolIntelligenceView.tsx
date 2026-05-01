@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Activity, Users, Shield, Star, AlertTriangle, CheckCircle2, BarChart3 } from 'lucide-react';
 import type { ToolIntel, ToolAnomaly } from '../store/types';
 import { useStore } from '../store/useStore';
+import { apiGet, apiPost, apiPatch } from '../api/client';
 
 const Card = ({ title, icon: Icon, children, className = "" }: { title: string, icon: any, children: React.ReactNode, className?: string }) => (
   <div className={`bg-[#0e0e18] border border-[#2a2a3a] rounded-lg p-4 flex flex-col ${className}`}>
@@ -25,13 +26,9 @@ export default function ToolIntelligenceView() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const apiKey = useStore.getState().apiKey;
     async function fetchToolIntel() {
       try {
-        const headers: Record<string, string> = {};
-        if (apiKey) headers['X-Aleph-Api-Key'] = apiKey;
-        const response = await fetch('/api/v1/tools/intelligence?tool_id=all', { headers }); 
-        const data = await response.json();
+        const data = await apiGet('/api/v1/tools/intelligence?tool_id=all');
         setTools(Array.isArray(data) ? data : [data]);
       } catch (e) {
         console.error("Failed to fetch tool intelligence", e);

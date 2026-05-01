@@ -3,12 +3,14 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/repository"
+	"github.com/google/uuid"
 )
 
 type ToolHandler struct {
@@ -150,11 +152,11 @@ func (h *ToolHandler) HandleHealthHistory(w http.ResponseWriter, r *http.Request
 	for _, t := range tools {
 		if t.ID == toolID {
 			writeJSON(w, http.StatusOK, map[string]any{
-				"tool_id":         t.ID,
-				"name":            t.Name,
-				"health_status":   t.HealthStatus,
-				"version":         t.Version,
-				"source_type":     t.SourceType,
+				"tool_id":       t.ID,
+				"name":          t.Name,
+				"health_status": t.HealthStatus,
+				"version":       t.Version,
+				"source_type":   t.SourceType,
 			})
 			return
 		}
@@ -182,7 +184,9 @@ func (h *ToolHandler) ListTools(
 	req *connect.Request[v1.ListToolsRequest],
 ) (*connect.Response[v1.ListToolsResponse], error) {
 	tools, err := h.metaRepo.ListTools()
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	var result []*v1.Tool
 	for _, t := range tools {
@@ -196,9 +200,32 @@ func (h *ToolHandler) CreateTool(
 	req *connect.Request[v1.CreateToolRequest],
 ) (*connect.Response[v1.CreateToolResponse], error) {
 	t := req.Msg.Tool
+	if t == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("tool is required"))
+	}
+	if t.Id == "" {
+		t.Id = uuid.NewString()
+	}
 	err := h.metaRepo.CreateTool(&repository.ToolRecord{ID: t.Id, Name: t.Name, Description: t.Description, Code: t.Code})
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&v1.CreateToolResponse{Tool: t}), nil
+}
+
+func (h *ToolHandler) UpdateTool(
+	ctx context.Context,
+	req *connect.Request[v1.UpdateToolRequest],
+) (*connect.Response[v1.UpdateToolResponse], error) {
+	t := req.Msg.Tool
+	if t == nil || t.Id == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("tool id is required"))
+	}
+	err := h.metaRepo.UpdateTool(&repository.ToolRecord{ID: t.Id, Name: t.Name, Description: t.Description, Code: t.Code})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&v1.UpdateToolResponse{Tool: t}), nil
 }
 
 func (h *ToolHandler) DeleteTool(
@@ -206,6 +233,8 @@ func (h *ToolHandler) DeleteTool(
 	req *connect.Request[v1.DeleteToolRequest],
 ) (*connect.Response[v1.DeleteToolResponse], error) {
 	err := h.metaRepo.DeleteTool(req.Msg.Id)
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&v1.DeleteToolResponse{Success: true}), nil
 }

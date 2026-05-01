@@ -442,6 +442,18 @@ func (r *MetadataRepository) CreateTool(t *ToolRecord) error {
 	return nil
 }
 
+func (r *MetadataRepository) UpdateTool(t *ToolRecord) error {
+	_, err := r.db.Exec("UPDATE system_tools SET name = $1, description = $2, code = $3, category = $4, version = $5, health_status = $6, source_type = $7 WHERE id = $8",
+		t.Name, t.Description, t.Code, t.Category, t.Version, t.HealthStatus, t.SourceType, t.ID)
+	if err == nil {
+		r.toolCache.Invalidate("list_tools")
+	}
+	if err != nil {
+		return fmt.Errorf("updateTool: %w", err)
+	}
+	return nil
+}
+
 func (r *MetadataRepository) UpdateToolCode(ctx context.Context, toolID, code string) error {
 	_, err := r.db.ExecContext(ctx, "UPDATE system_tools SET code = $1 WHERE id = $2", code, toolID)
 	if err == nil {
@@ -547,6 +559,15 @@ func (r *MetadataRepository) CreateSkill(s *SkillRecord) error {
 	_, err := r.db.Exec("INSERT INTO system_skills (id, project_id, name, description, tool_ids) VALUES ($1, $2, $3, $4, $5)", s.ID, s.ProjectID, s.Name, s.Description, s.ToolIDsJSON)
 	if err != nil {
 		return fmt.Errorf("createSkill: %w", err)
+	}
+	return nil
+}
+
+func (r *MetadataRepository) UpdateSkill(s *SkillRecord) error {
+	_, err := r.db.Exec("UPDATE system_skills SET name = $1, description = $2, tool_ids = $3 WHERE project_id = $4 AND id = $5",
+		s.Name, s.Description, s.ToolIDsJSON, s.ProjectID, s.ID)
+	if err != nil {
+		return fmt.Errorf("updateSkill: %w", err)
 	}
 	return nil
 }

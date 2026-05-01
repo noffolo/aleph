@@ -1,25 +1,35 @@
+import logging
 import re
 import os
+import json
 import requests
 from abc import ABC, abstractmethod
+
+logger = logging.getLogger(__name__)
 
 # Environment-configurable API endpoints
 _POLYMARKET_API_URL = os.environ.get("POLYMARKET_API_URL", "https://clob.polymarket.com/markets")
 _METACULUS_API_URL = os.environ.get("METACULUS_API_URL", "https://www.metaculus.com/api2/questions")
 _MARKET_REQUEST_TIMEOUT = int(os.environ.get("MARKET_REQUEST_TIMEOUT", "10"))
 
+
+class MarketAPIError(Exception):
+    """Raised when an external market API call fails."""
+    pass
+
+
 class MarketSource(ABC):
     @abstractmethod
     def fetch(self, identifier):
         pass
+
 
 class PolymarketSource(MarketSource):
     API_URL = _POLYMARKET_API_URL
 
     def fetch(self, identifier):
         if not re.match(r'^[a-zA-Z0-9_-]{1,128}$', identifier):
-            print(f"[Markets] Invalid identifier for Polymarket: {identifier}")
-            return None
+            raise ValueError(f"Invalid identifier for Polymarket: {identifier}")
         try:
             resp = requests.get(f"{self.API_URL}/{identifier}", timeout=_MARKET_REQUEST_TIMEOUT)
             resp.raise_for_status()
@@ -28,21 +38,20 @@ class PolymarketSource(MarketSource):
                 prices = data["outcomePrices"]
                 if isinstance(prices, str):
                     prices = prices.split(",")
-                yes_price = float(prices[0])
-                return yes_price
+                return float(prices[0])
             if "probability" in data:
                 return float(data["probability"])
-        except Exception as e:
-            print(f"[Markets] Polymarket API error for {identifier}: {e}")
-        return None
+            raise MarketAPIError(f"Polymarket response missing outcomePrices/probability for {identifier}")
+        except (requests.RequestException, ValueError, json.JSONDecodeError) as e:
+            raise MarketAPIError(f"Polymarket API error for {identifier}: {e}") from e
+
 
 class MetaculusSource(MarketSource):
     API_URL = _METACULUS_API_URL
 
     def fetch(self, identifier):
         if not (isinstance(identifier, int) or (isinstance(identifier, str) and identifier.isdigit())):
-            print(f"[Markets] Invalid identifier for Metaculus: {identifier}")
-            return None
+            raise ValueError(f"Invalid identifier for Metaculus: {identifier}")
         try:
             resp = requests.get(f"{self.API_URL}/{identifier}/", timeout=_MARKET_REQUEST_TIMEOUT)
             resp.raise_for_status()
@@ -55,9 +64,10 @@ class MetaculusSource(MarketSource):
                     return float(cp)
             if "probability" in data:
                 return float(data["probability"])
-        except Exception as e:
-            print(f"[Markets] Metaculus API error for {identifier}: {e}")
-        return None
+            raise MarketAPIError(f"Metaculus response missing probability for {identifier}")
+        except (requests.RequestException, ValueError, json.JSONDecodeError) as e:
+            raise MarketAPIError(f"Metaculus API error for {identifier}: {e}") from e
+
 
 class MarketPredictor:
     def __init__(self):
@@ -77,8 +87,7 @@ class MarketPredictor:
         result = self.sources[source_name].fetch(identifier)
         if result is not None:
             return result
-        print(f"[Markets] {source_name} returned None for {identifier}, using neutral 0.5")
-        return 0.5
+        raise MarketAPIError(f"{source_name} returned no data for {identifier}")
 
     def calibrate(self, internal_prob, market_data):
         if not market_data:

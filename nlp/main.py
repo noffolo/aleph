@@ -1,7 +1,5 @@
 import grpc
 from concurrent import futures
-from optimum.onnxruntime import ORTModelForFeatureExtraction
-from transformers import AutoTokenizer
 import numpy as np
 import pandas as pd
 import json
@@ -21,7 +19,7 @@ from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 from simulator import StochasticSimulator
 from ensemble import PredictiveEnsemble
-from markets import MarketPredictor
+from markets import MarketPredictor, MarketAPIError
 
 DUCKDB_PATH = os.environ.get("ALEPH_DUCKDB_PATH", "./data/aleph.duckdb")
 
@@ -109,31 +107,6 @@ def analyze_sentiment_simple(text: str) -> tuple:
 
 class NLPService(nlp_pb2_grpc.NLPServiceServicer):
     def __init__(self):
-        model_dir = "onnx_model"
-        self.model = None
-        self.is_onnx = False
-        self._sentiment_method = "heuristic"
-        try:
-            if not os.path.exists(model_dir):
-                raise FileNotFoundError("ONNX model directory not found")
-            logging.info("Loading ONNX model from %s...", model_dir)
-            self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
-            self.model = ORTModelForFeatureExtraction.from_pretrained(model_dir)
-            self.is_onnx = True
-            logging.info("ONNX model loaded (feature extraction only, not sentiment classification)")
-        except Exception as e:
-            logging.warning("ONNX loading failed (%s), falling back to PyTorch...", e)
-            try:
-                self.tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-                from transformers import AutoModel
-                self.model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-                self.is_onnx = False
-                logging.info("PyTorch model loaded (feature extraction only, not sentiment classification)")
-            except Exception as e2:
-                logging.error("PyTorch loading also failed (%s). Embedding model unavailable.", e2)
-                self.model = None
-                self.is_onnx = False
-
         self.simulator = StochasticSimulator()
         self.ensemble = PredictiveEnsemble()
         self.markets = MarketPredictor()
@@ -158,30 +131,42 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
 
     def RecordFeedback(self, request, context):
         logging.info("Feedback received for %s: Correct=%s", request.entity_id, request.is_correct)
-        log_dir = os.path.dirname(os.path.abspath("feedback_log.jsonl"))
-        os.makedirs(log_dir, exist_ok=True)
         try:
             with open("feedback_log.jsonl", "a") as f:
                 f.write(json.dumps({
                     "entity_id": request.entity_id,
                     "is_correct": request.is_correct,
                     "user_correction": request.correction_value,
+                    "feedback_type": request.feedback_type,
                     "timestamp": time.time()
                 }) + "\n")
-        except IOError as e:
+            return nlp_pb2.RecordFeedbackResponse(success=True)
+        except (IOError, OSError) as e:
             logging.error("Failed to write feedback log: %s", e)
-        return nlp_pb2.RecordFeedbackResponse(success=True)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Failed to persist feedback: {str(e)}")
+            return nlp_pb2.RecordFeedbackResponse(success=False)
 
     def StreamPredictions(self, request, context):
         context_id = request.context_id
         ontology_query = request.ontology_query
         logging.info("Generating Scenario Proposals for: %s, query: %s", context_id, ontology_query)
         try:
-            market_prob = None
+            if not context.is_active():
+                logging.info("StreamPredictions cancelled before market fetch")
+                return
+
+            market_prob = 0.5
             if context_id:
-                market_prob = self.markets.fetch_market_prob("polymarket", context_id)
-            if market_prob is None:
-                market_prob = 0.5
+                try:
+                    market_prob = self.markets.fetch_market_prob("polymarket", context_id)
+                except (ValueError, MarketAPIError) as e:
+                    logging.warning("Market data unavailable for %s: %s", context_id, e)
+                    market_prob = 0.5
+
+            if not context.is_active():
+                logging.info("StreamPredictions cancelled before history load")
+                return
 
             history_df = load_history_from_duckdb(context_id, self.duckdb_path)
             if history_df is None:
@@ -190,6 +175,10 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
                     f"No DuckDB data available for context_id '{context_id}'. "
                     "Predictions require real data and are not generated from synthetic fallback."
                 )
+                return
+
+            if not context.is_active():
+                logging.info("StreamPredictions cancelled before ensemble forecast")
                 return
 
             S0 = float(history_df["y"].iloc[-1])
@@ -203,6 +192,10 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
             event_prob = self.ensemble.predict_probs(features)
             final_prob = self.markets.calibrate(forecast["drift_detected"], {"polymarket": market_prob})
 
+            if not context.is_active():
+                logging.info("StreamPredictions cancelled before first yield")
+                return
+
             if final_prob > 0.7:
                 yield nlp_pb2.StreamPredictionsResponse(
                     entity_id=f"ACTION_PROPOSAL_{context_id or 'ENSEMBLE'}",
@@ -211,6 +204,9 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
                     explanation=f"Rischio calibrato {final_prob:.2f} (Internal + Market). Azione suggerita per contrastare il drift rilevato.",
                     is_synthetic=False
                 )
+                if not context.is_active():
+                    logging.info("StreamPredictions cancelled after first yield")
+                    return
 
             yield nlp_pb2.StreamPredictionsResponse(
                 entity_id=f"PREDICTION_{context_id or 'MEAN'}",
@@ -225,22 +221,6 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
             logging.error("StreamPredictions error: %s", e)
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"Prediction failed: {str(e)}")
-
-    def GenerateEmbedding(self, text):
-        if self.model is None:
-            return []
-        tensor_fmt = "np" if self.is_onnx else "pt"
-        inputs = self.tokenizer(text, return_tensors=tensor_fmt, padding=True, truncation=True, max_length=512)
-        if self.is_onnx:
-            outputs = self.model(**inputs)
-            embeddings = outputs.last_hidden_state.mean(dim=1)
-        else:
-            import torch
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-            embeddings = outputs.last_hidden_state.mean(dim=1)
-
-        return embeddings.numpy().tolist()[0]
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

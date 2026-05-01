@@ -1,97 +1,97 @@
 package dsl
 
 type Program struct {
-	Statements []*Statement `@@*`
+	Statements []*Statement `parser:"@@*"`
 }
 
 type Statement struct {
-	Object   *ObjectDefinition   `  @@`
-	Relation *RelationDefinition `| @@`
-	Dataset  *DatasetDefinition  `| @@`
-	Action   *ActionDefinition   `| @@`
-	Tool     *ParsedTool         `| @@`
+	Object   *ObjectDefinition   `parser:"  @@"`
+	Relation *RelationDefinition `parser:"| @@"`
+	Dataset  *DatasetDefinition  `parser:"| @@"`
+	Action   *ActionDefinition   `parser:"| @@"`
+	Tool     *ParsedTool         `parser:"| @@"`
 }
 
 type ParsedTool struct {
-	Name        string          `("tool" @Ident)`
-	Description string          `("{" "name" @String)`
-	Inputs      []*ToolParamDef `"inputs" "{" @@* "}"`
-	Outputs     []*ToolParamDef `"outputs" "{" @@* "}"`
-	Handler     *HandlerDef     `"handler" "{" @@ "}"`
-	Close       string          `"}"`
+	Name        string          `parser:"('tool' @Ident)"`
+	Description string          `parser:"('{' 'name' @String)"`
+	Inputs      []*ToolParamDef `parser:"'inputs' '{' @@* '}'"`
+	Outputs     []*ToolParamDef `parser:"'outputs' '{' @@* '}'"`
+	Handler     *HandlerDef     `parser:"'handler' '{' @@ '}'"`
+	Close       string          `parser:"'}'"`
 }
 
 type ToolParamDef struct {
-	Name        string `@Ident`
-	Type        string `"type" @Ident`
-	Required    bool   `@"required"?`
-	Description string `@String`
+	Name        string `parser:"@Ident"`
+	Type        string `parser:"'type' @Ident"`
+	Required    bool   `parser:"@'required'?"`
+	Description string `parser:"@String"`
 }
 
 type HandlerDef struct {
-	Language   string `"language" @Ident`
-	EntryPoint string `"entry" @String`
+	Language   string `parser:"'language' @Ident"`
+	EntryPoint string `parser:"'entry' @String"`
 }
 
 type ObjectDefinition struct {
-	Name       string                `"object" @Ident`
-	FromSource string                `"from" "dataset" @Ident`
-	ID         string                `"id" @Ident`
-	Properties []*Property            `@@*`
-	Factors    []*Factor             `@@*`
-	Filters    []*FilterDefinition   `@@*`
-	Aggregates []*AggregateDefinition `@@*`
+	Name       string                 `parser:"'object' @Ident"`
+	FromSource string                 `parser:"'from' 'dataset' @Ident"`
+	ID         string                 `parser:"'id' @Ident"`
+	Properties []*Property            `parser:"@@*"`
+	Factors    []*Factor              `parser:"@@*"`
+	Filters    []*FilterDefinition    `parser:"@@*"`
+	Aggregates []*AggregateDefinition `parser:"@@*"`
 }
 
 type FilterDefinition struct {
-	Field string `"filter" @Ident`
-	Op    string `@("eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "like")`
-	Value string `@(String | Ident | Int | Float)`
+	Field string `parser:"'filter' @Ident"`
+	Op    string `parser:"@('eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like')"`
+	Value string `parser:"@(String | Ident | Int | Float)"`
 }
 
 type AggregateDefinition struct {
-	Function string `"aggregate" @("count" | "sum" | "avg" | "min" | "max")`
-	Field    string `"(" @Ident ")"`
-	Alias    string `"as" @Ident`
+	Function string `parser:"'aggregate' @('count' | 'sum' | 'avg' | 'min' | 'max')"`
+	Field    string `parser:"'(' @Ident ')'"`
+	Alias    string `parser:"'as' @Ident"`
 }
 
 type Factor struct {
-	Name string `"factor" @Ident`
-	Type string `"type" @Ident`
-	From string `"from" @Ident`
+	Name string `parser:"'factor' @Ident"`
+	Type string `parser:"'type' @Ident"`
+	From string `parser:"'from' @Ident"`
 }
 
 type Property struct {
-	Name    string `"property" @Ident`
-	Type    string `"type" @Ident`
-	From    string `("from" @Ident)?`
-	Predict bool   `@"predict"?`
-	Maps    []*Map `@@*`
+	Name    string `parser:"'property' @Ident"`
+	Type    string `parser:"'type' @Ident"`
+	From    string `parser:"('from' @Ident)?"`
+	Predict bool   `parser:"@'predict'?"`
+	Maps    []*Map `parser:"@@*"`
 }
 
 type Map struct {
-	From string `"map" @String`
-	To   string `"to" @String`
+	From string `parser:"'map' @String"`
+	To   string `parser:"'to' @String"`
 }
 
 type ActionDefinition struct {
-	Name       string      `"action" @Ident`
-	OnObject   string      `"on" @Ident`
-	Parameters []*Property `@@*`
+	Name       string      `parser:"'action' @Ident"`
+	OnObject   string      `parser:"'on' @Ident"`
+	Parameters []*Property `parser:"@@*"`
 }
 
 type RelationDefinition struct {
-	Name    string `"relation" @Ident`
-	From    string `"from" @Ident`
-	To      string `"to" @Ident`
-	LeftOn  string `"on" @Ident`
-	RightOn string `"equals" @Ident`
+	Name    string `parser:"'relation' @Ident"`
+	From    string `parser:"'from' @Ident"`
+	To      string `parser:"'to' @Ident"`
+	LeftOn  string `parser:"'on' @Ident"`
+	RightOn string `parser:"'equals' @Ident"`
 }
 
 type DatasetDefinition struct {
-	Name    string `"dataset" @Ident`
-	Version string `"version" (@Int | "auto")`
-	From    string `"from" @Ident`
+	Name    string `parser:"'dataset' @Ident"`
+	Version string `parser:"'version' (@Int | 'auto')"`
+	From    string `parser:"'from' @Ident"`
 }
 
 // DSL Compiler Types (used by compiler_tool.go for code generation)

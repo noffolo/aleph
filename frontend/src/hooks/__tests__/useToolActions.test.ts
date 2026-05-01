@@ -11,6 +11,7 @@ vi.mock('@/store/useStore', () => ({
 vi.mock('@/api/factory', () => ({
   toolClient: {
     createTool: vi.fn(),
+    updateTool: vi.fn(),
     deleteTool: vi.fn(),
   },
 }));
@@ -27,7 +28,10 @@ describe('useToolActions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useStore as any).mockReturnValue(mockStore);
+    (useStore as any).mockImplementation((selector?: any) => {
+      if (typeof selector === 'function') return selector(mockStore)
+      return mockStore
+    });
     (useStore.getState as any).mockReturnValue(mockStore);
   });
 
@@ -42,6 +46,22 @@ describe('useToolActions', () => {
     expect(toolClient.createTool).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'test-project',
       tool: { name: 'Name', description: 'Desc', code: 'code' }
+    }));
+    expect(mockLoadProjectData).toHaveBeenCalled();
+  });
+
+  it('onUpdateTool should call toolClient and loadProjectData', async () => {
+    (toolClient as any).updateTool.mockResolvedValue({});
+    const { result } = renderHook(() => useToolActions(mockLoadProjectData));
+    const tool = { id: 'tool-1', name: 'Updated', description: 'Desc', code: 'code' } as any;
+
+    await act(async () => {
+      await result.current.onUpdateTool(tool);
+    });
+
+    expect(toolClient.updateTool).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'test-project',
+      tool,
     }));
     expect(mockLoadProjectData).toHaveBeenCalled();
   });

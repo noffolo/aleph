@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package aleph.tool.v1;
+
+option go_package = "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1";
+
+import "google/protobuf/struct.proto";
+
+message ExecutionResult {
+  string stdout = 1;
+  string stderr = 2;
+  int32 exit_code = 3;
+  string error = 4;
+  string metrics_json = 5;
+}
+
+message ExecuteToolRequest {
+  string tool_id = 1;
+  google.protobuf.Struct input_params = 2;
+}
+message ExecuteToolResponse {
+  ExecutionResult result = 1;
+}
+
+message RunSkillRequest {
+  string skill_id = 1;
+  google.protobuf.Struct input_params = 2;
+  map<string, string> context = 3;
+}
+message RunSkillResponse {
+  ExecutionResult result = 1;
+}
+
+service SandboxService {
+  rpc ExecuteTool(ExecuteToolRequest) returns (ExecuteToolResponse);
+  rpc RunSkill(RunSkillRequest) returns (RunSkillResponse);
+}

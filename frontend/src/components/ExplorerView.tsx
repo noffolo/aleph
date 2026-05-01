@@ -21,7 +21,7 @@ interface ExplorerViewProps {
   inline?: boolean;
 }
 
-export const ExplorerView: React.FC<ExplorerViewProps> = ({
+export const ExplorerView: React.FC<ExplorerViewProps> = React.memo(({
   availableObjects, selectedObject, setSelectedObject,
   searchQuery, setSearchQuery, activeView, setActiveView,
   data, onRowClick, isLoading
@@ -87,4 +87,4 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
       )}
     </div>
   );
-};
+});

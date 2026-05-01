@@ -70,3 +70,22 @@ func (h *SessionHandler) HandleDeleteSession(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"status":"ok"}`))
 }
+
+func (h *SessionHandler) HandleValidateSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	apiKey := middleware.ExtractAPIKeyFromCookie(r)
+	if apiKey == "" {
+		http.Error(w, `{"error":"no session"}`, http.StatusUnauthorized)
+		return
+	}
+	projectID, _, err := middleware.ValidateAPIKey(h.metaRepo, apiKey)
+	if err != nil {
+		http.Error(w, `{"error":"invalid session"}`, http.StatusUnauthorized)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(createSessionResponse{ProjectID: projectID})
+}

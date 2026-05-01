@@ -31,8 +31,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     setSelectedIndex(-1);
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   const filteredObjects = availableObjects.filter(o => o.toLowerCase().includes(search.toLowerCase()));
   const filteredProjects = projects.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
   const filteredCommands = search.startsWith('/') 
@@ -89,6 +87,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     }
   }, [selectedIndex]);
 
+  if (!isOpen) return null;
+
   return (
      <div role="dialog" aria-modal="true" aria-label="Command palette" className="fixed inset-0 bg-black/60 backdrop-blur-md z-[200] flex items-start justify-center pt-[15vh] p-4 animate-in fade-in duration-200" onClick={onClose} onKeyDown={handleKeyDown}>
       <div 
@@ -111,7 +111,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
          <div className="max-h-[60vh] overflow-auto p-4 custom-scrollbar" ref={listRef}>
             {search && filteredCommands.length > 0 && (
               <div className="mb-6">
-                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">Comandi Slash</div>
+                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">{t('commandPalette.section.slash')}</div>
                  <div className="space-y-1">
                     {filteredCommands.map((c, cIdx) => {
                       const idx = cIdx;
@@ -139,7 +139,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
             {search && filteredObjects.length > 0 && (
               <div className="mb-6">
-                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">Entità Ontologiche</div>
+                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">{t('commandPalette.section.ontology')}</div>
                  <div className="space-y-1">
                     {filteredObjects.map((o, idx) => {
                       const actualIdx = filteredCommands.length + idx;
@@ -165,7 +165,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
             {search && filteredProjects.length > 0 && (
               <div className="mb-6">
-                  <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">Spazi di lavoro</div>
+                  <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">{t('commandPalette.section.workspaces')}</div>
                  <div className="space-y-1">
                     {filteredProjects.map((p, pIdx) => {
                       const actualIdx = filteredCommands.length + filteredObjects.length + pIdx;
@@ -192,7 +192,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
            {!search && (
              <div className="text-center py-20">
                 <Command size={48} className="mx-auto text-textDim mb-4" />
-                <p className="text-textMuted font-bold text-sm">Digita per navigare istantaneamente in Aleph</p>
+                <p className="text-textMuted font-bold text-sm">{t('commandPalette.prompt')}</p>
              </div>
            )}
         </div>

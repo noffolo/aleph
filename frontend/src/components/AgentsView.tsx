@@ -98,14 +98,14 @@ export const AgentsView: React.FC<AgentsViewProps> = React.memo(({ agents: initi
               <p className="text-sm text-textMuted line-clamp-4 mb-6 leading-relaxed">{a.systemPrompt || t('agents.noSystemPrompt')}</p>
                <div className="flex items-center space-x-2 border-t pt-4 border-border">
                   <div className={`h-2 w-2 rounded-full ${ollamaHealthy ? 'bg-success' : 'bg-textDim'}`}></div>
-                  <span className="text-[10px] font-bold text-textMuted uppercase tracking-widest">{ollamaHealthy ? 'Servizio Attivo' : 'Offline'}</span>
+                  <span className="text-[10px] font-bold text-textMuted uppercase tracking-widest">{ollamaHealthy ? t('generic.serviceActive') : t('generic.offline')}</span>
                </div>
           </div>
         ))}
         {agents.length === 0 && (
           <div className="col-span-full py-20 bg-surface-alt border-2 border-dashed border-border rounded-lg text-center">
              <Bot size={48} className="mx-auto text-textDim mb-4" />
-                <p className="text-textMuted font-medium font-mono uppercase text-xs tracking-widest">Nessun agente configurato</p>
+                 <p className="text-textMuted font-medium font-mono uppercase text-xs tracking-widest">{t('generic.noAgents')}</p>
           </div>
         )}
       </div>
@@ -117,7 +117,7 @@ export const AgentsView: React.FC<AgentsViewProps> = React.memo(({ agents: initi
             disabled={loading}
              className="rounded-lg border border-border px-4 py-2 text-sm text-textMuted hover:text-textPrimary hover:border-textMuted transition-colors disabled:opacity-50 focus:ring-2 focus:ring-primary"
           >
-            {loading ? 'Caricamento...' : 'Carica Altri'}
+            {loading ? t('generic.loadingLower') : t('generic.loadMore')}
           </button>
         </div>
       )}

@@ -37,9 +37,9 @@ export const SkillsView: React.FC<SkillsViewProps> = React.memo(({ skills: initi
   const { items: skills, hasMore, loadMore, loading } = useCursorPagination({
     clientMethod: skillClient.listSkills,
     requestBuilder: useCallback((cursor: string) => new ListSkillsRequest({ projectId, after: cursor, limit: 25 }), [projectId]),
-    responseExtractor: (res) => ({ items: (res.skills || []) as any[], nextCursor: res.nextCursor }),
-    storeSetter: setSkills as (items: any[]) => void,
-    initialItems: initialSkills as any[],
+    responseExtractor: (res) => ({ items: (res.skills || []) as Skill[], nextCursor: res.nextCursor }),
+    storeSetter: setSkills as (items: Skill[]) => void,
+    initialItems: initialSkills as Skill[],
   });
 
   const filteredSkills = skills.filter(s => 
@@ -135,7 +135,7 @@ export const SkillsView: React.FC<SkillsViewProps> = React.memo(({ skills: initi
             disabled={loading}
              className="rounded-lg border border-border px-4 py-2 text-sm text-textMuted hover:text-textPrimary hover:border-textMuted transition-colors disabled:opacity-50 focus:ring-2 focus:ring-primary"
           >
-            {loading ? 'Caricamento...' : 'Carica Altri'}
+            {loading ? t('generic.loadingLower') : t('generic.loadMore')}
           </button>
         </div>
       )}

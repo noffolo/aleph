@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 // =============================================================================
@@ -246,15 +248,19 @@ func resolveURL(base, rawURL string) (string, error) {
 
 // followRedirects returns an HTTP client that limits redirects to maxRedirects.
 func followRedirects(maxRedirects int) *http.Client {
-	return &http.Client{
-		Timeout: 30 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= maxRedirects {
-				return fmt.Errorf("too many redirects")
-			}
-			return nil
-		},
+	client := ssrf.NewClient()
+	client.Timeout = 30 * time.Second
+	originalCheck := client.CheckRedirect
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= maxRedirects {
+			return fmt.Errorf("too many redirects")
+		}
+		if originalCheck != nil {
+			return originalCheck(req, via)
+		}
+		return nil
 	}
+	return client
 }
 
 // maxPageSize is the maximum number of bytes to read per page fetch (1 MB).

@@ -6,20 +6,22 @@ import { fromProto } from '../../schemas/validate'
 import { z } from 'zod'
 
 export function useOntologyActions(loadProjectData: () => void) {
-  const store = useStore()
+  const projectID = useStore(s => s.projectID)
+  const setOntologyRaw = useStore(s => s.setOntologyRaw)
+  const ontologyRaw = useStore(s => s.ontologyRaw)
 
   const fetchVersions = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v1/ontology/versions?project_id=${store.projectID}`, {
+      const res = await fetch(`/api/v1/ontology/versions?project_id=${projectID}`, {
         credentials: 'include',
       })
       if (!res.ok) throw new Error('Failed to fetch ontology versions')
       const data = await res.json()
-      store.setOntologyVersions(data.versions || [])
+      useStore.getState().setOntologyVersions(data.versions || [])
     } catch (e: unknown) {
       handleError(e, 'fetchVersions')
     }
-  }, [store.projectID, store.setOntologyVersions])
+  }, [projectID])
 
   const acceptVersion = useCallback(async (versionId: string) => {
     try {
@@ -53,17 +55,17 @@ export function useOntologyActions(loadProjectData: () => void) {
   }, [fetchVersions])
 
   return {
-    setOntologyRaw: store.setOntologyRaw,
+    setOntologyRaw,
     onEmerge: useCallback(() => {
-      projectClient.emergeOntology({ projectId: store.projectID })
-        .then((res) => { store.setOntologyRaw(fromProto(z.object({ alephDefinition: z.optional(z.string()) }), res).alephDefinition || ''); loadProjectData() })
+      projectClient.emergeOntology({ projectId: projectID })
+        .then((res) => { useStore.getState().setOntologyRaw(fromProto(z.object({ alephDefinition: z.optional(z.string()) }), res).alephDefinition || ''); loadProjectData() })
         .catch((e: unknown) => handleError(e, 'emergeOntology'))
-    }, [store.projectID, loadProjectData]),
+    }, [projectID, loadProjectData]),
     onSave: useCallback(() => {
-      projectClient.saveOntology({ projectId: store.projectID, alephDefinition: store.ontologyRaw })
+      projectClient.saveOntology({ projectId: projectID, alephDefinition: ontologyRaw })
         .then(() => loadProjectData())
         .catch((e: unknown) => handleError(e, 'saveOntology'))
-    }, [store.projectID, store.ontologyRaw, loadProjectData]),
+    }, [projectID, ontologyRaw, loadProjectData]),
     fetchVersions,
     acceptVersion,
     rejectVersion,

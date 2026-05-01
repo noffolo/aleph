@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package aleph.nlp.v1;
+
+option go_package = "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1";
+
+service NLPService {
+  rpc AnalyzeSentiment(AnalyzeSentimentRequest) returns (AnalyzeSentimentResponse);
+
+  // Predictive Streams: Receive continuous knowledge updates
+  rpc StreamPredictions(StreamPredictionsRequest) returns (stream StreamPredictionsResponse);
+
+  // Active Learning: Close the loop with user validation
+  rpc RecordFeedback(RecordFeedbackRequest) returns (RecordFeedbackResponse);
+}
+
+message RecordFeedbackRequest {
+  string entity_id = 1;
+  bool is_correct = 2;
+  string correction_value = 3; // "Questo importo è errato, dovrebbe essere Y"
+  string feedback_type = 4;   // "prediction", "action_proposal"
+}
+
+message RecordFeedbackResponse {
+  bool success = 1;
+}
+
+message AnalyzeSentimentRequest {
+  string text = 1;
+}
+
+message AnalyzeSentimentResponse {
+  float score = 1;
+  string label = 2;
+  string method = 3;       // "heuristic" (word-frequency) or "ml" (ONNX classifier). Currently always "heuristic".
+  bool is_calibrated = 4;  // false when method="heuristic" (uncalibrated scores), true when method="ml"
+}
+
+message StreamPredictionsRequest {
+  string context_id = 1;
+  string ontology_query = 2;
+}
+
+message StreamPredictionsResponse {
+  string entity_id = 1;
+  float probability = 2;
+  string predicted_state = 3;
+  string explanation = 4;
+  bool is_synthetic = 5;   // true se generato da dati sintetici
+}
+message AlephPrediction {
+  string entity_id = 1;
+  float probability = 2;
+  string predicted_state = 3;
+  string model_source = 4; // es: "prophet", "polymarket"
+  string explanation = 5;
+  int64 timestamp = 6;
+  bool is_synthetic = 7;   // true se generato da dati sintetici
+}

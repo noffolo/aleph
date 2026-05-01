@@ -1,0 +1,222 @@
+syntax = "proto3";
+
+package aleph.v1;
+
+option go_package = "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1";
+
+service QueryService {
+  rpc ExecuteQuery(ExecuteQueryRequest) returns (ExecuteQueryResponse);
+  rpc Chat(ChatRequest) returns (stream ChatResponse);
+  rpc GetChatHistory(GetChatHistoryRequest) returns (GetChatHistoryResponse);
+  rpc GetDataStats(GetDataStatsRequest) returns (GetDataStatsResponse);
+  rpc ConfirmAction(ConfirmActionRequest) returns (ConfirmActionResponse);
+  rpc GlobalQuery(GlobalQueryRequest) returns (GlobalQueryResponse);
+  rpc GetDataLineage(GetDataLineageRequest) returns (GetDataLineageResponse);
+  rpc GetChecksum(GetChecksumRequest) returns (GetChecksumResponse);
+}
+
+service ProjectService {
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
+  rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse);
+  rpc EmergeOntology(EmergeOntologyRequest) returns (EmergeOntologyResponse);
+  rpc GetOntology(GetOntologyRequest) returns (GetOntologyResponse);
+  rpc SaveOntology(SaveOntologyRequest) returns (SaveOntologyResponse);
+}
+
+service IngestionService {
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
+  rpc RunTask(RunTaskRequest) returns (RunTaskResponse);
+  rpc GetTaskLogs(GetTaskLogsRequest) returns (GetTaskLogsResponse);
+  rpc GetProgress(GetProgressRequest) returns (GetProgressResponse);
+}
+
+service AgentService {
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse);
+  rpc DeleteAgent(DeleteAgentRequest) returns (DeleteAgentResponse);
+  rpc UpdateAgent(UpdateAgentRequest) returns (UpdateAgentResponse);
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+}
+
+service SkillService {
+  rpc ListSkills(ListSkillsRequest) returns (ListSkillsResponse);
+  rpc CreateSkill(CreateSkillRequest) returns (CreateSkillResponse);
+  rpc UpdateSkill(UpdateSkillRequest) returns (UpdateSkillResponse);
+  rpc DeleteSkill(DeleteSkillRequest) returns (DeleteSkillResponse);
+}
+
+service ToolService {
+  rpc ListTools(ListToolsRequest) returns (ListToolsResponse);
+  rpc CreateTool(CreateToolRequest) returns (CreateToolResponse);
+  rpc UpdateTool(UpdateToolRequest) returns (UpdateToolResponse);
+  rpc DeleteTool(DeleteToolRequest) returns (DeleteToolResponse);
+}
+
+service LibraryService {
+  rpc ListAssets(ListAssetsRequest) returns (ListAssetsResponse);
+  rpc GetAssetContent(GetAssetContentRequest) returns (GetAssetContentResponse);
+  rpc DeleteAsset(DeleteAssetRequest) returns (DeleteAssetResponse);
+  rpc GeneratePdf(GeneratePdfRequest) returns (GeneratePdfResponse);
+  rpc UploadAsset(UploadAssetRequest) returns (UploadAssetResponse);
+}
+
+service AuthService {
+  rpc ListApiKeys(ListApiKeysRequest) returns (ListApiKeysResponse);
+  rpc CreateApiKey(CreateApiKeyRequest) returns (CreateApiKeyResponse);
+  rpc DeleteApiKey(DeleteApiKeyRequest) returns (DeleteApiKeyResponse);
+}
+
+// MESSAGES
+message DeleteProjectRequest { string id = 1; }
+message DeleteProjectResponse { bool success = 1; }
+message DeleteAgentRequest { string project_id = 1; string id = 2; }
+message DeleteAgentResponse { bool success = 1; }
+message DeleteTaskRequest { string project_id = 1; string id = 2; }
+message DeleteTaskResponse { bool success = 1; }
+message DeleteSkillRequest { string project_id = 1; string id = 2; }
+message DeleteSkillResponse { bool success = 1; }
+message DeleteToolRequest { string project_id = 1; string id = 2; }
+message DeleteToolResponse { bool success = 1; }
+message DeleteAssetRequest { string project_id = 1; string id = 2; }
+message DeleteAssetResponse { bool success = 1; }
+message DeleteApiKeyRequest { string project_id = 1; string id = 2; }
+message DeleteApiKeyResponse { bool success = 1; }
+
+message ListProjectsRequest {}
+message ListProjectsResponse { repeated Project projects = 1; }
+message Project { string id = 1; string name = 2; int64 created_at = 3; }
+message CreateProjectRequest { string id = 1; string name = 2; }
+message CreateProjectResponse { Project project = 1; }
+message EmergeOntologyRequest { string project_id = 1; }
+message EmergeOntologyResponse { string aleph_definition = 1; }
+message GetOntologyRequest { string project_id = 1; }
+message GetOntologyResponse { string aleph_definition = 1; repeated string object_names = 2; }
+message SaveOntologyRequest { string project_id = 1; string aleph_definition = 2; }
+message SaveOntologyResponse { bool success = 1; }
+
+message ListAgentsRequest { string project_id = 1; string after = 10; int32 limit = 11; }
+message ListAgentsResponse { repeated Agent agents = 1; string next_cursor = 10; }
+message Agent { 
+  string id = 1; 
+  string name = 2; 
+  string provider = 3; // free-form: "ollama", "openai", "anthropic", "groq", "together", "mistral", "lm-studio", etc.
+  string model = 4; 
+  string api_key = 5; 
+  string system_prompt = 6; 
+  repeated string skill_ids = 7; 
+  string base_url = 8; // e.g. "https://api.openai.com", "http://localhost:11434", "https://api.groq.com/openai"
+}
+message CreateAgentRequest { string project_id = 1; Agent agent = 2; }
+message CreateAgentResponse { Agent agent = 1; }
+message UpdateAgentRequest { string project_id = 1; Agent agent = 2; }
+message UpdateAgentResponse { Agent agent = 1; }
+message ListModelsRequest {}
+message ListModelsResponse { repeated string models = 1; }
+
+message ListSkillsRequest { string project_id = 1; string after = 10; int32 limit = 11; }
+message ListSkillsResponse { repeated Skill skills = 1; string next_cursor = 10; }
+message Skill { string id = 1; string name = 2; string description = 3; repeated string tool_ids = 4; }
+message CreateSkillRequest { string project_id = 1; Skill skill = 2; }
+message CreateSkillResponse { Skill skill = 1; }
+message UpdateSkillRequest { string project_id = 1; Skill skill = 2; }
+message UpdateSkillResponse { Skill skill = 1; }
+
+message ListToolsRequest { string project_id = 1; string after = 10; int32 limit = 11; }
+message ListToolsResponse { repeated Tool tools = 1; string next_cursor = 10; }
+message Tool { string id = 1; string name = 2; string description = 3; string code = 4; }
+message CreateToolRequest { string project_id = 1; Tool tool = 2; }
+message CreateToolResponse { Tool tool = 1; }
+message UpdateToolRequest { string project_id = 1; Tool tool = 2; }
+message UpdateToolResponse { Tool tool = 1; }
+
+message ListTasksRequest { string project_id = 1; }
+message ListTasksResponse { repeated IngestionTask tasks = 1; }
+message IngestionTask { string id = 1; string name = 2; string source_type = 3; string config_json = 4; string schedule = 5; string status = 6; int32 progress = 7; }
+message CreateTaskRequest { string project_id = 1; IngestionTask task = 2; }
+message CreateTaskResponse { IngestionTask task = 1; }
+message RunTaskRequest { string project_id = 1; string task_id = 2; }
+message RunTaskResponse { string status = 1; }
+message GetTaskLogsRequest { string project_id = 1; string task_id = 2; }
+message GetTaskLogsResponse { string logs = 1; }
+message GetProgressRequest { string project_id = 1; string task_id = 2; }
+message GetProgressResponse { int32 progress = 1; }
+
+message ListAssetsRequest { string project_id = 1; }
+message Asset { string id = 1; string name = 2; string type = 3; int64 created_at = 4; }
+message ListAssetsResponse { repeated Asset assets = 1; }
+message GetAssetContentRequest { string project_id = 1; string asset_id = 2; }
+message GetAssetContentResponse { string content = 1; }
+
+message ExecuteQueryRequest { string object_type = 1; string project_id = 2; int32 limit = 3; }
+message ExecuteQueryResponse { string sql = 1; repeated string columns = 2; repeated Row rows = 3; }
+message GlobalQueryRequest { string object_type = 1; string project_id = 2; int32 limit = 3; }
+message GlobalQueryResponse { string sql = 1; repeated string columns = 2; repeated Row rows = 3; }
+message Row { map<string, string> values = 1; }
+
+message ChatRequest { string message = 1; string project_id = 2; string agent_id = 3; }
+message ChatResponse { string token = 1; string tool_call = 2; bool requires_confirmation = 3; }
+
+message GetChatHistoryRequest { string project_id = 1; string agent_id = 2; }
+message ChatMessage { string role = 1; string content = 2; string tool_call = 3; int64 created_at = 4; }
+message GetChatHistoryResponse { repeated ChatMessage messages = 1; }
+
+message GetDataStatsRequest { string project_id = 1; string object_type = 2; }
+message ColumnStats { string column_name = 1; string min = 2; string max = 3; int64 count = 4; int64 unique_count = 5; map<string, int64> top_values = 6; }
+message GetDataStatsResponse { repeated ColumnStats stats = 1; }
+
+message ConfirmActionRequest { string project_id = 1; string agent_id = 2; bool approved = 3; }
+message ConfirmActionResponse { bool success = 1; }
+
+message ApiKey { string id = 1; string label = 2; string key = 3; int64 created_at = 4; }
+message ListApiKeysRequest { string project_id = 1; }
+message ListApiKeysResponse { repeated ApiKey keys = 1; }
+message CreateApiKeyRequest { string project_id = 1; string label = 2; }
+message CreateApiKeyResponse { ApiKey key = 1; }
+
+message GeneratePdfRequest { string project_id = 1; string asset_id = 2; }
+message GeneratePdfResponse { bytes pdf_data = 1; string filename = 2; }
+
+message UploadAssetRequest { string project_id = 1; string filename = 2; bytes content = 3; }
+message UploadAssetResponse { Asset asset = 1; }
+
+// Data Lineage and Provenance
+message DataProvenance {
+  string table_name = 1;
+  string source = 2;
+  string transform_version = 3;
+  float quality_score = 4;
+  int64 rows_count = 5;
+  int64 columns_count = 6;
+  string last_ingested_at = 7;
+  repeated ProvenanceColumn provenance_columns = 8;
+}
+
+message ProvenanceColumn {
+  string column_name = 1;
+  string data_type = 2;
+  bool is_provenance = 3;
+  float null_ratio = 4;
+}
+
+message GetDataLineageRequest {
+  string project_id = 1;
+  string table_name = 2;
+}
+
+message GetDataLineageResponse {
+  DataProvenance provenance = 1;
+}
+
+message GetChecksumRequest {
+  string project_id = 1;
+  string table_name = 2;
+}
+
+message GetChecksumResponse {
+  string checksum = 1;
+  string table_name = 2;
+  bool verified = 3;
+}

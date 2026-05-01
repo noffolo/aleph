@@ -12,7 +12,6 @@ interface ComponentFormSlideOverProps {
 }
 
 export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOverProps) {
-  const store = useStore()
   const { onRegisterComponent } = useComponentActions()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -83,17 +82,18 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
       <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
+            <label htmlFor="so-comp-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
             <input
+              id="so-comp-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
               placeholder={t('components.form.name')}
-          />
-        </div>
+            />
+          </div>
 
-        <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo</label>
+          <div>
+            <label htmlFor="so-comp-type" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
@@ -109,8 +109,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
+          <label htmlFor="so-comp-description" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
           <textarea
+            id="so-comp-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
@@ -121,8 +122,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Categoria</label>
+            <label htmlFor="so-comp-category" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Categoria</label>
             <select
+              id="so-comp-category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -136,8 +138,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
           </div>
 
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Sorgente</label>
+            <label htmlFor="so-comp-source" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Sorgente</label>
             <select
+              id="so-comp-source"
               value={source}
               onChange={(e) => setSource(e.target.value)}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -152,8 +155,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Stato</label>
+            <label htmlFor="so-comp-status" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Stato</label>
             <select
+              id="so-comp-status"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -166,8 +170,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
           </div>
 
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Approvazione</label>
+            <label htmlFor="so-comp-approval" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Approvazione</label>
             <select
+              id="so-comp-approval"
               value={approvalStatus}
               onChange={(e) => setApprovalStatus(e.target.value)}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -181,8 +186,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Config (JSON)</label>
+          <label htmlFor="so-comp-configschema" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Config (JSON)</label>
           <textarea
+            id="so-comp-configschema"
             value={configSchemaJson}
             onChange={(e) => setConfigSchemaJson(e.target.value)}
             rows={2}
@@ -192,8 +198,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Comando Esecuzione</label>
+          <label htmlFor="so-comp-command" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Comando Esecuzione</label>
           <input
+            id="so-comp-command"
             value={executionCommand}
             onChange={(e) => setExecutionCommand(e.target.value)}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm font-mono focus:outline-none focus:border-primary/50"
@@ -203,8 +210,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Dependencies (JSON)</label>
+            <label htmlFor="so-comp-dependencies" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Dependencies (JSON)</label>
             <textarea
+              id="so-comp-dependencies"
               value={dependenciesJson}
               onChange={(e) => setDependenciesJson(e.target.value)}
               rows={3}
@@ -214,8 +222,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
           </div>
 
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tool IDs (JSON)</label>
+            <label htmlFor="so-comp-toolids" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tool IDs (JSON)</label>
             <textarea
+              id="so-comp-toolids"
               value={toolIdsJson}
               onChange={(e) => setToolIdsJson(e.target.value)}
               rows={3}
@@ -227,8 +236,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Input (JSON)</label>
+            <label htmlFor="so-comp-inputschema" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Input (JSON)</label>
             <textarea
+              id="so-comp-inputschema"
               value={inputSchemaJson}
               onChange={(e) => setInputSchemaJson(e.target.value)}
               rows={3}
@@ -238,8 +248,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
           </div>
 
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Output (JSON)</label>
+            <label htmlFor="so-comp-outputschema" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Output (JSON)</label>
             <textarea
+              id="so-comp-outputschema"
               value={outputSchemaJson}
               onChange={(e) => setOutputSchemaJson(e.target.value)}
               rows={3}
@@ -250,8 +261,9 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Prompt Template</label>
+          <label htmlFor="so-comp-prompt" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Prompt Template</label>
           <textarea
+            id="so-comp-prompt"
             value={promptTemplate}
             onChange={(e) => setPromptTemplate(e.target.value)}
             rows={4}

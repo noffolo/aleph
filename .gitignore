@@ -2,7 +2,7 @@
 dist/
 node_modules/
 venv/
-aleph
+/aleph
 
 # Compiled binaries
 aleph-server
@@ -39,3 +39,6 @@ data/ontologies/
 
 # Logs
 *.log
+
+# Backup files
+backups/

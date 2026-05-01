@@ -68,9 +68,6 @@ class TestAnalyzeSentimentRPC:
 
     def test_positive_text(self):
         svc = NLPService.__new__(NLPService)
-        svc.model = None
-        svc.is_onnx = False
-        svc._sentiment_method = "heuristic"
         req = nlp_pb2.AnalyzeSentimentRequest(text="This is excellent and great!")
         ctx = FakeContext()
         resp = svc.AnalyzeSentiment(req, ctx)
@@ -81,9 +78,6 @@ class TestAnalyzeSentimentRPC:
 
     def test_negative_text(self):
         svc = NLPService.__new__(NLPService)
-        svc.model = None
-        svc.is_onnx = False
-        svc._sentiment_method = "heuristic"
         req = nlp_pb2.AnalyzeSentimentRequest(text="This is terrible and bad!")
         ctx = FakeContext()
         resp = svc.AnalyzeSentiment(req, ctx)
@@ -94,9 +88,7 @@ class TestAnalyzeSentimentRPC:
 
     def test_neutral_text(self):
         svc = NLPService.__new__(NLPService)
-        svc.model = None
-        svc.is_onnx = False
-        svc._sentiment_method = "heuristic"
+
         req = nlp_pb2.AnalyzeSentimentRequest(text="The sky is blue.")
         ctx = FakeContext()
         resp = svc.AnalyzeSentiment(req, ctx)
@@ -106,9 +98,7 @@ class TestAnalyzeSentimentRPC:
 
     def test_empty_text(self):
         svc = NLPService.__new__(NLPService)
-        svc.model = None
-        svc.is_onnx = False
-        svc._sentiment_method = "heuristic"
+
         req = nlp_pb2.AnalyzeSentimentRequest(text="")
         ctx = FakeContext()
         resp = svc.AnalyzeSentiment(req, ctx)
@@ -119,9 +109,7 @@ class TestAnalyzeSentimentRPC:
 
     def test_method_field_always_heuristic(self):
         svc = NLPService.__new__(NLPService)
-        svc.model = None
-        svc.is_onnx = False
-        svc._sentiment_method = "heuristic"
+
         req = nlp_pb2.AnalyzeSentimentRequest(text="great success")
         ctx = FakeContext()
         resp = svc.AnalyzeSentiment(req, ctx)
@@ -130,9 +118,7 @@ class TestAnalyzeSentimentRPC:
 
     def test_is_calibrated_always_false(self):
         svc = NLPService.__new__(NLPService)
-        svc.model = None
-        svc.is_onnx = False
-        svc._sentiment_method = "heuristic"
+
         req = nlp_pb2.AnalyzeSentimentRequest(text="mixed good bad")
         ctx = FakeContext()
         resp = svc.AnalyzeSentiment(req, ctx)
@@ -140,9 +126,7 @@ class TestAnalyzeSentimentRPC:
 
     def test_italian_text(self):
         svc = NLPService.__new__(NLPService)
-        svc.model = None
-        svc.is_onnx = False
-        svc._sentiment_method = "heuristic"
+
         req = nlp_pb2.AnalyzeSentimentRequest(text="Ottima crescita e successo!")
         ctx = FakeContext()
         resp = svc.AnalyzeEntiment(req, ctx) if hasattr(svc, 'AnalyzeEntiment') else None
@@ -151,9 +135,7 @@ class TestAnalyzeSentimentRPC:
 
     def test_response_has_new_fields(self):
         svc = NLPService.__new__(NLPService)
-        svc.model = None
-        svc.is_onnx = False
-        svc._sentiment_method = "heuristic"
+
         req = nlp_pb2.AnalyzeSentimentRequest(text="excellent progress")
         ctx = FakeContext()
         resp = svc.AnalyzeSentiment(req, ctx)

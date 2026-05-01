@@ -15,8 +15,6 @@
  * Proto3 omits default/zero values on the wire.
  */
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 // ─── Protobuf wire encoding primitives ───────────────────────────────────────
 
 /** Encode a signed/unsigned integer as a protobuf varint. */
@@ -358,13 +356,10 @@ export async function setupApiMocks(page: Page): Promise<void> {
  * the import system. In Vite dev mode, dynamic import works.
  */
 export async function hydrateStore(page: Page, patch: Record<string, unknown>): Promise<void> {
+  await page.waitForFunction(() => Boolean((window as Window & { __ALEPH_STORE__?: unknown }).__ALEPH_STORE__));
   await page.evaluate((data) => {
-    // The zustand store is created as a module singleton.
-    // In Vite dev mode we can import it dynamically.
-    // The store's `setState` merges partial state.
-    return import('/src/store/useStore.ts').then((mod) => {
-      mod.useStore.setState(data);
-    });
+    const store = (window as Window & { __ALEPH_STORE__?: { setState: (patch: Record<string, unknown>) => void } }).__ALEPH_STORE__;
+    store?.setState(data);
   }, patch);
 }
 
@@ -376,14 +371,21 @@ export async function callStoreAction(
   actionName: string,
   ...args: unknown[]
 ): Promise<void> {
+  await page.waitForFunction(() => Boolean((window as Window & { __ALEPH_STORE__?: unknown }).__ALEPH_STORE__));
   await page.evaluate(
     ({ name, params }) => {
-      return import('/src/store/useStore.ts').then((mod) => {
-        const action = (mod.useStore.getState() as Record<string, unknown>)[name];
+      const store = (window as Window & {
+        __ALEPH_STORE__?: {
+          getState: () => Record<string, unknown>;
+        };
+      }).__ALEPH_STORE__;
+      if (store) {
+        const action = store.getState()[name];
         if (typeof action === 'function') {
           (action as (...a: unknown[]) => void)(...params);
         }
-      });
+        return;
+      }
     },
     { name: actionName, params: args },
   );

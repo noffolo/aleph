@@ -141,7 +141,7 @@ func (h *QueryHandler) ExecuteQuery(
 
 	// Defense-in-depth: validate lowerObjName (derived from objName which passed ValidateStrictIdentifier check)
 	if err := safeident.ValidateStrictIdentifier(lowerObjName); err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("nome oggetto non valido: %w", err))
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid object name: %w", err))
 	}
 	if projectID != "" && !validProjectID.MatchString(projectID) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project_id"))
@@ -243,10 +243,10 @@ func (h *QueryHandler) GetDataStats(ctx context.Context, req *connect.Request[v1
 	if projectID == "" {
 		projectID = req.Msg.ProjectId
 	}
-	objName := req.Msg.ObjectType
-	if err := safeident.ValidateStrictIdentifier(objName); err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("nome oggetto non valido: %w", err))
-	}
+		objName := req.Msg.ObjectType
+		if err := safeident.ValidateStrictIdentifier(objName); err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid object name: %w", err))
+		}
 	projectPath, prog, err := h.resolveProject(projectID)
 	if err != nil { return nil, connect.NewError(connect.CodeNotFound, err) }
 	dataRoot := filepath.Join(projectPath, "raw"); compiler := dsl.NewCompiler(prog, dataRoot)

@@ -31,7 +31,8 @@ RUN apt-get update && apt-get install -y \
     libstdc++6 \
     ca-certificates \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && adduser -D -h /app appuser
 
 # Copy backend binary
 COPY --from=backend-builder /app/aleph .
@@ -49,8 +50,11 @@ ENV POSTGRES_DSN="postgres://postgres:postgres@db:5432/aleph?sslmode=disable"
 ENV DUCKDB_PATH="/app/data/aleph.duckdb"
 ENV KEY_ENCRYPTION_KEY=""
 
-# Create data directories
-RUN mkdir -p /app/data/projects /app/data/raw /app/data/ontologies
+# Create data directories and set ownership
+RUN mkdir -p /app/data/projects /app/data/raw /app/data/ontologies \
+    && chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 8080
 

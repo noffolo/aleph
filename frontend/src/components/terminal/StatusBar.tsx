@@ -7,16 +7,17 @@ interface StatusBarProps {
   nlpHealthy: boolean;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({ projectID, ollamaHealthy, nlpHealthy }) => {
-  const store = useStore()
-  const slideOverType = store.slideOverContent?.type
-  const inlineType = store.inlineContent?.type
+export const StatusBar: React.FC<StatusBarProps> = React.memo(({ projectID, ollamaHealthy, nlpHealthy }) => {
+  const slideOverContent = useStore(s => s.slideOverContent)
+  const inlineContent = useStore(s => s.inlineContent)
+  const inputMode = useStore(s => s.inputMode)
+  const slideOverType = slideOverContent?.type
+  const inlineType = inlineContent?.type
   const context = slideOverType
     ? slideOverType.toUpperCase()
     : inlineType
       ? inlineType.toUpperCase()
       : 'READY'
-  const inputMode = store.inputMode
 
   return (
     <div role="status" aria-live="polite" className="h-7 flex items-center justify-between px-3 py-2 border-t border-border bg-surface font-mono text-[10px] text-textDim shrink-0 select-none leading-snug tracking-widest">
@@ -42,4 +43,4 @@ export const StatusBar: React.FC<StatusBarProps> = ({ projectID, ollamaHealthy, 
       </div>
     </div>
   );
-};
+});

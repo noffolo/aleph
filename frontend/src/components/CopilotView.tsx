@@ -29,7 +29,7 @@ interface CopilotViewProps {
   onClearChat: () => void
 }
 
-export const CopilotView: React.FC<CopilotViewProps> = ({
+export const CopilotView: React.FC<CopilotViewProps> = React.memo(({
   agents, selectedAgent, setSelectedAgent,
   chat, input, setInput, onSend, isStreaming, onCancelStream, onConfirmAction, onClearChat
 }) => {
@@ -189,4 +189,4 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
       />
     </div>
   )
-}
+});

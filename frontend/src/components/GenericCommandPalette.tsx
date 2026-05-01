@@ -33,8 +33,6 @@ export const GenericCommandPalette: React.FC<GenericCommandPaletteProps> = ({
     setSelectedIndex(-1);
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   const filteredItems: FilteredItem[] = items
     .map((item: BaseItem) => {
       const res = fuzzySearch(item.label, search);
@@ -56,6 +54,8 @@ export const GenericCommandPalette: React.FC<GenericCommandPaletteProps> = ({
       el?.scrollIntoView({ block: 'nearest' });
     }
   }, [selectedIndex]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[210] flex items-start justify-center pt-[15vh] p-4 animate-in fade-in duration-200" onClick={onClose} onKeyDown={handleKeyDown}>
@@ -101,7 +101,7 @@ export const GenericCommandPalette: React.FC<GenericCommandPaletteProps> = ({
           {!search && (
             <div className="text-center py-20">
               <Command size={48} className="mx-auto text-textDim mb-4" />
-              <p className="text-textMuted font-bold text-sm">Digita per cercare {title.toLowerCase()}...</p>
+              <p className="text-textMuted font-bold text-sm">{t('app.searchPrompt', { title: title.toLowerCase() })}</p>
             </div>
           )}
         </div>

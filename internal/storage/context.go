@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+
+	"github.com/ff3300/aleph-v2/internal/safeident"
 )
 
 var validProjectID = regexp.MustCompile(`^[a-zA-Z0-9_.:-]{1,128}$`)
@@ -54,5 +56,5 @@ func scopeQuery(ctx context.Context, query string) string {
 	if !ok || schema == "" {
 		return query
 	}
-	return fmt.Sprintf("SET schema = '%s'; %s", schema, query)
+	return fmt.Sprintf("SET schema = %s; %s", safeident.QuoteIdentifier(schema), query)
 }

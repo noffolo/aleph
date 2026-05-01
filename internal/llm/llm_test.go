@@ -1,0 +1,83 @@
+package llm
+
+import (
+	"net/http"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestNewProvider_KnownProviders(t *testing.T) {
+	client := &http.Client{}
+
+	tests := []struct {
+		name     string
+		provider string
+		baseURL  string
+	}{
+		{"ollama", "ollama", "http://localhost:11434"},
+		{"openai", "openai", "https://api.openai.com"},
+		{"anthropic", "anthropic", "https://api.anthropic.com"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewProvider(tt.provider, tt.baseURL, client)
+			assert.NotNil(t, p, "provider should not be nil for %s", tt.provider)
+		})
+	}
+}
+
+func TestNewProvider_UnknownProvider(t *testing.T) {
+	client := &http.Client{}
+	p := NewProvider("unknown", "http://localhost", client)
+	assert.Nil(t, p, "unknown provider should return nil")
+}
+
+func TestNewProvider_CaseInsensitivity(t *testing.T) {
+	client := &http.Client{}
+
+	assert.NotNil(t, NewProvider("ollama", "http://localhost:11434", client))
+	assert.NotNil(t, NewProvider("openai", "https://api.openai.com", client))
+	assert.NotNil(t, NewProvider("anthropic", "https://api.anthropic.com", client))
+}
+
+func TestCompletionRequest_Struct(t *testing.T) {
+	req := CompletionRequest{
+		Model:        "test-model",
+		Messages:     []map[string]interface{}{{"role": "user", "content": "hello"}},
+		Tools:        []map[string]interface{}{{"name": "test"}},
+		SystemPrompt: "system prompt",
+		ApiKey:       "api-key",
+		BaseURL:      "http://localhost",
+	}
+
+	assert.Equal(t, "test-model", req.Model)
+	assert.Len(t, req.Messages, 1)
+	assert.Len(t, req.Tools, 1)
+	assert.Equal(t, "system prompt", req.SystemPrompt)
+	assert.Equal(t, "api-key", req.ApiKey)
+	assert.Equal(t, "http://localhost", req.BaseURL)
+}
+
+func TestCompletionResponse_Struct(t *testing.T) {
+	resp := CompletionResponse{
+		Content: "response content",
+		ToolCalls: []ToolCall{
+			{Name: "tool1", Arguments: map[string]interface{}{"arg": "val"}},
+		},
+	}
+
+	assert.Equal(t, "response content", resp.Content)
+	assert.Len(t, resp.ToolCalls, 1)
+	assert.Equal(t, "tool1", resp.ToolCalls[0].Name)
+}
+
+func TestToolCall_Struct(t *testing.T) {
+	tc := ToolCall{
+		Name:      "test-tool",
+		Arguments: map[string]interface{}{"key": "value"},
+	}
+	assert.Equal(t, "test-tool", tc.Name)
+	assert.NotNil(t, tc.Arguments)
+}

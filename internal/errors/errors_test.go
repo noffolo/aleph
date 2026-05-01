@@ -105,9 +105,9 @@ func TestWrapWithDetails(t *testing.T) {
 }
 
 func TestGetUserMessage(t *testing.T) {
-	assert.Equal(t, "Risorsa non trovata", GetUserMessage(ErrNotFound))
-	assert.Equal(t, "Autenticazione richiesta", GetUserMessage(ErrUnauthorized))
-	assert.Equal(t, "Si è verificato un errore", GetUserMessage("NONEXISTENT"))
+	assert.Equal(t, "Resource not found", GetUserMessage(ErrNotFound))
+	assert.Equal(t, "Authentication required", GetUserMessage(ErrUnauthorized))
+	assert.Equal(t, "An error occurred", GetUserMessage("NONEXISTENT"))
 }
 
 func TestErrorCodeConstructors(t *testing.T) {

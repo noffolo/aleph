@@ -42,7 +42,7 @@ func (e *toolExecutor) ExecuteTool(ctx context.Context, toolName string, args ma
 func (e *toolExecutor) executeSearchData(ctx context.Context, args map[string]interface{}, projectID string) (string, bool, error) {
 	objName, _ := args["object_name"].(string)
 	if objName == "" {
-		return "", false, fmt.Errorf("Errore: parametro object_name mancante")
+		return "", false, fmt.Errorf("Error: object_name parameter missing")
 	}
 
 	limit := 10
@@ -56,13 +56,13 @@ func (e *toolExecutor) executeSearchData(ctx context.Context, args map[string]in
 		Limit:      int32(limit),
 	}))
 	if err != nil {
-		return "", false, fmt.Errorf("Errore: %v", err)
+		return "", false, fmt.Errorf("Error: %v", err)
 	}
 
 	jb, _ := json.Marshal(res.Msg.Rows)
 	resultStr := string(jb)
 	if len(resultStr) > 2000 {
-		resultStr = resultStr[:2000] + "\n... [Risultati troncati per limiti di contesto.]"
+		resultStr = resultStr[:2000] + "\n... [Results truncated due to context limits.]"
 	}
 	return resultStr, false, nil
 }
@@ -70,13 +70,13 @@ func (e *toolExecutor) executeSearchData(ctx context.Context, args map[string]in
 func (e *toolExecutor) executeAnalyzeSentiment(ctx context.Context, args map[string]interface{}) (string, bool, error) {
 	text, _ := args["text"].(string)
 	if text == "" {
-		return "", false, fmt.Errorf("Errore: parametro text mancante per analyze_sentiment")
+		return "", false, fmt.Errorf("Error: text parameter missing for analyze_sentiment")
 	}
 
 	if e.nlpHandler != nil {
 		resp, err := e.nlpHandler.AnalyzeSentiment(ctx, connect.NewRequest(&nlpv1.AnalyzeSentimentRequest{Text: text}))
 		if err != nil {
-			return "", false, fmt.Errorf("Errore analisi sentiment: %v", err)
+			return "", false, fmt.Errorf("Sentiment analysis error: %v", err)
 		}
 		result := map[string]interface{}{
 			"score": resp.Msg.Score,
@@ -85,19 +85,19 @@ func (e *toolExecutor) executeAnalyzeSentiment(ctx context.Context, args map[str
 		jb, _ := json.Marshal(result)
 		return string(jb), false, nil
 	}
-	return `{"error": "servizio sentiment non disponibile"}`, false, nil
+	return `{"error": "sentiment service unavailable"}`, false, nil
 }
 
 func (e *toolExecutor) executeGetTrustScore(ctx context.Context, args map[string]interface{}) (string, bool, error) {
 	entityID, _ := args["entity_id"].(string)
 	if entityID == "" {
-		return "", false, fmt.Errorf("Errore: parametro entity_id mancante per get_trust_score")
+		return "", false, fmt.Errorf("Error: entity_id parameter missing for get_trust_score")
 	}
 
 	if e.reg != nil {
 		comp, err := e.reg.GetComponentByID(ctx, entityID)
 		if err != nil || comp == nil {
-			return "", false, fmt.Errorf(`{"error": "entità %s non trovata"}`, entityID)
+			return "", false, fmt.Errorf(`{"error": "entity %s not found"}`, entityID)
 		}
 		result := map[string]interface{}{
 			"entity_id":       entityID,
@@ -107,7 +107,7 @@ func (e *toolExecutor) executeGetTrustScore(ctx context.Context, args map[string
 		jb, _ := json.Marshal(result)
 		return string(jb), false, nil
 	}
-	return `{"error": "registry non disponibile"}`, false, nil
+	return `{"error": "registry unavailable"}`, false, nil
 }
 
 // NewHandlerToolExecutor creates a new toolExecutor that wraps the handler's dispatch logic.

@@ -2,6 +2,8 @@ import React from 'react';
 import { Book, FileText, Download, Trash2, Upload } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { t } from '../i18n';
+import { SkeletonLoader } from './SkeletonLoader';
+import { InlineError } from './ui/InlineError';
 
 interface Asset {
   id: string;
@@ -22,12 +24,17 @@ interface LibraryViewProps {
   onUploadAsset: (filename: string, content: Uint8Array) => Promise<void>;
   selectedAssetId?: string | null;
   inline?: boolean;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
-export const LibraryView: React.FC<LibraryViewProps> = ({ assets, onViewAsset, onDeleteAsset, selectedAssetContent, onGetAssetContent, onGeneratePdf, onUploadAsset, selectedAssetId, inline = false }) => {
+export const LibraryView: React.FC<LibraryViewProps> = React.memo(({ assets, onViewAsset, onDeleteAsset, selectedAssetContent, onGetAssetContent, onGeneratePdf, onUploadAsset, selectedAssetId, inline = false, isLoading, error }) => {
   const [uploading, setUploading] = React.useState(false);
   const [dragOver, setDragOver] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  if (isLoading) return <SkeletonLoader />;
+  if (error) return <div className="max-w-6xl mx-auto"><InlineError message={error} /></div>;
 
   const handleDownload = async (asset: Asset) => {
     let content = selectedAssetContent || '';
@@ -87,7 +94,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ assets, onViewAsset, o
           className="flex items-center space-x-2 bg-primary text-white px-6 py-3 rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg  disabled:opacity-50"
         >
           <Upload size={20} />
-          <span>{uploading ? 'Caricamento...' : t('library.upload')}</span>
+          <span>{uploading ? t('generic.loadingLower') : t('library.upload')}</span>
         </button>
         <input ref={fileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
       </div>
@@ -148,4 +155,4 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ assets, onViewAsset, o
       </div>
     </div>
   );
-};
+});

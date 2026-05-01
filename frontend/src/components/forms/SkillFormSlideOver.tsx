@@ -15,9 +15,8 @@ interface SkillFormSlideOverProps {
 }
 
 export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverProps) {
-  const store = useStore()
   const { loadProjectData } = useAppActions()
-  const { onCreateSkill } = useSkillActions(loadProjectData)
+  const { onCreateSkill, onUpdateSkill } = useSkillActions(loadProjectData)
   const isEdit = skill && skill.id
   const [name, setName] = useState(skill?.name || '')
   const [description, setDescription] = useState(skill?.description || '')
@@ -33,13 +32,13 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
       return
     }
 
-    if (isEdit && skill?.id) {
-      alert('Update skill non ancora implementato')
-      store.setSlideOverContent(null)
-    } else {
-      onCreateSkill(name, description, toolIds)
-      store.setSlideOverContent(null)
-    }
+      if (isEdit && skill?.id) {
+        onUpdateSkill({ ...skill, name, description, toolIds })
+        useStore.getState().setSlideOverContent(null)
+      } else {
+        onCreateSkill(name, description, toolIds)
+        useStore.getState().setSlideOverContent(null)
+      }
   }
 
   return (
@@ -48,8 +47,9 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
 
       <div className="space-y-3">
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
+          <label htmlFor="so-skill-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
           <input
+            id="so-skill-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -58,8 +58,9 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
+          <label htmlFor="so-skill-description" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
           <textarea
+            id="so-skill-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
@@ -69,7 +70,7 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Strumenti Associati</label>
+          <label htmlFor="so-skill-tools" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Strumenti Associati</label>
           <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-background rounded-lg border border-border">
             {tools.map((t) => (
               <label key={t.id} className="flex items-center space-x-2 p-2 hover:bg-surface-alt rounded cursor-pointer">
@@ -93,10 +94,10 @@ export function SkillFormSlideOver({ skill, tools, title }: SkillFormSlideOverPr
       </div>
 
       <div className="flex gap-3 pt-2">
-        <button
-          onClick={() => store.setSlideOverContent(null)}
-          className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
-        >
+         <button
+           onClick={() => useStore.getState().setSlideOverContent(null)}
+           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
+         >
           {t('confirmDialog.cancel')}
         </button>
         <button

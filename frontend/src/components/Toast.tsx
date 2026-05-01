@@ -55,15 +55,16 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
 
   return (
     <div
+      role="status"
       className="bg-surface border border-border rounded-lg shadow-xl p-3 w-80 animate-toast-slide-in flex flex-col gap-2"
       style={{ animation: 'toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}
     >
       <div className="flex items-start gap-2">
         {iconMap[toast.type]}
         <div className="flex-1 min-w-0">
-          <div className="text-xs font-bold text-text uppercase tracking-wider leading-tight">
-            {toast.context || (toast.type === 'error' ? 'Errore' : toast.type === 'info' ? 'Info' : 'Completato')}
-          </div>
+<div className="text-xs font-bold text-text uppercase tracking-wider leading-tight">
+             {toast.context || (toast.type === 'error' ? t('toast.error') : toast.type === 'info' ? t('toast.info') : t('toast.success'))}
+           </div>
           <div className="text-xs text-textMuted mt-0.5 break-words leading-snug">
             {toast.message}
           </div>
@@ -77,14 +78,14 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
         </button>
       </div>
 
-      {toast.retry && toast.type === 'error' && (
-        <button
-          onClick={() => { onRemove(toast.id); toast.retry?.() }}
-          className="self-start px-3 py-1 text-xs font-bold bg-danger/10 text-danger rounded border border-danger/30 hover:bg-danger/20 transition-colors"
-        >
-          Riprova
-        </button>
-      )}
+{toast.retry && toast.type === 'error' && (
+         <button
+           onClick={() => { onRemove(toast.id); toast.retry?.() }}
+           className="self-start px-3 py-1 text-xs font-bold bg-danger/10 text-danger rounded border border-danger/30 hover:bg-danger/20 transition-colors"
+         >
+           {t('toast.retry')}
+         </button>
+       )}
 
       {/* Timer bar */}
       <div className="h-0.5 bg-border rounded-full overflow-hidden">
@@ -107,7 +108,7 @@ export function ToastContainer() {
   if (!toastMessages || toastMessages.length === 0) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex flex-col-reverse gap-2 pointer-events-none">
+    <div aria-live="polite" aria-atomic="false" className="fixed bottom-4 right-4 z-[100] flex flex-col-reverse gap-2 pointer-events-none">
       {toastMessages.map((t) => (
         <div key={t.id} className="pointer-events-auto">
           <ToastItem toast={t} onRemove={removeToast} />

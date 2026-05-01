@@ -2,15 +2,8 @@ import React, { useState } from 'react'
 import type { Agent } from '../store/types'
 import { Eye, EyeOff } from 'lucide-react'
 import { t } from '../i18n'
-
-export interface AgentFormData {
-  name: string
-  provider: string
-  model: string
-  apiKey: string
-  baseUrl: string
-  systemPrompt: string
-}
+import { AgentFormSchema } from '../schemas'
+import type { AgentFormData } from '../schemas'
 
 interface AgentFormProps {
   agent?: Agent | null
@@ -34,22 +27,20 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
   })
 
   const validate = (): boolean => {
-    const newErrors: Partial<Record<keyof AgentFormData, string>> = {}
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'Il nome è obbligatorio'
+    const result = AgentFormSchema.safeParse(formData)
+    if (!result.success) {
+      const newErrors: Partial<Record<keyof AgentFormData, string>> = {}
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as keyof AgentFormData
+        if (!newErrors[field]) {
+          newErrors[field] = issue.message
+        }
+      }
+      setErrors(newErrors)
+      return false
     }
-    
-    if (!formData.model.trim()) {
-      newErrors.model = 'Il modello è obbligatorio'
-    }
-
-    if (formData.baseUrl && !/^https?:\/\/.+/.test(formData.baseUrl)) {
-      newErrors.baseUrl = 'URL non valido (deve iniziare con http/https)'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    setErrors({})
+    return true
   }
 
   const handleSubmit = () => {
@@ -64,8 +55,9 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
       
       <div className="space-y-3">
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
+          <label htmlFor="agent-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
           <input
+            id="agent-name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
@@ -78,8 +70,9 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
         
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Provider</label>
+            <label htmlFor="agent-provider" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Provider</label>
             <select
+              id="agent-provider"
               value={formData.provider}
               onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -92,8 +85,9 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
           </div>
           
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Modello</label>
+            <label htmlFor="agent-model" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Modello</label>
             <input
+              id="agent-model"
               value={formData.model}
               onChange={(e) => setFormData({ ...formData, model: e.target.value })}
               className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
@@ -106,9 +100,10 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">API Key (opzionale)</label>
+          <label htmlFor="agent-apikey" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">API Key (opzionale)</label>
           <div className="relative">
             <input
+              id="agent-apikey"
               type={showApiKey ? 'text' : 'password'}
               value={formData.apiKey}
               onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
@@ -126,8 +121,9 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Base URL (opzionale)</label>
+          <label htmlFor="agent-baseurl" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Base URL (opzionale)</label>
           <input
+            id="agent-baseurl"
             value={formData.baseUrl}
             onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
             className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
@@ -139,8 +135,9 @@ export function AgentForm({ agent, onSave, onCancel, title }: AgentFormProps) {
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Prompt di Sistema</label>
+          <label htmlFor="agent-systemprompt" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Prompt di Sistema</label>
           <textarea
+            id="agent-systemprompt"
             value={formData.systemPrompt}
             onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
             rows={4}

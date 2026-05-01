@@ -9,7 +9,9 @@ interface SkillExecuteSlideOverProps {
 }
 
 export function SkillExecuteSlideOver({ skill, title }: SkillExecuteSlideOverProps) {
-  const store = useStore()
+  const tools = useStore(s => s.tools)
+  const sandboxInput = useStore(s => s.sandboxInput)
+  const setSandboxInput = useStore(s => s.setSandboxInput)
   const { loadProjectData } = useAppActions()
   const { onRunSkill } = useSkillActions(loadProjectData)
   const skillId = skill.id
@@ -24,21 +26,21 @@ export function SkillExecuteSlideOver({ skill, title }: SkillExecuteSlideOverPro
         <div className="mb-2">
           <div className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-2">Strumenti Associati</div>
           <div className="flex flex-wrap gap-2">
-            {skill.toolIds.map((tid: string) => {
-              const tool = store.tools.find((t: any) => t.id === tid)
-              return <span key={tid} className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded font-mono">{tool?.name || tid}</span>
-            })}
+             {skill.toolIds.map((tid: string) => {
+               const tool = tools.find((t: any) => t.id === tid)
+               return <span key={tid} className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded font-mono">{tool?.name || tid}</span>
+             })}
           </div>
         </div>
       )}
       <div>
         <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Parametri Input (JSON)</label>
-        <textarea
-          value={store.sandboxInput}
-          onChange={(e) => store.setSandboxInput(e.target.value)}
-          rows={3}
-          className="w-full p-3 bg-background rounded-lg border border-border text-xs font-mono resize-none focus:outline-none focus:border-primary/50"
-        />
+         <textarea
+           value={sandboxInput}
+           onChange={(e) => setSandboxInput(e.target.value)}
+           rows={3}
+           className="w-full p-3 bg-background rounded-lg border border-border text-xs font-mono resize-none focus:outline-none focus:border-primary/50"
+         />
       </div>
       <button
         onClick={() => onRunSkill(skillId)}

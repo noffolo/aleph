@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ff3300/aleph-v2/internal/ssrf"
 	"golang.org/x/time/rate"
 )
 
@@ -54,7 +55,7 @@ func NewRateLimitedClient(cfg RateLimitConfig) *RateLimitedClient {
 		}
 	}
 	return &RateLimitedClient{
-		client:  &http.Client{Timeout: 30 * time.Second},
+		client:  ssrf.NewClient(),
 		limiter: rate.NewLimiter(rate.Limit(cfg.RequestsPerSecond), burst),
 	}
 }

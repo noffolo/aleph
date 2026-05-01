@@ -7,35 +7,39 @@ import { fromProto } from '../../schemas/validate'
 import { z } from 'zod'
 
 export function useLibraryActions(loadProjectData: () => void) {
-  const store = useStore()
+  const projectID = useStore(s => s.projectID)
+  const selectedAssetContent = useStore(s => s.selectedAssetContent)
+  const setSelectedAssetContent = useStore(s => s.setSelectedAssetContent)
+  const selectedAssetId = useStore(s => s.selectedAssetId)
+  const selectedAssetName = useStore(s => s.assets.find((a: Asset) => a.id === s.selectedAssetId)?.name)
 
   return {
     onViewAsset: useCallback((id: string) => {
-      store.setSelectedAssetId(id)
-      libraryClient.getAssetContent({ projectId: store.projectID, assetId: id })
-        .then((res) => store.setSelectedAssetContent(fromProto(z.object({ content: z.optional(z.string()) }), res).content || ''))
-        .catch(() => store.setSelectedAssetContent('Errore nel caricamento'))
-    }, [store.projectID]),
+      useStore.getState().setSelectedAssetId(id)
+      libraryClient.getAssetContent({ projectId: projectID, assetId: id })
+        .then((res) => useStore.getState().setSelectedAssetContent(fromProto(z.object({ content: z.optional(z.string()) }), res).content || ''))
+        .catch(() => useStore.getState().setSelectedAssetContent('Errore nel caricamento'))
+    }, [projectID]),
     onDeleteAsset: useCallback((id: string) => {
-      libraryClient.deleteAsset({ projectId: store.projectID, id })
+      libraryClient.deleteAsset({ projectId: projectID, id })
         .then(() => loadProjectData())
         .catch((e: unknown) => handleError(e, 'deleteAsset'))
-    }, [store.projectID, loadProjectData]),
-    selectedAssetContent: store.selectedAssetContent,
-    setSelectedAssetContent: store.setSelectedAssetContent,
-    selectedAssetName: store.assets.find((a: Asset) => a.id === store.selectedAssetId)?.name,
+    }, [projectID, loadProjectData]),
+    selectedAssetContent,
+    setSelectedAssetContent,
+    selectedAssetName,
     onGetAssetContent: useCallback(async (assetId: string) => {
-      const res = await libraryClient.getAssetContent({ projectId: store.projectID, assetId })
+      const res = await libraryClient.getAssetContent({ projectId: projectID, assetId })
       return fromProto(z.object({ content: z.optional(z.string()) }), res).content || ''
-    }, [store.projectID]),
+    }, [projectID]),
     onGeneratePdf: useCallback(async (assetId: string) => {
-      const res = fromProto(z.object({ pdfData: z.unknown(), filename: z.unknown() }), await libraryClient.generatePdf({ projectId: store.projectID, assetId }))
+      const res = fromProto(z.object({ pdfData: z.unknown(), filename: z.unknown() }), await libraryClient.generatePdf({ projectId: projectID, assetId }))
       return { pdfData: res.pdfData as Uint8Array, filename: res.filename as string }
-    }, [store.projectID]),
+    }, [projectID]),
     onUploadAsset: useCallback(async (filename: string, content: Uint8Array) => {
-      await libraryClient.uploadAsset({ projectId: store.projectID, filename, content })
+      await libraryClient.uploadAsset({ projectId: projectID, filename, content })
       loadProjectData()
-    }, [store.projectID, loadProjectData]),
-    selectedAssetId: store.selectedAssetId,
+    }, [projectID, loadProjectData]),
+    selectedAssetId,
   }
 }

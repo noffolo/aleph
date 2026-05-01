@@ -14,7 +14,6 @@ interface AgentFormSlideOverProps {
 }
 
 export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
-  const store = useStore()
   const { loadProjectData } = useAppActions()
   const { onCreateAgent, onUpdateAgent } = useAgentActions(loadProjectData)
   const isEdit = agent && agent.id
@@ -54,7 +53,7 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
       onCreateAgent(name, model, systemPrompt, provider, apiKey, baseUrl)
     }
 
-    store.setSlideOverContent(null)
+    useStore.getState().setSlideOverContent(null)
   }
 
   return (
@@ -63,8 +62,9 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
 
       <div className="space-y-3">
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
+          <label htmlFor="so-agent-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
           <input
+            id="so-agent-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -74,8 +74,9 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Provider</label>
+            <label htmlFor="so-agent-provider" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Provider</label>
             <select
+              id="so-agent-provider"
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -88,8 +89,9 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
           </div>
 
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Modello</label>
+            <label htmlFor="so-agent-model" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Modello</label>
             <input
+              id="so-agent-model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -99,8 +101,9 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">API Key (opzionale)</label>
+          <label htmlFor="so-agent-apikey" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">API Key (opzionale)</label>
           <input
+            id="so-agent-apikey"
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
@@ -110,8 +113,9 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Base URL (opzionale)</label>
+          <label htmlFor="so-agent-baseurl" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Base URL (opzionale)</label>
           <input
+            id="so-agent-baseurl"
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -120,8 +124,9 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Prompt di Sistema</label>
+          <label htmlFor="so-agent-prompt" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Prompt di Sistema</label>
           <textarea
+            id="so-agent-prompt"
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
             rows={4}
@@ -132,10 +137,10 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
       </div>
 
       <div className="flex gap-3 pt-2">
-        <button
-          onClick={() => store.setSlideOverContent(null)}
-          className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
-        >
+         <button
+           onClick={() => useStore.getState().setSlideOverContent(null)}
+           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
+         >
           {t('confirmDialog.cancel')}
         </button>
         <button

@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Upload, Globe, Database, FileText, Code, Link } from 'lucide-react'
-
-export interface DataSourceFormData {
-  name: string
-  sourceType: string
-  configJson: string
-}
+import { DataSourceFormSchema } from '../schemas'
+import type { DataSourceFormData } from '../schemas'
 
 interface DataSourceFormProps {
   onSave: (data: DataSourceFormData) => void
@@ -44,38 +40,37 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
   }, [mode])
 
   const validate = (): boolean => {
-    const newErrors: Partial<Record<keyof DataSourceFormData, string>> = {}
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'Il nome è obbligatorio'
-    }
-
-    try {
-      JSON.parse(formData.configJson)
-    } catch (e) {
-      newErrors.configJson = 'Il JSON di configurazione non è valido'
-    }
-
-    if (mode === 'api') {
-      try {
-        const config = JSON.parse(formData.configJson)
-        if (config.url && !/^https?:\/\/.+/.test(config.url)) {
-          newErrors.configJson = 'L\'URL nell\'asset JSON deve iniziare con http/https'
+    const result = DataSourceFormSchema.safeParse(formData)
+    if (!result.success) {
+      const newErrors: Partial<Record<keyof DataSourceFormData, string>> = {}
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as keyof DataSourceFormData
+        if (!newErrors[field]) {
+          newErrors[field] = issue.message
         }
-      } catch {}
+      }
+      // Additional cross-field validation for mode-specific rules
+      if (mode === 'api') {
+        try {
+          const config = JSON.parse(formData.configJson)
+          if (config.url && !/^https?:\/\/.+/.test(config.url)) {
+            newErrors.configJson = "URL in config must start with http:// or https://"
+          }
+        } catch {}
+      }
+      if (mode === 'db') {
+        try {
+          const config = JSON.parse(formData.configJson)
+          if (!config.connectionString || !config.connectionString.trim()) {
+            newErrors.configJson = "connectionString is required in config JSON"
+          }
+        } catch {}
+      }
+      setErrors(newErrors)
+      return false
     }
-
-    if (mode === 'db') {
-      try {
-        const config = JSON.parse(formData.configJson)
-        if (!config.connectionString || !config.connectionString.trim()) {
-          newErrors.configJson = 'La connectionString è obbligatoria nel JSON'
-        }
-      } catch {}
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    setErrors({})
+    return true
   }
 
   const handleSubmit = () => {
@@ -103,8 +98,9 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
       
       <div className="space-y-3">
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
+          <label htmlFor="datasource-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
           <input
+            id="datasource-name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
@@ -116,7 +112,7 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Modalità Sorgente</label>
+          <label htmlFor="datasource-mode" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Modalità Sorgente</label>
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => setMode('file')}
@@ -150,7 +146,7 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
 
         {mode === 'file' && (
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Formato File</label>
+            <label htmlFor="datasource-format" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Formato File</label>
             <div className="flex gap-2">
               {[
                 { id: 'csv', label: 'CSV', icon: FileText },
@@ -208,8 +204,9 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
         )}
 
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Configurazione Avanzata (JSON)</label>
+          <label htmlFor="datasource-config" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Configurazione Avanzata (JSON)</label>
           <textarea
+            id="datasource-config"
             value={formData.configJson}
             onChange={(e) => setFormData({ ...formData, configJson: e.target.value })}
             rows={6}

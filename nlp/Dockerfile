@@ -1,17 +1,23 @@
+# Stage 1: Build — compile Prophet and other C extensions
+FROM python:3.12-slim AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ build-essential && \
+    rm -rf /var/lib/apt/lists/*
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Stage 2: Runtime — minimal image
 FROM python:3.12-slim
 LABEL maintainer="Aleph Core Team <devops@aleph.ai>"
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc g++ build-essential && \
-    rm -rf /var/lib/apt/lists/*
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-WORKDIR /app
+# Copy app code
+COPY nlp_pb2.py nlp_pb2_grpc.py main.py ensemble.py markets.py simulator.py ./
 
 RUN groupadd -r aleph && useradd -r -g aleph aleph && \
     chown -R aleph:aleph /app

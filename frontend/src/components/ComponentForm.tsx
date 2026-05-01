@@ -1,22 +1,7 @@
 import React, { useState } from 'react'
 import type { RegistryComponent } from '../store/types'
-
-export interface ComponentFormData {
-  name: string
-  description: string
-  type: string
-  category: string
-  source: string
-  status: string
-  approvalStatus: string
-  configSchemaJson: string
-  executionCommand: string
-  dependenciesJson: string
-  inputSchemaJson: string
-  outputSchemaJson: string
-  promptTemplate: string
-  toolIdsJson: string
-}
+import { ComponentFormSchema } from '../schemas'
+import type { ComponentFormData } from '../schemas'
 
 interface ComponentFormProps {
   component?: RegistryComponent | null
@@ -47,23 +32,20 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
   })
 
   const validate = (): boolean => {
-    const newErrors: Partial<Record<keyof ComponentFormData, string>> = {}
-    if (!formData.name.trim()) {
-      newErrors.name = 'Il nome è obbligatorio'
+    const result = ComponentFormSchema.safeParse(formData)
+    if (!result.success) {
+      const newErrors: Partial<Record<keyof ComponentFormData, string>> = {}
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as keyof ComponentFormData
+        if (!newErrors[field]) {
+          newErrors[field] = issue.message
+        }
+      }
+      setErrors(newErrors)
+      return false
     }
-    
-    try {
-      JSON.parse(formData.configSchemaJson)
-      JSON.parse(formData.dependenciesJson)
-      JSON.parse(formData.inputSchemaJson)
-      JSON.parse(formData.outputSchemaJson)
-      JSON.parse(formData.toolIdsJson)
-    } catch (e) {
-      newErrors.configSchemaJson = 'Uno o più campi JSON sono invalidi'
-    }
-    
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    setErrors({})
+    return true
   }
 
   const handleSubmit = () => {
@@ -79,8 +61,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
       <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
+            <label htmlFor="component-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
             <input
+              id="component-name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
@@ -92,8 +75,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
           </div>
           
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo</label>
+            <label htmlFor="component-type" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo</label>
             <select
+              id="component-type"
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -108,8 +92,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
+          <label htmlFor="component-description" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
           <textarea
+            id="component-description"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             rows={2}
@@ -120,8 +105,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
         
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Categoria</label>
+            <label htmlFor="component-category" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Categoria</label>
             <select
+              id="component-category"
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -135,8 +121,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
           </div>
           
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Sorgente</label>
+            <label htmlFor="component-source" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Sorgente</label>
             <select
+              id="component-source"
               value={formData.source}
               onChange={(e) => setFormData({ ...formData, source: e.target.value })}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -151,8 +138,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
         
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-stextDim uppercase tracking-widest mb-1 block">Stato</label>
+            <label htmlFor="component-status" className="text-[10px] font-bold text-stextDim uppercase tracking-widest mb-1 block">Stato</label>
             <select
+              id="component-status"
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -165,8 +153,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
           </div>
           
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Approvazione</label>
+            <label htmlFor="component-approval" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Approvazione</label>
             <select
+              id="component-approval"
               value={formData.approvalStatus}
               onChange={(e) => setFormData({ ...formData, approvalStatus: e.target.value })}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -180,8 +169,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Config (JSON)</label>
+          <label htmlFor="component-configschema" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Config (JSON)</label>
           <textarea
+            id="component-configschema"
             value={formData.configSchemaJson}
             onChange={(e) => setFormData({ ...formData, configSchemaJson: e.target.value })}
             rows={2}
@@ -191,8 +181,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Comando Esecuzione</label>
+          <label htmlFor="component-command" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Comando Esecuzione</label>
           <input
+            id="component-command"
             value={formData.executionCommand}
             onChange={(e) => setFormData({ ...formData, executionCommand: e.target.value })}
             className="w-full p-3 bg-background rounded-lg border border-border text-sm font-mono focus:outline-none focus:border-primary/50"
@@ -202,8 +193,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
         
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Dependencies (JSON)</label>
+            <label htmlFor="component-dependencies" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Dependencies (JSON)</label>
             <textarea
+            id="component-dependencies"
             value={formData.dependenciesJson}
             onChange={(e) => setFormData({ ...formData, dependenciesJson: e.target.value })}
             rows={3}
@@ -213,8 +205,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
           </div>
           
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tool IDs (JSON)</label>
+            <label htmlFor="component-toolids" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tool IDs (JSON)</label>
             <textarea
+            id="component-toolids"
             value={formData.toolIdsJson}
             onChange={(e) => setFormData({ ...formData, toolIdsJson: e.target.value })}
             rows={3}
@@ -226,8 +219,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
         
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Input (JSON)</label>
+            <label htmlFor="component-inputschema" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Input (JSON)</label>
             <textarea
+            id="component-inputschema"
             value={formData.inputSchemaJson}
             onChange={(e) => setFormData({ ...formData, inputSchemaJson: e.target.value })}
             rows={3}
@@ -237,8 +231,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
           </div>
           
           <div>
-            <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Output (JSON)</label>
+            <label htmlFor="component-outputschema" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Schema Output (JSON)</label>
             <textarea
+            id="component-outputschema"
             value={formData.outputSchemaJson}
             onChange={(e) => setFormData({ ...formData, outputSchemaJson: e.target.value })}
             rows={3}
@@ -249,8 +244,9 @@ export function ComponentForm({ component, onSave, onCancel, title }: ComponentF
         </div>
         
         <div>
-          <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Prompt Template</label>
+          <label htmlFor="component-prompt" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Prompt Template</label>
           <textarea
+            id="component-prompt"
             value={formData.promptTemplate}
             onChange={(e) => setFormData({ ...formData, promptTemplate: e.target.value })}
             rows={4}

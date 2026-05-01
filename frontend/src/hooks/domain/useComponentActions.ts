@@ -8,13 +8,11 @@ import { fromProto } from '../../schemas/validate'
 import { z } from 'zod'
 
 export function useComponentActions() {
-  const store = useStore()
-
   return {
     onUpdateComponentStatus: useCallback((id: string, status: string) => {
       registryClient.updateComponentStatus({ id, status })
         .then(() => {
-          registryClient.listComponents({}).then((res) => store.setRegistryComponents(fromProto(z.array(RegistryComponentSchema), res.components || [])))
+          registryClient.listComponents({}).then((res) => useStore.getState().setRegistryComponents(fromProto(z.array(RegistryComponentSchema), res.components || [])))
         })
         .catch((e: unknown) => handleError(e, 'updateComponentStatus'))
     }, []),
@@ -22,7 +20,7 @@ export function useComponentActions() {
       const { creationTimestamp, lastUpdatedTimestamp, ...rest } = metadata
       registryClient.registerComponent({ metadata: rest })
         .then(() => {
-          registryClient.listComponents({}).then((res) => store.setRegistryComponents(fromProto(z.array(RegistryComponentSchema), res.components || [])))
+          registryClient.listComponents({}).then((res) => useStore.getState().setRegistryComponents(fromProto(z.array(RegistryComponentSchema), res.components || [])))
         })
         .catch((e: unknown) => handleError(e, 'registerComponent'))
     }, []),

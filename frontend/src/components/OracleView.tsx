@@ -3,6 +3,8 @@ import { useStore } from '../store/useStore';
 import { nlpClient } from '../api/factory';
 import { Zap, TrendingUp, AlertTriangle, Clock, ThumbsUp, ThumbsDown, MessageSquareText } from 'lucide-react';
 import { t } from '../i18n';
+import { SkeletonLoader } from './SkeletonLoader';
+import { InlineError } from './ui/InlineError';
 
 interface Prediction {
   entityId: string;
@@ -23,7 +25,7 @@ interface SentimentResponse {
   label?: string;
 }
 
-export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
+export const OracleView: React.FC<{inline?: boolean; isLoading?: boolean; error?: string | null}> = React.memo(({inline=false, isLoading: propIsLoading, error}) => {
   const { projectID, predictions, setPredictions } = useStore();
   const [isLoading, setIsLoading] = React.useState(false);
   const [sentimentText, setSentimentText] = React.useState('');
@@ -54,6 +56,7 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
             predictedState: chunk.predictedState || '',
             explanation: chunk.explanation || ''
           };
+
           predsRef.current = [...predsRef.current, p];
           setPredictions(predsRef.current);
         }
@@ -82,7 +85,7 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
         delete next[pred.entityId];
         return next;
       });
-      useStore.getState().setLastError(`Feedback non inviato: ${err?.message || 'errore di rete'}`)
+      useStore.getState().setLastError(t('generic.feedbackNotSent', { msg: err?.message || 'network error' }))
       setTimeout(() => useStore.getState().setLastError(null), 4000)
     });
   };
@@ -95,24 +98,27 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
       setSentimentResult({ score: res.score || 0, label: (res.label || 'neutral').toLowerCase() });
     } catch (err: any) {
       setSentimentResult({ score: 0, label: 'error' });
-      useStore.getState().setLastError(`Analisi sentiment fallita: ${err?.message || 'errore'}`)
+      useStore.getState().setLastError(t('generic.sentimentFailed', { msg: err?.message || 'unknown error' }))
       setTimeout(() => useStore.getState().setLastError(null), 4000)
     } finally {
       setSentimentLoading(false);
     }
   };
 
+  if (propIsLoading) return <SkeletonLoader />;
+  if (error) return <InlineError message={error} />;
+
   return (
     <div className={(inline ? '' : 'max-w-6xl mx-auto ') + 'space-y-12 pb-24 animate-in fade-in duration-700'}>
       <header className="flex flex-col space-y-4">
-        <div className="flex items-center space-x-3 text-primary">
-          <Zap size={32} className="fill-current" />
-          <h2 className="text-4xl font-black tracking-tighter uppercase italic">{t('oracle.title')}</h2>
-        </div>
-        <p className="text-textMuted font-medium max-w-2xl">
-          Analisi degli scenari probabilistici generati dal sistema.
-          Le predizioni sono calibrate in tempo reale con i segnali disponibili.
-        </p>
+ <div className="flex items-center space-x-3 text-primary">
+           <Zap size={32} className="fill-current" />
+           <h2 className="text-4xl font-black tracking-tighter uppercase italic">{t('oracle.title')}</h2>
+         </div>
+         <p className="text-textMuted font-medium max-w-2xl">
+           {t('oracle.predictionsDesc')}
+           {t('oracle.predictionsCalibration')}
+         </p>
       </header>
 
       {isLoading && predictions.length === 0 && (
@@ -139,17 +145,17 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
                   {pred.predictedState === 'ACTION_REQUIRED' ? <AlertTriangle size={24} /> : <TrendingUp size={24} />}
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-black text-textMuted uppercase tracking-widest mb-1">Indice di Affidabilità</span>
+                  <span className="text-[10px] font-black text-textMuted uppercase tracking-widest mb-1">{t('oracle.reliabilityIndex')}</span>
                   <span className="text-4xl font-black text-text">{(pred.probability * 100).toFixed(0)}%</span>
-                  <span className={`text-[9px] font-medium ${
-                    pred.probability > 0.8 ? 'text-success' :
-                    pred.probability >= 0.5 ? 'text-yellow-500' :
-                    'text-danger'
-                  }`}>
-                    {pred.probability > 0.8 ? 'Alta affidabilità' :
-                     pred.probability >= 0.5 ? 'Affidabilità media' :
-                     'Bassa affidabilità'}
-                  </span>
+<span className={`text-[9px] font-medium ${
+                     pred.probability > 0.8 ? 'text-success' :
+                     pred.probability >= 0.5 ? 'text-yellow-500' :
+                     'text-danger'
+                   }`}>
+                     {pred.probability > 0.8 ? t('oracle.reliability.high') :
+                      pred.probability >= 0.5 ? t('oracle.reliability.medium') :
+                      t('oracle.reliability.low')}
+                   </span>
                 </div>
               </div>
 
@@ -160,10 +166,10 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
             </div>
 
             <div className="mt-10 pt-8 border-t border-border flex items-center justify-between">
-               <div className="flex items-center space-x-2 text-textMuted">
-                  <Clock size={14} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Calcolato ora</span>
-               </div>
+<div className="flex items-center space-x-2 text-textMuted">
+                   <Clock size={14} />
+                   <span className="text-[10px] font-black uppercase tracking-widest">{t('oracle.calculatedNow')}</span>
+                </div>
                 <div className="flex items-center space-x-1">
                    <button
                      onClick={() => handleFeedback(pred, true)}
@@ -202,13 +208,13 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
             placeholder={t('oracle.sentimentPlaceholder')}
             className="flex-1 h-24 p-4 bg-surface-alt rounded-lg border border-border text-sm resize-none focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/10 transition-all"
           />
-          <button
-            onClick={handleAnalyzeSentiment}
-            disabled={sentimentLoading || !sentimentText.trim()}
-            className="px-6 bg-primary text-white rounded-lg font-bold text-sm hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed self-end"
-          >
-            {sentimentLoading ? 'Analisi...' : 'Analizza'}
-          </button>
+<button
+             onClick={handleAnalyzeSentiment}
+             disabled={sentimentLoading || !sentimentText.trim()}
+             className="px-6 bg-primary text-white rounded-lg font-bold text-sm hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed self-end"
+           >
+             {sentimentLoading ? t('generic.loading') : t('generic.execute')}
+           </button>
         </div>
         {sentimentResult && (
           <div className="mt-6 flex items-center space-x-6">
@@ -225,10 +231,10 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
             )}
             {sentimentResult.score >= 0 && (
             <div>
-              <div className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">Sentimento</div>
-              <div className={`text-xl font-black capitalize ${sentimentResult.label === 'positive' ? 'text-success' : sentimentResult.label === 'negative' ? 'text-danger' : 'text-textMuted'}`}>
-                {sentimentResult.label === 'error' ? 'Errore di analisi' : sentimentResult.label === 'positive' ? 'Positivo' : sentimentResult.label === 'negative' ? 'Negativo' : 'Neutrale'}
-              </div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-textMuted mb-1">{t('oracle.sentimentLabel')}</div>
+<div className={`text-xl font-black capitalize ${sentimentResult.label === 'positive' ? 'text-success' : sentimentResult.label === 'negative' ? 'text-danger' : 'text-textMuted'}`}>
+                 {sentimentResult.label === 'error' ? t('errors.analysis') : sentimentResult.label === 'positive' ? t('oracle.sentiment.positive') : sentimentResult.label === 'negative' ? t('oracle.sentiment.negative') : t('oracle.sentiment.neutral')}
+               </div>
               <div className={`text-[9px] mt-1 font-medium ${
                 sentimentResult.score >= 0.7 || sentimentResult.score <= 0.3 ? 'text-success' :
                 sentimentResult.score > 0.55 || sentimentResult.score < 0.45 ? 'text-yellow-500' :
@@ -251,4 +257,4 @@ export const OracleView: React.FC<{inline?:boolean}> = ({inline=false}) => {
       </div>
     </div>
   );
-};
+});

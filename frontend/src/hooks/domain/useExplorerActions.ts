@@ -1,12 +1,15 @@
 import { useStore } from '../../store/useStore'
 
 export function useExplorerActions() {
-  const store = useStore()
+  const setSelectedObject = useStore(s => s.setSelectedObject)
+  const setSearchQuery = useStore(s => s.setSearchQuery)
+  const setActiveView = useStore(s => s.setActiveView)
+  const setSelectedRow = useStore(s => s.setSelectedRow)
 
   return {
-    setSelectedObject: store.setSelectedObject,
-    setSearchQuery: store.setSearchQuery,
-    setActiveView: store.setActiveView,
-    onRowClick: store.setSelectedRow,
+    setSelectedObject,
+    setSearchQuery,
+    setActiveView,
+    onRowClick: setSelectedRow,
   }
 }

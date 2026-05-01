@@ -22,26 +22,26 @@ const (
 	ErrInvalidArgument = "ERR_INVALID_ARGUMENT"
 )
 
-// userMessages maps error codes to Italian user-facing messages
+// userMessages maps error codes to user-facing messages
 var userMessages = map[string]string{
-	ErrNotFound:           "Risorsa non trovata",
-	ErrUnauthorized:       "Autenticazione richiesta",
-	ErrForbidden:          "Permessi insufficienti",
-	ErrInternal:           "Errore interno del sistema",
-	ErrValidation:         "Dati inseriti non validi",
-	ErrUnavailable:        "Servizio temporaneamente non disponibile",
-	ErrDeadlineExceeded:   "Operazione scaduta",
-	ErrFailedPrecondition: "Condizione preliminare non soddisfatta",
-	ErrInvalidArgument:    "Argomento non valido",
+	ErrNotFound:           "Resource not found",
+	ErrUnauthorized:       "Authentication required",
+	ErrForbidden:          "Insufficient permissions",
+	ErrInternal:           "Internal system error",
+	ErrValidation:         "Invalid input data",
+	ErrUnavailable:        "Service temporarily unavailable",
+	ErrDeadlineExceeded:   "Operation timed out",
+	ErrFailedPrecondition: "Precondition not met",
+	ErrInvalidArgument:    "Invalid argument",
 }
 
-// GetUserMessage returns the Italian user-facing message for an error code
+// GetUserMessage returns the user-facing message for an error code
 func GetUserMessage(code string) string {
 	if msg, ok := userMessages[code]; ok {
 		return msg
 	}
 	// Default fallback message
-	return "Si è verificato un errore"
+	return "An error occurred"
 }
 
 // NewNotFound creates a new APIError for resource not found

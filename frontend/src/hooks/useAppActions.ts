@@ -28,86 +28,92 @@ export const handleError = (err: any, context: string) => {
   const store = useStore.getState()
   const msg = err?.message || `Errore in ${context}`
   store.setLastError(msg)
-  store.setErrorToast(msg, 'error')
+  store.addToast({ message: msg, type: 'error', context })
   setTimeout(() => useStore.getState().setLastError(null), 5000)
 }
 
 export function useAppActions() {
-  const store = useStore()
+  const projectID = useStore((s) => s.projectID)
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadAbortRef = useRef<AbortController | null>(null)
 
   const handleError = useCallback((err: any, context: string) => {
+    const store = useStore.getState()
     const msg = err?.message || `Errore in ${context}`
     store.setLastError(msg)
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
     errorTimerRef.current = setTimeout(() => store.setLastError(null), 5000)
-  }, [store])
+  }, [])
 
   const loadProjectData = useCallback(() => {
-    if (!store.projectID) return
+    const store = useStore.getState()
+    if (!projectID) return
 
     loadAbortRef.current?.abort()
     const ac = new AbortController()
     loadAbortRef.current = ac
     const opts = { signal: ac.signal }
 
-    projectClient.getOntology({ projectId: store.projectID }, opts).then((res: any) => {
-      store.setOntologyRaw(res.alephDefinition || '')
-      store.setAvailableObjects(res.objectNames || [])
-      if (res.objectNames?.length > 0 && !store.selectedObject) {
-        store.setSelectedObject(res.objectNames[0])
+    projectClient.getOntology({ projectId: projectID }, opts).then((res: any) => {
+      const current = useStore.getState()
+      current.setOntologyRaw(res.alephDefinition || '')
+      current.setAvailableObjects(res.objectNames || [])
+      if (res.objectNames?.length > 0 && !current.selectedObject) {
+        current.setSelectedObject(res.objectNames[0])
       }
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'getOntology') })
 
-    agentClient.listAgents({ projectId: store.projectID }, opts).then((res: any) => {
-      store.setAgents(res.agents || [])
+    agentClient.listAgents({ projectId: projectID }, opts).then((res: any) => {
+      useStore.getState().setAgents(res.agents || [])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listAgents') })
 
-    ingestionClient.listTasks({ projectId: store.projectID }, opts).then((res: any) => {
-      store.setIngestionTasks(res.tasks || [])
+    ingestionClient.listTasks({ projectId: projectID }, opts).then((res: any) => {
+      useStore.getState().setIngestionTasks(res.tasks || [])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listTasks') })
 
-    libraryClient.listAssets({ projectId: store.projectID }, opts).then((res: any) => {
-      store.setAssets(res.assets || [])
+    libraryClient.listAssets({ projectId: projectID }, opts).then((res: any) => {
+      useStore.getState().setAssets(res.assets || [])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listAssets') })
 
-    skillClient.listSkills({ projectId: store.projectID }, opts).then((res: any) => {
-      store.setSkills(res.skills || [])
+    skillClient.listSkills({ projectId: projectID }, opts).then((res: any) => {
+      useStore.getState().setSkills(res.skills || [])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listSkills') })
 
-    toolClient.listTools({ projectId: store.projectID }, opts).then((res: any) => {
-      store.setTools(res.tools || [])
+    toolClient.listTools({ projectId: projectID }, opts).then((res: any) => {
+      useStore.getState().setTools(res.tools || [])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listTools') })
 
     agentClient.listModels({}, opts).then((res: any) => {
-      store.setOllamaHealthy(true)
-      store.setOllamaModels(res.models || [])
+      const current = useStore.getState()
+      current.setOllamaHealthy(true)
+      current.setOllamaModels(res.models || [])
     }).catch(() => {
-      store.setOllamaHealthy(false)
-      store.setOllamaModels([])
+      const current = useStore.getState()
+      current.setOllamaHealthy(false)
+      current.setOllamaModels([])
     })
 
     nlpClient.analyzeSentiment({ text: 'ping' }, opts).then(() => {
-      store.setNlpHealthy(true)
+      useStore.getState().setNlpHealthy(true)
     }).catch(() => {
-      store.setNlpHealthy(false)
+      useStore.getState().setNlpHealthy(false)
     })
 
-    authClient.listApiKeys({ projectId: store.projectID }, opts).then((res: any) => {
-      store.setApiKeys(res.keys || [])
+    authClient.listApiKeys({ projectId: projectID }, opts).then((res: any) => {
+      useStore.getState().setApiKeys(res.keys || [])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listApiKeys') })
 
-    notificationClient.listChannels({ projectId: store.projectID }, opts).then((res: any) => {
-      store.setNotificationChannels(res.channels || [])
+    notificationClient.listChannels({ projectId: projectID }, opts).then((res: any) => {
+      useStore.getState().setNotificationChannels(res.channels || [])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listChannels') })
 
     registryClient.listComponents({}, opts).then((res: any) => {
-      store.setRegistryComponents(res.components || [])
+      useStore.getState().setRegistryComponents(res.components || [])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listComponents') })
-  }, [store.projectID, handleError])
+  }, [projectID, handleError])
 
    const handleCommandResult = useCallback((result: ReturnType<typeof executeCommand>) => {
+    const store = useStore.getState()
     if (!result.handled) return false
 
     switch (result.action) {
@@ -143,9 +149,10 @@ export function useAppActions() {
       default:
         return false
     }
-  }, [store])
+  }, [])
 
   const onSend = useCallback(async () => {
+    const store = useStore.getState()
     if (!store.input || store.isStreaming || !store.selectedAgent) return
     const userMsg = store.input
     const parsed = parseCommand(userMsg)
@@ -170,6 +177,14 @@ export function useAppActions() {
         return
       }
     }
+
+    if (parsed) {
+      store.addToast({ message: `Comando sconosciuto: ${parsed.command}`, type: 'error', context: 'command' })
+      store.addToHistory(userMsg)
+      store.setInput('')
+      return
+    }
+
     store.addChatMessage({ role: 'user', content: userMsg, createdAt: Date.now() })
     store.setInput('')
     store.setIsStreaming(true)
@@ -180,14 +195,16 @@ export function useAppActions() {
       let fullContent = ''
       let fullToolCall = ''
       let requiresConfirmation = false
+      const msgIndex = useStore.getState().chat.length
       store.addChatMessage({ role: 'assistant', content: '', toolCall: '', createdAt: Date.now() })
       for await (const res of stream) {
         const chunk = res as unknown as StreamChunk
         fullContent += chunk.token || ''
         fullToolCall += chunk.toolCall || ''
         if (chunk.requiresConfirmation) requiresConfirmation = true
-        const currentChat = useStore.getState().chat
-        store.setChat([...currentChat.slice(0, -1), { role: 'assistant', content: fullContent, toolCall: fullToolCall, requiresConfirmation, createdAt: Date.now() }])
+        const chat = useStore.getState().chat
+        chat[msgIndex] = { role: 'assistant', content: fullContent, toolCall: fullToolCall, requiresConfirmation, createdAt: Date.now() }
+        store.setChat([...chat])
       }
       if (requiresConfirmation) {
         store.setPendingConfirmation({ projectId: store.projectID, agentId: store.selectedAgent })
@@ -199,9 +216,10 @@ export function useAppActions() {
       store.setIsStreaming(false)
       store.setStreamAbortController(null)
     }
-  }, [store, handleCommandResult])
+  }, [handleCommandResult])
 
   const onConfirmAction = useCallback(async (approved: boolean) => {
+    const store = useStore.getState()
     const currentChat = useStore.getState().chat
     const lastMsg = currentChat[currentChat.length - 1]
     store.setChat([
@@ -215,13 +233,14 @@ export function useAppActions() {
     } catch (e: any) {
       const msg = e.message || 'Errore nella conferma dell\'azione.'
       store.addChatMessage({ role: 'assistant', content: msg, toolCall: '', createdAt: Date.now() })
-      store.setErrorToast(msg, 'error')
+      store.addToast({ message: msg, type: 'error', context: 'confirmAction' })
     } finally {
       store.setPendingConfirmation(null)
     }
-  }, [store])
+  }, [])
 
   const onRunSkill = useCallback(async (skillId: string) => {
+    const store = useStore.getState()
     let inputParams = {}
     try { inputParams = JSON.parse(useStore.getState().sandboxInput) } catch {}
     try {
@@ -233,11 +252,12 @@ export function useAppActions() {
       const msg = e.message || 'Errore durante l\'esecuzione della skill'
       store.setSandboxResult({ stderr: msg, exitCode: 1 })
       store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: { stderr: msg, exitCode: 1 } })
-      store.setErrorToast(msg, 'error')
+      store.addToast({ message: msg, type: 'error', context: 'runSkill' })
     }
-  }, [store.projectID])
+  }, [projectID])
 
   const onExecuteTool = useCallback(async (toolId: string) => {
+    const store = useStore.getState()
     let inputParams = {}
     try { inputParams = JSON.parse(useStore.getState().sandboxInput) } catch {}
     try {
@@ -249,14 +269,14 @@ export function useAppActions() {
       const msg = e.message || 'Errore durante l\'esecuzione del tool'
       store.setSandboxResult({ stderr: msg, exitCode: 1 })
       store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: { stderr: msg, exitCode: 1 } })
-      store.setErrorToast(msg, 'error')
+      store.addToast({ message: msg, type: 'error', context: 'executeTool' })
     }
-  }, [store.projectID])
+  }, [projectID])
 
   const getAssetContent = useCallback(async (assetId: string): Promise<string> => {
-    const res = await libraryClient.getAssetContent({ projectId: store.projectID, assetId })
+    const res = await libraryClient.getAssetContent({ projectId: useStore.getState().projectID, assetId })
     return (res as unknown as { content: string }).content || ''
-  }, [store.projectID])
+  }, [projectID])
 
   return {
     handleError,

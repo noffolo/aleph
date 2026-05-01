@@ -25,7 +25,10 @@ describe('useAgentActions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useStore as any).mockReturnValue(mockStore);
+    (useStore as any).mockImplementation((selector?: any) => {
+      if (typeof selector === 'function') return selector(mockStore)
+      return mockStore
+    });
   });
 
   it('onCreateAgent should call agentClient and then loadProjectData', async () => {

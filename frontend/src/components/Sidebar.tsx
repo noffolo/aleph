@@ -1,13 +1,14 @@
 import React from 'react'
 import { LayoutGrid, Binary, Activity, Bot, Eye, Book, Zap, Database, Users, Cpu, Wrench, Package, Sliders, Settings } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import type { SlideOverContent } from '../store/useStore'
 
 interface SidebarProps {
   projectID: string
   onShowOnboarding: () => void
 }
 
-const ID_TO_INLINE_TYPE: Record<string, string> = {
+const ID_TO_INLINE_TYPE: Record<string, SlideOverContent['type']> = {
   'Explorer': 'explore',
   'Data Health': 'health',
   'Oracle': 'predict',
@@ -19,6 +20,20 @@ const ID_TO_INLINE_TYPE: Record<string, string> = {
   'Tools': 'tool',
   'Components': 'component',
   'Settings': 'settings',
+}
+
+const PANEL_TITLES: Record<string, string> = {
+  Explorer: 'Explorer',
+  'Data Health': 'Data Health',
+  Oracle: 'Oracle',
+  Library: 'Library',
+  Ontologies: 'Ontologies',
+  'Data Sources': 'Data Sources',
+  Agents: 'Agents',
+  Skills: 'Skills',
+  Tools: 'Tools',
+  Components: 'Components',
+  Settings: 'Settings',
 }
 
 const sidebarItems = [
@@ -38,36 +53,37 @@ const sidebarItems = [
 
 const DIVIDER_AFTER = new Set([1, 4, 7])
 
-export const Sidebar: React.FC<SidebarProps> = ({ projectID, onShowOnboarding }) => {
-  const store = useStore()
-  const inlineType = store.inlineContent?.type
-  const slideOverType = store.slideOverContent?.type
+export const Sidebar: React.FC<SidebarProps> = React.memo(({ projectID, onShowOnboarding }) => {
+  const inlineContent = useStore(s => s.inlineContent)
+  const slideOverContent = useStore(s => s.slideOverContent)
+  const currentView = useStore(s => s.currentView)
+  const inlineType = inlineContent?.type
+  const slideOverType = slideOverContent?.type
   const activeType = slideOverType || inlineType
 
   const isActive = (id: string) => {
-    if (id === 'Copilot') return !activeType && store.currentView === 'copilot'
+    if (id === 'Copilot') return !activeType && currentView === 'copilot'
     return ID_TO_INLINE_TYPE[id] === activeType
   }
 
   const handleClick = (item: { id: string; command: string }) => {
-    if (!store.projectID) {
+    if (!projectID) {
       onShowOnboarding()
       return
     }
-    if (item.command) {
-      store.setInput(item.command)
-      store.setCurrentView('copilot')
-      store.setShowInlinePanel(false)
-      setTimeout(() => {
-        const promptEl = document.querySelector('textarea[data-terminal-prompt="true"]') as HTMLTextAreaElement | null
-        if (promptEl) {
-          const form = promptEl.closest('form')
-          form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-        }
-      }, 0)
-    } else {
-      store.setCurrentView('copilot')
-      store.setShowInlinePanel(false)
+    if (item.id === 'Copilot') {
+      useStore.getState().setCurrentView('copilot')
+      useStore.getState().setShowInlinePanel(false)
+      useStore.getState().setSlideOverContent(null)
+      return
+    }
+    
+    const type = ID_TO_INLINE_TYPE[item.id]
+    if (type) {
+      useStore.getState().setCurrentView('copilot')
+      useStore.getState().setShowInlinePanel(false)
+      useStore.getState().setInlineContent(null)
+      useStore.getState().setSlideOverContent({ type, title: PANEL_TITLES[item.id] || item.id })
     }
   }
 
@@ -87,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ projectID, onShowOnboarding })
                  <button
                    onClick={() => handleClick(item)}
                    title={item.id}
+                   aria-label={item.id}
                    data-testid={`sidebar-${item.id.toLowerCase().replace(/\s+/g, '-')}`}
                    aria-current={active ? 'page' : undefined}
                   className={`relative w-9 h-9 flex items-center justify-center rounded transition-colors focus:ring-2 focus:ring-primary ${
@@ -96,6 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ projectID, onShowOnboarding })
                   }`}
                 >
                   <Icon size={18} />
+                  <span className="sr-only">{item.id}</span>
                   <span className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-success" style={{ boxShadow: '0 0 4px rgba(34,197,94,0.5)' }} />
                 </button>
             </React.Fragment>
@@ -106,11 +124,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ projectID, onShowOnboarding })
       <button
         onClick={onShowOnboarding}
         title={projectID || 'Select Project'}
-        aria-label={projectID ? 'Project settings' : 'Select Project'}
+        aria-label={projectID || 'Select Project'}
         className="w-9 h-9 flex items-center justify-center rounded text-textMuted hover:text-primary hover:bg-primary/10 transition-colors mt-2 focus:ring-2 focus:ring-primary"
       >
         <Settings size={16} />
+        <span className="sr-only">{projectID || 'Select Project'}</span>
       </button>
     </div>
   )
-}
+});

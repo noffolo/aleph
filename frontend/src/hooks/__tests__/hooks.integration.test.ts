@@ -6,7 +6,7 @@ import { agentClient, toolClient } from '@/api/factory';
 
 vi.mock('@/api/factory', () => ({
   agentClient: { createAgent: vi.fn(), deleteAgent: vi.fn(), updateAgent: vi.fn() },
-  toolClient: { createTool: vi.fn(), deleteTool: vi.fn() },
+  toolClient: { createTool: vi.fn(), updateTool: vi.fn(), deleteTool: vi.fn() },
 }));
 
 vi.mock('@/hooks/useAppActions', () => ({ handleError: vi.fn() }));
