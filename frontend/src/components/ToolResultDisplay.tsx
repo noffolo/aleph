@@ -9,7 +9,7 @@ export const ToolResultDisplay: React.FC<ToolResultDisplayProps> = ({ result }) 
   if (!result) return <div className="text-textMuted italic text-xs font-mono p-4">Nessun risultato prodotto</div>;
 
   let parsed: any = result;
-  let isJson = false;
+  let isJson: boolean;
 
   if (typeof result === 'string') {
     try {

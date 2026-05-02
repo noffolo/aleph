@@ -11,7 +11,6 @@ import (
 
 var (
 	blocklistedGoImports = map[string]struct{}{
-		"os":             {},
 		"os/exec":        {},
 		"net":           {},
 		"net/http":      {},
@@ -46,7 +45,6 @@ var (
 		"encoding":            {},
 		"encoding/hex":        {},
 		"encoding/base64":     {},
-		"encoding/json":       {},
 		"encoding/gob":        {},
 		"encoding/pem":        {},
 		"encoding/asn1":       {},

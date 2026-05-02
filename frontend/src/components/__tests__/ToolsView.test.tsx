@@ -240,6 +240,8 @@ describe('ToolsView', () => {
     )
     const detailsBtn = screen.getByLabelText('View tool details')
     fireEvent.click(detailsBtn)
+    const editBtn = screen.getByText('Edit')
+    fireEvent.click(editBtn)
     expect(mockOnEdit).toHaveBeenCalledWith(tools[0])
   })
 

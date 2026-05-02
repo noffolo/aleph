@@ -31,7 +31,7 @@ describe('authSlice', () => {
     const get = () => ({} as any);
     const slice = createAuthSlice(set, get, {} as any);
     
-    slice.setProjectContext('proj-123', 'key-abc');
+    slice.setProjectContext('proj-123');
     
     expect(set({ projectID: 'proj-123', apiKey: 'key-abc' })).toMatchObject({
       projectID: 'proj-123',

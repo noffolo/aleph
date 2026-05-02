@@ -6,7 +6,7 @@ export function reportError(context: string, error: unknown) {
     }
     useStore.getState().addToast({ 
         type: 'error', 
-        title: context, 
+        context: context, 
         message: error instanceof Error ? error.message : String(error) 
     })
 }

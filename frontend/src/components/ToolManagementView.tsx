@@ -14,11 +14,11 @@ interface ToolManagementViewProps {
 }
 
 export const ToolManagementView: React.FC<ToolManagementViewProps> = ({ inline, isLoading, error }) => {
-  if (isLoading) return <SkeletonLoader />;
-  if (error) return <div className="max-w-6xl mx-auto"><InlineError message={error} /></div>;
-
   const tools = useStore(s => s.tools)
   const [searchQuery, setSearchQuery] = useQueryState('q', { defaultValue: '' });
+
+  if (isLoading) return <SkeletonLoader />;
+  if (error) return <div className="max-w-6xl mx-auto"><InlineError message={error} /></div>;
   
   const filteredTools = tools.filter(t => 
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 

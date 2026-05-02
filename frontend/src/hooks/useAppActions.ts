@@ -204,7 +204,7 @@ export function useAppActions() {
          fullToolCall += chunk.toolCall || ''
          if (chunk.requiresConfirmation) requiresConfirmation = true
          
-         store.setState(produce((state: any) => {
+         useStore.setState(produce((state: any) => {
            const chat = state.chat
            if (chat[msgIndex] && chat[msgIndex].role === 'assistant') {
              chat[msgIndex] = { ...chat[msgIndex], content: fullContent, toolCall: fullToolCall, requiresConfirmation }

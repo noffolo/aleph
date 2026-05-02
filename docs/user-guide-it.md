@@ -2,419 +2,197 @@
 
 > **Versione:** 2.0.0 · **Ultimo aggiornamento:** Aprile 2026 · **Lingua:** Italiano
 
-Benvenuto in Aleph-v2, la piattaforma di intelligenza predittiva multi-agente. Questa guida ti aiuta a usare l'applicazione partendo dai concetti base fino ai workflow avanzati.
+---
+
+## Cos'è Aleph-v2?
+
+Immagina un magazzino in cui ogni scatola di dati ha un'etichetta, una mappa e un bibliotecario che parla la tua lingua. Tu entri e dici: "Mostrami le vendite di marzo". Il bibliotecario trova lo scaffale giusto, apre le scatole e ti consegna una risposta chiara. Questo è Aleph-v2.
+
+In termini più concreti, è un sistema che organizza, analizza e interroga i tuoi dati usando AI. È come avere un data analyst personale 24 su 7. Carichi un foglio di calcolo, poni domande in italiano o in inglese e ottieni risposte estratte direttamente dai tuoi dati reali. Non serve scrivere codice né imparare a memoria comandi SQL.
 
 ---
 
-## Indice
+## A chi è destinata questa guida
 
-1. [Primi passi](#1-primi-passi)
-2. [Concetti chiave](#2-concetti-chiave)
-3. [Interfaccia terminale](#3-interfaccia-terminale)
-4. [Workflow principali](#4-workflow-principali)
-5. [Gestione progetti](#5-gestione-progetti)
-6. [Agenti e competenze](#6-agenti-e-competenze)
-7. [Tool e sandbox](#7-tool-e-sandbox)
-8. [Chat e analisi dati](#8-chat-e-analisi-dati)
-9. [Ingestione dati](#9-ingestione-dati)
-10. [Notifiche e webhook](#10-notifiche-e-webhook)
-11. [Sicurezza e privacy](#11-sicurezza-e-privacy)
-12. [Troubleshooting](#12-troubleshooting)
+Questa guida è pensata per analisti, data scientist, product manager e founder. Non devi sapere programmare. Ti basta essere curioso dei tuoi dati e avere voglia di fare domande.
 
 ---
 
-## 1. Primi passi
+## Per iniziare in tre passaggi
 
-### Accesso
+### 1. Crea un progetto
 
-Apri il browser all'indirizzo del tuo server Aleph (per esempio `http://localhost:5173` in locale). Ti trovi davanti a un terminale interattivo, l'interfaccia principale dell'applicazione.
+Un progetto è il tuo spazio di lavoro privato. Tutti i tuoi file, le conversazioni e i risultati stanno lì dentro. Nulla traspira da un progetto all'altro.
 
-### Primo login
+Per crearne uno:
 
-All'avvio devi inserire una API key. Se non ne hai una, chiedi all'amministratore di sistema di crearla tramite `AuthService > CreateApiKey`. La chiave ti viene mostrata una sola volta: copiala e conservala in un password manager.
+1. Apri Aleph nel browser (per esempio, `http://localhost:5173` se lo stai eseguendo in locale).
+2. Guarda in alto sullo schermo il nome del progetto.
+3. Cliccalo e scegli **Nuovo progetto**.
+4. Dài un nome, come "Revisione vendite Q2" o "Feedback clienti 2026".
 
-### Navigazione rapida
+Il sistema costruisce automaticamente la struttura delle cartelle. Puoi sempre passare da un progetto all'altro senza disconnetterti.
 
-| Scorciatoia | Azione |
-|-------------|--------|
-| `Cmd+K` (Mac) / `Ctrl+K` (Win) | Apri la palette comandi |
-| `↑` / `↓` | Scorri la cronologia dei comandi |
-| `Tab` | Autocompletamento comandi |
-| `Esc` | Chiudi pannelli e modali |
+### 2. Ottieni la tua API key
 
----
+La prima volta che usi Aleph, ti chiede una API key. È come un badge di sicurezza che dice al sistema chi sei.
 
-## 2. Concetti chiave
+- Se qualcuno del tuo team ha installato Aleph, chiedigli di crearti una chiave dal pannello di amministrazione.
+- Se sei tu l'amministratore, generane una dall'area impostazioni.
+- Copiala subito. Viene mostrata una sola volta. Conservala in un password manager.
 
-### Progetto
+Incolla la chiave nel prompt all'avvio. Ora sei dentro.
 
-Un progetto è un contenitore di dati, agenti, tool e competenze. Ogni progetto ha la sua directory separata (`raw/`, `ontologies/`, `agents/`, `skills/`). Puoi passare da un progetto all'altro senza uscire dall'interfaccia.
+### 3. Connetti il tuo primo file
 
-### Agente
+Aleph legge CSV, Excel, JSON e può persino connettersi a Google Sheet o a API. Per la prima prova, un semplice CSV è l'ideale.
 
-Un agente è un'istanza di IA configurata con un provider LLM (per esempio Ollama), un modello (per esempio llama3) e un system prompt che definisce il suo comportamento. Ogni agente può avere una o piú competenze (skill).
-
-### Competenza (Skill)
-
-Una competenza raggruppa uno o piú tool per scopi specifici. Per esempio, la competenza "Analisi Finanziaria" puó includere tool per il sentiment analysis, il fetching di dati di mercato e la generazione di report.
-
-### Tool
-
-Un tool è un pezzo di codice eseguibile che svolge un compito preciso: importare un CSV, analizzare il sentiment di un testo, eseguire una query su DuckDB. I tool girano dentro una sandbox isolata.
-
-### Ontologia
-
-L'ontologia descrive la struttura dei dati del progetto (tabelle, colonne, relazioni). Puoi leggerla, modificarla o generarla automaticamente dal database DuckDB.
-
-### Ciclo PAORA
-
-Ogni interazione con l'agente segue il ciclo decisionale Plan > Act > Observe > Reflect > Admit. Questo garantisce che l'agente pianifichi, esegua, verifichi e ammetta i risultati in modo autonomo.
+1. Nel terminale, digita `/` e cerca l'opzione per caricare un file o aggiungere una fonte dati.
+2. Scegli **CSV** e seleziona il tuo file (per esempio, un report delle vendite esportato dal tuo CRM).
+3. Il sistema legge le colonne, indovina i tipi di dato e costruisce una tabella.
+4. In pochi secondi la tabella è pronta per le domande.
 
 ---
 
-## 3. Interfaccia terminale
+## Cosa puoi fare
 
-### Layout
+### Chatta con i tuoi dati
 
-L'interfaccia é divisa in tre zone:
+Una volta connesso un file, puoi fare domande in linguaggio naturale. Aleph traduce la tua domanda in una query per il database, la esegue e ti restituisce il risultato.
 
-- **Header in alto**: nome del progetto attivo, nome dell'agente selezionato, stato connessione
-- **Area chat centrale**: messaggi dell'utente e risposte dell'agente, con rendering inline di tabelle, grafici e tool
-- **Pannello laterale (SlideOver)**: si apre a destra per form complessi (creazione agente, upload file, impostazioni)
+Esempi di domande che funzionano bene:
 
-### Comandi slash
+- "Qual è stato il prodotto più venduto a marzo?"
+- "Mostrami le entrate per regione, dalla più alta alla più bassa."
+- "Quali clienti hanno acquistato più di una volta nell'ultimo trimestre?"
+- "Confronta le vendite di questo mese con quelle dello stesso mese dell'anno scorso."
 
-Digita `/` per vedere l'elenco dei 16 comandi built-in:
+Dietro le quinte, Aleph costruisce la query esatta necessaria. Tu vedi il risultato in una tabella, un grafico o in formato testo. Se la risposta sembra sbagliata, puoi dirlo e l'agente riproverà.
 
-| Comando | Cosa fa |
-|---------|---------|
-| `/help` | Mostra tutti i comandi disponibili |
-| `/clear` | Pulisce la sessione di chat |
-| `/model` | Cambia modello LLM |
-| `/agent` | Elenca o cambia agente attivo |
-| `/tool` | Gestione tool (installa, elenca, controlla salute) |
-| `/skills` | Mostra le competenze dell'agente corrente |
-| `/status` | Stato della connessione e dei servizi |
-| `/export` | Esporta la conversazione in Markdown |
-| `/diagnose` | Esegue una diagnostica rapida |
-| `/theme` | Cambia tema chiaro o scuro |
-| `/debug` | Attiva/disattiva modalitá debug |
+### Agenti AI personalizzabili
 
-### Effetti visivi
+Un agente è la personalità con cui chatti. Pensalo come un collega con una specialità. Un agente potrebbe essere bravo in analisi finanziaria. Un altro potrebbe concentrarsi sui ticket di assistenza clienti.
 
-Puoi attivare effetti scanline, flicker e glow dal menu impostazioni (`/theme`). Questi sono puramente estetici e non influenzano le funzionalitá.
+Puoi:
 
----
+- Passare da un agente all'altro usando `/agent` o la palette dei comandi.
+- Creare nuovi agenti con istruzioni specifiche (per esempio, "Arrotonda sempre la valuta a due decimali" oppure "Ignora le righe in cui lo stato è 'bozza'").
+- Assegnare competenze agli agenti. Una competenza è un pacchetto di abilità, come "recupera dati di mercato" o "esegui analisi del sentiment su un testo".
 
-## 4. Workflow principali
+Ogni agente ricorda il contesto della conversazione. Se chiedi le vendite di marzo e poi dici "E ad aprile?", capisce che stai parlando dello stesso dataset.
 
-### 4.1 Analisi dati con chat
+### Sandbox sicura per eseguire codice
 
-1. Seleziona un progetto dall'header
-2. Digita una domanda nel terminale: `SHOW ME sales BY month`
-3. L'agente pianifica l'azione (Plan), esegue la query DuckDB (Act), mostra i risultati (Observe)
-4. Se il risultato é buono, l'agente lo conferma (Admit). Altrimenti, riprova (Reflect)
-5. Puoi continuare la conversazione con domande di approfondimento
+A volte un agente ha bisogno di eseguire codice per rispondere alla tua domanda. Forse calcola una media mobile, pulisce un testo disordinato o unisce due tabelle. Questo accade dentro una stanza blindata chiamata sandbox.
 
-### 4.2 Importazione dati
+La sandbox è progettata come un laboratorio con pareti di vetro spesso. Il codice può fare esperimenti, ma non può:
 
-1. Apri il pannello laterale con `Cmd+K` > "New Data Source"
-2. Scegli la sorgente: CSV, JSON, API URL, Google Sheets, RSS, GitHub
-3. Configura i parametri (per esempio, URL del file o query SQL)
-4. Avvia il task di ingestione
-5. Controlla il progresso con `/status` o nel pannello Ingestion
+- Cancellare i tuoi file.
+- Accedere a Internet.
+- Leggere dati di altri progetti.
+- Eseguire comandi pericolosi.
 
-### 4.3 Creazione di un agente personalizzato
+Se un tool tenta qualcosa di sospetto, la sandbox lo blocca. Tu rimani al sicuro e i tuoi dati restano al loro posto.
 
-1. Digita `/agent` > "Create new agent"
-2. Compila il form nel pannello laterale:
-   - Nome (per esempio, "Market Analyst")
-   - Provider LLM (Ollama, OpenAI)
-   - Modello (llama3, gpt-4)
-   - System prompt (istruzioni di comportamento)
-   - Competenze da assegnare
-3. Salva e attiva l'agente
+### Decision engine automatico (PAORA)
 
-### 4.4 Registrazione di un nuovo tool
+Ogni volta che fai una domanda, l'agente segue un processo di ragionamento in cinque fasi:
 
-1. Digita `/tool` > "Register tool"
-2. Inserisci nome, descrizione e codice Go del tool
-3. Il sistema esegue uno scan di sicurezza (SecurityScanner) prima della registrazione
-4. Il tool diventa disponibile per tutti i progetti
+1. **Pianifica.** Capisce cosa deve sapere e come ottenerlo.
+2. **Agisce.** Esegue la query o chiama il tool giusto.
+3. **Osserva.** Guarda cosa è tornato indietro.
+4. **Riflette.** Verifica se la risposta ha senso. Se no, si regola e riprova.
+5. **Ammette.** Ti presenta il risultato finale, insieme a una breve spiegazione di come ci è arrivato.
+
+Questo ciclo avviene automaticamente. Non devi gestirlo tu. Il vantaggio è che l'agente si accorge dei propri errori prima di mostrarti qualcosa. Se i dati sembrano strani, si ferma e chiede chiarimenti invece di servirti nonsensi.
 
 ---
 
-## 5. Gestione progetti
+## Esempi concreti
 
-### Creare un progetto
+**La responsabile vendite**
 
-```
-Cmd+K > New Project
-```
+Ogni lunedì Elena scarica i dati delle vendite della settimana in un CSV e li carica su Aleph. Chiede: "Quali linee di prodotto sono cresciute di più del dieci per cento?" L'agente evidenzia i vincitori. Elena poi chiede: "Mostrami lo stesso dato per il mese scorso", e confronta le tendenze senza toccare una singola formula di Excel.
 
-Inserisci nome e descrizione. Il sistema crea automaticamente la struttura di directory:
-```
-data/projects/<nome-progetto>/
-├── raw/           # File sorgenti
-├── ontologies/    # Definizioni ontologiche
-├── agents/        # Configurazioni agenti
-└── skills/        # Configurazioni competenze
-```
+**Il product manager**
 
-### Cambiare progetto
+Marcus importa un dump di ticket di feedback degli utenti. Chiede: "Quali sono le tre lamentele principali di questo mese?" L'agente conta le parole chiave e le classifica. Marcus segue con: "Quali lamentele sono legate al flusso di checkout?" e ottiene una lista filtrata in pochi secondi.
 
-Clicca sul nome del progetto nell'header e seleziona un altro dall'elenco, oppure usa:
-```
-/project <nome-progetto>
-```
+**La founder**
 
-### Ontologia
+Priya connette l'esportazione di Stripe della sua startup e un Google Sheet con le spese marketing. Chiede: "Qual è stato il nostro costo per acquisizione per canale nel primo trimestre?" L'agente unisce i due dataset e restituisce una ripartizione pulita. Lei esporta la tabella e la incolla nella sua presentazione per gli investitori.
 
-Per vedere la struttura dati corrente:
-```
-/ontology show
-```
+**L'analista**
 
-Per generarla automaticamente dal database:
-```
-/ontology emerge
-```
-
-Per modificarla manualmente:
-```
-/ontology edit
-```
+Jamal riceve un file Excel disordinato da un cliente, con celle unite e date incoerenti. Lo carica e dice: "Puliscilo e mostrami il valore medio della transazione per città." L'agente aggiusta la formattazione, esegue il calcolo e restituisce un risultato ordinato.
 
 ---
 
-## 6. Agenti e competenze
+## Comandi rapidi
 
-### Switchare agente
+Una volta entrato, queste scorciatoie ti aiutano a muoverti più velocemente:
 
-```
-/agent <nome-agente>
-```
-
-Oppure usa la palette `Cmd+K` > "Switch Agent".
-
-### Competenze predefinite
-
-| Competenza | Tool inclusi | Uso tipico |
-|------------|--------------|------------|
-| Query Dati | `execute_query`, `get_data_stats` | Esplorazione database |
-| Analisi Sentiment | `analyze_sentiment` | Opinion mining su testi |
-| Previsione | `stream_predictions` | Forecasting time series |
-| Ingestione | `csv_ingester`, `json_ingester` | Importazione dati |
-| CodeFlow | `code_metrics`, `dependency_graph` | Analisi codice |
-
-### Assegnare competenze
-
-Nel form di modifica agente (SlideOver > AgentForm), spunta le competenze che vuoi attivare. L'agente le userá automaticamente quando rileva un task compatibile.
+| Scorciatoia | Cosa fa |
+|-------------|---------|
+| `Cmd+K` (Mac) oppure `Ctrl+K` (Windows) | Apri la palette dei comandi |
+| `↑` e `↓` | Scorri i comandi recenti |
+| `Tab` | Autocompleta ciò che stai scrivendo |
+| `Esc` | Chiudi qualsiasi pannello aperto |
+| `/` | Vedi l'elenco dei comandi slash integrati |
 
 ---
 
-## 7. Tool e sandbox
+## Risoluzione dei problemi
 
-### Eseguire un tool
+### L'agente non risponde o dice "Non posso accedere ai dati"
 
-Puoi chiamare un tool direttamente dalla chat:
-```
-Run csv_ingester on data/raw/sales.csv
-```
+Questo di solito significa che i dati non sono stati caricati correttamente, oppure l'agente ha perso il filo di quale tabella usare.
 
-Oppure via endpoint REST:
-```bash
-curl -X POST http://localhost:8080/api/v1/tools/call \
-  -H "X-Aleph-Api-Key: <key>" \
-  -H "Content-Type: application/json" \
-  -d '{"tool_id": "tool_csv_001", "parameters": {"file_path": "sales.csv"}}'
-```
+- Verifica che il caricamento del file sia completato. Cerca un messaggio di conferma.
+- Prova a essere specifico nella domanda: "Dalla tabella vendite, mostrami le entrate totali."
+- Se il file è grande, attendi qualche secondo in più dopo il caricamento prima di fare domande.
 
-### Sicurezza sandbox
+### La query non restituisce risultati
 
-I tool girano in un ambiente isolato con queste restrizioni:
+Un risultato vuoto non è sempre un errore. Potrebbe semplicemente voler dire che nulla corrisponde.
 
-- Timeout di esecuzione configurabile
-- Lista di comandi permessi (14 comandi)
-- Flag bloccati (`-rf`, `--force`, `--no-dry-run`, `-exec`, `--allow-root`)
-- Regex per bloccare metacaratteri shell
-- Nessun accesso di rete (`network_mode: none`)
-- Filesystem in sola lettura (`read_only: true`)
+- Controlla la tua domanda per eventuali errori di battitura, specialmente nei nomi o nelle date.
+- Prova prima una versione più ampia. Invece di "Mostrami le vendite per il 15 marzo 2026", chiedi "Mostrami le vendite di marzo."
+- Assicurati che la colonna su cui stai filtrando esista davvero nel file caricato.
 
-### Health check dei tool
+### Grafici o tabelle sembrano strani
 
-Controlla lo stato di tutti i tool:
-```
-/tool health
-```
+A volte i numeri appaiono come testo, o le date si presentano come timestamp grezzi.
 
-Storico di un tool specifico:
-```
-/tool health <tool-id>
-```
+- Chiedi esplicitamente all'agente di correggere il formato: "Converti la colonna data in date leggibili."
+- Verifica se il tuo file sorgente aveva formati misti (per esempio, alcune righe con date nel formato americano e altre in quello europeo).
+- Se necessario, ricarica il file dopo averlo pulito in Excel o Google Sheet.
+
+### La mia API key non funziona
+
+- Verifica di aver copiato la chiave per intera, senza spazi extra.
+- Conferma che la chiave non sia stata revocata da un amministratore.
+- Se stai gestendo tu l'installazione di Aleph, controlla che il server sia in esecuzione visitando l'URL base nel browser.
 
 ---
 
-## 8. Chat e analisi dati
+## Glossario
 
-### Chat streaming
-
-La chat usa SSE (Server-Sent Events) per lo streaming in tempo reale. Vedi la risposta dell'agente apparire parola per parola, senza attesa.
-
-### Tool call inline
-
-Quando l'agente decide di usare un tool, vedi un riquadro inline nella chat con:
-- Nome del tool
-- Parametri passati
-- Output restituito
-- Tempo di esecuzione
-
-### Conferma azioni
-
-Per azioni distruttive (delete, update massivo), l'agente chiede conferma:
-```
-⚠️ Azione richiesta: delete table 'sales_2025'
-Conferma? (yes/no)
-```
-
-### Esportare conversazioni
-
-```
-/export
-```
-
-La conversazione viene scaricata come file Markdown con timestamp.
-
----
-
-## 9. Ingestione dati
-
-### Fonti supportate
-
-| Fonte | Configurazione | Esempio |
-|-------|----------------|---------|
-| CSV | Path file locale | `./data/raw/sales.csv` |
-| JSON | URL o path | `https://api.example.com/data.json` |
-| API | Endpoint + headers | `GET /api/v1/users` |
-| Google Sheets | ID spreadsheet + range | `1BxiMV.../Sheet1!A1:D10` |
-| RSS | URL feed | `https://news.ycombinator.com/rss` |
-| GitHub | Repo + path | `owner/repo/data/` |
-| Email | IMAP config | `imap.gmail.com:993` |
-
-### Monitorare l'ingestione
-
-Durante un task di ingestione attivo:
-```
-/status
-```
-
-Mostra:
-- Percentuale di completamento
-- Righe elaborate / totali
-- Errori eventuali
-- Log in tempo reale
-
----
-
-## 10. Notifiche e webhook
-
-### Configurare un webhook
-
-1. Apri il pannello Notifiche (SlideOver)
-2. Aggiungi un canale di tipo webhook
-3. Inserisci URL e secret (opzionale)
-4. Scegli gli eventi da notificare (ingestione complete, tool failure, health alert)
-
-### Invio manuale
-
-Puoi inviare un webhook di test:
-```
-/notify send https://hooks.example.com/aleph {"event": "test"}
-```
-
----
-
-## 11. Sicurezza e privacy
-
-### Chiavi API
-
-- Le API key sono hashate con SHA-256 prima del salvataggio
-- Cifrate a riposo con AES-256-GCM
-- Mostrate in plaintext solo al momento della creazione
-- Revocabili in qualsiasi momento
-
-### Dati sensibili
-
-- Nessun log contiene API key o password
-- I parametri dei tool sono validati con regex
-- SQL injection é impossibile grazie a query parametrizzate
-- Il codice dei tool é scansionato prima dell'esecuzione
-
-### Audit
-
-Ogni operazione di scrittura (create, update, delete) é registrata con:
-- Timestamp
-- ID progetto
-- Azione eseguita
-- Dettagli JSON dell'operazione
-
-Puoi consultare l'audit log tramite l'API REST o il pannello amministrazione.
-
----
-
-## 12. Troubleshooting
-
-### L'agente non risponde
-
-1. Controlla `/status` — il servizio LLM (Ollama) é attivo?
-2. Verifica che l'agente abbia un provider e modello validi
-3. Se Ollama é down, l'agente passa in modalitá degradata (heuristic planning)
-
-### Errore "tool not found"
-
-1. Verifica che il tool sia registrato: `/tool list`
-2. Controlla che la competenza dell'agente includa quel tool
-3. Se é un tool MCP, verifica la connettivitá: `/mcp status`
-
-### Query troppo lenta
-
-1. Controlla le statistiche della tabella: `GET /api/v1/query/data-stats`
-2. Verifica se ci sono indici mancanti su colonne filtrate
-3. Per tabelle molto grandi, usa `LIMIT` nelle query
-
-### Problemi di autenticazione
-
-1. Verifica che l'header `X-Aleph-Api-Key` sia presente
-2. Controlla che la chiave non sia scaduta o revocata
-3. Per problemi di CORS, verifica che l'origine sia in `CORS_ALLOWED_ORIGINS`
-
-### Docker Healthcheck fallito
-
-| Servizio | Comando diagnostico |
-|----------|---------------------|
-| Backend | `docker compose exec aleph-backend wget -qO- http://localhost:8080/readyz` |
-| NLP | `docker compose exec aleph-nlp-sidecar python -c "import grpc; print('ok')"` |
-| DB | `docker compose exec aleph-db pg_isready -U postgres` |
-
----
-
-## Glossario rapido
-
-| Termine | Significato |
-|---------|-------------|
-| **Agente** | Istanza IA con modello LLM, prompt e competenze |
-| **Competenza (Skill)** | Raggruppamento di tool per uno scopo |
-| **Tool** | Codice eseguibile in sandbox |
-| **Progetto** | Contenitore isolato di dati e configurazioni |
-| **Ontologia** | Schema dei dati del progetto |
-| **PAORA** | Ciclo Plan > Act > Observe > Reflect > Admit |
-| **SSE** | Server-Sent Events, streaming HTTP |
-| **MCP** | Model Context Protocol, per tool esterni |
+| Termine | Significato in parole povere |
+|---------|------------------------------|
+| **Progetto** | Uno spazio di lavoro privato che contiene i tuoi file, tabelle e conversazioni |
+| **Agente** | Una personalità AI con cui chatti, configurata per un compito specifico |
+| **Competenza** | Un pacchetto di abilità che un agente può usare, come "analizzare testo" o "eseguire query" |
+| **Sandbox** | Una stanza blindata in cui il codice gira in sicurezza, senza poter toccare i tuoi dati reali |
+| **PAORA** | Il ciclo di ragionamento in cinque passi che l'agente usa: Pianifica, Agisci, Osserva, Rifletti, Ammetti |
+| **Query** | Una richiesta inviata al database per recuperare o calcolare qualcosa |
+| **Ingestione** | Il processo di importare un file e trasformarlo in una tabella strutturata |
+| **Ontologia** | Una mappa dei tuoi dati, che mostra quali colonne esistono e come si relazionano |
 
 ---
 
 ## Altre guide
 
-- [`docs/user-guide-en.md`](./user-guide-en.md) — English user guide
-- [`docs/api-reference.md`](./api-reference.md) — API reference completa
-- [`docs/deployment-guide.md`](./deployment-guide.md) — Guida al deployment
+- [`docs/user-guide-en.md`](./user-guide-en.md) — Guida utente in inglese
+- [`docs/api-reference.md`](./api-reference.md) — Riferimento API completo per chi integra il sistema
+- [`docs/deployment-guide.md`](./deployment-guide.md) — Come installare e gestire Aleph sui tuoi server

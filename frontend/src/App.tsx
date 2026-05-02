@@ -79,7 +79,7 @@ function App() {
   useEffect(() => {
     if (!projectID || !selectedAgent) return
     const controller = new AbortController()
-    queryClient.getChatHistory({ signal: controller.signal, projectId: projectID, agentId: selectedAgent }).then((res: { messages?: any[] }) => {
+    queryClient.getChatHistory({ projectId: projectID, agentId: selectedAgent }, { signal: controller.signal }).then((res: { messages?: any[] }) => {
       const messages = res.messages
       if (messages && messages.length > 0) {
         useStore.getState().setChat(messages.map((m: { role: string; content: string; toolCall?: string; createdAt?: number }) => ({
