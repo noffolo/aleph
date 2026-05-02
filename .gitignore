@@ -37,6 +37,12 @@ secrets/*.key
 # gosecrets: encrypted credentials (.enc) are tracked; keys (.key) are not
 !secrets/*.enc
 
+# Agent development files
+.sisyphus/
+.serena/
+.opencode/plans/
+.agents/results/
+
 # OS files
 .DS_Store
 

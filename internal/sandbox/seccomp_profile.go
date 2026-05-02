@@ -14,6 +14,11 @@ import (
 var allowedSyscalls = []string{
 	// I/O primitives
 	"read", "write", "close",
+	// Network (required for sandbox agents to access external APIs)
+	"socket", "connect", "sendto", "recvfrom", "sendmsg", "recvmsg",
+	"getsockname", "getpeername", "setsockopt", "getsockopt",
+	"bind", "listen", "accept", "accept4",
+	"shutdown", "socketpair",
 	// Process termination
 	"exit", "exit_group",
 	// Memory management

@@ -16,7 +16,6 @@ func ExecuteIsolated(ctx context.Context, tmpDir string, cmd *exec.Cmd) error {
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWPID |
 			syscall.CLONE_NEWNS |
-			syscall.CLONE_NEWNET |
 			syscall.CLONE_NEWIPC |
 			syscall.CLONE_NEWUSER,
 		UidMappings: []syscall.SysProcIDMap{
