@@ -88,7 +88,7 @@ A volte un agente ha bisogno di eseguire codice per rispondere alla tua domanda.
 La sandbox è progettata come un laboratorio con pareti di vetro spesso. Il codice può fare esperimenti, ma non può:
 
 - Cancellare i tuoi file.
-- Accedere a Internet.
+- Accedere a Internet (se necessario per le tue interrogazioni).
 - Leggere dati di altri progetti.
 - Eseguire comandi pericolosi.
 

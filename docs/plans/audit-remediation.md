@@ -162,7 +162,7 @@ Inject ← sandbox dependency: Injection fixes complete before sandbox tests run
 - [ ] Replace `ExecSandbox` default implementation with namespace-isolated execution:
   - PID namespace (`CLONE_NEWPID`) — process sees only itself
   - Mount namespace (`CLONE_NEWNS`) — no access to host filesystem
-  - Network namespace (`CLONE_NEWNET`) — no outbound connections
+  - Network namespace (`CLONE_NEWNET`) — ~~no outbound connections~~ *(removed: agents now have internet access)*
   - User namespace (`CLONE_NEWUSER`) — root inside = nobody outside
   - UTS namespace (`CLONE_NEWUTS`) — isolated hostname
   - IPC namespace (`CLONE_NEWIPC`) — no shared memory

@@ -88,7 +88,7 @@ Sometimes an agent needs to run code to answer your question. Maybe it calculate
 The sandbox is designed like a laboratory with thick glass walls. The code can run experiments, but it cannot:
 
 - Delete your files.
-- Access the internet.
+- Access external APIs and websites (if needed for your queries).
 - Read data from other projects.
 - Execute dangerous commands.
 

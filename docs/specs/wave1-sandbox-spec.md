@@ -47,7 +47,7 @@ cmd.SysProcAttr = &syscall.SysProcAttr{
     Cloneflags: syscall.CLONE_NEWUTS |   // Hostname isolation
                  syscall.CLONE_NEWPID |   // PID namespace (process = PID 1)
                  syscall.CLONE_NEWNS  |   // Mount namespace (no host filesystem access)
-                 syscall.CLONE_NEWNET |   // Network namespace (no NICs, no connectivity)
+                 syscall.CLONE_NEWNET |   // Network namespace (disabled by default — agents may need internet access)
                  syscall.CLONE_NEWIPC |   // IPC isolation
                  syscall.CLONE_NEWUSER,   // User namespace (root inside = nobody outside)
     
@@ -68,7 +68,7 @@ cmd.SysProcAttr = &syscall.SysProcAttr{
 |-----------|------|--------|-------------|
 | **PID** | `CLONE_NEWPID` | Process sees only itself as PID 1 | Low (combined with mount namespace) |
 | **Mount** | `CLONE_NEWNS` | No access to host `/proc`, `/sys`, `/dev` | Medium (requires pivot_root + mount proc) |
-| **Network** | `CLONE_NEWNET` | Only loopback (`lo`) — no external connectivity | Low (no NICs created) |
+| **Network** | ~~`CLONE_NEWNET`~~ (disabled) | Full internet access — agents can call external APIs |
 | **User** | `CLONE_NEWUSER` | Root in container → unprivileged UID on host | Low (combined with seccomp) |
 | **UTS** | `CLONE_NEWUTS` | Isolated hostname | None |
 | **IPC** | `CLONE_NEWIPC` | No shared memory/Semaphores with host | None |
