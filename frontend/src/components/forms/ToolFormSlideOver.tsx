@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useStore } from '../../store/useStore'
 import { useAppActions } from '../../hooks/useAppActions'
 import { useToolActions } from '../../hooks/domain/useToolActions'
@@ -22,27 +22,45 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
   const [code, setCode] = useState(tool?.code || '')
   const [errors, setErrors] = useState<FormErrors>({})
 
-  const handleSubmit = () => {
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     setErrors({})
+    setIsSaving(true)
 
     const parsed = ToolSchema.safeParse({ id: tool?.id || '', name, description, code })
     if (!parsed.success) {
       setErrors(parsed.error.flatten().fieldErrors as unknown as FormErrors)
+      setIsSaving(false)
       return
     }
 
+    try {
       if (isEdit && tool?.id) {
-        onUpdateTool({ ...tool, name, description, code })
-        useStore.getState().setSlideOverContent(null)
+        await onUpdateTool({ ...tool, name, description, code })
       } else {
-        onCreateTool(name, description, code)
-        useStore.getState().setSlideOverContent(null)
+        await onCreateTool(name, description, code)
       }
+      useStore.getState().setSlideOverContent(null)
+    } catch (e) {
+      setErrors({ submit: 'Errore durante il salvataggio. Riprova.' })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
+  const errorId = (field: string) => `so-tool-${field}-error`
+
   return (
-    <div className="p-6 space-y-4">
+    <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
       <h3 className="text-xl font-bold">{title || (isEdit ? t('tools.edit') : t('tools.create'))}</h3>
+
+      {errors.submit && (
+        <p role="alert" className="text-danger text-sm bg-danger/10 border border-danger/30 rounded-lg px-3 py-2">
+          {errors.submit}
+        </p>
+      )}
 
       <div className="space-y-3">
         <div>
@@ -51,9 +69,16 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
             id="so-tool-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
+            required
+            minLength={2}
+            className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 ${
+              errors.name ? 'border-danger bg-danger/5' : 'border-border'
+            }`}
             placeholder={t('tools.form.name')}
+            aria-describedby={errors.name ? errorId('name') : undefined}
+            aria-invalid={errors.name ? true : undefined}
           />
+          {errors.name && <p id={errorId('name')} role="alert" className="text-danger text-[10px] mt-1">{errors.name}</p>}
         </div>
 
         <div>
@@ -83,18 +108,21 @@ export function ToolFormSlideOver({ tool, title }: ToolFormSlideOverProps) {
 
       <div className="flex gap-3 pt-2">
          <button
+           type="button"
            onClick={() => useStore.getState().setSlideOverContent(null)}
            className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
          >
           {t('confirmDialog.cancel')}
         </button>
         <button
-          onClick={handleSubmit}
-          className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors"
+          type="submit"
+          disabled={isSaving}
+          className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
         >
-          {isEdit ? t('tools.edit') : t('tools.create')}
+          {isSaving && <div className="w-3 h-3 border-2 border-background border-t-transparent rounded-full animate-spin" />}
+          <span>{isSaving ? t('generic.saving') : (isEdit ? t('tools.edit') : t('tools.create'))}</span>
         </button>
       </div>
-    </div>
+    </form>
   )
 }

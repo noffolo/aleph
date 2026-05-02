@@ -25,7 +25,7 @@ export const DataPanel: React.FC<DataPanelProps> = ({ data, isOpen, onClose, tit
     <div className={`flex flex-col w-80 lg:w-96 h-full border-l border-border bg-surface shrink-0 transition-transform duration-200 ${visible ? 'translate-x-0' : 'translate-x-full'}`}>
       <div className="h-9 flex items-center justify-between px-4 border-b border-border shrink-0">
         <span className="text-xs font-bold text-textMuted uppercase tracking-widest">{title || 'DETAIL'}</span>
-        <button onClick={onClose} className="text-textMuted hover:text-text text-xs transition-colors font-mono">ESC</button>
+        <button onClick={onClose} className="text-textMuted hover:text-text text-xs transition-colors font-mono" aria-label="Close data panel">ESC</button>
       </div>
       <div className="flex-1 overflow-auto p-4 font-mono text-sm custom-scrollbar">
         {data ? (

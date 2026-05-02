@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useStore } from '../../store/useStore'
 import { useAppActions } from '../../hooks/useAppActions'
 import { useAgentActions } from '../../hooks/domain/useAgentActions'
@@ -24,41 +24,60 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
   const [baseUrl, setBaseUrl] = useState(agent?.baseUrl || '')
   const [systemPrompt, setSystemPrompt] = useState(agent?.systemPrompt || '')
   const [errors, setErrors] = useState<FormErrors>({})
+  const [isSaving, setIsSaving] = useState(false)
 
-  const handleSubmit = () => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     setErrors({})
+    setIsSaving(true)
 
     if (!name.trim()) {
       setErrors({ name: 'Il nome è obbligatorio' })
+      setIsSaving(false)
       return
     }
 
-    if (isEdit && agent?.id) {
-      const parsed = AgentSchema.safeParse({
-        id: agent.id,
-        name,
-        model,
-        provider,
-        apiKey,
-        baseUrl,
-        systemPrompt,
-        skillIds: agent.skillIds || [],
-      })
-      if (!parsed.success) {
-        setErrors(parsed.error.flatten().fieldErrors as unknown as FormErrors)
-        return
+    try {
+      if (isEdit && agent?.id) {
+        const parsed = AgentSchema.safeParse({
+          id: agent.id,
+          name,
+          model,
+          provider,
+          apiKey,
+          baseUrl,
+          systemPrompt,
+          skillIds: agent.skillIds || [],
+        })
+        if (!parsed.success) {
+          setErrors(parsed.error.flatten().fieldErrors as unknown as FormErrors)
+          setIsSaving(false)
+          return
+        }
+        await onUpdateAgent(parsed.data as unknown as Agent)
+      } else {
+        await onCreateAgent(name, model, systemPrompt, provider, apiKey, baseUrl)
       }
-      onUpdateAgent(parsed.data as unknown as Agent)
-    } else {
-      onCreateAgent(name, model, systemPrompt, provider, apiKey, baseUrl)
-    }
 
-    useStore.getState().setSlideOverContent(null)
+      useStore.getState().setSlideOverContent(null)
+    } catch (e) {
+      setErrors({ submit: 'Errore durante il salvataggio. Riprova.' })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
+  const errorId = (field: string) => `so-agent-${field}-error`
+
   return (
-    <div className="p-6 space-y-4">
+    <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
       <h3 className="text-xl font-bold">{title || (isEdit ? t('agents.edit') : t('agents.create'))}</h3>
+
+      {errors.submit && (
+        <p role="alert" className="text-danger text-sm bg-danger/10 border border-danger/30 rounded-lg px-3 py-2">
+          {errors.submit}
+        </p>
+      )}
 
       <div className="space-y-3">
         <div>
@@ -67,9 +86,15 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
             id="so-agent-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
+            required
+            className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 ${
+              errors.name ? 'border-danger bg-danger/5' : 'border-border'
+            }`}
             placeholder={t('agents.form.name')}
+            aria-describedby={errors.name ? errorId('name') : undefined}
+            aria-invalid={errors.name ? true : undefined}
           />
+          {errors.name && <p id={errorId('name')} role="alert" className="text-danger text-[10px] mt-1">{errors.name}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -94,6 +119,7 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
               id="so-agent-model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
+              required
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
               placeholder={t('agents.form.model')}
             />
@@ -138,18 +164,21 @@ export function AgentFormSlideOver({ agent, title }: AgentFormSlideOverProps) {
 
       <div className="flex gap-3 pt-2">
          <button
+           type="button"
            onClick={() => useStore.getState().setSlideOverContent(null)}
            className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
          >
           {t('confirmDialog.cancel')}
         </button>
         <button
-          onClick={handleSubmit}
-          className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors"
+          type="submit"
+          disabled={isSaving}
+          className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
         >
-          {isEdit ? t('agents.edit') : t('agents.create')}
+          {isSaving && <div className="w-3 h-3 border-2 border-background border-t-transparent rounded-full animate-spin" />}
+          <span>{isSaving ? t('generic.saving') : (isEdit ? t('agents.edit') : t('agents.create'))}</span>
         </button>
       </div>
-    </div>
+    </form>
   )
 }

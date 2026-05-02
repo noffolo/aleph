@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 
 	"connectrpc.com/connect"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
@@ -34,7 +35,9 @@ func (h *SkillHandler) ListSkills(
 	for _, s := range skills {
 		skill := &v1.Skill{Id: s.ID, Name: s.Name, Description: s.Description}
 		if s.ToolIDsJSON != "" {
-			json.Unmarshal([]byte(s.ToolIDsJSON), &skill.ToolIds)
+			if err := json.Unmarshal([]byte(s.ToolIDsJSON), &skill.ToolIds); err != nil {
+				slog.Warn("failed to unmarshal skill tool IDs", "skillId", s.ID, "error", err)
+			}
 		}
 		result = append(result, skill)
 	}

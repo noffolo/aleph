@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/ingestion/sources"
@@ -187,7 +188,11 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	}
 
 	// Metadati Temporali: ogni riga riceve un timestamp di ingestion
-	tableNameForSQL := resolveTableName(task)
+	tableNameForSQL, err := resolveTableName(task)
+	if err != nil {
+		e.updateProgress(task.Id, 0, "failed")
+		return fmt.Errorf("resolveTableName: %w", err)
+	}
 	if err := safeident.ValidateStrictIdentifier(tableNameForSQL); err != nil {
 		fmt.Fprintf(f, "Warning: Invalid table name after sanitization: %s\n", tableNameForSQL)
 		e.updateProgress(task.Id, 0, "failed")
@@ -200,9 +205,18 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	e.wg.Add(1)
 	go func() {
 		defer e.wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Engine] predictive enrichment goroutine panic: %v", r)
+			}
+		}()
 		enrichCtx, enrichCancel := context.WithTimeout(ctx, 30*time.Minute)
 		defer enrichCancel()
-		resolvedTableName := resolveTableName(task)
+		resolvedTableName, resolveErr := resolveTableName(task)
+		if resolveErr != nil {
+			log.Printf("[Engine] resolveTableName error for enrichment: %v", resolveErr)
+			return
+		}
 		e.enrichPredictiveMetadata(enrichCtx, projectID, resolvedTableName)
 		if err := enrichCtx.Err(); err != nil {
 			log.Printf("[Engine] Predictive enrichment interrupted or expired for table %s: %v", resolvedTableName, err)
@@ -212,25 +226,36 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	return nil
 }
 
-func resolveTableName(task *v1.IngestionTask) string {
+func resolveTableName(task *v1.IngestionTask) (string, error) {
 	var config struct {
 		TableName string `json:"tableName"`
 	}
 	if json.Unmarshal([]byte(task.ConfigJson), &config) == nil && config.TableName != "" {
-		return strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(config.TableName, "_"))
+		cleaned, err := stripAndValidateName(config.TableName)
+		if err != nil {
+			return "", fmt.Errorf("resolveTableName: invalid tableName in config: %w", err)
+		}
+		return cleaned, nil
 	}
 	if task.Name != "" {
-		return strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(task.Name, "_"))
+		cleaned, err := stripAndValidateName(task.Name)
+		if err != nil {
+			return "", fmt.Errorf("resolveTableName: invalid name: %w", err)
+		}
+		return cleaned, nil
 	}
-	// Sanitize task.Id as a fallback — it may contain non-identifier characters
-	// (e.g. UUIDs with hyphens, or user-supplied strings with special chars).
+	// If task.Id looks like a UUID, validate it strictly before using
+	if _, err := uuid.Parse(task.Id); err == nil {
+		return "task_" + strings.ReplaceAll(task.Id, "-", "_"), nil
+	}
+	// Fallback: sanitize task.Id — may contain non-identifier characters
 	sanitized := strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(task.Id, "_"))
 	if safeident.ValidateIdentifier(sanitized) != nil {
 		// Last resort: generate a deterministic safe name so we never pass
 		// a SQL-injectable string through fmt.Sprintf.
 		sanitized = "task_" + computeChecksum([]byte(task.Id))[:16]
 	}
-	return sanitized
+	return sanitized, nil
 }
 
 func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableName string) {
@@ -824,7 +849,7 @@ func (e *Engine) runDynamic(ctx context.Context, w *os.File, projectID string, t
 	cmdRun.Dir = tmpDir
 	cmdRun.Env = []string{
 		fmt.Sprintf("ALEPH_PROJECT_PATH=%s", filepath.Join(e.projectsRoot, projectID)),
-		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
+		"PATH=/usr/bin:/bin",
 		"HOME=" + tmpDir,
 	}
 	return fmt.Errorf("runDynamic: %w", cmdRun.Run())
@@ -873,9 +898,17 @@ func validateCode(code string) error {
 }
 
 type emailConfig struct {
-	Host     string `json:"host"`
-	User     string `json:"user"`
-	Pass     string `json:"pass"`
+	Host   string `json:"host"`
+	User   string `json:"user"`
+	Pass   string `json:"pass"`
+	Folder string `json:"folder"`
+}
+
+type emailCredentials struct {
+	Server   string `json:"server"`
+	Port     string `json:"port"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 	Folder   string `json:"folder"`
 }
 
@@ -892,7 +925,7 @@ func (e *Engine) runEmailFetch(ctx context.Context, w *os.File, projectID string
 	}
 
 	fmt.Fprintf(w, "Connecting to IMAP server: %s\n", config.Host)
-	
+
 	addr := config.Host
 	if !containsColon(addr) {
 		addr = addr + ":993"
@@ -903,13 +936,9 @@ func (e *Engine) runEmailFetch(ctx context.Context, w *os.File, projectID string
 		return fmt.Errorf("invalid table name for email fetch: %w", err)
 	}
 	projectPath := filepath.Join(e.projectsRoot, projectID)
-	
-	tmpDir, err := os.MkdirTemp("", "aleph-email-*")
-	if err != nil { return fmt.Errorf("createEmailTempDir: %w", err) }
-	defer os.RemoveAll(tmpDir)
 
 	script := `
-import imaplib, email, json, sys, csv, io, os
+import imaplib, email, json, sys, csv, io
 from email.header import decode_header
 
 def decode_str(s):
@@ -923,15 +952,13 @@ def decode_str(s):
             result.append(part)
     return ''.join(result)
 
-host = os.environ['ALEPH_EMAIL_HOST']
-port_str = os.environ.get('ALEPH_EMAIL_PORT', '993')
-user = os.environ['ALEPH_EMAIL_USER']
-password = os.environ['ALEPH_EMAIL_PASS']
-folder = os.environ.get('ALEPH_EMAIL_FOLDER', 'INBOX')
-
-mail = imaplib.IMAP4_SSL(host, int(port_str))
-mail.login(user, password)
+creds = json.loads(sys.stdin.read())
+mail = imaplib.IMAP4_SSL(creds["server"], int(creds["port"]))
+mail.login(creds["username"], creds["password"])
+folder = creds.get("folder", "INBOX")
 mail.select(folder, True)
+del creds
+
 _, msg_ids = mail.search(None, 'ALL')
 ids = msg_ids[0].split()
 rows = []
@@ -962,26 +989,41 @@ if rows:
     print(out.getvalue())
 `
 
-	scriptPath := filepath.Join(tmpDir, "fetch_emails.py")
-	if err := os.WriteFile(scriptPath, []byte(script), 0400); err != nil {
-		return fmt.Errorf("writeEmailScript: %w", err)
+	cmd := exec.CommandContext(ctx, "python3", "-c", script)
+	cmd.Env = []string{
+		"PATH=/usr/bin:/bin",
+		"LANG=en_US.UTF-8",
 	}
 
-	cmd := exec.CommandContext(ctx, "python3", scriptPath)
-	cmd.Env = []string{
-		fmt.Sprintf("ALEPH_EMAIL_HOST=%s", config.Host),
-		fmt.Sprintf("ALEPH_EMAIL_PORT=%s", addr),
-		fmt.Sprintf("ALEPH_EMAIL_USER=%s", config.User),
-		fmt.Sprintf("ALEPH_EMAIL_PASS=%s", config.Pass),
-		fmt.Sprintf("ALEPH_EMAIL_FOLDER=%s", config.Folder),
-		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("email stdin pipe: %w", err)
 	}
+
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("email fetch start: %w", err)
+	}
+
+	creds := emailCredentials{
+		Server:   config.Host,
+		Port:     addr[strings.LastIndex(addr, ":")+1:],
+		Username: config.User,
+		Password: config.Pass,
+		Folder:   config.Folder,
+	}
+	credsJSON, _ := json.Marshal(creds)
+	if _, err := stdinPipe.Write(credsJSON); err != nil {
+		cmd.Process.Kill()
+		return fmt.Errorf("email credential write: %w", err)
+	}
+	stdinPipe.Close()
+
 	fmt.Fprintf(w, "Fetching emails from %s...\n", config.Folder)
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Wait(); err != nil {
 		fmt.Fprintf(w, "Email fetch error: %s\n%s\n", err, stderr.String())
 		return fmt.Errorf("email fetch failed: %v - %s", err, stderr.String())
 	}
@@ -998,7 +1040,7 @@ if rows:
 		return fmt.Errorf("failed to write CSV: %v", err)
 	}
 
-	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(csvPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
+	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(csvPath) + ", ignore_errors=true)"
 	fmt.Fprintf(w, "Creating table '%s' in DuckDB...\n", tableName)
 	if _, err := e.db.Exec(createSQL); err != nil {
 		return fmt.Errorf("duckdb create table failed: %v", err)
@@ -1021,7 +1063,9 @@ func (e *Engine) getOrCreateGitHubIngester(task *v1.IngestionTask) *sources.GitH
 	var config struct {
 		Token string `json:"token"`
 	}
-	json.Unmarshal([]byte(task.ConfigJson), &config)
+	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
+		log.Printf("[Engine] getOrCreateGitHubIngester: failed to unmarshal config: %v", err)
+	}
 	e.githubIngester = sources.NewGitHubIngester(config.Token)
 	return e.githubIngester
 }
@@ -1055,7 +1099,9 @@ func (e *Engine) getOrCreateSheetsIngester(task *v1.IngestionTask) *sources.Shee
 	var config struct {
 		APIKey string `json:"api_key"`
 	}
-	json.Unmarshal([]byte(task.ConfigJson), &config)
+	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
+		log.Printf("[Engine] getOrCreateSheetsIngester: failed to unmarshal config: %v", err)
+	}
 	e.sheetsIngester = sources.NewSheetsIngester(config.APIKey)
 	return e.sheetsIngester
 }

@@ -43,6 +43,7 @@ export interface SlideOverContent {
     | 'component-detail'
     | 'tool-intelligence'
     | 'scenario-comparison'
+    | 'dashboard'
   title: string
   data?: unknown
 }
@@ -57,7 +58,7 @@ export const useStore = create<AppState>()((...a) => ({
   ...createHealthSlice(...a),
   ...createUISlice(...a),
 
-  setProjectContext: (projectID, apiKey) => {
+  setProjectContext: (projectID) => {
     const set = a[0]
     const state = a[1]()
     state.resetAuth()
@@ -66,10 +67,10 @@ export const useStore = create<AppState>()((...a) => ({
     state.resetHealth()
     state.resetUI()
     state.resetNavigation()
-    set({ projectID, apiKey })
+    set({ projectID })
   },
 }))
 
-if (typeof window !== 'undefined') {
-  (window as Window & { __ALEPH_STORE__?: typeof useStore }).__ALEPH_STORE__ = useStore
+if (typeof window !== 'undefined' && import.meta.env.DEV && import.meta.env.VITE_ALEPH_DEV_TOOLS === 'true') {
+  (window as any).__ALEPH_STORE__ = useStore
 }

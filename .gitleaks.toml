@@ -1,0 +1,16 @@
+title = "Aleph-v2 Gitleaks Configuration"
+
+# Whitelist known test/example secrets that are intentionally committed
+# for unit testing purposes. These are NOT real credentials.
+[allowlist]
+description = "Known test API keys, example configs, and documentation placeholders"
+paths = [
+  '''internal/sandbox/security_test\.go''',
+  '''internal/crypto/aesgcm_test\.go''',
+  '''internal/repository/metadata_test\.go''',
+  '''frontend/src/schemas/__tests__/schemas\.test\.ts''',
+  '''frontend/src/schemas/__tests__/schemas\.edge\.test\.ts''',
+  '''frontend/src/store/__tests__/authSlice\.test\.ts''',
+  '''\.env\.example$''',
+  '''secrets/.*\.example$''',
+]

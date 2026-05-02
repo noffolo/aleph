@@ -12,6 +12,7 @@ import { useToolActions } from '../../hooks/domain/useToolActions'
 import { useComponentActions } from '../../hooks/domain/useComponentActions'
 import { useSettingsActions } from '../../hooks/domain/useSettingsActions'
 import { useLibraryActions } from '../../hooks/domain/useLibraryActions'
+import { SkeletonLoader } from '../SkeletonLoader'
 import type { ComponentsViewProps } from '../ComponentsView'
 import type { SkillsViewProps } from '../SkillsView'
 import type { ToolsViewProps } from '../ToolsView'
@@ -40,6 +41,7 @@ const ToolsView = React.lazy(() => import('../ToolsView').then(m => ({ default: 
 const LibraryView = React.lazy(() => import('../LibraryView').then(m => ({ default: m.LibraryView })))
 const AgentsView = React.lazy(() => import('../AgentsView').then(m => ({ default: m.AgentsView })))
 const OracleView = React.lazy(() => import('../OracleView').then(m => ({ default: m.OracleView })))
+const ToolIntelligenceView = React.lazy(() => import('../ToolIntelligenceView').then(m => ({ default: m.default })))
 
 export const SlideOverContent = React.memo(() => {
   const slideOverContent = useStore(s => s.slideOverContent)
@@ -81,6 +83,9 @@ export const SlideOverContent = React.memo(() => {
   const { onUpdateComponentStatus, onRegisterComponent, onGetComponent } = useComponentActions()
   const { onCreateApiKey, onDeleteApiKey, onSendWebhook } = useSettingsActions()
   const { onViewAsset, onDeleteAsset, onGetAssetContent, onGeneratePdf, onUploadAsset } = useLibraryActions(loadProjectData)
+  const storeIngestionTasks = useStore(s => s.ingestionTasks)
+  const storeTaskLogs = useStore(s => s.taskLogs)
+  const storeSetTaskLogs = useStore(s => s.setTaskLogs)
   const content = slideOverContent
   if (!content) return null
 
@@ -269,16 +274,34 @@ export const SlideOverContent = React.memo(() => {
        }
      
       case 'scenario-comparison': {
-        return <AlephErrorBoundary key="scenario-comparison"><ScenarioComparisonView /></AlephErrorBoundary>
+         return <AlephErrorBoundary key="scenario-comparison"><ScenarioComparisonView /></AlephErrorBoundary>
+       }
+
+      case 'datasource': {
+         const { taskId } = content.data as { taskId?: string }
+         return <AlephErrorBoundary key="datasource"><DataSourcesView 
+           tasks={storeIngestionTasks} 
+           onAddSource={() => {}}
+           onRunTask={() => {}}
+           onViewLogs={() => {}}
+           onDeleteTask={() => {}}
+           taskLogs={storeTaskLogs}
+           setTaskLogs={storeSetTaskLogs}
+           isLoading={false}
+         /></AlephErrorBoundary>
+       }
+
+      case 'tool-intelligence': {
+        return <AlephErrorBoundary key="tool-intelligence"><ToolIntelligenceView /></AlephErrorBoundary>
       }
-     
+      
       default:
        return null
     }
   }
 
   return (
-    <Suspense fallback={<div className="p-4 text-textDim text-xs font-mono">{t('views.loadingGeneric')}</div>}>
+    <Suspense fallback={<div className="p-4"><SkeletonLoader rows={12} cols={1} /></div>}>
       {renderContent()}
     </Suspense>
   )

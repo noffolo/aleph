@@ -7,13 +7,22 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type AnthropicProvider struct {
-	client *http.Client
+	client  *http.Client
+	timeout time.Duration
 }
 
 func (p *AnthropicProvider) Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
+	callCtx := ctx
+	if p.timeout > 0 {
+		var cancel context.CancelFunc
+		callCtx, cancel = context.WithTimeout(ctx, p.timeout)
+		defer cancel()
+	}
+
 	requestBody := map[string]interface{}{
 		"model":      req.Model,
 		"max_tokens":  4096,
@@ -29,7 +38,7 @@ func (p *AnthropicProvider) Complete(ctx context.Context, req CompletionRequest)
 
 	baseURL := strings.TrimRight(req.BaseURL, "/")
 	endpoint := baseURL + "/v1/messages"
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, strings.NewReader(string(bodyJSON)))
+	httpReq, err := http.NewRequestWithContext(callCtx, "POST", endpoint, strings.NewReader(string(bodyJSON)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

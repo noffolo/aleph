@@ -1,0 +1,283 @@
+# Default values for aleph-v2.
+# NOTE: This is a placeholder file for the post-v2.0 Helm chart.
+# All keys map to the expected service topology, but no live deployments exist yet.
+
+# -- Global overrides
+nameOverride: ""
+fullnameOverride: ""
+namespaceOverride: ""
+labels: {}
+
+replicaCount: 1
+
+# ------------------------------------------------------------------
+# Backend (Go) — current monolith until service extraction in v2.1
+# ------------------------------------------------------------------
+backend:
+  enabled: true
+  image:
+    repository: aleph-v2/backend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    # PostgreSQL connection string
+    DATABASE_URL: "postgres://user:pass@postgres:5432/aleph?sslmode=disable"
+    # DuckDB file path (PVC-mounted)
+    DUCKDB_PATH: "/data/aleph.duckdb"
+    # NLP sidecar gRPC endpoint
+    NLP_GRPC_ADDR: "nlp-sidecar:50051"
+    # Telemetry / OTel
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  # Liveness and readiness probes (placeholder values)
+  livenessProbe:
+    httpGet:
+      path: /health/live
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health/ready
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  volumeMounts:
+    - name: duckdb-data
+      mountPath: /data
+  volumes:
+    - name: duckdb-data
+      # PersistentVolumeClaim template to be added in v2.1+
+      emptyDir:
+        medium: ""
+
+# ------------------------------------------------------------------
+# Frontend (React + Vite) — will become independent Deployment in v2.1
+# ------------------------------------------------------------------
+frontend:
+  enabled: true
+  image:
+    repository: aleph-v2/frontend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  env:
+    # API base URL (backend service FQDN)
+    REACT_APP_API_URL: "http://aleph-v2-backend:8080"
+
+# ------------------------------------------------------------------
+# NLP Sidecar (Python gRPC) — extract to independent service in v2.1
+# ------------------------------------------------------------------
+nlp:
+  enabled: true
+  image:
+    repository: aleph-v2/nlp-sidecar
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 50051
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+      # GPUs may be required for model inference
+      nvidia.com/gpu: 1
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+# ------------------------------------------------------------------
+# PostgreSQL — shared dependency (production: use cloud managed or external chart)
+# ------------------------------------------------------------------
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+  service:
+    type: ClusterIP
+    port: 5432
+  auth:
+    # Use an existingSecret in production
+    existingSecret: ""
+    username: "aleph"
+    password: "changeme"
+    database: "aleph"
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+
+# ------------------------------------------------------------------
+# Ollama — optional local LLM inference (target: StatefulSet for model caching)
+# ------------------------------------------------------------------
+ollama:
+  enabled: false
+  image:
+    repository: ollama/ollama
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 11434
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+      nvidia.com/gpu: 1
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  # Model cache: requires StatefulSet + PVC in production
+  modelCacheSize: 50Gi
+
+# ------------------------------------------------------------------
+# Prometheus — metrics scraping & storage
+# ------------------------------------------------------------------
+prometheus:
+  enabled: true
+  image:
+    repository: prom/prometheus
+    tag: "v2.50.0"
+  service:
+    type: ClusterIP
+    port: 9090
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  retention: "15d"
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: ""
+
+# ------------------------------------------------------------------
+# Grafana — dashboards and alerting UI
+# ------------------------------------------------------------------
+grafana:
+  enabled: true
+  image:
+    repository: grafana/grafana
+    tag: "10.3.1"
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  admin:
+    # Use existingSecret in production
+    existingSecret: ""
+    user: "admin"
+    password: "admin"
+
+# ------------------------------------------------------------------
+# Ingress — expose frontend to external traffic
+# ------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    # cert-manager integration
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # CORS handled at application layer; disable ingress-level rewrites
+    nginx.ingress.kubernetes.io/enable-cors: "false"
+  hosts:
+    - host: aleph.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 80
+        - path: /api
+          pathType: Prefix
+          service: backend
+          port: 8080
+  tls:
+    - secretName: aleph-tls
+      hosts:
+        - aleph.local
+
+# ------------------------------------------------------------------
+# Autoscaling — currently disabled until backend is horizontally scalable
+# ------------------------------------------------------------------
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 70
+
+# ------------------------------------------------------------------
+# Pod Disruption Budget
+# ------------------------------------------------------------------
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# ------------------------------------------------------------------
+# Network Policies (to be enabled after service split)
+# ------------------------------------------------------------------
+networkPolicy:
+  enabled: false
+  ingressRules: []
+  egressRules: []
+
+# ------------------------------------------------------------------
+# Service Account
+# ------------------------------------------------------------------
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# ------------------------------------------------------------------
+# Security Context
+# ------------------------------------------------------------------
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000

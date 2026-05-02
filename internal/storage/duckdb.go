@@ -3,25 +3,37 @@ package storage
 import (
 	"context"
 	"database/sql"
-	"errors"
+	stdErrors "errors"
 	"fmt"
 	"log"
+	"log/slog"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/sync/semaphore"
 
 	_ "github.com/marcboeker/go-duckdb"
 	"github.com/ff3300/aleph-v2/internal/safeident"
 )
 
+// DefaultSlowQueryThreshold is the default threshold for slow query logging.
+const DefaultSlowQueryThreshold = 500 * time.Millisecond
+
+// DuckDB wraps a *sql.DB connection pool with serialized write access.
+// Reads use the connection pool directly (no mutex). Writes are serialized
+// via writeMu and executed through the pool (db.ExecContext).
+// This allows concurrent reads while ensuring write safety.
+//
+// Connection pool sizing:
+//   - In-memory databases: 1 connection (DuckDB in-memory is per-connection)
+//   - File-backed databases: runtime.NumCPU() max connections
 type DuckDB struct {
-	db     *sql.DB
-	path   string
-	mu     sync.RWMutex
-	sem    *semaphore.Weighted
-	HasVSS bool
+	db                 *sql.DB
+	writeMu            sync.Mutex
+	poolMu             sync.Mutex // guards pool configuration (SetMaxOpenConns, SetMaxIdleConns)
+	path               string
+	HasVSS             bool
+	slowQueryThreshold time.Duration
 }
 
 func NewDuckDB(dbPath string) (*DuckDB, error) {
@@ -33,9 +45,6 @@ func NewDuckDB(dbPath string) (*DuckDB, error) {
 		return nil, err
 	}
 
-	// SQLite PRAGMAs (journal_mode, synchronous) intentionally omitted:
-	// DuckDB uses a different storage/persistence model where these do not apply.
-	
 	// Install and Load VSS for Vector Similarity Search (Predictive AI)
 	hasVSS := true
 	if _, err := db.Exec("INSTALL vss;"); err != nil {
@@ -48,130 +57,166 @@ func NewDuckDB(dbPath string) (*DuckDB, error) {
 
 	// :memory: databases are per-connection in DuckDB; limit to single connection
 	// to prevent different pool connections from seeing isolated in-memory instances.
-	// File-backed databases can safely use the connection pool.
+	// File-backed databases use a pool sized to runtime.NumCPU().
 	if dbPath == ":memory:" {
 		db.SetMaxOpenConns(1)
 		db.SetMaxIdleConns(1)
 	} else {
-		// Optimize for a Data OS: allow concurrency but limit handles
-		db.SetMaxOpenConns(20)
-		db.SetMaxIdleConns(10)
+		maxConns := runtime.NumCPU()
+		db.SetMaxOpenConns(maxConns)
+		db.SetMaxIdleConns(maxConns)
 		db.SetConnMaxLifetime(1 * time.Hour)
 	}
 
 	return &DuckDB{
-		db:     db,
-		path:   dbPath,
-		sem:    semaphore.NewWeighted(5),
-		HasVSS: hasVSS,
+		db:                 db,
+		path:               dbPath,
+		HasVSS:             hasVSS,
+		slowQueryThreshold: DefaultSlowQueryThreshold,
 	}, nil
 }
 
+func (d *DuckDB) SetSlowQueryThreshold(dur time.Duration) {
+	if dur <= 0 {
+		dur = DefaultSlowQueryThreshold
+	}
+	d.slowQueryThreshold = dur
+}
+
+// logSlowQuery logs a warning if the query duration exceeds the configured threshold.
+func (d *DuckDB) logSlowQuery(operation, query string, dur time.Duration) {
+	if dur < d.slowQueryThreshold {
+		return
+	}
+	// Truncate query to first 200 chars for readability
+	queryPreview := query
+	if len(queryPreview) > 200 {
+		queryPreview = queryPreview[:200] + "..."
+	}
+	slog.Warn("slow duckdb query",
+		"operation", operation,
+		"duration", dur,
+		"threshold", d.slowQueryThreshold,
+		"query", queryPreview,
+	)
+}
+
+// Query executes a read query using the connection pool.
+// No mutex held — reads are fully concurrent.
 func (d *DuckDB) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.db.Query(query, args...)
+	start := time.Now()
+	rows, err := d.db.Query(query, args...)
+	d.logSlowQuery("Query", query, time.Since(start))
+	return rows, err
 }
 
+// QueryContext executes a read query using the connection pool.
+// No mutex held — reads are fully concurrent.
 func (d *DuckDB) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	if !d.sem.TryAcquire(1) {
-		return nil, fmt.Errorf("duckdb resource exhausted: too many concurrent queries")
-	}
-	defer d.sem.Release(1)
-
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.db.QueryContext(ctx, scopeQuery(ctx, query), args...)
+	start := time.Now()
+	rows, err := d.db.QueryContext(ctx, scopeQuery(ctx, query), args...)
+	d.logSlowQuery("QueryContext", query, time.Since(start))
+	return rows, err
 }
 
+// Exec executes a write query. Serialized via writeMu to prevent concurrent writes.
+// Prefer ExecContext to avoid orphaned operations.
 func (d *DuckDB) Exec(query string, args ...interface{}) (sql.Result, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return d.db.Exec(query, args...)
+	d.writeMu.Lock()
+	defer d.writeMu.Unlock()
+	start := time.Now()
+	res, err := d.db.ExecContext(context.TODO(), query, args...)
+	d.logSlowQuery("Exec", query, time.Since(start))
+	return res, err
 }
 
+// ExecContext executes a write query. Serialized via writeMu to prevent concurrent writes.
 func (d *DuckDB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	if !d.sem.TryAcquire(1) {
-		return nil, fmt.Errorf("duckdb resource exhausted: too many concurrent queries")
-	}
-	defer d.sem.Release(1)
-
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return d.db.ExecContext(ctx, scopeQuery(ctx, query), args...)
+	d.writeMu.Lock()
+	defer d.writeMu.Unlock()
+	start := time.Now()
+	res, err := d.db.ExecContext(ctx, scopeQuery(ctx, query), args...)
+	d.logSlowQuery("ExecContext", query, time.Since(start))
+	return res, err
 }
 
 func (d *DuckDB) Cleanup() {
-	// PRAGMA shrink_memory intentionally omitted: it is SQLite-specific.
-	// DuckDB memory management differs; refer to DuckDB docs for equivalents.
+	// No-op: DuckDB memory management differs from SQLite.
 }
 
+// Close closes the database pool. Safe to call multiple times; nil-guarded on d.db.
 func (d *DuckDB) Close() error {
-	if err := d.db.Close(); err != nil {
-		return fmt.Errorf("duckdbClose: %w", err)
+	if d.db != nil {
+		if err := d.db.Close(); err != nil {
+			return fmt.Errorf("duckdbClose: %w", err)
+		}
 	}
 	return nil
 }
 
-func (d *DuckDB) QueryRow(query string, args ...interface{}) *sql.Row {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.db.QueryRow(query, args...)
-}
-
+// QueryRowContext executes a query returning at most one row using the pool.
+// The returned *sql.Row will error on Scan if the query fails.
 func (d *DuckDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	if !d.sem.TryAcquire(1) {
-		return nil
-	}
-	defer d.sem.Release(1)
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.db.QueryRowContext(ctx, scopeQuery(ctx, query), args...)
+	start := time.Now()
+	row := d.db.QueryRowContext(ctx, scopeQuery(ctx, query), args...)
+	d.logSlowQuery("QueryRowContext", query, time.Since(start))
+	return row
 }
 
 // QueryRowContextOrError is like QueryRowContext but returns (row, error) for callers
-// that need to handle semaphore exhaustion explicitly with CodeResourceExhausted.
+// that need to detect context cancellation early. The returned row is never nil.
 func (d *DuckDB) QueryRowContextOrError(ctx context.Context, query string, args ...interface{}) (*sql.Row, error) {
-	if !d.sem.TryAcquire(1) {
-		return nil, fmt.Errorf("duckdb resource exhausted: too many concurrent queries")
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-	defer d.sem.Release(1)
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.db.QueryRowContext(ctx, scopeQuery(ctx, query), args...), nil
+	start := time.Now()
+	row := d.db.QueryRowContext(ctx, scopeQuery(ctx, query), args...)
+	d.logSlowQuery("QueryRowContextOrError", query, time.Since(start))
+	return row, nil
 }
 
+// QueryRow executes a query returning at most one row using the pool.
+func (d *DuckDB) QueryRow(query string, args ...interface{}) *sql.Row {
+	start := time.Now()
+	row := d.db.QueryRow(query, args...)
+	d.logSlowQuery("QueryRow", query, time.Since(start))
+	return row
+}
+
+// DB returns the underlying *sql.DB connection pool.
 func (d *DuckDB) DB() *sql.DB {
 	return d.db
 }
 
-// TX wraps a *sql.Tx with the DuckDB semaphore and schema context.
-// All query methods use an internal RLock for safety against concurrent use.
+// TX wraps a *sql.Tx with schema context and optional write-lock tracking.
+// For write transactions (BeginTX), writeMu is held for the entire transaction
+// and released on Commit/Rollback.
+// For read transactions (BeginReadTX), writeMu is nil and no cross-transaction lock is held.
+//
+// All query methods use an internal RWMutex for safety against concurrent
+// use on the same TX handle. Each TX should be used by one goroutine at a time.
 // Callers must call Commit or Rollback to release resources.
 type TX struct {
 	tx       *sql.Tx
 	mu       sync.RWMutex
+	writeMu  *sync.Mutex // non-nil for write transactions; released on Commit/Rollback
 	schema   string
-	sem      *semaphore.Weighted
-	parentMu *sync.RWMutex
-	isReadTx bool
 	done     bool
+
+	slowQueryThreshold time.Duration
 }
 
-// BeginTX starts a new transaction. Acquires the semaphore (blocks until available)
-// and the write lock. Schema from context is applied at transaction start.
-// Call Commit or Rollback to release resources.
+// BeginTX starts a new write transaction. Acquires writeMu to serialize
+// with other write operations (Exec, ExecContext, other BeginTX calls).
+// The transaction is serializable isolation. Schema from context is applied
+// at transaction start.
+// Call Commit or Rollback to release the write lock.
 func (d *DuckDB) BeginTX(ctx context.Context) (*TX, error) {
-	if err := d.sem.Acquire(ctx, 1); err != nil {
-		return nil, fmt.Errorf("acquire semaphore for begin tx: %w", err)
-	}
-
-	d.mu.Lock()
+	d.writeMu.Lock()
 
 	tx, err := d.db.BeginTx(ctx, nil)
 	if err != nil {
-		d.mu.Unlock()
-		d.sem.Release(1)
+		d.writeMu.Unlock()
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
 
@@ -181,8 +226,7 @@ func (d *DuckDB) BeginTX(ctx context.Context) (*TX, error) {
 	if schema != "" {
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf("SET schema = %s", safeident.QuoteIdentifier(schema))); err != nil {
 			_ = tx.Rollback()
-			d.mu.Unlock()
-			d.sem.Release(1)
+			d.writeMu.Unlock()
 			return nil, fmt.Errorf("set schema in tx: %w", err)
 		}
 	}
@@ -190,26 +234,21 @@ func (d *DuckDB) BeginTX(ctx context.Context) (*TX, error) {
 	return &TX{
 		tx:       tx,
 		schema:   schema,
-		sem:      d.sem,
-		parentMu: &d.mu,
-		isReadTx: false,
+		writeMu:  &d.writeMu,
+		slowQueryThreshold: d.slowQueryThreshold,
 	}, nil
 }
 
-// BeginReadTX starts a new read-only transaction.
-// Acquires the semaphore (blocks until available) and the read lock,
-// allowing concurrent reads. Schema from context is applied at transaction start.
+// BeginReadTX starts a new transaction for read operations using the connection pool.
+// No write lock is acquired — multiple read transactions can run concurrently
+// with each other and with write transactions (the pool manages concurrency).
+// Schema from context is applied at transaction start.
+//
+// Note: DuckDB driver does not support explicit ReadOnly transactions. Serializable
+// isolation provides a consistent snapshot for reads without blocking writes.
 func (d *DuckDB) BeginReadTX(ctx context.Context) (*TX, error) {
-	if err := d.sem.Acquire(ctx, 1); err != nil {
-		return nil, fmt.Errorf("acquire semaphore for begin read tx: %w", err)
-	}
-
-	d.mu.RLock()
-
-	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := d.db.BeginTx(ctx, nil)
 	if err != nil {
-		d.mu.RUnlock()
-		d.sem.Release(1)
 		return nil, fmt.Errorf("begin read tx: %w", err)
 	}
 
@@ -219,8 +258,6 @@ func (d *DuckDB) BeginReadTX(ctx context.Context) (*TX, error) {
 	if schema != "" {
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf("SET schema = %s", safeident.QuoteIdentifier(schema))); err != nil {
 			_ = tx.Rollback()
-			d.mu.RUnlock()
-			d.sem.Release(1)
 			return nil, fmt.Errorf("set schema in read tx: %w", err)
 		}
 	}
@@ -228,9 +265,8 @@ func (d *DuckDB) BeginReadTX(ctx context.Context) (*TX, error) {
 	return &TX{
 		tx:       tx,
 		schema:   schema,
-		sem:      d.sem,
-		parentMu: &d.mu,
-		isReadTx: true,
+		writeMu:  nil,
+		slowQueryThreshold: d.slowQueryThreshold,
 	}, nil
 }
 
@@ -261,7 +297,7 @@ func (d *DuckDB) ExecWithRetry(ctx context.Context, query string, args ...any) (
 		}
 		time.Sleep(time.Duration(backoffMs[i]) * time.Millisecond)
 	}
-	return nil, errors.New("exec with retry: exhausted all retries")
+	return nil, stdErrors.New("exec with retry: exhausted all retries")
 }
 
 // ExecTx wraps BeginTX + fn + Commit/Rollback with retry on serialization failures.
@@ -284,7 +320,8 @@ func (d *DuckDB) ExecTx(ctx context.Context, fn func(*TX) error) error {
 			}
 		}
 
-		// Rollback on error
+		// Rollback on error, but only if not already committed.
+		// tx.Rollback is idempotent (done flag).
 		_ = tx.Rollback()
 
 		if !isSerializationError(err) || i == maxRetries {
@@ -294,30 +331,25 @@ func (d *DuckDB) ExecTx(ctx context.Context, fn func(*TX) error) error {
 		time.Sleep(time.Duration(backoffMs[i]) * time.Millisecond)
 	}
 
-	return errors.New("exec tx: exhausted all retries")
+	return stdErrors.New("exec tx: exhausted all retries")
 }
 
-// Commit commits the transaction and releases the acquired locks and semaphore.
-// Safe to call multiple times — subsequent calls are no-ops.
+// Commit commits the transaction and releases the write lock (if this is a
+// write transaction). Safe to call multiple times — subsequent calls are no-ops.
 func (t *TX) Commit() error {
 	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	if t.done {
+		t.mu.Unlock()
 		return nil
 	}
 	t.done = true
+	t.mu.Unlock()
 
 	err := t.tx.Commit()
 
-	// Release the parent DuckDB-level lock AFTER Commit returns,
-	// so the lock is held during the actual commit operation.
-	if t.isReadTx {
-		t.parentMu.RUnlock()
-	} else {
-		t.parentMu.Unlock()
+	if t.writeMu != nil {
+		t.writeMu.Unlock()
 	}
-	t.sem.Release(1)
 
 	if err != nil {
 		return fmt.Errorf("txCommit: %w", err)
@@ -325,27 +357,22 @@ func (t *TX) Commit() error {
 	return nil
 }
 
-// Rollback rolls back the transaction and releases the acquired locks and semaphore.
-// Safe to call multiple times — subsequent calls are no-ops.
+// Rollback rolls back the transaction and releases the write lock (if this is a
+// write transaction). Safe to call multiple times — subsequent calls are no-ops.
 func (t *TX) Rollback() error {
 	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	if t.done {
+		t.mu.Unlock()
 		return nil
 	}
 	t.done = true
+	t.mu.Unlock()
 
 	err := t.tx.Rollback()
 
-	// Release the parent DuckDB-level lock AFTER Rollback returns,
-	// so the lock is held during the actual rollback operation.
-	if t.isReadTx {
-		t.parentMu.RUnlock()
-	} else {
-		t.parentMu.Unlock()
+	if t.writeMu != nil {
+		t.writeMu.Unlock()
 	}
-	t.sem.Release(1)
 
 	if err != nil {
 		return fmt.Errorf("txRollback: %w", err)
@@ -353,46 +380,98 @@ func (t *TX) Rollback() error {
 	return nil
 }
 
-// Query executes a query on the transaction with a read lock.
+// Query executes a query on the transaction.
 func (t *TX) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.tx.Query(txScopeQuery(t.schema, query), args...)
+	start := time.Now()
+	rows, err := t.tx.Query(txScopeQuery(t.schema, query), args...)
+	slowTxQueryLog(t.slowQueryThreshold, "Query", query, time.Since(start))
+	return rows, err
 }
 
-// QueryContext executes a query on the transaction with a read lock.
+// QueryContext executes a query on the transaction.
 func (t *TX) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.tx.QueryContext(ctx, txScopeQuery(t.schema, query), args...)
+	start := time.Now()
+	rows, err := t.tx.QueryContext(ctx, txScopeQuery(t.schema, query), args...)
+	slowTxQueryLog(t.slowQueryThreshold, "QueryContext", query, time.Since(start))
+	return rows, err
 }
 
-// Exec executes a statement on the transaction with a write lock.
+// Exec executes a statement on the transaction.
 func (t *TX) Exec(query string, args ...interface{}) (sql.Result, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.tx.Exec(txScopeQuery(t.schema, query), args...)
+	start := time.Now()
+	res, err := t.tx.Exec(txScopeQuery(t.schema, query), args...)
+	slowTxQueryLog(t.slowQueryThreshold, "Exec", query, time.Since(start))
+	return res, err
 }
 
-// ExecContext executes a statement on the transaction with a write lock.
+// ExecContext executes a statement on the transaction.
 func (t *TX) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.tx.ExecContext(ctx, txScopeQuery(t.schema, query), args...)
+	start := time.Now()
+	res, err := t.tx.ExecContext(ctx, txScopeQuery(t.schema, query), args...)
+	slowTxQueryLog(t.slowQueryThreshold, "ExecContext", query, time.Since(start))
+	return res, err
 }
 
 // QueryRow executes a query that returns at most one row on the transaction.
 func (t *TX) QueryRow(query string, args ...interface{}) *sql.Row {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.tx.QueryRow(txScopeQuery(t.schema, query), args...)
+	start := time.Now()
+	row := t.tx.QueryRow(txScopeQuery(t.schema, query), args...)
+	slowTxQueryLog(t.slowQueryThreshold, "QueryRow", query, time.Since(start))
+	return row
 }
 
 // QueryRowContext executes a query that returns at most one row on the transaction.
 func (t *TX) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.tx.QueryRowContext(ctx, txScopeQuery(t.schema, query), args...)
+	start := time.Now()
+	row := t.tx.QueryRowContext(ctx, txScopeQuery(t.schema, query), args...)
+	slowTxQueryLog(t.slowQueryThreshold, "QueryRowContext", query, time.Since(start))
+	return row
+}
+
+// QueryRowContextOrError is like QueryRowContext but returns (row, error)
+// for callers that need to handle nil gracefully.
+func (t *TX) QueryRowContextOrError(ctx context.Context, query string, args ...interface{}) (*sql.Row, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	start := time.Now()
+	row := t.tx.QueryRowContext(ctx, txScopeQuery(t.schema, query), args...)
+	slowTxQueryLog(t.slowQueryThreshold, "QueryRowContextOrError", query, time.Since(start))
+	return row, nil
+}
+
+func slowTxQueryLog(threshold time.Duration, operation, query string, dur time.Duration) {
+	if dur < threshold {
+		return
+	}
+	slog.Warn("slow tx query",
+		"op", operation,
+		"query", truncateQuery(query),
+		"duration", dur,
+		"threshold", threshold)
+}
+
+// truncateQuery returns the first 200 characters of a query string
+// for logging purposes. Longer queries are truncated with "...".
+func truncateQuery(query string) string {
+	if len(query) > 200 {
+		return query[:200] + "..."
+	}
+	return query
 }
 
 // txScopeQuery returns a query string that sets the schema if one was configured

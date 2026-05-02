@@ -212,6 +212,22 @@ func TestEngine_Observe_Success(t *testing.T) {
 	if len(obs.Issues) != 0 {
 		t.Errorf("expected no issues, got %v", obs.Issues)
 	}
+	// No history yet: TrustDelta = 0.05 (small positive for first unknown tool success)
+	if obs.TrustDelta != 0.05 {
+		t.Errorf("expected TrustDelta=0.05 for first successful execution, got %f", obs.TrustDelta)
+	}
+
+	// Pre-populate history so the next Observe computes real TrustDelta
+	engine.toolHistory["test_tool"] = &toolExecutionHistory{successes: 2, failures: 0}
+
+	// After history: rate = 2/2 = 1.0, delta = 1.0 - 0.5 = 0.5
+	obs2, err := engine.Observe(ctx, step, result)
+	if err != nil {
+		t.Fatalf("Observe returned error: %v", err)
+	}
+	if obs2.TrustDelta != 0.5 {
+		t.Errorf("expected TrustDelta=0.5 after 2/2 successes, got %f", obs2.TrustDelta)
+	}
 }
 
 func TestEngine_Observe_Failure(t *testing.T) {
@@ -289,16 +305,17 @@ func TestEngine_Reflect_LastFailure(t *testing.T) {
 		Steps:      []PlannedStep{{ToolName: "test_tool"}},
 		CanProceed: true,
 	}
+	// Use a blocking/critical failure so DefaultReflector stops the plan
 	observations := []Observation{
 		{Success: true},
-		{Success: false, Issues: []string{"tool error"}},
+		{Success: false, Issues: []string{"unauthorized: access denied"}},
 	}
 	result, err := engine.Reflect(ctx, plan, observations)
 	if err != nil {
 		t.Fatalf("Reflect returned error: %v", err)
 	}
 	if result.CanProceed {
-		t.Error("expected CanProceed=false when last observation failed")
+		t.Error("expected CanProceed=false when critical failure is detected")
 	}
 }
 
@@ -333,6 +350,341 @@ func TestEngine_Admit_LastError(t *testing.T) {
 	}
 	if !admit {
 		t.Error("expected Admit=true when last result has error")
+	}
+}
+
+func TestEngine_SortStepsByDependencies(t *testing.T) {
+	tests := []struct {
+		name  string
+		steps []PlannedStep
+		check func(t *testing.T, sorted []PlannedStep)
+	}{
+		{
+			name: "empty steps",
+			steps: []PlannedStep{},
+			check: func(t *testing.T, sorted []PlannedStep) {
+				if len(sorted) != 0 {
+					t.Errorf("expected 0 steps, got %d", len(sorted))
+				}
+			},
+		},
+		{
+			name: "single step",
+			steps: []PlannedStep{
+				{ToolName: "search_data"},
+			},
+			check: func(t *testing.T, sorted []PlannedStep) {
+				if len(sorted) != 1 || sorted[0].ToolName != "search_data" {
+					t.Error("single step should be preserved")
+				}
+			},
+		},
+		{
+			name: "simple dependency order",
+			steps: []PlannedStep{
+				{ToolName: "step_b", Depends: []string{"step_a"}},
+				{ToolName: "step_a"},
+			},
+			check: func(t *testing.T, sorted []PlannedStep) {
+				if len(sorted) != 2 {
+					t.Fatalf("expected 2 steps, got %d", len(sorted))
+				}
+				if sorted[0].ToolName != "step_a" {
+					t.Errorf("expected step_a first, got %s", sorted[0].ToolName)
+				}
+				if sorted[1].ToolName != "step_b" {
+					t.Errorf("expected step_b second, got %s", sorted[1].ToolName)
+				}
+			},
+		},
+		{
+			name: "chain of three dependencies",
+			steps: []PlannedStep{
+				{ToolName: "step_c", Depends: []string{"step_b"}},
+				{ToolName: "step_b", Depends: []string{"step_a"}},
+				{ToolName: "step_a"},
+			},
+			check: func(t *testing.T, sorted []PlannedStep) {
+				if len(sorted) != 3 {
+					t.Fatalf("expected 3 steps, got %d", len(sorted))
+				}
+				if sorted[0].ToolName != "step_a" {
+					t.Errorf("expected step_a first, got %s", sorted[0].ToolName)
+				}
+				if sorted[2].ToolName != "step_c" {
+					t.Errorf("expected step_c last, got %s", sorted[2].ToolName)
+				}
+			},
+		},
+		{
+			name: "unknown dependency tolerated",
+			steps: []PlannedStep{
+				{ToolName: "step_a", Depends: []string{"nonexistent"}},
+			},
+			check: func(t *testing.T, sorted []PlannedStep) {
+				if len(sorted) != 1 {
+					t.Fatalf("expected 1 step, got %d", len(sorted))
+				}
+			},
+		},
+		{
+			name: "circular dependency handled",
+			steps: []PlannedStep{
+				{ToolName: "step_a", Depends: []string{"step_b"}},
+				{ToolName: "step_b", Depends: []string{"step_a"}},
+			},
+			check: func(t *testing.T, sorted []PlannedStep) {
+				// Both steps should appear (cycle broken, no infinite loop)
+				if len(sorted) != 2 {
+					t.Fatalf("expected 2 steps, got %d", len(sorted))
+				}
+			},
+		},
+		{
+			name: "no dependencies preserves order",
+			steps: []PlannedStep{
+				{ToolName: "step_a"},
+				{ToolName: "step_b"},
+				{ToolName: "step_c"},
+			},
+			check: func(t *testing.T, sorted []PlannedStep) {
+				if len(sorted) != 3 {
+					t.Fatalf("expected 3 steps, got %d", len(sorted))
+				}
+				if sorted[0].ToolName != "step_a" || sorted[1].ToolName != "step_b" || sorted[2].ToolName != "step_c" {
+					t.Error("order should be preserved for independent steps")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sorted := SortStepsByDependencies(tt.steps)
+			tt.check(t, sorted)
+		})
+	}
+}
+
+func TestEngine_FailedStepNames(t *testing.T) {
+	results := []*ActResult{
+		{Step: PlannedStep{ToolName: "tool_a"}, Output: "success"},
+		{Step: PlannedStep{ToolName: "tool_b"}, Error: "failed"},
+		{Step: PlannedStep{ToolName: "tool_c"}, Output: "ok"},
+		{Step: PlannedStep{ToolName: "tool_d"}, Error: "errored"},
+	}
+	failed := FailedStepNames(results)
+	if !failed["tool_b"] {
+		t.Error("expected tool_b in failed set")
+	}
+	if !failed["tool_d"] {
+		t.Error("expected tool_d in failed set")
+	}
+	if failed["tool_a"] {
+		t.Error("did not expect tool_a in failed set")
+	}
+	if failed["tool_c"] {
+		t.Error("did not expect tool_c in failed set")
+	}
+	if len(failed) != 2 {
+		t.Errorf("expected 2 failed tools, got %d", len(failed))
+	}
+}
+
+func TestEngine_ShouldSkipStep(t *testing.T) {
+	failed := map[string]bool{"step_a": true}
+
+	if !ShouldSkipStep(PlannedStep{ToolName: "step_b", Depends: []string{"step_a"}}, failed) {
+		t.Error("should skip when dependency failed")
+	}
+	if ShouldSkipStep(PlannedStep{ToolName: "step_c", Depends: []string{"step_x"}}, failed) {
+		t.Error("should NOT skip when dependency not in failed set")
+	}
+	if ShouldSkipStep(PlannedStep{ToolName: "step_d"}, failed) {
+		t.Error("should NOT skip when no dependencies")
+	}
+}
+
+func TestEngine_ShouldAutoSkip(t *testing.T) {
+	tests := []struct {
+		name       string
+		threshold  float64
+		step       PlannedStep
+		expectSkip bool
+	}{
+		{
+			name:       "threshold zero no skip",
+			threshold:  0,
+			step:       PlannedStep{ToolName: "t", RequiresConfirmation: true},
+			expectSkip: false,
+		},
+		{
+			name:       "threshold active with confirmation",
+			threshold:  0.5,
+			step:       PlannedStep{ToolName: "t", RequiresConfirmation: true},
+			expectSkip: true,
+		},
+		{
+			name:       "threshold active without confirmation",
+			threshold:  0.5,
+			step:       PlannedStep{ToolName: "t", RequiresConfirmation: false},
+			expectSkip: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := NewEngine(EngineConfig{ConfirmationThreshold: tt.threshold})
+			got := e.ShouldAutoSkip(tt.step)
+			if got != tt.expectSkip {
+				t.Errorf("ShouldAutoSkip = %v, want %v", got, tt.expectSkip)
+			}
+		})
+	}
+}
+
+func TestEngine_ConfirmationThresholdClamping(t *testing.T) {
+	e := NewEngine(EngineConfig{ConfirmationThreshold: 2.5})
+	if e.confirmationThreshold != 1.0 {
+		t.Errorf("expected threshold clamped to 1.0, got %f", e.confirmationThreshold)
+	}
+	e2 := NewEngine(EngineConfig{ConfirmationThreshold: -1})
+	if e2.confirmationThreshold != 0 {
+		t.Errorf("expected threshold clamped to 0, got %f", e2.confirmationThreshold)
+	}
+}
+
+func TestEngine_MultiStepPlan_WithDependencies(t *testing.T) {
+	// Engine with a working executor that simulates multi-step execution
+	stepResults := map[string]string{
+		"search_data":       "found 10 records",
+		"analyze_sentiment": "positive sentiment detected",
+	}
+	executor := &mockToolExecutor{
+		result: "",
+		err:    nil,
+	}
+	engine := NewEngine(EngineConfig{
+		Executor: executor,
+	})
+
+	ctx := context.Background()
+	plan := &PlanResult{
+		Intent: Intent{PrimaryGoal: "analyze data"},
+		Steps: []PlannedStep{
+			{ToolName: "search_data"},
+			{ToolName: "analyze_sentiment", Depends: []string{"search_data"}},
+		},
+		CanProceed: true,
+	}
+
+	// Simulate multi-step execution in dependency order
+	sorted := SortStepsByDependencies(plan.Steps)
+	if len(sorted) != 2 {
+		t.Fatalf("expected 2 sorted steps, got %d", len(sorted))
+	}
+	if sorted[0].ToolName != "search_data" {
+		t.Errorf("expected search_data first, got %s", sorted[0].ToolName)
+	}
+	if sorted[1].ToolName != "analyze_sentiment" {
+		t.Errorf("expected analyze_sentiment second, got %s", sorted[1].ToolName)
+	}
+
+	// Execute steps in order
+	var results []*ActResult
+	var failedDeps = make(map[string]bool)
+	for _, step := range sorted {
+		if ShouldSkipStep(step, failedDeps) {
+			continue
+		}
+		// Set mock result for each step
+		executor.result = stepResults[step.ToolName]
+		executor.err = nil
+		result, err := engine.Act(ctx, step, "proj1")
+		if err != nil {
+			t.Fatalf("Act failed: %v", err)
+		}
+		results = append(results, result)
+		if result.Error != "" {
+			failedDeps[step.ToolName] = true
+		}
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+	if results[0].Output != "found 10 records" {
+		t.Errorf("expected 'found 10 records', got %q", results[0].Output)
+	}
+	if results[1].Output != "positive sentiment detected" {
+		t.Errorf("expected 'positive sentiment detected', got %q", results[1].Output)
+	}
+}
+
+func TestEngine_MultiStepPlan_FailedDependencySkips(t *testing.T) {
+	executor := &mockToolExecutor{
+		result: "",
+		err:    nil,
+	}
+	engine := NewEngine(EngineConfig{
+		Executor: executor,
+	})
+
+	ctx := context.Background()
+	steps := []PlannedStep{
+		{ToolName: "step_a"},
+		{ToolName: "step_b", Depends: []string{"step_a"}},
+		{ToolName: "step_c", Depends: []string{"step_b"}},
+	}
+
+	executor.result = ""
+	executor.err = nil
+
+	var results []*ActResult
+	failedDeps := make(map[string]bool)
+
+	for _, step := range steps {
+		if ShouldSkipStep(step, failedDeps) {
+			results = append(results, &ActResult{
+				Step:   step,
+				Output: "SKIPPED: dependency failed",
+			})
+			continue
+		}
+		result, _ := engine.Act(ctx, step, "proj1")
+		results = append(results, result)
+	}
+
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(results))
+	}
+
+	// Now simulate: step_a fails. step_b should be skipped (depends on step_a).
+	// step_c depends on step_b which was skipped (not failed), so step_c still runs.
+	failedDeps["step_a"] = true
+	var filteredResults []*ActResult
+	for _, step := range steps {
+		if ShouldSkipStep(step, failedDeps) {
+			filteredResults = append(filteredResults, &ActResult{
+				Step:   step,
+				Output: "SKIPPED: dependency failed",
+			})
+			continue
+		}
+		executor.result = "ok"
+		r, _ := engine.Act(ctx, step, "proj1")
+		filteredResults = append(filteredResults, r)
+	}
+
+	if len(filteredResults) != 3 {
+		t.Fatalf("expected 3 filtered results, got %d", len(filteredResults))
+	}
+	// step_a ran (but we failed it), step_b skipped (failed dep), step_c ran (dep step_b wasn't failed, it was skipped)
+	if filteredResults[1].Output != "SKIPPED: dependency failed" {
+		t.Errorf("step_b should be skipped, got %q", filteredResults[1].Output)
+	}
+	if filteredResults[2].Output != "ok" {
+		t.Errorf("step_c should run (its dep step_b wasn't failed, just skipped), got %q", filteredResults[2].Output)
 	}
 }
 

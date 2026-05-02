@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useStore } from '../../store/useStore'
 import { useAppActions } from '../../hooks/useAppActions'
 import { useDataSourceActions } from '../../hooks/domain/useDataSourceActions'
@@ -14,7 +14,7 @@ type Mode = 'file' | 'api' | 'db'
 export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps) {
   const { loadProjectData } = useAppActions()
   const { onAddSource } = useDataSourceActions(loadProjectData)
-  
+
   const [step, setStep] = useState(1)
   const [mode, setMode] = useState<Mode>('file')
   const [name, setName] = useState('')
@@ -29,7 +29,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
       config[key] = value
       setConfigJson(JSON.stringify(config, null, 2))
     } catch {
-      setConfigJson(`{\\n  "${key}": "${value}"\\n}`)
+      setConfigJson(`{\n  "${key}": "${value}"\n}`)
     }
   }
 
@@ -53,7 +53,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
 
   const validateStep = (): boolean => {
     const newErrors: Partial<Record<string, string>> = {}
-    
+
       if (step === 1) {
         if (!name.trim()) newErrors.name = 'Il nome è obbligatorio'
       } else if (step === 3) {
@@ -62,7 +62,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
         } catch {
           newErrors.configJson = 'Il JSON di configurazione non è valido'
         }
-        
+
         const config = JSON.parse(configJson || '{}')
         if (mode === 'api' && config.url && !/^https?:\/\/.+/.test(config.url)) {
           newErrors.url = 'L\'URL deve iniziare con http o https'
@@ -76,9 +76,10 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     if (!validateStep()) return
-    
+
     onAddSource({ name, sourceType, configJson })
     useStore.getState().setSlideOverContent(null)
   }
@@ -89,14 +90,16 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
 
   const prevStep = () => setStep(s => s - 1)
 
+  const errorId = (field: string) => `so-ds-${field}-error`
+
   return (
-    <div className="p-6 space-y-6">
+    <form onSubmit={handleSubmit} noValidate className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-bold">{title || 'Nuova Sorgente Dati'}</h3>
         <div className="flex gap-1">
           {[1, 2, 3].map(s => (
-            <div 
-              key={s} 
+            <div
+              key={s}
               className={`w-2 h-2 rounded-full transition-colors ${step === s ? 'bg-primary' : 'bg-border'}`}
             />
           ))}
@@ -112,12 +115,15 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
                 id="so-ds-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                required
                 className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
                   errors.name ? 'border-danger bg-danger/5' : 'border-border'
                 }`}
                 placeholder={t('datasources.form.name')}
+                aria-describedby={errors.name ? errorId('name') : undefined}
+                aria-invalid={errors.name ? true : undefined}
               />
-              {errors.name && <p className="text-danger text-[10px] mt-1">{errors.name}</p>}
+              {errors.name && <p id={errorId('name')} role="alert" className="text-danger text-[10px] mt-1">{errors.name}</p>}
             </div>
 
             <div>
@@ -139,6 +145,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
             <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Scegli Tipo Sorgente</label>
             <div className="grid grid-cols-3 gap-3">
               <button
+                type="button"
                 onClick={() => { setMode('file'); setSourceType('csv'); }}
                 className={`flex flex-col items-center justify-center p-4 rounded-lg border transition-all ${
                   mode === 'file' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-textDim hover:bg-surface-alt'
@@ -148,6 +155,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
                 <span className="text-[10px] font-bold uppercase">File</span>
               </button>
               <button
+                type="button"
                 onClick={() => { setMode('api'); setSourceType('api'); }}
                 className={`flex flex-col items-center justify-center p-4 rounded-lg border transition-all ${
                   mode === 'api' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-textDim hover:bg-surface-alt'
@@ -157,6 +165,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
                 <span className="text-[10px] font-bold uppercase">API</span>
               </button>
               <button
+                type="button"
                 onClick={() => { setMode('db'); setSourceType('database'); }}
                 className={`flex flex-col items-center justify-center p-4 rounded-lg border transition-all ${
                   mode === 'db' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-textDim hover:bg-surface-alt'
@@ -177,6 +186,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
                     { id: 'xml', label: 'XML', icon: FileText },
                   ].map(({ id, label, icon: Icon }) => (
                     <button
+                      type="button"
                       key={id}
                       onClick={() => setSourceType(id)}
                       className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-lg border text-xs transition-all ${
@@ -197,9 +207,10 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
             {mode === 'file' && (
               <div>
-                <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Carica File</label>
+                <label htmlFor="so-ds-file" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Carica File</label>
                 <div className="relative">
                   <input
+                    id="so-ds-file"
                     type="file"
                     accept=".csv,.json,.xml"
                     onChange={handleFileUpload}
@@ -216,36 +227,43 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
 
             {mode === 'api' && (
               <div>
-                <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">URL Endpoint</label>
+                <label htmlFor="so-ds-api-url" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">URL Endpoint</label>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-textDim">
                     <Link size={14} />
                   </div>
                   <input
+                    id="so-ds-api-url"
                     value={JSON.parse(configJson || '{}').url || ''}
                     onChange={(e) => updateConfig('url', e.target.value)}
+                    pattern="^https?://.+"
                     className={`w-full p-3 pl-10 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
                       errors.url ? 'border-danger bg-danger/5' : 'border-border'
                     }`}
                     placeholder="https://api.example.com/v1/data"
+                    aria-describedby={errors.url ? errorId('url') : undefined}
+                    aria-invalid={errors.url ? true : undefined}
                   />
-                  {errors.url && <p className="text-danger text-[10px] mt-1">{errors.url}</p>}
+                  {errors.url && <p id={errorId('url')} role="alert" className="text-danger text-[10px] mt-1">{errors.url}</p>}
                 </div>
               </div>
             )}
 
             {mode === 'db' && (
               <div>
-                <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">ConnectionString</label>
+                <label htmlFor="so-ds-conn-string" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">ConnectionString</label>
                 <input
+                  id="so-ds-conn-string"
                   value={JSON.parse(configJson || '{}').connectionString || ''}
                   onChange={(e) => updateConfig('connectionString', e.target.value)}
                   className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 transition-colors ${
                     errors.connectionString ? 'border-danger bg-danger/5' : 'border-border'
                   }`}
                   placeholder="postgresql://user:pass@localhost:5432/dbname"
+                  aria-describedby={errors.connectionString ? errorId('conn-string') : undefined}
+                  aria-invalid={errors.connectionString ? true : undefined}
                 />
-                {errors.connectionString && <p className="text-danger text-[10px] mt-1">{errors.connectionString}</p>}
+                {errors.connectionString && <p id={errorId('conn-string')} role="alert" className="text-danger text-[10px] mt-1">{errors.connectionString}</p>}
               </div>
             )}
 
@@ -259,8 +277,10 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
                 className={`w-full p-3 bg-background rounded-lg border text-xs font-mono resize-none focus:outline-none focus:border-primary/50 transition-colors ${
                   errors.configJson ? 'border-danger bg-danger/5' : 'border-border'
                 }`}
+                aria-describedby={errors.configJson ? errorId('config') : undefined}
+                aria-invalid={errors.configJson ? true : undefined}
               />
-              {errors.configJson && <p className="text-danger text-[10px] mt-1">{errors.configJson}</p>}
+              {errors.configJson && <p id={errorId('config')} role="alert" className="text-danger text-[10px] mt-1">{errors.configJson}</p>}
             </div>
           </div>
         )}
@@ -268,14 +288,16 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
 
       <div className="flex gap-3 pt-4">
          <button
+           type="button"
            onClick={step === 1 ? () => useStore.getState().setSlideOverContent(null) : prevStep}
            className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border flex items-center justify-center gap-2"
          >
           {step === 1 ? t('confirmDialog.cancel') : <><ChevronLeft size={16} /> Indietro</>}
         </button>
-        
+
         {step < 3 ? (
           <button
+            type="button"
             onClick={nextStep}
             className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors flex items-center justify-center gap-2"
           >
@@ -283,13 +305,13 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
           </button>
         ) : (
           <button
-            onClick={handleSubmit}
+            type="submit"
             className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors flex items-center justify-center gap-2"
           >
             <Check size={16} /> Crea Sorgente
           </button>
         )}
       </div>
-    </div>
+    </form>
   )
 }

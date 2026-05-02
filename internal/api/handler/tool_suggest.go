@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ff3300/aleph-v2/internal/mcp"
@@ -21,7 +23,7 @@ type ToolSuggestHandler struct {
 	mcpServerURIs  []string
 	mu             sync.Mutex
 	pending        map[string]*pendingSuggestion
-	nextID         int
+	nextID         atomic.Int64
 }
 
 type pendingSuggestion struct {
@@ -309,8 +311,8 @@ func (h *ToolSuggestHandler) storePending(ctx context.Context, toolDef mcp.ToolD
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	h.nextID++
-	suggestionID := fmt.Sprintf("sug-%d", h.nextID)
+	id := int(h.nextID.Add(1))
+	suggestionID := fmt.Sprintf("sug-%d", id)
 
 	h.pending[suggestionID] = &pendingSuggestion{
 		ToolDef:   toolDef,
@@ -320,6 +322,11 @@ func (h *ToolSuggestHandler) storePending(ctx context.Context, toolDef mcp.ToolD
 
 	// Schedule cleanup after 5 minutes — interruptible via ctx cancellation.
 	go func(id string, ctx context.Context) {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("tool_suggest cleanup goroutine panic", "suggestionID", id, "recover", r)
+			}
+		}()
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
 		select {

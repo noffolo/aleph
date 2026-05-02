@@ -1,5 +1,5 @@
 import React from 'react'
-import { LayoutGrid, Binary, Activity, Bot, Eye, Book, Zap, Database, Users, Cpu, Wrench, Package, Sliders, Settings } from 'lucide-react'
+import { LayoutGrid, Binary, Activity, Bot, Eye, Book, Zap, Database, Users, Cpu, Wrench, Package, Sliders, Settings, Gauge } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { SlideOverContent } from '../store/useStore'
 
@@ -20,6 +20,7 @@ const ID_TO_INLINE_TYPE: Record<string, SlideOverContent['type']> = {
   'Tools': 'tool',
   'Components': 'component',
   'Settings': 'settings',
+  'Dashboard': 'dashboard',
 }
 
 const PANEL_TITLES: Record<string, string> = {
@@ -34,9 +35,11 @@ const PANEL_TITLES: Record<string, string> = {
   Tools: 'Tools',
   Components: 'Components',
   Settings: 'Settings',
+  Dashboard: 'Dashboard',
 }
 
 const sidebarItems = [
+  { id: 'Dashboard', icon: Gauge, command: '/dashboard' },
   { id: 'Explorer', icon: LayoutGrid, command: '/explore' },
   { id: 'Data Health', icon: Activity, command: '/health' },
   { id: 'Copilot', icon: Bot, command: '' },

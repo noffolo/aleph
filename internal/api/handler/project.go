@@ -22,12 +22,24 @@ import (
 type ProjectHandler struct {
 	projectsRoot string
 	db           *storage.DuckDB
+	metaRepo     *repository.MetadataRepository
+	maxProjects  int
 	llm          llm.Provider
 	ontoRepo     *repository.OntologyRepository
 }
 
 func NewProjectHandler(projectsRoot string, db *storage.DuckDB) *ProjectHandler {
 	return &ProjectHandler{projectsRoot: projectsRoot, db: db}
+}
+
+// SetMetaRepo sets the metadata repository for multi-tenancy support.
+func (h *ProjectHandler) SetMetaRepo(m *repository.MetadataRepository) {
+	h.metaRepo = m
+}
+
+// SetMaxProjects sets the soft limit for project creation.
+func (h *ProjectHandler) SetMaxProjects(n int) {
+	h.maxProjects = n
 }
 
 // SetLLMProvider sets the LLM provider for ontology emergence.
@@ -111,6 +123,18 @@ func (h *ProjectHandler) CreateProject(
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("project id is required"))
 	}
 
+	// Soft limit: MaxProjects
+	if h.metaRepo != nil && h.maxProjects > 0 {
+		count, err := h.metaRepo.CountProjects()
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("count projects: %w", err))
+		}
+		if count >= h.maxProjects {
+			return nil, connect.NewError(connect.CodeFailedPrecondition,
+				fmt.Errorf("project limit reached (%d max)", h.maxProjects))
+		}
+	}
+
 	path := filepath.Join(h.projectsRoot, id)
 	dirs := []string{
 		filepath.Join(path, "raw"),
@@ -122,6 +146,22 @@ func (h *ProjectHandler) CreateProject(
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0755); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	// Create the DuckDB schema for this project
+	si, err := storage.NewSchemaIdentity(id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project id for schema: %w", err))
+	}
+	if err := storage.EnsureProjectSchema(h.db, si); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("ensure project schema: %w", err))
+	}
+
+	// Record project in PostgreSQL metadata
+	if h.metaRepo != nil {
+		if err := h.metaRepo.CreateProjectRecord(id, req.Msg.Name); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create project record: %w", err))
 		}
 	}
 
@@ -403,7 +443,15 @@ func (h *ProjectHandler) DeleteProject(
 	}
 
 	path, err := sanitizePath(h.projectsRoot, id)
-	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	if h.metaRepo != nil {
+		if err := repository.DeleteProjectCascadeWithDB(id, h.db, h.metaRepo); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("cascade delete: %w", err))
+		}
+	}
 
 	if err := os.RemoveAll(path); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -469,7 +517,10 @@ func (h *ProjectHandler) NegotiateAccept(w http.ResponseWriter, r *http.Request)
 	var req struct {
 		VersionID string `json:"version_id"`
 	}
-	json.Unmarshal(body, &req)
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, `{"error":"invalid JSON body"}`, http.StatusBadRequest)
+		return
+	}
 	if req.VersionID == "" {
 		http.Error(w, `{"error":"version_id is required"}`, http.StatusBadRequest)
 		return
@@ -493,7 +544,10 @@ func (h *ProjectHandler) NegotiateReject(w http.ResponseWriter, r *http.Request)
 		VersionID string `json:"version_id"`
 		Reason    string `json:"reason"`
 	}
-	json.Unmarshal(body, &req)
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, `{"error":"invalid JSON body"}`, http.StatusBadRequest)
+		return
+	}
 	if req.VersionID == "" {
 		http.Error(w, `{"error":"version_id is required"}`, http.StatusBadRequest)
 		return

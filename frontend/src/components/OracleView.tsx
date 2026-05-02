@@ -5,6 +5,7 @@ import { Zap, TrendingUp, AlertTriangle, Clock, ThumbsUp, ThumbsDown, MessageSqu
 import { t } from '../i18n';
 import { SkeletonLoader } from './SkeletonLoader';
 import { InlineError } from './ui/InlineError';
+import { reportError } from '../lib/errorReporter';
 
 interface Prediction {
   entityId: string;
@@ -34,6 +35,13 @@ export const OracleView: React.FC<{inline?: boolean; isLoading?: boolean; error?
   const [feedbackGiven, setFeedbackGiven] = React.useState<Record<string, boolean>>({});
   const abortRef = useRef<AbortController | null>(null);
   const predsRef = useRef<Prediction[]>([]);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!projectID) return;
@@ -60,11 +68,11 @@ export const OracleView: React.FC<{inline?: boolean; isLoading?: boolean; error?
           predsRef.current = [...predsRef.current, p];
           setPredictions(predsRef.current);
         }
-      } catch (err: any) {
-        if (err?.code !== 'CANCELLED') {
-          console.error(t('errors.default'), err);
-        }
-      } finally {
+        } catch (err: any) {
+          if (err?.code !== 'CANCELLED') {
+            reportError('OracleView', err);
+          }
+        } finally {
         if (!ac.signal.aborted) setIsLoading(false);
       }
     };
@@ -86,7 +94,8 @@ export const OracleView: React.FC<{inline?: boolean; isLoading?: boolean; error?
         return next;
       });
       useStore.getState().setLastError(t('generic.feedbackNotSent', { msg: err?.message || 'network error' }))
-      setTimeout(() => useStore.getState().setLastError(null), 4000)
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+      errorTimerRef.current = setTimeout(() => useStore.getState().setLastError(null), 4000)
     });
   };
 
@@ -99,7 +108,8 @@ export const OracleView: React.FC<{inline?: boolean; isLoading?: boolean; error?
     } catch (err: any) {
       setSentimentResult({ score: 0, label: 'error' });
       useStore.getState().setLastError(t('generic.sentimentFailed', { msg: err?.message || 'unknown error' }))
-      setTimeout(() => useStore.getState().setLastError(null), 4000)
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+      errorTimerRef.current = setTimeout(() => useStore.getState().setLastError(null), 4000)
     } finally {
       setSentimentLoading(false);
     }

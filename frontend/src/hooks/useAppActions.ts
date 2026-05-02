@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react'
+import { produce } from 'immer'
 import { useStore } from '../store/useStore'
 import type { SandboxResult } from '../store/types'
 import type { InlineContent, SlideOverContent } from '../store/useStore'
@@ -197,15 +198,21 @@ export function useAppActions() {
       let requiresConfirmation = false
       const msgIndex = useStore.getState().chat.length
       store.addChatMessage({ role: 'assistant', content: '', toolCall: '', createdAt: Date.now() })
-      for await (const res of stream) {
-        const chunk = res as unknown as StreamChunk
-        fullContent += chunk.token || ''
-        fullToolCall += chunk.toolCall || ''
-        if (chunk.requiresConfirmation) requiresConfirmation = true
-        const chat = useStore.getState().chat
-        chat[msgIndex] = { role: 'assistant', content: fullContent, toolCall: fullToolCall, requiresConfirmation, createdAt: Date.now() }
-        store.setChat([...chat])
-      }
+       for await (const res of stream) {
+         const chunk = res as unknown as StreamChunk
+         fullContent += chunk.token || ''
+         fullToolCall += chunk.toolCall || ''
+         if (chunk.requiresConfirmation) requiresConfirmation = true
+         
+         store.setState(produce((state: any) => {
+           const chat = state.chat
+           if (chat[msgIndex] && chat[msgIndex].role === 'assistant') {
+             chat[msgIndex] = { ...chat[msgIndex], content: fullContent, toolCall: fullToolCall, requiresConfirmation }
+           } else {
+             chat[msgIndex] = { role: 'assistant', content: fullContent, toolCall: fullToolCall, requiresConfirmation, createdAt: Date.now() }
+           }
+         }))
+       }
       if (requiresConfirmation) {
         store.setPendingConfirmation({ projectId: store.projectID, agentId: store.selectedAgent })
       }

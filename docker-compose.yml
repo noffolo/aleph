@@ -1,19 +1,42 @@
+secrets:
+  key_encryption_key:
+    file: ./secrets/key_encryption_key.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  postgres_dsn:
+    file: ./secrets/postgres_dsn.txt
+  aleph_api_key_secret_backend:
+    file: ./secrets/aleph_api_key_secret_backend.txt
+  aleph_api_key_secret:
+    file: ./secrets/aleph_api_key_secret.txt
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password.txt
+
 services:
   aleph-backend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: aleph-backend
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command: ["./aleph"]
     environment:
-      POSTGRES_DSN: "${POSTGRES_DSN}"
       DUCKDB_PATH: /app/aleph_registry.duckdb
       PYTHON_CMD: python3
       GO_CMD: go
       SERVER_ADDRESS: ":8080"
-      ALEPH_API_KEY_SECRET_BACKEND: "${ALEPH_API_KEY_SECRET_BACKEND}"
+      # POSTGRES_DSN loaded from Docker secret at /run/secrets/postgres_dsn
+      # JWT_SECRET loaded from Docker secret at /run/secrets/jwt_secret
+      # ALEPH_API_KEY_SECRET_BACKEND loaded from Docker secret at /run/secrets/aleph_api_key_secret_backend
       NLP_ADDR: "aleph-nlp-sidecar:8001"
       OLLAMA_BASE_URL: "http://ollama:11434"
-      KEY_ENCRYPTION_KEY: "${KEY_ENCRYPTION_KEY}"
+    secrets:
+      - key_encryption_key
+      - jwt_secret
+      - postgres_dsn
+      - aleph_api_key_secret_backend
     ports:
       - "8080:8080"
     deploy:
@@ -31,12 +54,15 @@ services:
       ollama:
         condition: service_started
 
+  # SECURITY: Ollama binds to 127.0.0.1 to prevent external network access.
+  # The Go backend connects via Docker DNS (http://ollama:11434), not via host port.
+  # DO NOT expose Ollama to 0.0.0.0 in production — models can generate arbitrary code output.
   ollama:
     image: ollama/ollama:latest
     container_name: aleph-ollama
     entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 2 && ollama pull llama3 && ollama pull nomic-embed-text && wait"]
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama-models:/root/.ollama
     healthcheck:
@@ -59,8 +85,9 @@ services:
     user: aleph
     environment:
       GRPC_SERVER_ADDRESS: 0.0.0.0:8001
-      ALEPH_API_KEY_SECRET: "${ALEPH_API_KEY_SECRET}"
       ALEPH_DUCKDB_PATH: /data/aleph.duckdb
+    secrets:
+      - aleph_api_key_secret
     ports:
       - "8001:8001"
     volumes:
@@ -100,15 +127,22 @@ services:
           cpus: '0.5'
           memory: 256M
 
+  # SECURITY: PostgreSQL binds to localhost only (container-internal).
+  # Backend connects via Docker DNS (aleph-db:5432), not host port.
+  # If host access is needed for pgAdmin/CLI, use 127.0.0.1:5432:5432, never 0.0.0.0.
+  # Production firewall: block 5432 from external networks at the host level.
   aleph-db:
     image: postgres:16-alpine
     container_name: aleph-db
+    command: ["postgres", "-c", "listen_addresses=*"]
     environment:
       POSTGRES_DB: aleph
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - aleph-pgdata:/var/lib/postgresql/data
     deploy:
@@ -131,13 +165,15 @@ services:
       PGHOST: aleph-db
       PGPORT: 5432
       PGUSER: postgres
-      PGPASSWORD: "${POSTGRES_PASSWORD}"
       PGDATABASE: aleph
     volumes:
       - ./scripts/backup-pg.sh:/backup-pg.sh:ro
       - ./backups/postgres:/backups/postgres
     entrypoint: >
       /bin/sh -c "
+        if [ -f /run/secrets/postgres_password ]; then
+          export PGPASSWORD="$$(cat /run/secrets/postgres_password | tr -d '\n')";
+        fi;
         echo 'PostgreSQL Backup Service starting...';
         while true; do
           /backup-pg.sh;
@@ -148,6 +184,8 @@ services:
     depends_on:
       aleph-db:
         condition: service_healthy
+    secrets:
+      - postgres_password
 
   prometheus:
     image: prom/prometheus:v2.53.1
@@ -175,7 +213,7 @@ services:
     container_name: aleph-grafana
     environment:
       GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/aleph-overview.json
     ports:
@@ -186,6 +224,8 @@ services:
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
+    secrets:
+      - grafana_admin_password
     deploy:
       resources:
         limits:

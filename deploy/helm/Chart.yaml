@@ -1,0 +1,24 @@
+apiVersion: v2
+name: aleph-v2
+description: A Helm chart for Aleph-v2 Data Operating System (post-v2.0 target)
+type: application
+version: 0.1.0
+appVersion: "2.0.0"
+
+# NOTE: This is a skeleton chart. Actual deployment templates will be added after
+# the monolith is split into independently scalable services (target: v2.1+).
+# See ARCHITECTURE.md for the rationale behind postponing full K8s deployment.
+
+keywords:
+  - aleph
+  - data-os
+  - analytics
+  - duckdb
+  - nlp
+
+home: https://github.com/ff3300/aleph-v2
+sources:
+  - https://github.com/ff3300/aleph-v2
+maintainers:
+  - name: Aleph Maintainers
+    email: dev@aleph.local

@@ -20,7 +20,7 @@ const DeleteConfirmModal: React.FC<{ project: Project; onConfirm: (apiKey: strin
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-8" onClick={onCancel}>
       <div className="max-w-md w-full bg-surface p-12 rounded-lg shadow-lg space-y-8 relative" onClick={e => e.stopPropagation()}>
-        <button onClick={onCancel} className="absolute top-8 right-8 p-3 bg-surface-alt rounded-lg text-textMuted hover:text-text transition-all">
+        <button onClick={onCancel} className="absolute top-8 right-8 p-3 bg-surface-alt rounded-lg text-textMuted hover:text-text transition-all" aria-label="Cancel onboarding">
           <X size={20} />
         </button>
         <div className="flex flex-col items-center text-center space-y-4">
@@ -65,7 +65,7 @@ export const WorkspaceOnboarding: React.FC<WorkspaceOnboardingProps> = ({ projec
       <div className="flex h-screen bg-surface items-center justify-center p-8 bg-gradient-to-br from-primary/5 to-surface animate-in fade-in zoom-in duration-500">
         <div className="max-w-md w-full bg-surface p-12 rounded-lg shadow-lg border border-primary/10 space-y-10 relative overflow-hidden group">
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/5 rounded-full group-hover:scale-150 transition-transform duration-1000"></div>
-          <button onClick={() => setSelectedId(null)} className="absolute top-8 right-8 p-3 bg-surface-alt rounded-lg text-textMuted hover:text-text transition-all hover:bg-border">
+          <button onClick={() => setSelectedId(null)} className="absolute top-8 right-8 p-3 bg-surface-alt rounded-lg text-textMuted hover:text-text transition-all hover:bg-border" aria-label="Deselect project">
             <X size={20} />
           </button>
           

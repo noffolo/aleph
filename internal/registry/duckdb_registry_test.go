@@ -15,7 +15,16 @@ func setupRegistry(t *testing.T) *DuckDBRegistry {
 		t.Fatal(err)
 	}
 	// :memory: DuckDB needs explicit table creation (no migrations run)
-	if _, err := r.db.Exec(createTableSQL); err != nil {
+	const ddl = `CREATE TABLE IF NOT EXISTS components (
+		id TEXT PRIMARY KEY, name TEXT, description TEXT, version TEXT, type TEXT,
+		category TEXT, source TEXT, status TEXT, approval_status TEXT,
+		config_schema_json TEXT, execution_command TEXT, dependencies_json TEXT,
+		input_schema_json TEXT, output_schema_json TEXT, prompt_template TEXT,
+		tool_ids_json TEXT, avg_cpu_usage DOUBLE DEFAULT 0, avg_memory_mb DOUBLE DEFAULT 0,
+		avg_exec_time_ms DOUBLE DEFAULT 0, avg_brier_score DOUBLE DEFAULT 0,
+		avg_latency_ms DOUBLE DEFAULT 0, trust_score DOUBLE DEFAULT 0,
+		created_by_agent_id TEXT, creation_timestamp TIMESTAMP, last_updated_timestamp TIMESTAMP)`
+	if _, err := r.db.Exec(ddl); err != nil {
 		t.Fatal(err)
 	}
 	return r

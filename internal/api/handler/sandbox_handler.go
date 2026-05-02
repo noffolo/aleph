@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"connectrpc.com/connect"
+	"github.com/ff3300/aleph-v2/internal/errors"
 	"github.com/ff3300/aleph-v2/internal/sandbox"
 	v1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 )
@@ -29,13 +30,23 @@ func (h *SandboxServiceHandler) ExecuteTool(ctx context.Context, req *connect.Re
 
 	result, err := h.sandboxMgr.ExecuteTool(ctx, toolID, inputMap)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, errors.NewAPIErrorWithMeta(
+			errors.ErrInternal, "tool execution failed", err,
+			"sandbox", "execute", true, 0,
+		))
 	}
 
+	ec := result.ExitCode
+	if ec < -1<<31 || ec > 1<<31-1 {
+		return nil, connect.NewError(connect.CodeInternal, errors.NewAPIErrorWithMeta(
+			errors.ErrInternal, "exit code out of range", nil,
+			"sandbox", "execute", true, 0,
+		))
+	}
 	pbResult := &v1.ExecutionResult{
 		Stdout:      result.Stdout,
 		Stderr:      result.Stderr,
-		ExitCode:    int32(result.ExitCode),
+		ExitCode:    int32(ec),
 		Error:       result.Error,
 		MetricsJson: result.Metrics,
 	}
@@ -53,13 +64,23 @@ func (h *SandboxServiceHandler) RunSkill(ctx context.Context, req *connect.Reque
 
 	result, err := h.sandboxMgr.RunSkill(ctx, skillID, inputMap)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, connect.NewError(connect.CodeInternal, errors.NewAPIErrorWithMeta(
+			errors.ErrInternal, "skill execution failed", err,
+			"sandbox", "execute", true, 0,
+		))
 	}
 
+	ec := result.ExitCode
+	if ec < -1<<31 || ec > 1<<31-1 {
+		return nil, connect.NewError(connect.CodeInternal, errors.NewAPIErrorWithMeta(
+			errors.ErrInternal, "exit code out of range", nil,
+			"sandbox", "execute", true, 0,
+		))
+	}
 	pbResult := &v1.ExecutionResult{
 		Stdout:      result.Stdout,
 		Stderr:      result.Stderr,
-		ExitCode:    int32(result.ExitCode),
+		ExitCode:    int32(ec),
 		Error:       result.Error,
 		MetricsJson: result.Metrics,
 	}

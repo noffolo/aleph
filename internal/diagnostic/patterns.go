@@ -215,6 +215,61 @@ func (dm *DiagnosticMonitor) GetPatterns() []ErrorPattern {
 	return result
 }
 
+// SubsystemSummary aggregates error statistics for a single subsystem.
+type SubsystemSummary struct {
+	Subsystem    string `json:"subsystem"`
+	TotalErrors  int    `json:"total_errors"`
+	Patterns     int    `json:"patterns"`
+	HighestSeverity string `json:"highest_severity"`
+}
+
+// CorrelateWithSubsystem groups recorded patterns by their Component field
+// (which represents the subsystem) and returns per-subsystem summaries.
+// This allows the DiagnosticMonitor to identify which subsystem is generating
+// the most errors and at what severity level.
+func (dm *DiagnosticMonitor) CorrelateWithSubsystem() []SubsystemSummary {
+	bySubsystem := make(map[string]*SubsystemSummary)
+	for _, p := range dm.patterns {
+		comp := p.Component
+		if comp == "" {
+			comp = "unknown"
+		}
+		ss, ok := bySubsystem[comp]
+		if !ok {
+			ss = &SubsystemSummary{
+				Subsystem:    comp,
+				HighestSeverity: SeverityLow,
+			}
+			bySubsystem[comp] = ss
+		}
+		ss.TotalErrors += p.Count
+		ss.Patterns++
+		if severityRank(ss.HighestSeverity) < severityRank(p.Severity) {
+			ss.HighestSeverity = p.Severity
+		}
+	}
+	result := make([]SubsystemSummary, 0, len(bySubsystem))
+	for _, ss := range bySubsystem {
+		result = append(result, *ss)
+	}
+	return result
+}
+
+func severityRank(s string) int {
+	switch s {
+	case SeverityCritical:
+		return 4
+	case SeverityHigh:
+		return 3
+	case SeverityMedium:
+		return 2
+	case SeverityLow:
+		return 1
+	default:
+		return 0
+	}
+}
+
 func (dm *DiagnosticMonitor) GetCriticalPatterns() []ErrorPattern {
 	result := make([]ErrorPattern, 0)
 	for _, p := range dm.patterns {

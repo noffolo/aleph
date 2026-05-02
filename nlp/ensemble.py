@@ -1,11 +1,13 @@
 import hashlib
 import logging
-from collections import OrderedDict
+import os
 
 import numpy as np
 import pandas as pd
 from prophet import Prophet
 from simulator import StochasticSimulator
+
+from cache import TTLCache
 
 logger = logging.getLogger(__name__)
 
@@ -21,18 +23,19 @@ def _data_hash(df):
 class PredictiveEnsemble:
     def __init__(self):
         self.simulator = StochasticSimulator()
-        self._forecast_cache = OrderedDict()
-        self._max_cache_size = 10
-        logger.info("Prophet Ensemble initialized.")
+        cache_size = int(os.environ.get("ENSEMBLE_CACHE_SIZE", "50"))
+        cache_ttl = int(os.environ.get("ENSEMBLE_CACHE_TTL", "300"))
+        self._forecast_cache = TTLCache(max_size=cache_size, default_ttl=cache_ttl, name="ensemble")
+        logger.info("Prophet Ensemble initialized (cache_size=%d, cache_ttl=%ds).", cache_size, cache_ttl)
 
     def forecast_trend(self, history_data):
         if len(history_data) < 10:
             return 0.05, 0.2
 
         key = _data_hash(history_data)
-        if key in self._forecast_cache:
-            logger.info("Using cached Prophet model for data hash %s...", key[:12])
-            return self._forecast_cache[key]
+        cached = self._forecast_cache.get(key)
+        if cached is not None:
+            return cached
 
         logger.info("Fitting Prophet model for data hash %s...", key[:12])
         m = Prophet(daily_seasonality=True)
@@ -49,11 +52,8 @@ class PredictiveEnsemble:
         sigma = float(np.std(residuals)) if len(residuals) > 0 else 0.2
 
         result = (drift, sigma)
-        self._forecast_cache[key] = result
+        self._forecast_cache.put(key, result)
         logger.info("Cached Prophet result for data hash %s (drift=%.4f, sigma=%.4f)", key[:12], drift, sigma)
-
-        if len(self._forecast_cache) > self._max_cache_size:
-            self._forecast_cache.popitem(last=False)
 
         return result
 

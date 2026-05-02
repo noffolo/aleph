@@ -23,5 +23,10 @@ func ListTools(dbl *DuckDBLayer) []ToolExecutor {
 		NewGeographicContext(dbl),
 		NewPatternClassifier(dbl),
 		NewPluginViz(dbl),
+		NewDemographicProfileTool(dbl),
+		NewSocioeconomicIndicatorsTool(dbl),
+		NewCulturalMetricsTool(dbl),
+		NewUrbanRuralDistributionTool(dbl),
+		NewMigrationPatternsTool(dbl),
 	}
 }

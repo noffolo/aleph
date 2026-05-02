@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ff3300/aleph-v2/internal/safeident"
 )
@@ -34,6 +36,9 @@ type MemoryStore struct {
 	initErr error
 }
 
+// expectedEmbedDim is the expected embedding dimension for nomic-embed-text.
+const expectedEmbedDim = 768
+
 // NewMemoryStore creates a new MemoryStore backed by the given DB.
 func NewMemoryStore(db *sql.DB, schema string, embeddingDim int) (*MemoryStore, error) {
 	if db == nil {
@@ -50,6 +55,10 @@ func NewMemoryStore(db *sql.DB, schema string, embeddingDim int) (*MemoryStore, 
 			return nil, fmt.Errorf("memory: invalid schema name: %w", err)
 		}
 	}
+	if embeddingDim != expectedEmbedDim {
+		slog.Warn("memory: embedding dimension differs from nomic-embed-text default",
+			"expected", expectedEmbedDim, "got", embeddingDim)
+	}
 	return &MemoryStore{db: db, schema: schema, dim: embeddingDim}, nil
 }
 
@@ -60,23 +69,30 @@ func (m *MemoryStore) Close() error {
 
 // Store stores a key-value pair with its embedding vector.
 // Uses DELETE + INSERT because DuckDB's FLOAT[] columns do not support
-// INSERT OR REPLACE or ON CONFLICT DO UPDATE with array values.
+// INSERT OR REPLACE or ON CONFLICT DO UPDATE. Transactions cannot be used
+// because DuckDB's PRIMARY KEY enforcement doesn't see intra-transaction
+// DELETEs (constraint check occurs before the delete takes effect).
+// Instead, we retry the full DELETE+INSERT on constraint violation.
 func (m *MemoryStore) Store(ctx context.Context, key string, value []byte, embedding []float32) error {
 	if err := m.ensureTable(ctx); err != nil {
 		return err
 	}
 	delQ := fmt.Sprintf(`DELETE FROM %s WHERE key = ?`, m.tableName())
-	if _, err := m.db.ExecContext(ctx, delQ, key); err != nil {
-		return fmt.Errorf("memory Store delete: %w", err)
-	}
 	insQ := fmt.Sprintf(
 		`INSERT INTO %s (key, value, embedding) VALUES (?, ?, %s)`,
 		m.tableName(), m.arrayLiteral(embedding),
 	)
-	if _, err := m.db.ExecContext(ctx, insQ, key, value); err != nil {
-		return fmt.Errorf("memory Store insert: %w", err)
+
+	const maxRetries = 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if _, err := m.db.ExecContext(ctx, delQ, key); err != nil {
+			return fmt.Errorf("memory Store delete: %w", err)
+		}
+		if _, err := m.db.ExecContext(ctx, insQ, key, value); err == nil {
+			return nil
+		}
 	}
-	return nil
+	return fmt.Errorf("memory Store: failed after %d retries", maxRetries)
 }
 
 // Search performs vector similarity search using DuckDB's array_cosine_similarity.
@@ -219,7 +235,9 @@ func (m *MemoryStore) arrayLiteral(embedding []float32) string {
 }
 
 // ensureTable creates the memory_store table if it does not yet exist.
+// Uses sync.Once with up to maxInitAttempts retries on failure.
 func (m *MemoryStore) ensureTable(ctx context.Context) error {
+	const maxInitAttempts = 3
 	m.init.Do(func() {
 		q := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 			key VARCHAR PRIMARY KEY,
@@ -228,7 +246,22 @@ func (m *MemoryStore) ensureTable(ctx context.Context) error {
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`, m.tableName(), m.dim)
-		_, m.initErr = m.db.ExecContext(ctx, q)
+		for attempt := 1; attempt <= maxInitAttempts; attempt++ {
+			_, m.initErr = m.db.ExecContext(ctx, q)
+			if m.initErr == nil {
+				return
+			}
+			slog.Warn("memory: table creation attempt failed",
+				"attempt", attempt, "max", maxInitAttempts, "error", m.initErr)
+			if attempt < maxInitAttempts {
+				select {
+				case <-ctx.Done():
+					m.initErr = ctx.Err()
+					return
+				case <-time.After(time.Duration(attempt) * 500 * time.Millisecond):
+				}
+			}
+		}
 	})
 	return m.initErr
 }

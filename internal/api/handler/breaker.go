@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -11,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 	nlp "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1/nlpconnect"
+	"github.com/ff3300/aleph-v2/internal/errors"
 )
 
 const (
@@ -50,7 +50,10 @@ func (c *CircuitBreakerClient) AnalyzeSentiment(ctx context.Context, req *connec
 	state := c.currentState()
 	if state == cbOpen || c.client == nil {
 		c.recordFailure()
-		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("system in degraded mode: sidecar offline"))
+		return nil, connect.NewError(connect.CodeUnavailable, errors.NewAPIErrorWithMeta(
+			errors.ErrUnavailable, "system in degraded mode: sidecar offline", nil,
+			"nlp", "health", true, 30000,
+		))
 	}
 
 	resp, err := c.client.AnalyzeSentiment(ctx, req)
@@ -66,7 +69,10 @@ func (c *CircuitBreakerClient) RecordFeedback(ctx context.Context, req *connect.
 	state := c.currentState()
 	if state == cbOpen || c.client == nil {
 		c.recordFailure()
-		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("system in degraded mode: sidecar offline"))
+		return nil, connect.NewError(connect.CodeUnavailable, errors.NewAPIErrorWithMeta(
+			errors.ErrUnavailable, "system in degraded mode: sidecar offline", nil,
+			"nlp", "health", true, 30000,
+		))
 	}
 
 	resp, err := c.client.RecordFeedback(ctx, req)
@@ -82,7 +88,10 @@ func (c *CircuitBreakerClient) StreamPredictions(ctx context.Context, req *conne
 	state := c.currentState()
 	if state == cbOpen || c.client == nil {
 		c.recordFailure()
-		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("system in degraded mode: sidecar offline"))
+		return nil, connect.NewError(connect.CodeUnavailable, errors.NewAPIErrorWithMeta(
+			errors.ErrUnavailable, "system in degraded mode: sidecar offline", nil,
+			"nlp", "health", true, 30000,
+		))
 	}
 
 	stream, err := c.client.StreamPredictions(ctx, req)
@@ -97,6 +106,12 @@ func (c *CircuitBreakerClient) StreamPredictions(ctx context.Context, req *conne
 func (c *CircuitBreakerClient) MarkHealthy() {
 	c.state.Store(cbClosed)
 	c.failureCnt.Store(0)
+}
+
+// MarkUnhealthy forces the circuit breaker to open (degraded mode).
+func (c *CircuitBreakerClient) MarkUnhealthy() {
+	c.lastFail.Store(time.Now().Unix())
+	c.state.Store(cbOpen)
 }
 
 func (c *CircuitBreakerClient) recordFailure() {

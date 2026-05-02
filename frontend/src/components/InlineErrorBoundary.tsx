@@ -18,7 +18,9 @@ export class InlineErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error(`InlineErrorBoundary (${this.props.label || 'unknown'}):`, error, errorInfo);
+    if (import.meta.env.DEV) {
+      console.error(`InlineErrorBoundary (${this.props.label || 'unknown'}):`, error, errorInfo);
+    }
   }
 
   private handleRetry = () => {

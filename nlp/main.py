@@ -113,6 +113,19 @@ class NLPService(nlp_pb2_grpc.NLPServiceServicer):
         self.duckdb_path = DUCKDB_PATH
         logging.info("Sentiment method: heuristic (word-frequency, NOT ML-based, confidence ~0.3)")
         logging.info("Ensemble (Prophet/GBM) and Market Predictor loaded.")
+        logging.info(
+            "Cache config: ENSEMBLE_CACHE_SIZE=%s ENSEMBLE_CACHE_TTL=%ss "
+            "MARKET_CACHE_TTL_POLY=%ss MARKET_CACHE_TTL_META=%ss MARKET_CACHE_SIZE=%s",
+            os.environ.get("ENSEMBLE_CACHE_SIZE", "50"),
+            os.environ.get("ENSEMBLE_CACHE_TTL", "300"),
+            os.environ.get("MARKET_CACHE_TTL_POLY", "60"),
+            os.environ.get("MARKET_CACHE_TTL_META", "300"),
+            os.environ.get("MARKET_CACHE_SIZE", "500"),
+        )
+        logging.info("Cache config: ensemble_ttl=%ds, ensemble_max=%d, market_ttl_poly=%ds, market_ttl_meta=%ds",
+                     self.ensemble._cache_ttl, self.ensemble._max_cache_size,
+                     int(os.environ.get("MARKET_CACHE_TTL_POLY", "60")),
+                     int(os.environ.get("MARKET_CACHE_TTL_META", "300")))
 
     def AnalyzeSentiment(self, request, context):
         text = request.text

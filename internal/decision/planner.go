@@ -2,12 +2,13 @@ package decision
 
 import (
 	"context"
-	"strings"
 )
 
 // validateToolName checks if the tool name corresponds to a known tool.
 // Built-in tools (search_data, analyze_sentiment, get_trust_score) always return true.
-// For all other tools, checks the registry for a matching component.
+// For all other tools, checks the registry for an exact ID match.
+// Unlike the previous implementation, this does NOT use prefix/substring matching,
+// ensuring only explicitly registered tools are considered valid.
 func validateToolName(ctx context.Context, name string, registry PluginRegistry) bool {
 	switch name {
 	case "search_data", "analyze_sentiment", "get_trust_score":
@@ -18,25 +19,10 @@ func validateToolName(ctx context.Context, name string, registry PluginRegistry)
 		return false
 	}
 
-	// For custom/registered tools, check if the name matches any known component
-	// Components are stored by ID, not name, so we try a direct lookup
+	// Exact match only: try direct lookup by tool name as component ID
 	comp, err := registry.GetComponentByID(ctx, name)
 	if err == nil && comp != nil {
 		return true
-	}
-
-	// Case-insensitive match against common patterns
-	lower := strings.ToLower(name)
-	knownToolPatterns := []string{
-		"execute", "run", "call", "invoke",
-		"transform", "process", "compute",
-		"send", "fetch", "load", "save",
-	}
-
-	for _, pattern := range knownToolPatterns {
-		if strings.Contains(lower, pattern) {
-			return true
-		}
 	}
 
 	return false

@@ -180,6 +180,12 @@ func (s *MCPService) handleToolsCall(ctx context.Context, id int, rawParams json
 	resultCh := make(chan execResult, 1)
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("tool execution goroutine panic", "recover", r)
+				resultCh <- execResult{err: fmt.Errorf("tool execution panic: %v", r)}
+			}
+		}()
 		s.mu.RLock()
 		result, err := s.registry.ExecuteContext(execCtx, category, name, execParams)
 		s.mu.RUnlock()

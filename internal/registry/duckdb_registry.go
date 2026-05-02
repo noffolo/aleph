@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 	_ "github.com/marcboeker/go-duckdb"
 	"github.com/google/uuid"
@@ -43,35 +44,8 @@ type ComponentMetadata struct {
 type DuckDBRegistry struct {
 	db     *sql.DB
 	logger *slog.Logger
+	mu     sync.RWMutex
 }
-
-const createTableSQL = `CREATE TABLE IF NOT EXISTS components (
-	id VARCHAR PRIMARY KEY,
-	name VARCHAR,
-	description VARCHAR,
-	version VARCHAR,
-	type VARCHAR,
-	category VARCHAR,
-	source VARCHAR,
-	status VARCHAR,
-	approval_status VARCHAR,
-	config_schema_json VARCHAR,
-	execution_command VARCHAR,
-	dependencies_json VARCHAR,
-	input_schema_json VARCHAR,
-	output_schema_json VARCHAR,
-	prompt_template VARCHAR,
-	tool_ids_json VARCHAR,
-	avg_cpu_usage DOUBLE DEFAULT 0,
-	avg_memory_mb DOUBLE DEFAULT 0,
-	avg_exec_time_ms DOUBLE DEFAULT 0,
-	avg_brier_score DOUBLE DEFAULT 0,
-	avg_latency_ms DOUBLE DEFAULT 0,
-	trust_score DOUBLE DEFAULT 0,
-	created_by_agent_id VARCHAR,
-	creation_timestamp TIMESTAMP,
-	last_updated_timestamp TIMESTAMP
-)`
 
 func NewDuckDBRegistry(dbPath string, logger *slog.Logger) (*DuckDBRegistry, error) {
 	db, err := sql.Open("duckdb", dbPath)
@@ -96,7 +70,17 @@ func (r *DuckDBRegistry) RegisterComponent(meta ComponentMetadata) (string, erro
 	now := time.Now()
 	if meta.CreationTimestamp.IsZero() { meta.CreationTimestamp = now }
 	if meta.LastUpdatedTimestamp.IsZero() { meta.LastUpdatedTimestamp = now }
-	_, err := r.db.Exec(`INSERT INTO components VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var exists int
+	err := r.db.QueryRow(`SELECT 1 FROM components WHERE id = ?`, meta.ID).Scan(&exists)
+	if err == nil {
+		return "", fmt.Errorf("registerComponent: duplicate id %s", meta.ID)
+	}
+
+	_, err = r.db.Exec(`INSERT INTO components VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		meta.ID, meta.Name, meta.Description, meta.Version, meta.Type, meta.Category, meta.Source, meta.Status, meta.ApprovalStatus,
 		meta.ConfigSchemaJSON, meta.ExecutionCommand, meta.DependenciesJSON, meta.InputSchemaJSON, meta.OutputSchemaJSON,
 		meta.PromptTemplate, meta.ToolIdsJSON,
@@ -106,6 +90,9 @@ func (r *DuckDBRegistry) RegisterComponent(meta ComponentMetadata) (string, erro
 }
 
 func (r *DuckDBRegistry) GetComponentByID(ctx context.Context, id string) (*ComponentMetadata, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	var c ComponentMetadata
 	err := r.db.QueryRowContext(ctx, `SELECT id, name, description, version, type, category, source, status, approval_status,
 		config_schema_json, execution_command, dependencies_json, input_schema_json, output_schema_json,
@@ -125,6 +112,9 @@ func (r *DuckDBRegistry) GetComponentByID(ctx context.Context, id string) (*Comp
 }
 
 func (r *DuckDBRegistry) UpdateComponentStatus(id string, status string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	_, err := r.db.Exec("UPDATE components SET status = ?, last_updated_timestamp = ? WHERE id = ?", status, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("updateComponentStatus: %w", err)
@@ -133,6 +123,9 @@ func (r *DuckDBRegistry) UpdateComponentStatus(id string, status string) error {
 }
 
 func (r *DuckDBRegistry) ListComponents(filter map[string]string) ([]ComponentMetadata, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	rows, err := r.db.Query(`SELECT id, name, description, version, type, category, source, status, approval_status,
 		config_schema_json, execution_command, dependencies_json, input_schema_json, output_schema_json,
 		prompt_template, tool_ids_json,
@@ -160,6 +153,9 @@ func (r *DuckDBRegistry) ListComponents(filter map[string]string) ([]ComponentMe
 func ParseToolIdsJSON(jsonStr string) []string {
 	if jsonStr == "" { return nil }
 	var ids []string
-	json.Unmarshal([]byte(jsonStr), &ids)
+	if err := json.Unmarshal([]byte(jsonStr), &ids); err != nil {
+		slog.Warn("failed to parse tool IDs JSON", "error", err)
+		return nil
+	}
 	return ids
 }

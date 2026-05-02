@@ -11,18 +11,27 @@ vi.mock('@/api/factory', () => ({
 
 vi.mock('@/hooks/useAppActions', () => ({ handleError: vi.fn() }));
 
-vi.mock('@/store/useStore', () => ({
-  useStore: vi.fn(() => ({
+vi.mock('@/store/useStore', () => {
+  const mockState: Record<string, any> = {
     projectID: 'test-project-id',
+    agents: [],
+    tools: [],
     setAgents: vi.fn(),
     setTools: vi.fn(),
     setSlideOverContent: vi.fn(),
     setSandboxInput: vi.fn(),
     setLastError: vi.fn(),
     addToast: vi.fn(),
-    getState: () => ({ projectID: 'test-project-id', tools: [] }),
-  })),
-}));
+    setPendingCrud: vi.fn(),
+    clearPendingCrud: vi.fn(),
+  };
+  const m = vi.fn((selector?: any) => {
+    if (typeof selector === 'function') return selector(mockState);
+    return mockState;
+  });
+  (m as any).getState = vi.fn(() => mockState);
+  return { useStore: m };
+});
 
 describe('Hook Integration Tests', () => {
   const mockLoadProjectData = vi.fn();

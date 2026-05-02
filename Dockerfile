@@ -2,65 +2,67 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# --- Stage 2: Backend Build ---
-FROM golang:1.24-bullseye AS backend-builder
+# --- Stage 2: Go Backend Build ---
+FROM golang:1.24-alpine AS backend-builder
+RUN apk add --no-cache git
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-# Copy frontend build from previous stage so it can be embedded
+# Embed frontend dist from stage 1
 COPY --from=frontend-builder /app/frontend/dist ./dist
-RUN go build -o aleph main.go
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o aleph main.go
 
-# --- Stage 3: Python NLP Environment ---
-FROM python:3.12-slim-bullseye AS python-builder
+# --- Stage 3: Python NLP Dependencies ---
+FROM python:3.12-alpine AS python-builder
 WORKDIR /app/nlp
 COPY nlp/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- Stage 4: Final Hardened Image ---
-FROM python:3.12-slim-bullseye
+# --- Stage 4: Production (alpine:3.20, <80MB target) ---
+FROM alpine:3.20
 WORKDIR /app
 
-# Install system dependencies (for DuckDB VSS, health checks, and general stability)
-RUN apt-get update && apt-get install -y \
-    libstdc++6 \
+# Install only runtime essentials: Python for sandbox tool execution, ca-certs, wget for healthcheck
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
     ca-certificates \
-    curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && adduser -D -h /app appuser
+    wget \
+    libstdc++
 
-# Copy backend binary
+# Copy Go binary (CGO_ENABLED=0, static, ~15MB)
 COPY --from=backend-builder /app/aleph .
-# Copy swagger docs
+# Copy entrypoint script
+COPY docker-entrypoint.sh .
+RUN chmod +x docker-entrypoint.sh
+# Copy Swagger docs
 COPY internal/api/proto/aleph_api.swagger.json ./internal/api/proto/
 
-# Copy Python NLP code and pre-installed packages
+# Copy NLP source code
 COPY nlp/ ./nlp/
+# Copy pre-built Python packages from alpine-compatible builder
 COPY --from=python-builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
-# Environment variables
+# Environment defaults
 ENV PORT=8080
 ENV DATA_ROOT=/app/data/raw
-ENV POSTGRES_DSN="postgres://postgres:postgres@db:5432/aleph?sslmode=disable"
 ENV DUCKDB_PATH="/app/data/aleph.duckdb"
-ENV KEY_ENCRYPTION_KEY=""
 
-# Create data directories and set ownership
-RUN mkdir -p /app/data/projects /app/data/raw /app/data/ontologies \
+# Create non-root user & data directories
+RUN adduser -D -h /app appuser \
+    && mkdir -p /app/data/projects /app/data/raw /app/data/ontologies \
     && chown -R appuser:appuser /app
 
 USER appuser
-
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost:8080/api/v1/healthz || exit 1
+# Healthcheck uses /healthz (registered by app.go via mux)
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/v1/healthz || exit 1
 
-# Start script to run both if needed, but per Master Plan, Go is the orchestrator
-# Go app will manage the sidecar if started via shell or it assumes sidecar is running elsewhere.
-# For Docker Compose simplicity, we might run them separately, but here we provide a unified image.
 CMD ["./aleph"]

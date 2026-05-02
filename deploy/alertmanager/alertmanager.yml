@@ -16,13 +16,20 @@ route:
 
 receivers:
   - name: "default"
-    # Configure webhook/email/slack for your environment
-    # Example: webhook_configs:
-    #   - url: "http://localhost:5001/alerts"
-    #     send_resolved: true
+    webhook_configs:
+      - url: "http://localhost:5001/alerts"
+        send_resolved: true
 
   - name: "critical"
-    # Example: email_configs:
-    #   - to: "oncall@example.com"
-    #     from: "alertmanager@aleph.local"
-    #     smarthost: "smtp:25"
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#aleph-alerts"
+        title: "{{ .CommonAnnotations.summary }}"
+        text: "{{ .CommonAnnotations.description }}"
+        send_resolved: true
+    email_configs:
+      - to: "${ONCALL_EMAIL}"
+        from: "alertmanager@aleph.local"
+        smarthost: "smtp:25"
+        headers:
+          Subject: "[CRITICAL] {{ .CommonAnnotations.summary }}"

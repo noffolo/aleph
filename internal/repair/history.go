@@ -3,6 +3,7 @@ package repair
 import (
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -31,25 +32,25 @@ type RepairRecord struct {
 type RepairHistory struct {
 	mu       sync.RWMutex
 	records  []RepairRecord
-	nextID   int
+	nextID   atomic.Int64
 	logger   *slog.Logger
 }
 
 // NewRepairHistory creates a RepairHistory.
 func NewRepairHistory(logger *slog.Logger) *RepairHistory {
-	return &RepairHistory{
+	h := &RepairHistory{
 		records: make([]RepairRecord, 0),
-		nextID:  1,
 		logger:  logger,
 	}
+	h.nextID.Store(1)
+	return h
 }
 
 // Record adds a repair record to the history.
 func (h *RepairHistory) Record(r RepairRecord) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	r.ID = h.nextID
-	h.nextID++
+	r.ID = int(h.nextID.Add(1) - 1)
 	if r.Timestamp.IsZero() {
 		r.Timestamp = time.Now()
 	}

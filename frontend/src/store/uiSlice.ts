@@ -47,12 +47,16 @@ export interface UISlice {
   removeToast: (id: string) => void
   inputMode: boolean
   setInputMode: (v: boolean) => void
+  pendingCrud: Record<string, boolean>
+  setPendingCrud: (key: string) => void
+  clearPendingCrud: (key: string) => void
+  isCrudPending: (key: string) => boolean
   resetUI: () => void
 }
 
 let _toastCounter = 0
 
-export const createUISlice: StateCreator<UISlice> = (set) => ({
+export const createUISlice: StateCreator<UISlice> = (set, get) => ({
   showOnboarding: true,
   setShowOnboarding: (s) => set({ showOnboarding: s }),
   showWizard: false,
@@ -91,6 +95,14 @@ export const createUISlice: StateCreator<UISlice> = (set) => ({
     })),
   inputMode: false,
   setInputMode: (v) => set({ inputMode: v }),
+  pendingCrud: {},
+  setPendingCrud: (key) => set((state) => ({ pendingCrud: { ...state.pendingCrud, [key]: true } })),
+  clearPendingCrud: (key) => set((state) => {
+    const next = { ...state.pendingCrud };
+    delete next[key];
+    return { pendingCrud: next };
+  }),
+  isCrudPending: (key) => !!get().pendingCrud[key],
   resetUI: () => set({
     assets: [],
     globalSearchResults: null,
@@ -101,5 +113,6 @@ export const createUISlice: StateCreator<UISlice> = (set) => ({
     enableScanline: true,
     enableGlow: false,
     enableFlicker: false,
+    pendingCrud: {},
   }),
 })

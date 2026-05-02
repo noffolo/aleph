@@ -3,32 +3,24 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestNewAuthInterceptor(t *testing.T) {
-	i := NewAuthInterceptor(nil)
+	i := NewAuthInterceptor(nil, nil)
 	if i == nil {
 		t.Error("expected non-nil interceptor")
 	}
 }
 
-func TestSkipAuth(t *testing.T) {
-	cases := []struct {
-		procedure string
-		expected  bool
-	}{
-		{"/aleph.v1.AuthService/ListApiKeys", true},
-		{"/aleph.v1.AuthService/CreateApiKey", true},
-		{"/aleph.v1.NotificationService/SendWebhook", false},
-		{"/aleph.v1.QueryService/ExecuteQuery", false},
-		{"/aleph.v1.ProjectService/ListProjects", false},
-	}
-	for _, tc := range cases {
-		result := skipAuth(tc.procedure)
-		if result != tc.expected {
-			t.Errorf("skipAuth(%q) = %v, want %v", tc.procedure, result, tc.expected)
+func TestAuthSkipSetEmpty(t *testing.T) {
+	if len(authSkipSet) != 0 {
+		t.Errorf("authSkipSet should be empty after W0-4 hardening, got %d entries", len(authSkipSet))
+		for proc := range authSkipSet {
+			t.Errorf("  unexpected entry: %s", proc)
 		}
 	}
 }
@@ -121,5 +113,138 @@ func TestIsAdmin(t *testing.T) {
 	}
 	if IsAdmin(ctxUser) {
 		t.Error("IsAdmin should return false for user role")
+	}
+}
+
+func TestRBACEnforcement(t *testing.T) {
+	cases := []struct {
+		procedure    string
+		role         Role
+		shouldAllow bool
+	}{
+		{"/aleph.v1.AuthService/CreateApiKey", RoleAdmin, true},
+		{"/aleph.v1.AuthService/CreateApiKey", RoleUser, false},
+		{"/aleph.v1.AuthService/ListApiKeys", RoleAdmin, true},
+		{"/aleph.v1.AuthService/ListApiKeys", RoleReadOnly, false},
+		{"/aleph.v1.AuthService/DeleteApiKey", RoleAdmin, true},
+		{"/aleph.v1.AuthService/DeleteApiKey", RoleUser, false},
+		{"/aleph.v1.ProjectService/CreateProject", RoleUser, true},
+		{"/aleph.v1.ProjectService/CreateProject", RoleReadOnly, false},
+		{"/aleph.v1.ProjectService/DeleteProject", RoleAdmin, true},
+		{"/aleph.v1.ProjectService/DeleteProject", RoleUser, false},
+		{"/aleph.v1.AgentService/CreateAgent", RoleUser, true},
+		{"/aleph.v1.AgentService/CreateAgent", RoleReadOnly, false},
+		{"/aleph.v1.AgentService/ListAgents", RoleReadOnly, true},
+		{"/aleph.v1.QueryService/ExecuteQuery", RoleReadOnly, true},
+		{"/aleph.v1.IngestionService/RunTask", RoleUser, true},
+		{"/aleph.v1.IngestionService/RunTask", RoleReadOnly, false},
+		{"/aleph.v1.IngestionService/ListTasks", RoleReadOnly, true},
+		{"/aleph.registry.v1.RegistryService/RegisterComponent", RoleUser, true},
+		{"/aleph.registry.v1.RegistryService/RegisterComponent", RoleReadOnly, false},
+		{"/aleph.registry.v1.RegistryService/ListComponents", RoleReadOnly, true},
+		{"/aleph.tool.v1.SandboxService/ExecuteTool", RoleUser, true},
+		{"/aleph.tool.v1.SandboxService/ExecuteTool", RoleReadOnly, false},
+		{"/aleph.nlp.v1.NLPService/AnalyzeSentiment", RoleUser, true},
+		{"/aleph.nlp.v1.NLPService/AnalyzeSentiment", RoleReadOnly, false},
+		{"/aleph.v1.LibraryService/DeleteAsset", RoleUser, true},
+		{"/aleph.v1.LibraryService/ListAssets", RoleReadOnly, true},
+		{"/aleph.v1.UnknownService/UnknownRPC", RoleUser, true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.procedure+"_"+string(tc.role), func(t *testing.T) {
+			err := checkProcedureRBAC(tc.procedure, tc.role)
+			if tc.shouldAllow && err != nil {
+				t.Errorf("expected %s with role %s to be allowed, got: %v", tc.procedure, tc.role, err)
+			}
+			if !tc.shouldAllow && err == nil {
+				t.Errorf("expected %s with role %s to be forbidden", tc.procedure, tc.role)
+			}
+		})
+	}
+}
+
+func TestRoleRank(t *testing.T) {
+	if roleRank(RoleAdmin) <= roleRank(RoleUser) {
+		t.Error("admin should outrank user")
+	}
+	if roleRank(RoleUser) <= roleRank(RoleReadOnly) {
+		t.Error("user should outrank readonly")
+	}
+	if roleRank(RoleReadOnly) <= roleRank("unknown") {
+		t.Error("readonly should outrank unknown")
+	}
+}
+
+func TestTokenRevocationStore(t *testing.T) {
+	store := NewTokenRevocationStore(1 * time.Hour)
+	defer store.Stop()
+
+	if store.IsRevoked("token-1") {
+		t.Error("unregistered token should not be revoked")
+	}
+
+	store.Revoke("token-1")
+	if !store.IsRevoked("token-1") {
+		t.Error("revoked token should be revoked")
+	}
+
+	if store.IsRevoked("token-2") {
+		t.Error("different token should not be affected")
+	}
+}
+
+func TestValidateScopes(t *testing.T) {
+	cases := []struct {
+		required   string
+		tokenScope string
+		expected   bool
+	}{
+		{"", "read,write", true},
+		{"read", "read,write", true},
+		{"read,write", "read,write", true},
+		{"admin", "read,write", false},
+		{"read", "", false},
+		{"", "", true},
+	}
+	for _, tc := range cases {
+		result := ValidateScopes(tc.required, tc.tokenScope)
+		if result != tc.expected {
+			t.Errorf("ValidateScopes(%q, %q) = %v, want %v", tc.required, tc.tokenScope, result, tc.expected)
+		}
+	}
+}
+
+func TestRequireRoleHTTP(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	adminOnly := RequireRoleHTTP(RoleAdmin)
+	readAny := RequireRoleHTTP(RoleAdmin, RoleUser, RoleReadOnly)
+
+	cases := []struct {
+		name       string
+		role       Role
+		middleware func(http.Handler) http.Handler
+		wantStatus int
+	}{
+		{"admin on admin-only", RoleAdmin, adminOnly, http.StatusOK},
+		{"user on admin-only", RoleUser, adminOnly, http.StatusForbidden},
+		{"readonly on admin-only", RoleReadOnly, adminOnly, http.StatusForbidden},
+		{"admin on readAny", RoleAdmin, readAny, http.StatusOK},
+		{"user on readAny", RoleUser, readAny, http.StatusOK},
+		{"readonly on readAny", RoleReadOnly, readAny, http.StatusOK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := projectIDToContext(context.Background(), "proj1", tc.role)
+			req := httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx)
+			rec := httptest.NewRecorder()
+			tc.middleware(handler).ServeHTTP(rec, req)
+			if rec.Code != tc.wantStatus {
+				t.Errorf("got status %d, want %d", rec.Code, tc.wantStatus)
+			}
+		})
 	}
 }

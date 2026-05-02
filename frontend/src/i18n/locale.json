@@ -137,6 +137,11 @@
   "slideOver.close": "Chiudi pannello",
   "slideOver.ariaLabelClose": "Chiudi pannello",
   "slideOver.ariaLabelOpen": "Apri pannello",
+  "slideOver.title": "Pannello",
+  "slideOver.opened": "Pannello aperto",
+  "slideOver.fullscreen": "Schermo intero",
+  "slideOver.exitFullscreen": "Esci da schermo intero",
+  "slideOver.description": "Contenuto del pannello:",
   "inlineError.dismiss": "Dismiss",
 
   "oracle.title": "Motore Predittivo Oracle",

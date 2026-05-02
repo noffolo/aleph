@@ -51,12 +51,12 @@ export const ExplorerView: React.FC<ExplorerViewProps> = React.memo(({
             className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border font-mono text-sm text-text placeholder:text-textDim focus:outline-none focus:border-primary/50 transition-colors"
           />
         </div>
-        <div className="flex bg-surface p-0.5 border border-border">
-           <button onClick={() => setActiveView('table')} className={`px-2.5 py-1.5 ${activeView === 'table' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.table')}><TableIcon size={16} /></button>
-            <button onClick={() => setActiveView('map')} className={`px-2.5 py-1.5 ${activeView === 'map' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.map')}><MapIcon size={16} /></button>
-            <button onClick={() => setActiveView('timeline')} className={`px-2.5 py-1.5 ${activeView === 'timeline' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.timeline')}><Clock size={16} /></button>
-            <button onClick={() => setActiveView('graph')} className={`px-2.5 py-1.5 ${activeView === 'graph' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.graph')}><GraphIcon size={16} /></button>
-        </div>
+         <div className="flex bg-surface p-0.5 border border-border">
+            <button onClick={() => setActiveView('table')} className={`px-2.5 py-1.5 ${activeView === 'table' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.table')} aria-label={t('explorer.view.table')}><TableIcon size={16} /></button>
+             <button onClick={() => setActiveView('map')} className={`px-2.5 py-1.5 ${activeView === 'map' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.map')} aria-label={t('explorer.view.map')}><MapIcon size={16} /></button>
+             <button onClick={() => setActiveView('timeline')} className={`px-2.5 py-1.5 ${activeView === 'timeline' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.timeline')} aria-label={t('explorer.view.timeline')}><Clock size={16} /></button>
+             <button onClick={() => setActiveView('graph')} className={`px-2.5 py-1.5 ${activeView === 'graph' ? 'bg-primary/10 text-primary' : 'text-textMuted hover:text-text'}`} title={t('explorer.view.graph')} aria-label={t('explorer.view.graph')}><GraphIcon size={16} /></button>
+         </div>
       </div>
 
       <div className="min-h-[500px]">

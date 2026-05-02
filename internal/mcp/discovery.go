@@ -33,6 +33,7 @@ type DiscoveryEngine struct {
 	mu       sync.Mutex
 	running  bool
 	cancel   context.CancelFunc
+	wg       sync.WaitGroup // tracks background goroutines for graceful shutdown
 
 	httpClient *http.Client // SSRF-protected HTTP client
 }
@@ -46,6 +47,17 @@ func NewDiscoveryEngine(logger *slog.Logger, metaRepo *repository.MetadataReposi
 		config:     config,
 		httpClient: ssrf.NewClient(),
 	}
+}
+
+// ValidateMCPServers validates URI format for all configured MCP server URIs.
+// Returns the first parsing error or nil if all URIs are valid mcp:// URIs.
+func (d *DiscoveryEngine) ValidateMCPServers() error {
+	for _, uri := range d.config.ServerURIs {
+		if _, _, _, _, err := ParseMCPURI(uri); err != nil {
+			return fmt.Errorf("invalid MCP server URI %q: %w", uri, err)
+		}
+	}
+	return nil
 }
 
 // DiscoverSchemas discovers tool schemas from an MCP server URL.
@@ -71,6 +83,11 @@ func (d *DiscoveryEngine) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	d.cancel = cancel
 
+	// Validate all configured MCP server URIs before discovery
+	if err := d.ValidateMCPServers(); err != nil {
+		d.logger.Warn("invalid MCP server URIs detected", "error", err)
+	}
+
 	// Run initial discovery
 	if err := d.Discover(ctx); err != nil {
 		d.logger.Warn("initial MCP discovery failed", "error", err)
@@ -78,22 +95,35 @@ func (d *DiscoveryEngine) Start(ctx context.Context) error {
 
 	// Start periodic health checks if interval is configured
 	if d.config.HealthCheck > 0 {
-		go d.healthLoop(ctx)
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					d.logger.Error("healthLoop panic", "recover", r)
+				}
+			}()
+			d.healthLoop(ctx)
+		}()
 	}
 
 	d.logger.Info("MCP discovery engine started", "servers", len(d.config.ServerURIs))
 	return nil
 }
 
-// Stop cancels the discovery engine.
+// Stop cancels the discovery engine and waits for background goroutines to exit.
 func (d *DiscoveryEngine) Stop() {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	if d.cancel != nil {
 		d.cancel()
 	}
+
+	// Wait for background goroutines (healthLoop) to complete
+	d.wg.Wait()
+
+	d.mu.Lock()
 	d.running = false
+	d.mu.Unlock()
+
 	d.logger.Info("MCP discovery engine stopped")
 }
 
@@ -119,22 +149,11 @@ func (d *DiscoveryEngine) Discover(ctx context.Context) error {
 			continue
 		}
 
-		// Health check the server first
-		healthResult := d.health.CheckServer(ctx, serverURL)
-		if !healthResult.Available {
-			d.logger.Warn("MCP server not available",
-				"uri", uri,
-				"error", healthResult.Error,
-			)
-			allErrors = append(allErrors, fmt.Errorf("server %q unavailable: %s", uri, healthResult.Error))
-			continue
-		}
-
-		// Discover tools from the server
-		tools, err := d.extractTools(ctx, serverURL)
+		// Discover tools from the server with retry + backoff
+		tools, err := d.discoverServerWithRetry(ctx, serverURL, uri)
 		if err != nil {
-			d.logger.Warn("failed to extract tools from MCP server", "uri", uri, "error", err)
-			allErrors = append(allErrors, fmt.Errorf("extract from %q: %w", uri, err))
+			d.logger.Warn("failed to extract tools from MCP server after retries", "uri", uri, "error", err)
+			allErrors = append(allErrors, err)
 			continue
 		}
 
@@ -175,6 +194,58 @@ func (d *DiscoveryEngine) Discover(ctx context.Context) error {
 		return fmt.Errorf("all %d MCP servers failed", len(d.config.ServerURIs))
 	}
 	return nil
+}
+
+// retryConfig holds retry parameters for discovery attempts.
+var defaultRetryConfig = struct {
+	maxAttempts int
+	delays      []time.Duration
+}{
+	maxAttempts: 3,
+	delays:      []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second},
+}
+
+// discoverServerWithRetry attempts to discover tools from a server URL
+// with exponential backoff retries (3 attempts: 2s, 4s, 8s delays).
+func (d *DiscoveryEngine) discoverServerWithRetry(ctx context.Context, serverURL string, uri string) ([]ToolDefinition, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= defaultRetryConfig.maxAttempts; attempt++ {
+		// Health check
+		healthResult := d.health.CheckServer(ctx, serverURL)
+		if !healthResult.Available {
+			lastErr = fmt.Errorf("server %q unavailable: %s", uri, healthResult.Error)
+		} else {
+			// Discover tools
+			tools, err := d.extractTools(ctx, serverURL)
+			if err != nil {
+				lastErr = fmt.Errorf("extract from %q: %w", uri, err)
+			} else {
+				return tools, nil
+			}
+		}
+
+		// If this was the last attempt, return the error
+		if attempt == defaultRetryConfig.maxAttempts {
+			break
+		}
+
+		// Wait before retrying (respect context cancellation)
+		delay := defaultRetryConfig.delays[attempt-1]
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("discovery cancelled for %q: %w", uri, lastErr)
+		case <-time.After(delay):
+			d.logger.Debug("retrying MCP discovery",
+				"uri", uri,
+				"attempt", attempt+1,
+				"max_attempts", defaultRetryConfig.maxAttempts,
+				"last_error", lastErr,
+			)
+		}
+	}
+
+	return nil, lastErr
 }
 
 // extractTools connects to an MCP server and extracts tool definitions.

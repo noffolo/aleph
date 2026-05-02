@@ -110,6 +110,11 @@ func (w *Watcher) Start(ctx context.Context) error {
 	}
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Watcher] event loop panic recovered: %v", r)
+			}
+		}()
 		defer watcher.Close()
 		for {
 			select {
@@ -200,6 +205,11 @@ func (w *Watcher) handleCreateEvent(ctx context.Context, path string) {
 	// Run ingestion in a background goroutine so the watcher stays
 	// non-blocking.
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[Watcher] ingestion goroutine panic for %s: %v", filename, r)
+			}
+		}()
 		taskCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 		defer cancel()
 		if err := w.runner.RunTask(taskCtx, projectID, task); err != nil {

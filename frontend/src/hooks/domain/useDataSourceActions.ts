@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useStore } from '../../store/useStore'
 import { IngestionTaskSchema } from '../../schemas'
 import { ingestionClient } from '../../api/factory'
@@ -8,6 +8,13 @@ import { z } from 'zod'
 
 export function useDataSourceActions(loadProjectData: () => void) {
   const projectID = useStore(s => s.projectID)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort()
+    }
+  }, [])
 
   return {
     onAddSource: useCallback((config: { name: string; sourceType: string; configJson: string }) => {
@@ -16,12 +23,20 @@ export function useDataSourceActions(loadProjectData: () => void) {
         .catch((e: unknown) => handleError(e, 'createTask'))
     }, [projectID, loadProjectData]),
     onRunTask: useCallback((id: string) => {
+      abortRef.current?.abort()
+      const ac = new AbortController()
+      abortRef.current = ac
+
       ingestionClient.runTask({ projectId: projectID, taskId: id })
         .then(() => {
           const poll = () => {
+            if (ac.signal.aborted) return
+
             ingestionClient.getProgress({ projectId: projectID, taskId: id })
               .then(() => {
+                if (ac.signal.aborted) return
                 ingestionClient.listTasks({ projectId: projectID }).then((tasksRes) => {
+                  if (ac.signal.aborted) return
                   const validatedTasks = fromProto(z.array(IngestionTaskSchema), tasksRes.tasks || [])
                   useStore.getState().setIngestionTasks(validatedTasks)
                   const t = validatedTasks.find((x) => x.id === id)
@@ -30,7 +45,9 @@ export function useDataSourceActions(loadProjectData: () => void) {
                   }
                 })
               })
-              .catch(() => setTimeout(poll, 2000))
+              .catch(() => {
+                if (!ac.signal.aborted) setTimeout(poll, 2000)
+              })
           }
           setTimeout(poll, 1000)
         })

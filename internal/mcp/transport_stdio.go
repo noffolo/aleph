@@ -82,6 +82,15 @@ func (t *MCPStdioTransport) SendRequest(ctx context.Context, req *JSONRPCRequest
 	errCh := make(chan error, 1)
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("mcp transport goroutine panic", "recover", r)
+				select {
+				case errCh <- fmt.Errorf("transport goroutine panic: %v", r):
+				default:
+				}
+			}
+		}()
 		t.mu.Lock()
 		defer t.mu.Unlock()
 

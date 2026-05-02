@@ -10,6 +10,7 @@ import { useToolActions } from '../../hooks/domain/useToolActions'
 import { useComponentActions } from '../../hooks/domain/useComponentActions'
 import { useSettingsActions } from '../../hooks/domain/useSettingsActions'
 import { useLibraryActions } from '../../hooks/domain/useLibraryActions'
+import { SkeletonLoader } from '../SkeletonLoader'
 import { InlineErrorBoundary } from '../InlineErrorBoundary'
 import type { ComponentsViewProps } from '../ComponentsView'
 import type { SkillsViewProps } from '../SkillsView'
@@ -112,100 +113,126 @@ export const InlineRenderer: React.FC = () => {
         )
       case 'agent':
         return (
-          <AgentsView
-            agents={agents}
-            ollamaHealthy={ollamaHealthy}
-            ollamaModels={ollamaModels}
-            onCreateAgent={onCreateAgent as unknown as AgentsViewProps['onCreateAgent']}
-            onDeleteAgent={onDeleteAgent as unknown as AgentsViewProps['onDeleteAgent']}
-            onUpdateAgent={onUpdateAgent as unknown as AgentsViewProps['onUpdateAgent']}
-            inline
-          />
+          <InlineErrorBoundary label="AgentsView">
+            <AgentsView
+              agents={agents}
+              ollamaHealthy={ollamaHealthy}
+              ollamaModels={ollamaModels}
+              onCreateAgent={onCreateAgent as unknown as AgentsViewProps['onCreateAgent']}
+              onDeleteAgent={onDeleteAgent as unknown as AgentsViewProps['onDeleteAgent']}
+              onUpdateAgent={onUpdateAgent as unknown as AgentsViewProps['onUpdateAgent']}
+              inline
+            />
+          </InlineErrorBoundary>
         )
       case 'ontology':
         return (
-          <OntologyView
-            ontologyRaw={ontologyRaw}
-            setOntologyRaw={setOntologyRaw}
-            onEmerge={onEmerge}
-            onSave={onSave}
-            inline
-          />
+          <InlineErrorBoundary label="OntologyView">
+            <OntologyView
+              ontologyRaw={ontologyRaw}
+              setOntologyRaw={setOntologyRaw}
+              onEmerge={onEmerge}
+              onSave={onSave}
+              inline
+            />
+          </InlineErrorBoundary>
         )
       case 'data':
         return (
-          <DataSourcesView
-            tasks={ingestionTasks}
-            onAddSource={onAddSource}
-            onRunTask={onRunTask}
-            onViewLogs={onViewLogs}
-            onDeleteTask={onDeleteTask}
-            taskLogs={taskLogs}
-            setTaskLogs={setTaskLogs}
-            inline
-          />
+          <InlineErrorBoundary label="DataSourcesView">
+            <DataSourcesView
+              tasks={ingestionTasks}
+              onAddSource={onAddSource}
+              onRunTask={onRunTask}
+              onViewLogs={onViewLogs}
+              onDeleteTask={onDeleteTask}
+              taskLogs={taskLogs}
+              setTaskLogs={setTaskLogs}
+              inline
+            />
+          </InlineErrorBoundary>
         )
       case 'health':
-        return <DataHealthView stats={dataHealthStats} inline />
+        return (
+          <InlineErrorBoundary label="DataHealthView">
+            <DataHealthView stats={dataHealthStats} inline />
+          </InlineErrorBoundary>
+        )
       case 'skill':
         return (
-          <SkillsView
-            skills={skills}
-            tools={tools}
-            onCreateSkill={onCreateSkill as unknown as SkillsViewProps['onCreateSkill']}
-            onViewSkillDetail={onViewSkillDetail as unknown as SkillsViewProps['onViewSkillDetail']}
-            onDeleteSkill={onDeleteSkill as unknown as SkillsViewProps['onDeleteSkill']}
-            onRunSkill={onRunSkill as unknown as SkillsViewProps['onRunSkill']}
-            inline
-          />
+          <InlineErrorBoundary label="SkillsView">
+            <SkillsView
+              skills={skills}
+              tools={tools}
+              onCreateSkill={onCreateSkill as unknown as SkillsViewProps['onCreateSkill']}
+              onViewSkillDetail={onViewSkillDetail as unknown as SkillsViewProps['onViewSkillDetail']}
+              onDeleteSkill={onDeleteSkill as unknown as SkillsViewProps['onDeleteSkill']}
+              onRunSkill={onRunSkill as unknown as SkillsViewProps['onRunSkill']}
+              inline
+            />
+          </InlineErrorBoundary>
         )
       case 'tool':
         return (
-          <ToolsView
-            tools={tools}
-            onCreateTool={onCreateTool as unknown as ToolsViewProps['onCreateTool']}
-            onEditTool={onEditTool as unknown as ToolsViewProps['onEditTool']}
-            onDeleteTool={onDeleteTool as unknown as ToolsViewProps['onDeleteTool']}
-            onExecuteTool={onExecuteTool as unknown as ToolsViewProps['onExecuteTool']}
-            inline
-          />
+          <InlineErrorBoundary label="ToolsView">
+            <ToolsView
+              tools={tools}
+              onCreateTool={onCreateTool as unknown as ToolsViewProps['onCreateTool']}
+              onEditTool={onEditTool as unknown as ToolsViewProps['onEditTool']}
+              onDeleteTool={onDeleteTool as unknown as ToolsViewProps['onDeleteTool']}
+              onExecuteTool={onExecuteTool as unknown as ToolsViewProps['onExecuteTool']}
+              inline
+            />
+          </InlineErrorBoundary>
         )
       case 'component':
         return (
-          <ComponentsView
-            components={registryComponents}
-            onUpdateComponentStatus={onUpdateComponentStatus as unknown as ComponentsViewProps['onUpdateComponentStatus']}
-            onRegisterComponent={onRegisterComponent as unknown as ComponentsViewProps['onRegisterComponent']}
-            onGetComponent={onGetComponent as unknown as ComponentsViewProps['onGetComponent']}
-            inline
-          />
+          <InlineErrorBoundary label="ComponentsView">
+            <ComponentsView
+              components={registryComponents}
+              onUpdateComponentStatus={onUpdateComponentStatus as unknown as ComponentsViewProps['onUpdateComponentStatus']}
+              onRegisterComponent={onRegisterComponent as unknown as ComponentsViewProps['onRegisterComponent']}
+              onGetComponent={onGetComponent as unknown as ComponentsViewProps['onGetComponent']}
+              inline
+            />
+          </InlineErrorBoundary>
         )
       case 'settings':
         return (
-          <SettingsView
-            apiKeys={apiKeys}
-            notificationChannels={notificationChannels}
-            onCreateApiKey={onCreateApiKey}
-            onDeleteApiKey={onDeleteApiKey}
-            onSendWebhook={onSendWebhook}
-            inline
-          />
+          <InlineErrorBoundary label="SettingsView">
+            <SettingsView
+              apiKeys={apiKeys}
+              notificationChannels={notificationChannels}
+              onCreateApiKey={onCreateApiKey}
+              onDeleteApiKey={onDeleteApiKey}
+              onSendWebhook={onSendWebhook}
+              inline
+            />
+          </InlineErrorBoundary>
         )
       case 'library':
         return (
-          <LibraryView
-            assets={assets}
-            onViewAsset={onViewAsset}
-            onDeleteAsset={onDeleteAsset}
-            selectedAssetContent={selectedAssetContent}
-            setSelectedAssetContent={setSelectedAssetContent}
-            selectedAssetName={assets.find((a: any) => a.id === selectedAssetId)?.name}
-            onGetAssetContent={onGetAssetContent}
-            onGeneratePdf={onGeneratePdf}
-            onUploadAsset={onUploadAsset}
-            selectedAssetId={selectedAssetId}
-            inline
-          />
+          <InlineErrorBoundary label="LibraryView">
+            <LibraryView
+              assets={assets}
+              onViewAsset={onViewAsset}
+              onDeleteAsset={onDeleteAsset}
+              selectedAssetContent={selectedAssetContent}
+              setSelectedAssetContent={setSelectedAssetContent}
+              selectedAssetName={assets.find((a: any) => a.id === selectedAssetId)?.name}
+              onGetAssetContent={onGetAssetContent}
+              onGeneratePdf={onGeneratePdf}
+              onUploadAsset={onUploadAsset}
+              selectedAssetId={selectedAssetId}
+              inline
+            />
+          </InlineErrorBoundary>
+        )
+      case 'predict':
+        return (
+          <InlineErrorBoundary label="OracleView">
+            <OracleView isLoading={false} inline />
+          </InlineErrorBoundary>
         )
       default:
         return null
@@ -226,11 +253,12 @@ export const InlineRenderer: React.FC = () => {
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto">
-        <Suspense fallback={<div className="p-4 text-textDim text-xs font-mono">{t('views.loading')}</div>}>
-          {renderView()}
-        </Suspense>
-      </div>
+       <div className="flex-1 overflow-auto">
+         <Suspense fallback={<div className="p-4"><SkeletonLoader rows={12} cols={1} /></div>}>
+           {renderView()}
+         </Suspense>
+       </div>
+
     </div>
   )
 }

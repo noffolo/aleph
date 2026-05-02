@@ -30,6 +30,7 @@ type PlannedStep struct {
 	Arguments             map[string]interface{}
 	ExpectedOutcome       string
 	RequiresConfirmation  bool
+	Depends               []string // tool names that must succeed before this step executes
 }
 
 // ActResult is the output of executing a single step.
@@ -51,13 +52,16 @@ type Observation struct {
 
 // EngineConfig holds dependencies needed by the DecisionEngine.
 type EngineConfig struct {
-	Provider      llm.Provider
-	MetaRepo      ToolRepository   // interface for tool/chat history operations
-	Executor      ToolExecutor     // interface for executing tools
-	Registry      PluginRegistry   // interface for registry validation
-	MaxAttempts   int              // max loop iterations (default 5)
-	LinkPredictor LinkPredictor    // optional GNN link predictor for confidence blending
-	Graph         *gnn.Graph       // optional workspace knowledge graph for link prediction
+	Provider              llm.Provider
+	MetaRepo              ToolRepository   // interface for tool/chat history operations
+	Executor              ToolExecutor     // interface for executing tools
+	Registry              PluginRegistry   // interface for registry validation
+	MaxAttempts           int              // max loop iterations (default 5)
+	LinkPredictor         LinkPredictor    // optional GNN link predictor for confidence blending
+	Graph                 *gnn.Graph       // optional workspace knowledge graph for link prediction
+	Reflector             Reflector        // optional custom reflector (default: DefaultReflector)
+	ConfirmationThreshold float64          // 0.0-1.0: if step requiresConfirmation and threshold > 0, auto-skip; 0 = no check
+	TruncationThreshold   int              // max output length before truncation signal (default 1900)
 }
 
 // DecisionEngine orchestrates the Plan→Act→Observe→Reflect→Admit loop.
@@ -68,6 +72,7 @@ type DecisionEngine interface {
 	Observe(ctx context.Context, step PlannedStep, result *ActResult) (*Observation, error)
 	Reflect(ctx context.Context, plan *PlanResult, observations []Observation) (*PlanResult, error)
 	Admit(ctx context.Context, results []*ActResult, maxAttempts int) (bool, error)
+	ShouldAutoSkip(step PlannedStep) bool
 	BuildToolsMap(ctx context.Context) []map[string]interface{}
 }
 

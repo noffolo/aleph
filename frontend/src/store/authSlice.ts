@@ -3,8 +3,7 @@ import type { ApiKey, NotificationChannel, Project, RegistryComponent } from './
 
 export interface AuthSlice {
   projectID: string
-  apiKey: string
-  setProjectContext: (projectID: string, apiKey: string) => void
+  setProjectContext: (projectID: string) => void
   resetAuth: () => void
   apiKeys: ApiKey[]
   setApiKeys: (k: ApiKey[]) => void
@@ -18,9 +17,8 @@ export interface AuthSlice {
 
 export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
   projectID: '',
-  apiKey: '',
-  setProjectContext: (projectID, apiKey) => {
-    set({ projectID, apiKey })
+  setProjectContext: (projectID) => {
+    set({ projectID })
   },
   resetAuth: () => set({
     apiKeys: [],

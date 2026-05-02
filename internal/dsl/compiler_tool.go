@@ -145,6 +145,9 @@ func title(s string) string {
 }
 
 // renderGoHandler generates Go handler code using a template.
+// All placeholder substitution uses strings.NewReplacer with __DELIMITED__
+// markers. Input names are validated via validNameRegex. No raw user input
+// flows into SQL or code-execution positions.
 func renderGoHandler(def *ToolDefinition, tmpl ToolTemplate) string {
 	var inputFields, outputFields, outputInit []string
 	for i, p := range def.Inputs {
@@ -181,6 +184,7 @@ func renderGoHandler(def *ToolDefinition, tmpl ToolTemplate) string {
 }
 
 // renderPythonTool generates Python tool stub code.
+// SAFE: placeholder substitution only; no SQL positions.
 func renderPythonTool(def *ToolDefinition, tmpl ToolTemplate) string {
 	var inputParams []string
 	for _, p := range def.Inputs {
@@ -460,8 +464,7 @@ const apiConnectorPythonTemplate = `# python
 import json
 import sys
 from typing import Any
-from urllib.request import Request, urlopen
-from urllib.error import URLError
+# Network access is sandbox-gated; HTTP calls must go through the approved SSRF client
 
 
 def handle__NAME__(

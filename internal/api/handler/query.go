@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/decision"
 	"github.com/ff3300/aleph-v2/internal/dsl"
+	"github.com/ff3300/aleph-v2/internal/errors"
 	"github.com/ff3300/aleph-v2/internal/middleware"
 	"github.com/ff3300/aleph-v2/internal/registry"
 	"github.com/ff3300/aleph-v2/internal/repository"
@@ -34,6 +34,7 @@ type QueryHandler struct {
 	programs     *programCache
 	executor     decision.ToolExecutor   // set after construction — bridges engine to handler dispatch
 	engine       decision.DecisionEngine // optional, nil = degraded mode (uses hardcoded if-else fallback)
+	llmTimeout   time.Duration           // per-request LLM timeout, 0 = no timeout
 }
 
 // SetDecisionEngine attaches a decision engine and tool executor to the handler.
@@ -44,9 +45,7 @@ func (h *QueryHandler) SetDecisionEngine(eng decision.DecisionEngine, exec decis
 	h.executor = exec
 }
 
-var validProjectID = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_-]*$`)
-
-func NewQueryHandler(db *storage.DuckDB, projectsRoot string, metaRepo *repository.MetadataRepository, nlpHandler *NLPHandler, reg *registry.DuckDBRegistry) *QueryHandler {
+func NewQueryHandler(db *storage.DuckDB, projectsRoot string, metaRepo *repository.MetadataRepository, nlpHandler *NLPHandler, reg *registry.DuckDBRegistry, llmTimeout time.Duration) *QueryHandler {
 	return &QueryHandler{
 		db:           db, 
 		projectsRoot: projectsRoot,
@@ -55,6 +54,7 @@ func NewQueryHandler(db *storage.DuckDB, projectsRoot string, metaRepo *reposito
 		httpClient:   ssrf.NewClient(),
 		nlpHandler:   nlpHandler,
 		registry:     reg,
+		llmTimeout:   llmTimeout,
 	}
 }
 
@@ -143,7 +143,7 @@ func (h *QueryHandler) ExecuteQuery(
 	if err := safeident.ValidateStrictIdentifier(lowerObjName); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid object name: %w", err))
 	}
-	if projectID != "" && !validProjectID.MatchString(projectID) {
+	if projectID != "" && storage.SanitizeProjectID(projectID) != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project_id"))
 	}
 
@@ -152,20 +152,30 @@ func (h *QueryHandler) ExecuteQuery(
 		limit = 1000
 	}
 
-	sql := ""
+	// Check if table exists directly — consolidate into one check
+	tableExists := false
+	tableCheckStart := time.Now()
 	checkRows, err2 := h.db.QueryContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2", "main", lowerObjName)
 	if err2 == nil {
 		var count int
-		if checkRows.Next() { checkRows.Scan(&count) }
-		checkRows.Close()
-		if count > 0 {
-			sql = "SELECT * FROM " + safeident.QuoteIdentifier(lowerObjName) + fmt.Sprintf(" LIMIT %d", limit) // safe: lowerObjName validated via safeident.ValidateStrictIdentifier
+		if checkRows.Next() {
+			checkRows.Scan(&count)
 		}
+		checkRows.Close()
+		tableExists = count > 0
+	}
+	if time.Since(tableCheckStart) > 100*time.Millisecond {
+		slog.Warn("slow table existence check", "object", lowerObjName, "duration", time.Since(tableCheckStart))
 	}
 
-	if sql == "" {
+	sql := ""
+	if tableExists {
+		sql = "SELECT * FROM " + safeident.QuoteIdentifier(lowerObjName) + fmt.Sprintf(" LIMIT %d", limit)
+	} else {
 		projectPath, prog, err := h.resolveProject(projectID)
-		if err != nil { return nil, connect.NewError(connect.CodeNotFound, err) }
+		if err != nil {
+			return nil, connect.NewError(connect.CodeNotFound, err)
+		}
 		dataRoot := filepath.Join(projectPath, "raw")
 		compiler := dsl.NewCompiler(prog, dataRoot)
 		compiledSQL, err := compiler.CompileObject(objName)
@@ -174,7 +184,7 @@ func (h *QueryHandler) ExecuteQuery(
 		}
 		sql = compiledSQL
 	}
-	
+
 	sql = fmt.Sprintf("SELECT * FROM (%s) LIMIT %d", sql, limit)
 
 	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -183,45 +193,59 @@ func (h *QueryHandler) ExecuteQuery(
 	rows, err := h.db.QueryContext(queryCtx, sql)
 	if err != nil {
 		if strings.Contains(err.Error(), "resource exhausted") {
-			return nil, connect.NewError(connect.CodeResourceExhausted, err)
+			return nil, connect.NewError(connect.CodeResourceExhausted, errors.NewAPIErrorWithMeta(
+				errors.ErrUnavailable, "duckdb resource exhausted", err,
+				"duckdb", "query", true, 5000,
+			))
 		}
 		if queryCtx.Err() == context.DeadlineExceeded {
-			return nil, connect.NewError(connect.CodeDeadlineExceeded, fmt.Errorf("query analysis timed out (limit: 30s)"))
+			return nil, connect.NewError(connect.CodeDeadlineExceeded, errors.NewAPIErrorWithMeta(
+				errors.ErrDeadlineExceeded, "query analysis timed out (limit: 30s)", err,
+				"duckdb", "query", true, 0,
+			))
 		}
 		if strings.Contains(err.Error(), "No files found") || strings.Contains(err.Error(), "IO Error") {
-			checkRows, err2 := h.db.QueryContext(queryCtx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2", "main", lowerObjName)
-			if err2 == nil {
-				var count int
-				if checkRows.Next() { checkRows.Scan(&count) }
-				checkRows.Close()
-				if count > 0 {
-					sql = "SELECT * FROM " + safeident.QuoteIdentifier(lowerObjName) + fmt.Sprintf(" LIMIT %d", limit) // safe: lowerObjName validated via safeident.ValidateStrictIdentifier
-					rows, err = h.db.QueryContext(queryCtx, sql)
-					if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
-				} else {
-					return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("oggetto '%s' non trovato", objName))
+			// Reuse cached tableExists result — no second information_schema query needed
+			if tableExists {
+				sql = "SELECT * FROM " + safeident.QuoteIdentifier(lowerObjName) + fmt.Sprintf(" LIMIT %d", limit)
+				slog.Warn("execute_query retry with direct table access", "object", lowerObjName, "original_error", err)
+				rows, err = h.db.QueryContext(queryCtx, sql)
+				if err != nil {
+					return nil, connect.NewError(connect.CodeInternal, errors.NewAPIErrorWithMeta(errors.ErrInternal, "duckdb query failed after retry", err, "duckdb", "query", false, 0))
 				}
 			} else {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				return nil, connect.NewError(connect.CodeNotFound, errors.NewAPIErrorWithMeta(errors.ErrNotFound, fmt.Sprintf("oggetto '%s' non trovato", objName), err, "duckdb", "query", false, 0))
 			}
 		} else {
-			return nil, connect.NewError(connect.CodeInternal, err)
+			return nil, connect.NewError(connect.CodeInternal, errors.NewAPIErrorWithMeta(errors.ErrInternal, "duckdb query failed", err, "duckdb", "query", false, 0))
 		}
 	}
 	defer rows.Close()
 	cols, _ := rows.Columns()
 	var protoRows []*v1.Row
 	for rows.Next() {
-		row := make([]interface{}, len(cols)); rp := make([]interface{}, len(cols))
-		for i := range row { rp[i] = &row[i] }
-		if err := rows.Scan(rp...); err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+		row := make([]interface{}, len(cols))
+		rp := make([]interface{}, len(cols))
+		for i := range row {
+			rp[i] = &row[i]
+		}
+		if err := rows.Scan(rp...); err != nil {
+			return nil, connect.NewError(connect.CodeInternal, errors.NewAPIErrorWithMeta(errors.ErrInternal, "duckdb row scan failed", err, "duckdb", "query", false, 0))
+		}
 		values := make(map[string]string)
 		for i, colName := range cols {
-			if row[i] != nil { values[colName] = fmt.Sprintf("%v", row[i]) } else { values[colName] = "" }
+			if row[i] != nil {
+				values[colName] = fmt.Sprintf("%v", row[i])
+			} else {
+				values[colName] = ""
+			}
 		}
 		protoRows = append(protoRows, &v1.Row{Values: values})
 	}
-	res := connect.NewResponse(&v1.ExecuteQueryResponse{ Sql: sql, Columns: cols, Rows: protoRows })
+	if len(protoRows) > 0 {
+		slog.Debug("execute_query results", "object", objName, "rows", len(protoRows), "columns", len(cols), "duration", time.Since(start))
+	}
+		res := connect.NewResponse(&v1.ExecuteQueryResponse{Sql: sql, Columns: cols, Rows: protoRows})
 	return res, nil
 }
 
@@ -361,7 +385,7 @@ func (h *QueryHandler) GetDataLineage(ctx context.Context, req *connect.Request[
 	if projectID == "" || tableName == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("project_id and table_name are required"))
 	}
-	if !validProjectID.MatchString(projectID) {
+	if storage.SanitizeProjectID(projectID) != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project_id"))
 	}
 	if err := safeident.ValidateStrictIdentifier(tableName); err != nil {
@@ -370,16 +394,22 @@ func (h *QueryHandler) GetDataLineage(ctx context.Context, req *connect.Request[
 	var columnsCount int64
 	var rowsCount int64
 	var jsonCols string
-	row := h.db.QueryRowContext(ctx,
+	row, err := h.db.QueryRowContextOrError(ctx,
 		"SELECT (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2), (SELECT COUNT(*) FROM "+safeident.QuoteIdentifier(projectID)+"."+safeident.QuoteIdentifier(tableName)+"), json_group_array(column_name || ':' || data_type) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2", // safe: projectID validated via validProjectID regex; tableName validated via safeident.ValidateStrictIdentifier
 		projectID, tableName,
 	)
-	if row == nil {
-		return nil, connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("duckdb resource exhausted"))
-	}
-	err := row.Scan(&columnsCount, &rowsCount, &jsonCols)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("table not found: %w", err))
+		return nil, connect.NewError(connect.CodeResourceExhausted, errors.NewAPIErrorWithMeta(
+			errors.ErrUnavailable, "duckdb resource exhausted", err,
+			"duckdb", "query", true, 5000,
+		))
+	}
+	err = row.Scan(&columnsCount, &rowsCount, &jsonCols)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.NewAPIErrorWithMeta(
+			errors.ErrNotFound, "table not found", err,
+			"duckdb", "query", false, 0,
+		))
 	}
 	return connect.NewResponse(&v1.GetDataLineageResponse{
 		Provenance: &v1.DataProvenance{
@@ -399,7 +429,7 @@ func (h *QueryHandler) GetChecksum(ctx context.Context, req *connect.Request[v1.
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("project_id and table_name are required"))
 	}
 
-	if !validProjectID.MatchString(projectID) {
+	if storage.SanitizeProjectID(projectID) != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project_id"))
 	}
 	if err := safeident.ValidateStrictIdentifier(tableName); err != nil {
@@ -408,21 +438,27 @@ func (h *QueryHandler) GetChecksum(ctx context.Context, req *connect.Request[v1.
 
 	// safe: identifiers validated (validProjectID regex + safeident.ValidateStrictIdentifier) and quoted via safeident.QuoteIdentifier
 	var checksum string
-	row1 := h.db.QueryRowContext(ctx,
+	row1, err := h.db.QueryRowContextOrError(ctx,
 		"SELECT md5(CAST(SUM(hash(TO_JSON(*))) AS VARCHAR)) FROM "+safeident.QuoteIdentifier(projectID)+"."+safeident.QuoteIdentifier(tableName),
 	)
-	if row1 == nil {
-		return nil, connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("duckdb resource exhausted"))
+	if err != nil {
+		return nil, connect.NewError(connect.CodeResourceExhausted, errors.NewAPIErrorWithMeta(
+			errors.ErrUnavailable, "duckdb resource exhausted", err,
+			"duckdb", "query", true, 5000,
+		))
 	}
-	err := row1.Scan(&checksum)
+	err = row1.Scan(&checksum)
 	if err != nil {
 		// Table may be empty — use structure-based checksum
-		row2 := h.db.QueryRowContext(ctx,
+		row2, err := h.db.QueryRowContextOrError(ctx,
 			"SELECT md5(column_list) FROM (SELECT string_agg(column_name || ':' || data_type, ',' ORDER BY column_name) AS column_list FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2)",
 			projectID, tableName,
 		)
-		if row2 == nil {
-			return nil, connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("duckdb resource exhausted"))
+		if err != nil {
+			return nil, connect.NewError(connect.CodeResourceExhausted, errors.NewAPIErrorWithMeta(
+				errors.ErrUnavailable, "duckdb resource exhausted", err,
+				"duckdb", "query", true, 5000,
+			))
 		}
 		err = row2.Scan(&checksum)
 		if err != nil {

@@ -23,7 +23,7 @@ func setupQueryHandler(t *testing.T) (*QueryHandler, string) {
 	projectsRoot := filepath.Join(tmpDir, "projects")
 	require.NoError(t, os.MkdirAll(projectsRoot, 0755))
 
-	h := NewQueryHandler(db, projectsRoot, nil, nil, nil)
+	h := NewQueryHandler(db, projectsRoot, nil, nil, nil, 0)
 	return h, projectsRoot
 }
 

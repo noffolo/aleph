@@ -151,7 +151,7 @@ func (r *ToolRegistry) Execute(category, name string, params map[string]any) (an
 	if !ok {
 		return nil, fmt.Errorf("tool not found: %q in category %q", name, category)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
 	defer cancel()
 	return def.Execute(ctx, params)
 }

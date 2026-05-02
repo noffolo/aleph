@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { InlineErrorBoundary } from '../InlineErrorBoundary';
 import { t } from '../../i18n';
+import { Expand, X } from 'lucide-react';
 
 interface SlideOverPanelProps {
   isOpen: boolean;
@@ -14,7 +15,23 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
   const [isFullscreen, setIsFullscreen] = useState(initialFullscreen);
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const descriptionId = 'slideover-description';
 
+  // --- Inert on #main-content while panel is open ---
+  useEffect(() => {
+    if (!isOpen) return;
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) {
+      mainContent.setAttribute('inert', '');
+    }
+    return () => {
+      if (mainContent) {
+        mainContent.removeAttribute('inert');
+      }
+    };
+  }, [isOpen]);
+
+  // --- Focus trap, arrow keys, escape, aria-hidden on siblings ---
   useEffect(() => {
     if (!isOpen) return;
 
@@ -37,6 +54,7 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
+        return;
       }
 
       if (e.key === 'Tab') {
@@ -69,8 +87,8 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    
-    // Focus the first focusable element inside the panel (not the last)
+
+    // Focus the first focusable element inside the panel
     const focusable = panelRef.current?.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
     if (focusable && focusable.length > 0) {
       (focusable[0] as HTMLElement).focus();
@@ -94,44 +112,64 @@ export const SlideOverPanel: React.FC<SlideOverPanelProps> = ({ isOpen, onClose,
   const toggleFullscreen = () => setIsFullscreen(prev => !prev);
 
   return (
-    <div 
-      className={`fixed inset-y-0 right-0 z-[90] w-full pointer-events-none transition-all duration-300 ${isFullscreen ? 'max-w-full' : 'max-w-2xl'}`}
-      style={{ transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
-    >
+    <>
       <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title || 'Slide over panel'}
-        className="h-full glass-panel border-l border-border shadow-2xl flex flex-col pointer-events-auto animate-slide-in-right"
+        className="fixed inset-0 bg-black/50 z-40"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <div aria-live="polite" className="sr-only">
+        {t('slideOver.opened')} {title}
+      </div>
+
+      <div
+        className={`fixed inset-y-0 right-0 z-[90] w-full pointer-events-none transition-all duration-300 ${isFullscreen ? 'max-w-full' : 'max-w-2xl'}`}
+        style={{ transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)' }}
       >
-        <div className="h-12 flex items-center justify-between px-5 border-b border-border shrink-0">
-          <span className="text-primary text-xs font-bold tracking-widest uppercase">{title}</span>
-          <div className="flex items-center space-x-1">
-            <button
-              onClick={toggleFullscreen}
-              className="p-2 hover:bg-surface-alt rounded-lg text-textMuted hover:text-text transition-colors"
-              aria-label={isFullscreen ? 'Esci da schermo intero' : 'Schermo intero'}
-              title={isFullscreen ? 'Esci da schermo intero' : 'Schermo intero'}
-            >
-              ⛶
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-surface-alt rounded-lg text-textMuted hover:text-text transition-colors"
-              aria-label={t('slideOver.close')}
-            >
-              ✕
-            </button>
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title || t('slideOver.title')}
+          aria-describedby={descriptionId}
+          className="h-full glass-panel border-l border-border shadow-2xl flex flex-col pointer-events-auto animate-slide-in-right"
+        >
+          <div className="h-12 flex items-center justify-between px-5 border-b border-border shrink-0">
+            <span className="text-primary text-xs font-bold tracking-widest uppercase">{title}</span>
+            <div className="flex items-center space-x-1">
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="p-2 hover:bg-surface-alt rounded-lg text-textMuted hover:text-text transition-colors"
+                aria-label={isFullscreen ? t('slideOver.exitFullscreen') : t('slideOver.fullscreen')}
+                title={isFullscreen ? t('slideOver.exitFullscreen') : t('slideOver.fullscreen')}
+              >
+                <Expand size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 hover:bg-surface-alt rounded-lg text-textMuted hover:text-text transition-colors"
+                aria-label={t('slideOver.close')}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          <p id={descriptionId} className="sr-only">
+            {t('slideOver.description')} {title}
+          </p>
+
+          <div className="flex-1 overflow-auto">
+            <InlineErrorBoundary label={`slideOver-${title}`}>
+              {children}
+            </InlineErrorBoundary>
           </div>
         </div>
-        <div className="flex-1 overflow-auto">
-          <InlineErrorBoundary label={`slideOver-${title}`}>
-            {children}
-          </InlineErrorBoundary>
-        </div>
       </div>
-    </div>
+    </>
   );
 };
 

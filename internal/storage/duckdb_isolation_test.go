@@ -25,14 +25,16 @@ func TestCrossProjectIsolation(t *testing.T) {
 	}
 
 	// Insert alice's data
-	aliceCtx := ContextWithSchema(context.Background(), "project_alice")
+	aliceSI := MustNewSchemaIdentity("project_alice")
+	aliceCtx := ContextWithSchema(context.Background(), aliceSI)
 	_, err = db.ExecContext(aliceCtx, "INSERT INTO secrets VALUES (?, ?)", "alice_key", "alice_value_42")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Insert bob's data
-	bobCtx := ContextWithSchema(context.Background(), "project_bob")
+	bobSI := MustNewSchemaIdentity("project_bob")
+	bobCtx := ContextWithSchema(context.Background(), bobSI)
 	_, err = db.ExecContext(bobCtx, "INSERT INTO secrets VALUES (?, ?)", "bob_key", "bob_value_99")
 	if err != nil {
 		t.Fatal(err)
@@ -64,11 +66,16 @@ func TestCrossProjectIsolation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := ContextWithSchema(context.Background(), tt.schema)
+			si := MustNewSchemaIdentity(tt.schema)
+			ctx := ContextWithSchema(context.Background(), si)
 
 			// Count rows scoped to schema
 			var count int
-			err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM secrets").Scan(&count)
+			row, err := db.QueryRowContextOrError(ctx, "SELECT COUNT(*) FROM secrets")
+			if err != nil {
+				t.Fatalf("semaphore exhaustion: %v", err)
+			}
+			err = row.Scan(&count)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -78,7 +85,11 @@ func TestCrossProjectIsolation(t *testing.T) {
 
 			// Read back the value
 			var key, value string
-			err = db.QueryRowContext(ctx, "SELECT key, value FROM secrets LIMIT 1").Scan(&key, &value)
+			row, err = db.QueryRowContextOrError(ctx, "SELECT key, value FROM secrets LIMIT 1")
+			if err != nil {
+				t.Fatalf("semaphore exhaustion: %v", err)
+			}
+			err = row.Scan(&key, &value)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -93,18 +104,26 @@ func TestCrossProjectIsolation(t *testing.T) {
 
 	// Cross-project isolation: alice cannot read bob's data and vice versa
 	t.Run("Alice cannot see Bob's data", func(t *testing.T) {
-		ctx := ContextWithSchema(context.Background(), "project_alice")
+		ctx := ContextWithSchema(context.Background(), aliceSI)
 		var value string
-		err := db.QueryRowContext(ctx, "SELECT value FROM secrets WHERE key = 'bob_key'").Scan(&value)
+		row, err := db.QueryRowContextOrError(ctx, "SELECT value FROM secrets WHERE key = 'bob_key'")
+		if err != nil {
+			t.Fatalf("semaphore exhaustion: %v", err)
+		}
+		err = row.Scan(&value)
 		if err == nil {
 			t.Errorf("Alice should NOT be able to read Bob's data, but got value: %s", value)
 		}
 	})
 
 	t.Run("Bob cannot see Alice's data", func(t *testing.T) {
-		ctx := ContextWithSchema(context.Background(), "project_bob")
+		ctx := ContextWithSchema(context.Background(), bobSI)
 		var value string
-		err := db.QueryRowContext(ctx, "SELECT value FROM secrets WHERE key = 'alice_key'").Scan(&value)
+		row, err := db.QueryRowContextOrError(ctx, "SELECT value FROM secrets WHERE key = 'alice_key'")
+		if err != nil {
+			t.Fatalf("semaphore exhaustion: %v", err)
+		}
+		err = row.Scan(&value)
 		if err == nil {
 			t.Errorf("Bob should NOT be able to read Alice's data, but got value: %s", value)
 		}

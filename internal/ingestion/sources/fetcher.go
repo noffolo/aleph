@@ -146,6 +146,11 @@ func (wp *WorkerPool) Run(ctx context.Context, jobs []ChunkJob, processFn func(c
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[WorkerPool] worker goroutine panic: %v", r)
+				}
+			}()
 			for j := range jobCh {
 				select {
 				case <-ctx.Done():
@@ -179,6 +184,11 @@ func (wp *WorkerPool) Run(ctx context.Context, jobs []ChunkJob, processFn func(c
 
 	// Wait for all workers
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[WorkerPool] wait-closer goroutine panic: %v", r)
+			}
+		}()
 		wg.Wait()
 		close(resultCh)
 	}()

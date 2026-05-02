@@ -108,12 +108,13 @@ export const LibraryView: React.FC<LibraryViewProps> = React.memo(({ assets, onV
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {assets.map(a => (
             <div key={a.id} className="bg-surface p-6 rounded-lg border border-border shadow-sm hover:shadow-lg transition-all group relative">
-               <button
-                  onClick={(e) => { e.stopPropagation(); if (confirm('Sei sicuro di voler eliminare questo asset?')) onDeleteAsset(a.id); }}
-                  className="absolute top-6 right-6 p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-               >
-                  <Trash2 size={18} />
-               </button>
+<button
+  onClick={(e) => { e.stopPropagation(); if (confirm('Sei sicuro di voler eliminare questo asset?')) onDeleteAsset(a.id); }}
+  className="absolute top-6 right-6 p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+  aria-label={`Elimina ${a.name}`}
+>
+  <Trash2 size={18} />
+</button>
                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
                   <FileText size={24} />
                </div>
@@ -129,12 +130,13 @@ export const LibraryView: React.FC<LibraryViewProps> = React.memo(({ assets, onV
                   >
                      <span>Leggi Report</span>
                   </button>
-                  <button
-                     onClick={(e) => { e.stopPropagation(); handleDownload(a); }}
-                     className="p-3 bg-surface-alt text-textMuted rounded-xl hover:bg-surface-alt hover:text-text transition-all"
-                  >
-                     <Download size={16} />
-                  </button>
+<button
+  onClick={(e) => { e.stopPropagation(); handleDownload(a); }}
+  className="p-3 bg-surface-alt text-textMuted rounded-xl hover:bg-surface-alt hover:text-text transition-all"
+  aria-label={`Scarica ${a.name}`}
+>
+  <Download size={16} />
+</button>
                </div>
             </div>
           ))}

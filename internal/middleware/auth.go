@@ -118,7 +118,6 @@ func projectIDToContext(ctx context.Context, projectID string, role Role) contex
 }
 
 // RequireRole returns an error if the context role is not in the allowed set.
-// Use in handlers to enforce RBAC after auth middleware has run.
 func RequireRole(ctx context.Context, allowed ...Role) error {
 	current := RoleFromContext(ctx)
 	for _, r := range allowed {
@@ -127,6 +126,49 @@ func RequireRole(ctx context.Context, allowed ...Role) error {
 		}
 	}
 	return ErrForbidden
+}
+
+// RequireRoleHTTP returns HTTP middleware that enforces RBAC for chi/mux routes.
+// It extracts the role from context (set by AuthMiddleware) and returns 403
+// if the role is not in the allowed set.
+func RequireRoleHTTP(allowed ...Role) func(http.Handler) http.Handler {
+	allowedSet := make(map[Role]bool, len(allowed))
+	for _, r := range allowed {
+		allowedSet[r] = true
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			role := RoleFromContext(r.Context())
+			if !allowedSet[role] {
+				http.Error(w, ErrForbidden.Error(), http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RequireProjectRole ensures the project in the URL matches the authenticated project.
+// Returns 403 if the projects don't match.
+func RequireProjectRole() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authProjectID := ProjectIDFromContext(r.Context())
+			if authProjectID == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			urlProject := r.PathValue("project_id")
+			if urlProject == "" {
+				urlProject = r.URL.Query().Get("project_id")
+			}
+			if urlProject != "" && urlProject != authProjectID {
+				http.Error(w, "project access denied", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // IsAdmin returns true if the context role is admin.
@@ -161,28 +203,38 @@ func ExtractAPIKey(h http.Header) string {
 	return ""
 }
 
-// AuthMiddleware returns an HTTP middleware that validates the API key from
-// the X-Aleph-Api-Key header (or Authorization: Bearer) against the repository.
-// On success, the project ID and role are stored in the request context and can be
-// retrieved via ProjectIDFromContext and RoleFromContext. On failure, a 401 response is returned.
-func AuthMiddleware(metaRepo *repository.MetadataRepository, next http.Handler) http.Handler {
+// AuthMiddleware returns an HTTP middleware that validates authentication from
+// JWT cookie (aleph_jwt) or legacy X-Aleph-Api-Key header (deprecated).
+// On success, the project ID and role are stored in the request context via
+// ProjectIDFromContext and RoleFromContext. On failure, a 401 response is returned.
+func AuthMiddleware(metaRepo *repository.MetadataRepository, jwtSecret []byte, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		apiKey := ExtractAPIKeyFromHeader(r)
-		if apiKey == "" {
-			apiKey = ExtractAPIKeyFromCookie(r)
-		}
-		if apiKey == "" {
-			http.Error(w, ErrNoAPIKey.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		projectID, role, err := ValidateAPIKey(metaRepo, apiKey)
+		projectID, role, err := authenticateHTTP(r, metaRepo, jwtSecret)
 		if err != nil {
-			http.Error(w, ErrInvalidAPIKey.Error(), http.StatusUnauthorized)
+			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
 
 		ctx := projectIDToContext(r.Context(), projectID, role)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// authenticateHTTP resolves auth from JWT cookie, then legacy API key (deprecated).
+func authenticateHTTP(r *http.Request, metaRepo *repository.MetadataRepository, jwtSecret []byte) (string, Role, error) {
+	// 1. JWT from aleph_jwt cookie
+	if jwtStr := jwtFromCookie(r.Header); jwtStr != "" {
+		return validateJWT(jwtStr, jwtSecret)
+	}
+
+	// 2. Legacy API key (deprecated)
+	apiKey := ExtractAPIKeyFromHeader(r)
+	if apiKey == "" {
+		apiKey = ExtractAPIKeyFromCookie(r)
+	}
+	if apiKey != "" {
+		return ValidateAPIKey(metaRepo, apiKey)
+	}
+
+	return "", "", ErrNoAPIKey
 }

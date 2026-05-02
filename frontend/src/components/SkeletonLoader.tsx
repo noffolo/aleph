@@ -1,14 +1,43 @@
-import React from 'react';
+import React from 'react'
 
-export const SkeletonLoader = () => (
-  <div className="space-y-4 animate-pulse">
-    <div className="h-8 bg-surface-alt rounded-md w-3/4"></div>
-    <div className="h-12 bg-surface-alt rounded-md w-full"></div>
-    <div className="space-y-2">
-      <div className="h-6 bg-surface-alt rounded-md w-full"></div>
-      <div className="h-6 bg-surface-alt rounded-md w-5/6"></div>
-      <div className="h-6 bg-surface-alt rounded-md w-full"></div>
-      <div className="h-6 bg-surface-alt rounded-md w-4/6"></div>
+interface SkeletonLoaderProps {
+  rows?: number
+  cols?: number
+  className?: string
+}
+
+export const SkeletonLoader = ({ rows = 1, cols = 1, className = '' }: SkeletonLoaderProps) => {
+  return (
+    <div className={`flex flex-col gap-3 w-full ${className}`}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex gap-3">
+          {Array.from({ length: cols }).map((_, j) => (
+            <div 
+              key={j} 
+              className="h-4 bg-white/5 animate-pulse rounded-sm flex-1" 
+            />
+          ))}
+        </div>
+      ))}
     </div>
-  </div>
-);
+  )
+}
+
+interface SkeletonListProps {
+  itemCount?: number
+  className?: string
+}
+
+export const SkeletonList = ({ itemCount = 5, className = '' }: SkeletonListProps) => {
+  return (
+    <div className={`flex flex-col gap-2 w-full ${className}`}>
+      {Array.from({ length: itemCount }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 p-2 bg-white/5 animate-pulse rounded-md">
+          <div className="w-4 h-4 bg-white/10 rounded-full shrink-0" />
+          <div className="h-3 bg-white/10 rounded-sm flex-1" />
+        </div>
+      ))}
+    </div>
+  )
+}
+

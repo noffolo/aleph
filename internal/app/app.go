@@ -75,6 +75,7 @@ type AlephApp struct {
 	notificationSvc  *notification.NotificationService
 	sseBroker        *sse.Broker
 	rlCleanup        func()
+	authRlCleanup    func()
 	memStore         *memory.MemoryStore
 	usageTracker     tracker.Tracker
 }
@@ -102,6 +103,9 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 		return nil, fmt.Errorf("failed to open duckdb: %v", err)
 	}
 	db.Exec("PRAGMA memory_limit='80%'")
+	if cfg.SlowQueryThresholdMs > 0 {
+		db.SetSlowQueryThreshold(time.Duration(cfg.SlowQueryThresholdMs) * time.Millisecond)
+	}
 
 	// Run both DuckDB and PostgreSQL migrations before any table creation
 	if err := migrate.RunAllMigrations(cfg.DuckDBPath, cfg.PostgresDSN); err != nil {
@@ -140,6 +144,8 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 	brierMonitor := predict.NewBrierMonitor(logger)
 	nlpHandler.SetBrierMonitor(brierMonitor)
 
+	// context.Background is the root context for the Aleph application lifecycle.
+	// All subsystem contexts derive from this via WithCancel during Start().
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &AlephApp{
@@ -164,19 +170,26 @@ func (a *AlephApp) Serve(port int) error {
 
 	// ── W3 Interceptors ──────────────────────────────────────────────────────
 	errorHandler := middleware.NewErrorHandlerInterceptor()
+	subsystemInterceptor := middleware.NewSubsystemInterceptor()
 	auditRepo := repository.NewAuditRepository(a.pg.DB())
 	auditInterceptor := middleware.NewAuditInterceptor(auditRepo, a.logger)
-	authInterceptor := middleware.NewAuthInterceptor(a.metaRepo)
+	authInterceptor := middleware.NewAuthInterceptor(a.metaRepo, a.cfg.JWTSecret)
 	timeoutInterceptor := middleware.NewTimeoutInterceptor(nil) // defaults
 	retryInterceptor := middleware.NewRetryInterceptor(nil)     // defaults
 	bulkheadInterceptor := middleware.NewBulkheadInterceptor(nil) // defaults
 	trackingInterceptor := tracker.NewTrackingInterceptor(a.usageTracker)
 
+	authRateLimiter := middleware.NewAuthRateLimiter(nil, middleware.DefaultAuthRateLimitConfig)
+	a.authRlCleanup = authRateLimiter.Close
+	authRateLimitInterceptor := authRateLimiter.RateLimitInterceptor()
+
 	interceptors := []connect.HandlerOption{
 		connect.WithInterceptors(
+			subsystemInterceptor,
 			errorHandler,
 			auditInterceptor,
 			authInterceptor,
+			authRateLimitInterceptor,
 			timeoutInterceptor,
 			retryInterceptor,
 			bulkheadInterceptor,
@@ -206,11 +219,14 @@ func (a *AlephApp) Serve(port int) error {
 
 	// ── Handlers ─────────────────────────────────────────────────────────────
 	registryMgr, _ := registry.NewDuckDBRegistryFromDuckDB(a.db, a.logger)
-	queryHandler := handler.NewQueryHandler(a.db, projectsRoot, a.metaRepo, a.nlpHandler, registryMgr)
+	queryHandler := handler.NewQueryHandler(a.db, projectsRoot, a.metaRepo, a.nlpHandler, registryMgr, time.Duration(a.cfg.LLMTimeoutSeconds)*time.Second)
 	projectHandler := handler.NewProjectHandler(projectsRoot, a.db)
+	projectHandler.SetMetaRepo(a.metaRepo)
+	projectHandler.SetMaxProjects(a.cfg.MaxProjects)
 	ontoRepo := repository.NewOntologyRepository(a.pg.DB())
 	projectHandler.SetOntologyRepository(ontoRepo)
 	agentHandler := handler.NewAgentHandler(projectsRoot, a.metaRepo, a.cfg.OllamaBaseURL)
+	agentHandler.SetMaxAgentsPerProject(a.cfg.MaxAgentsPerProject)
 	skillHandler := handler.NewSkillHandler(projectsRoot, a.metaRepo)
 	toolHandler := handler.NewToolHandler(projectsRoot, a.metaRepo)
 	libraryHandler := handler.NewLibraryHandler(projectsRoot)
@@ -219,9 +235,9 @@ func (a *AlephApp) Serve(port int) error {
 	notificationHandler := handler.NewNotificationHandler(a.notificationSvc, a.metaRepo)
 
 	authHandler := handler.NewAuthHandler(a.metaRepo)
-	sessionHandler := handler.NewSessionHandler(a.metaRepo)
+	sessionHandler := handler.NewSessionHandler(a.metaRepo, a.cfg.JWTSecret).WithRevocationStore(authInterceptor.RevocationStore())
 	ingestionHandler := handler.NewIngestionHandler(projectsRoot, a.eng, a.metaRepo)
-	sandboxManager := sandbox.NewExecSandbox(a.logger, nil, a.metaRepo, "python3", "go")
+	sandboxManager := sandbox.NewContainerSandbox(a.logger, nil, a.metaRepo, sandbox.DefaultContainerConfig(), nil)
 	sandboxHandler := handler.NewSandboxServiceHandler(sandboxManager, a.logger)
 	registryHandler := handler.NewRegistryServiceHandler(registryMgr, a.logger)
 
@@ -250,8 +266,14 @@ func (a *AlephApp) Serve(port int) error {
 		registryMgr,
 	)
 
+	llmProvider, providerErr := llm.NewProvider("ollama", a.cfg.OllamaBaseURL, ssrf.NewClient(), time.Duration(a.cfg.LLMTimeoutSeconds)*time.Second)
+	if providerErr != nil {
+		a.logger.Warn("LLM provider init failed (degraded mode)", "error", providerErr)
+		llmProvider = nil
+	}
+
 	engineCfg := decision.EngineConfig{
-		Provider:    llm.NewProvider("ollama", a.cfg.OllamaBaseURL, ssrf.NewClient()),
+		Provider:    llmProvider,
 		MetaRepo:    metaRepoAdapter,
 		Executor:    helperExec,
 		Registry:    registryAdapter,
@@ -272,14 +294,37 @@ func (a *AlephApp) Serve(port int) error {
 	suggestPipeline := adaptation.NewPipeline(a.metaRepo)
 	toolSuggestHandler := handler.NewToolSuggestHandler(a.discoveryEngine, suggestPipeline, a.cfg.MCPServerURIs)
 
+	// ── DuckDB Auto-Backup (B14) ────────────────────────────────────────────
+	{
+		interval, err := time.ParseDuration(a.cfg.BackupInterval)
+		if err != nil || interval <= 0 {
+			interval = 24 * time.Hour
+			a.logger.Warn("invalid BACKUP_INTERVAL, using default",
+				"configured", a.cfg.BackupInterval, "fallback", interval)
+		}
+		backupDir := a.cfg.BackupDir
+		if backupDir == "" {
+			backupDir = filepath.Join(filepath.Dir(a.cfg.DataRoot), "backups", "duckdb")
+		}
+		if a.db != nil {
+			go a.db.AutoBackup(a.ctx, interval, backupDir, a.cfg.BackupKeep)
+		}
+	}
+
 	// ── SSE Broker (W2-04) ──────────────────────────────────────────────────
 	a.sseBroker = sse.NewBroker(30*time.Second, a.logger)
-	sseHandler := handler.NewSSEHandler(a.sseBroker, a.logger)
+	sseHandler := handler.NewSSEHandler(a.sseBroker, a.logger).WithJWTSecret(a.cfg.JWTSecret)
+
+	// ── First-Run Onboarding (A15) ─────────────────────────────────────────
+	if a.metaRepo != nil {
+		go a.setupDemoData(projectsRoot)
+	}
 
 	// ── Routes ───────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 	routes.RegisterRoutes(mux, routes.RegisterConfig{
 		MetaRepo:          a.metaRepo,
+		JWTSecret:         a.cfg.JWTSecret,
 		SSEBroker:         a.sseBroker,
 		SSEHandler:        sseHandler,
 		DiagnosticMonitor: diagnosticMonitor,
@@ -302,6 +347,7 @@ func (a *AlephApp) Serve(port int) error {
 		CodeFlowHandler:   codeFlowHandler,
 		SuggestPipeline:   toolSuggestHandler,
 		Interceptors:      interceptors,
+		AuthRateLimiter:   authRateLimiter,
 	})
 
 	corsHandler := routes.CORSHandler(mux, a.cfg.CORSAllowedOrigins, a.logger)
@@ -329,8 +375,12 @@ func (a *AlephApp) Serve(port int) error {
 
 	log.Printf("[Aleph] Data OS starting on :%d", port)
 	a.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: h2c.NewHandler(promHandler, &http2.Server{}),
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           h2c.NewHandler(promHandler, &http2.Server{}),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	return a.server.ListenAndServe()
@@ -355,6 +405,9 @@ func (a *AlephApp) Close(ctx context.Context) error {
 	if a.rlCleanup != nil {
 		a.rlCleanup()
 	}
+	if a.authRlCleanup != nil {
+		a.authRlCleanup()
+	}
 	if a.memStore != nil {
 		a.memStore.Close()
 	}
@@ -366,13 +419,19 @@ func (a *AlephApp) Close(ctx context.Context) error {
 	sentry.Flush(2 * time.Second)
 
 	if a.server != nil {
-		a.server.Shutdown(ctx)
+		if err := a.server.Shutdown(ctx); err != nil {
+			log.Printf("[Aleph] server shutdown error: %v", err)
+		}
 	}
 	if a.nlpHandler != nil {
 		a.nlpHandler.Close()
 	}
-	a.eng.Close()
-	a.pg.Close()
+	if err := a.eng.Close(); err != nil {
+		log.Printf("[Aleph] engine close error: %v", err)
+	}
+	if err := a.pg.Close(); err != nil {
+		log.Printf("[Aleph] postgres close error: %v", err)
+	}
 	return a.db.Close()
 }
 
@@ -454,12 +513,19 @@ func newH2CClient() *http.Client {
 }
 
 func (a *AlephApp) watchSidecar(nlpHandler *handler.NLPHandler) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("watchSidecar panicked, restarting", "recover", r)
+			go a.watchSidecar(nlpHandler)
+		}
+	}()
+
 	addr := a.cfg.NLPAddr
 	if strings.HasPrefix(addr, "http") {
 		addr = strings.TrimPrefix(addr, "http://")
 		addr = strings.TrimPrefix(addr, "https://")
 	}
-	
+
 	slog.Info("starting neural monitoring", "addr", addr)
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -469,7 +535,16 @@ func (a *AlephApp) watchSidecar(nlpHandler *handler.NLPHandler) {
 	defer conn.Close()
 	client := grpc_health_v1.NewHealthClient(conn)
 
-	ticker := time.NewTicker(10 * time.Second)
+	const maxRestarts = 3
+	const restartWindow = 5 * time.Minute
+	backoffSteps := []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
+	var (
+		restartCount   int
+		restartStart   time.Time
+		consecutiveErr bool
+	)
+
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -483,11 +558,36 @@ func (a *AlephApp) watchSidecar(nlpHandler *handler.NLPHandler) {
 			cancel()
 			if err != nil {
 				slog.Warn("sidecar non risponde", "error", err)
-			} else if resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
-				nlpHandler.MarkHealthy()
-				slog.Info("sidecar neurale operativo")
+				nlpHandler.MarkUnhealthy()
+
+				if !consecutiveErr {
+					consecutiveErr = true
+					restartCount = 0
+					restartStart = time.Now()
+				}
+
+				restartCount++
+				if restartCount > maxRestarts && time.Since(restartStart) < restartWindow {
+					slog.Error("sidecar watchdog: too many failures in window, giving up",
+						"restarts", restartCount, "window", restartWindow)
+					return
+				}
+
+				step := restartCount - 1
+				if step >= len(backoffSteps) {
+					step = len(backoffSteps) - 1
+				}
+				slog.Info("sidecar watchdog: will retry", "attempt", restartCount, "backoff", backoffSteps[step])
+				time.Sleep(backoffSteps[step])
 			} else {
-				slog.Warn("sidecar non SERVING", "status", resp.GetStatus())
+				consecutiveErr = false
+				restartCount = 0
+				if resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
+					nlpHandler.MarkHealthy()
+					slog.Info("sidecar neurale operativo")
+				} else {
+					slog.Warn("sidecar non SERVING", "status", resp.GetStatus())
+				}
 			}
 		}
 	}

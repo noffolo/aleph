@@ -2,21 +2,25 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 )
 
-// CSRFProtection validates Origin/Referer headers to prevent CSRF attacks.
-// This is sufficient because auth uses X-Aleph-Api-Key header (not cookies).
-// If session cookies are used in the future, upgrade to double-submit cookie pattern.
+// CSRFProtection validates Origin/Referer headers on mutating requests to prevent CSRF.
+// Safe methods (GET/HEAD/OPTIONS) pass through. Mutating methods require an Origin or
+// Referer that exactly matches an allowed origin (scheme+host, no path prefix matching).
 func CSRFProtection(allowedOrigins []string) func(http.Handler) http.Handler {
 	originMap := make(map[string]bool, len(allowedOrigins))
+	hostMap := make(map[string]bool, len(allowedOrigins))
 	for _, o := range allowedOrigins {
 		originMap[o] = true
+		if u, err := url.Parse(o); err == nil {
+			hostMap[u.Host] = true
+		}
 	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip CSRF check for GET, HEAD, OPTIONS
 			if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
 				next.ServeHTTP(w, r)
 				return
@@ -25,13 +29,11 @@ func CSRFProtection(allowedOrigins []string) func(http.Handler) http.Handler {
 			origin := r.Header.Get("Origin")
 			referer := r.Header.Get("Referer")
 
-			// If neither Origin nor Referer is present, allow (may be CLI/internal client)
 			if origin == "" && referer == "" {
-				next.ServeHTTP(w, r)
+				http.Error(w, "CSRF validation failed: missing Origin and Referer", http.StatusForbidden)
 				return
 			}
 
-			// Check Origin against allowed list
 			if origin != "" {
 				if originMap[origin] {
 					next.ServeHTTP(w, r)
@@ -39,12 +41,18 @@ func CSRFProtection(allowedOrigins []string) func(http.Handler) http.Handler {
 				}
 			}
 
-			// Fallback: check Referer origin
 			if referer != "" {
+				u, err := url.Parse(referer)
+				if err == nil && u.Host != "" && hostMap[u.Host] {
+					next.ServeHTTP(w, r)
+					return
+				}
 				for _, allowed := range allowedOrigins {
-					if strings.HasPrefix(referer, allowed) {
-						next.ServeHTTP(w, r)
-						return
+					if strings.EqualFold(u.String(), allowed) || strings.HasPrefix(strings.ToLower(referer), strings.ToLower(allowed+"/")) {
+						if parsed, pErr := url.Parse(allowed); pErr == nil && parsed.Host == u.Host && parsed.Scheme == u.Scheme {
+							next.ServeHTTP(w, r)
+							return
+						}
 					}
 				}
 			}

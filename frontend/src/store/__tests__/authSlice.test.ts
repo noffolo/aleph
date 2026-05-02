@@ -20,7 +20,6 @@ describe('authSlice', () => {
     const slice = createAuthSlice(set, get, {} as any);
     
     expect(slice.projectID).toBe('');
-    expect(slice.apiKey).toBe('');
     expect(slice.apiKeys).toEqual([]);
     expect(slice.projects).toEqual([]);
     expect(slice.notificationChannels).toEqual([]);

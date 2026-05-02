@@ -11,20 +11,61 @@ import (
 
 var (
 	blocklistedGoImports = map[string]struct{}{
-		"os/exec": {},
-		"net":     {},
-		"net/http": {},
-		"net/url": {},
-		"net/smtp": {},
-		"net/rpc": {},
-		"syscall": {},
-		"unsafe":  {},
-		"reflect": {},
+		"os":             {},
+		"os/exec":        {},
+		"net":           {},
+		"net/http":      {},
+		"net/url":       {},
+		"net/smtp":      {},
+		"net/rpc":       {},
+		"net/mail":      {},
+		"syscall":       {},
+		"unsafe":        {},
+		"reflect":       {},
+		"plugin":        {},
+		"runtime":       {},
+		"runtime/cgo":   {},
+		"runtime/pprof":{},
+		"crypto":              {},
+		"crypto/md5":          {},
+		"crypto/sha1":         {},
+		"crypto/sha256":       {},
+		"crypto/sha512":       {},
+		"crypto/aes":          {},
+		"crypto/cipher":       {},
+		"crypto/des":          {},
+		"crypto/ecdsa":        {},
+		"crypto/ed25519":      {},
+		"crypto/elliptic":     {},
+		"crypto/hmac":         {},
+		"crypto/rand":         {},
+		"crypto/rsa":          {},
+		"crypto/subtle":       {},
+		"crypto/tls":          {},
+		"crypto/x509":         {},
+		"encoding":            {},
+		"encoding/hex":        {},
+		"encoding/base64":     {},
+		"encoding/json":       {},
+		"encoding/gob":        {},
+		"encoding/pem":        {},
+		"encoding/asn1":       {},
+		"encoding/binary":     {},
+		"io/ioutil":           {},
+		"mime/multipart":      {},
+		"text/template":       {},
+		"html/template":       {},
+		"debug/dwarf":         {},
+		"debug/elf":           {},
+		"debug/gosym":         {},
+		"debug/macho":         {},
+		"debug/pe":            {},
+		"debug/plan9obj":      {},
 	}
 
 	blocklistedPythonPatterns = []string{
-		`^\s*import\s+(subprocess|socket|ctypes|__import__)`,
-		`^\s*from\s+(subprocess|socket|ctypes)\s+import`,
+		`^\s*import\s+(subprocess|socket|ctypes|__import__|imaplib)`,
+		`^\s*from\s+(subprocess|socket|ctypes|imaplib)\s+import`,
 		`subprocess\.(run|call|Popen|check_output)`,
 		`socket\.(socket|create_connection|gethostbyname)`,
 		`os\.system`,
@@ -34,6 +75,21 @@ var (
 		`__import__\s*\(`,
 		`open\s*\([^)]*['\"]http[s]?:`,
 		`open\s*\([^)]*['\"]ftp://`,
+		`^\s*import\s+(importlib|runpy|pickle|shelve|shutil|code)`,
+		`^\s*from\s+(importlib|runpy|pickle|shelve|shutil|code)\s+import`,
+		`^\s*import\s+(requests|httpx|urllib3|aiohttp|websockets)`,
+		`^\s*from\s+(requests|httpx|urllib3|aiohttp|websockets)\s+import`,
+		`^\s*import\s+smtplib`,
+		`^\s*from\s+smtplib\s+import`,
+		`getattr\s*\(`,
+		`__getattribute__`,
+		`__dict__`,
+		`__class__`,
+		`globals\s*\(`,
+		`locals\s*\(`,
+		`vars\s*\(`,
+		`__builtins__`,
+		`compile\s*\(`,
 	}
 
 	pythonPatternRegexes []*regexp.Regexp
@@ -73,6 +129,9 @@ func ValidateGoCode(source string) error {
 			if strings.HasPrefix(importPath, "net/") {
 				return fmt.Errorf("blocklisted net subpackage %q", importPath)
 			}
+			if strings.HasPrefix(importPath, "internal/") {
+				return fmt.Errorf("blocklisted internal subpackage %q", importPath)
+			}
 		}
 	}
 	return nil
@@ -93,14 +152,47 @@ func simpleGoImportCheck(source string) error {
 		if strings.Contains(line, `"net/`) {
 			return fmt.Errorf("blocklisted net subpackage detected")
 		}
+		if strings.Contains(line, `"internal/`) {
+			return fmt.Errorf("blocklisted internal subpackage detected")
+		}
 	}
 	return nil
+}
+
+// collapseBackslashContinuations joins lines ending with a backslash
+// to prevent multi-line evasion of blocklisted patterns.
+// Example: "ev\\\nal(" becomes "eval(".
+func collapseBackslashContinuations(source string) string {
+	lines := strings.Split(source, "\n")
+	var out []string
+	var buf strings.Builder
+	for _, line := range lines {
+		trimmed := strings.TrimRight(line, " \t\r")
+		if strings.HasSuffix(trimmed, "\\") {
+			buf.WriteString(trimmed[:len(trimmed)-1])
+			continue
+		}
+		if buf.Len() > 0 {
+			buf.WriteString(line)
+			out = append(out, buf.String())
+			buf.Reset()
+			continue
+		}
+		out = append(out, line)
+	}
+	if buf.Len() > 0 {
+		out = append(out, buf.String())
+	}
+	return strings.Join(out, "\n")
 }
 
 func ValidatePythonCode(source string) error {
 	if err := ValidateConfig(); err != nil {
 		return fmt.Errorf("sandbox config: %w", err)
 	}
+	// Collapse backslash-continuation lines to prevent multi-line evasion
+	// of blocklisted patterns (e.g. "ev\\\nal(" splitting across lines).
+	source = collapseBackslashContinuations(source)
 	lines := strings.Split(source, "\n")
 	for i, line := range lines {
 		lineTrimmed := strings.TrimSpace(line)
@@ -116,7 +208,14 @@ func ValidatePythonCode(source string) error {
 		
 		if strings.Contains(line, "import") {
 			if strings.Contains(line, "subprocess") || strings.Contains(line, "socket") ||
-				strings.Contains(line, "ctypes") || strings.Contains(line, "__import__") {
+				strings.Contains(line, "ctypes") || strings.Contains(line, "__import__") ||
+				strings.Contains(line, "imaplib") || strings.Contains(line, "importlib") ||
+				strings.Contains(line, "runpy") || strings.Contains(line, "pickle") ||
+				strings.Contains(line, "shelve") || strings.Contains(line, "shutil") ||
+				strings.Contains(line, "code") || strings.Contains(line, "requests") ||
+				strings.Contains(line, "httpx") || strings.Contains(line, "urllib3") ||
+				strings.Contains(line, "aiohttp") || strings.Contains(line, "websockets") ||
+				strings.Contains(line, "smtplib") {
 				return fmt.Errorf("line %d: blocklisted import detected", i+1)
 			}
 		}

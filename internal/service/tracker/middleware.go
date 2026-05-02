@@ -54,7 +54,9 @@ func (i *trackingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFun
 			usage.ErrorMsg = msg
 		}
 
-		go i.tracker.Record(context.Background(), usage)
+		// Use derived context with request metadata to avoid context.Background.
+		recordCtx := context.WithValue(ctx, struct{}{}, "tracker")
+		go i.tracker.Record(recordCtx, usage)
 
 		return resp, err
 	}

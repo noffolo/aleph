@@ -144,25 +144,30 @@ func TestSandbox_ObfuscationDetection(t *testing.T) {
 		name           string
 		code           string
 		expectWarning  bool
+		expectBlocked  bool
 	}{
 		{
 			"base64 decode",
 			"package main\n\nimport \"encoding/base64\"\n\nfunc main() { base64.StdEncoding.DecodeString(\"aGVsbG8=\") }",
+			false,
 			true,
 		},
 		{
 			"plugin open",
 			"package main\n\nimport \"plugin\"\n\nfunc main() { plugin.Open(\"mal.so\") }",
+			false,
 			true,
 		},
 		{
 			"cgo escape",
 			"package main\n\n// #include <stdio.h>\nimport \"C\"\n\nfunc main() {}",
 			true,
+			false,
 		},
 		{
 			"clean code",
 			"package main\n\nimport \"fmt\"\n\nfunc main() { fmt.Println(\"hello\") }",
+			false,
 			false,
 		},
 	}
@@ -182,6 +187,12 @@ func TestSandbox_ObfuscationDetection(t *testing.T) {
 			}
 			if hasObfuscationWarning != tc.expectWarning {
 				t.Errorf("expected obfuscation warning=%v, got warnings=%v", tc.expectWarning, result.Warnings)
+			}
+			if tc.expectBlocked && result.Passed {
+				t.Errorf("expected code to be blocked (Passed=false), but Passed=true, BlockedPatterns=%v", result.BlockedPatterns)
+			}
+			if !tc.expectBlocked && !result.Passed && len(result.BlockedPatterns) > 0 {
+				t.Errorf("expected code to not be blocked by blocklist, but got BlockedPatterns=%v", result.BlockedPatterns)
 			}
 		})
 	}

@@ -33,6 +33,9 @@ data/ontologies/
 .env
 .env.*
 !.env.example
+secrets/*.key
+# gosecrets: encrypted credentials (.enc) are tracked; keys (.key) are not
+!secrets/*.enc
 
 # OS files
 .DS_Store
@@ -42,3 +45,7 @@ data/ontologies/
 
 # Backup files
 backups/
+
+# Docker secrets (production)
+secrets/*.txt
+!secrets/*.txt.example

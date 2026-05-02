@@ -17,7 +17,7 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ selectedRow, onClose }
           <h3 className="text-xl font-bold tracking-tight text-text">{t('detail.title')}</h3>
           <p className="text-[10px] font-mono text-textDim uppercase tracking-widest mt-1">Dettaglio Atomico del Record</p>
         </div>
-        <button onClick={onClose} className="p-2 hover:bg-surfaceAlt text-textMuted hover:text-text transition-colors">
+        <button onClick={onClose} className="p-2 hover:bg-surfaceAlt text-textMuted hover:text-text transition-colors" aria-label="Close detail panel">
           <X size={20} />
         </button>
       </div>

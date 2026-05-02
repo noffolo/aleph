@@ -17,8 +17,12 @@ vi.mock('@/api/factory', () => ({
 }));
 
 describe('useAgentActions', () => {
-  const mockStore = {
+  const mockStore: Record<string, any> = {
     projectID: 'test-project',
+    agents: [],
+    setAgents: vi.fn(),
+    setPendingCrud: vi.fn(),
+    clearPendingCrud: vi.fn(),
   };
 
   const mockLoadProjectData = vi.fn();
@@ -29,6 +33,7 @@ describe('useAgentActions', () => {
       if (typeof selector === 'function') return selector(mockStore)
       return mockStore
     });
+    (useStore.getState as any).mockReturnValue(mockStore);
   });
 
   it('onCreateAgent should call agentClient and then loadProjectData', async () => {

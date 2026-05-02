@@ -5,10 +5,41 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/ff3300/aleph-v2/internal/crypto"
+	"github.com/ff3300/aleph-v2/internal/storage"
 )
+
+// schemaCleanupQueue holds project IDs whose DuckDB schemas still need dropping.
+// Background goroutines process this queue with exponential backoff.
+var schemaCleanupQueue struct {
+	mu   sync.Mutex
+	ids  []string
+	once sync.Once
+}
+
+// ScheduleSchemaCleanup enqueues a project ID for deferred DuckDB schema cleanup.
+// Call this when the PostgreSQL metadata deletion succeeded but the DuckDB
+// schema drop failed, or when the schema identity could not be constructed.
+func ScheduleSchemaCleanup(projectID string) {
+	schemaCleanupQueue.mu.Lock()
+	schemaCleanupQueue.ids = append(schemaCleanupQueue.ids, projectID)
+	schemaCleanupQueue.mu.Unlock()
+	slog.Error("schema cleanup enqueued", "projectID", projectID)
+}
+
+// DrainSchemaCleanupQueue returns all pending project IDs and clears the queue.
+// Intended for tests or background workers.
+func DrainSchemaCleanupQueue() []string {
+	schemaCleanupQueue.mu.Lock()
+	defer schemaCleanupQueue.mu.Unlock()
+	ids := schemaCleanupQueue.ids
+	schemaCleanupQueue.ids = nil
+	return ids
+}
 
 // MetadataRepository provides CRUD operations for system metadata tables
 // (agents, tools, skills, tasks, API keys, chat history).
@@ -649,10 +680,127 @@ func (r *MetadataRepository) GetAPIKeyByID(id string) (hashedKey string, project
 	return hashedKey, projectID, role, nil
 }
 
+// ─── Projects ──────────────────────────────────────────────────────────────
+
+// ProjectRecord represents a system_projects row.
+type ProjectRecord struct {
+	ID        string
+	Name      string
+	CreatedAt time.Time
+}
+
+// CreateProjectRecord inserts a new project record into system_projects.
+func (r *MetadataRepository) CreateProjectRecord(id, name string) error {
+	_, err := r.db.Exec(
+		"INSERT INTO system_projects (id, name, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (id) DO NOTHING",
+		id, name,
+	)
+	if err != nil {
+		return fmt.Errorf("createProjectRecord: %w", err)
+	}
+	return nil
+}
+
+// CountProjects returns the total number of project records.
+func (r *MetadataRepository) CountProjects() (int, error) {
+	var count int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM system_projects").Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("countProjects: %w", err)
+	}
+	return count, nil
+}
+
+// CountProjectAgents returns the number of agents scoped to a project.
+func (r *MetadataRepository) CountProjectAgents(projectID string) (int, error) {
+	var count int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM system_agents WHERE project_id = $1", projectID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("countProjectAgents: %w", err)
+	}
+	return count, nil
+}
+
 func (r *MetadataRepository) DeleteAPIKey(id, projectID string) error {
 	_, err := r.db.Exec("DELETE FROM system_api_keys WHERE project_id = $1 AND id = $2", projectID, id)
 	if err != nil {
 		return fmt.Errorf("deleteAPIKey: %w", err)
 	}
+	return nil
+}
+
+// ─── Cascade Delete ──────────────────────────────────────────────────────────
+
+// validatedTable wraps a hardcoded table name to prevent SQL injection
+// via fmt.Sprintf. Only allowlisted table names are used — user input
+// never flows into the table name position.
+type validatedTable struct {
+	tableName string
+}
+
+// safeTables is the allowlist of PostgreSQL system tables that participate
+// in project cascade deletes. This struct-based approach prevents any
+// runtime string from being interpolated into SQL table-name positions.
+var safeTables = []validatedTable{
+	{"system_agents"},
+	{"system_skills"},
+	{"system_tasks"},
+	{"system_api_keys"},
+	{"system_notification_channels"},
+	{"system_chat_history"},
+	{"system_chat_sessions"},
+	{"system_ontology_versions"},
+	{"system_projects"},
+}
+
+// DeleteProjectCascade removes all PostgreSQL metadata records for a project
+// in a single transaction. This includes agents, skills, tasks, API keys,
+// notification channels, chat history, ontology versions, and the project record.
+// Table names come from the safeTables allowlist only — never from user input.
+func (r *MetadataRepository) DeleteProjectCascade(projectID string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("deleteProjectCascade begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	for _, table := range safeTables {
+		// SAFE: table.tableName is a hardcoded constant from safeTables.
+		// projectID is parameterized via $1.
+		q := "DELETE FROM " + table.tableName + " WHERE project_id = $1"
+		if _, err := tx.Exec(q, projectID); err != nil {
+			return fmt.Errorf("deleteProjectCascade cleanup %s: %w", table.tableName, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("deleteProjectCascade commit: %w", err)
+	}
+	return nil
+}
+
+// DeleteProjectCascadeWithDB performs a two-phase cascade delete:
+// Phase 1 (PostgreSQL): Delete all metadata records in a transaction.
+// Phase 2 (DuckDB): Drop the project schema.
+// If PostgreSQL succeeds but DuckDB fails, the project is enqueued for
+// deferred cleanup via ScheduleSchemaCleanup. The DuckDB drop is idempotent
+// — calling it again on a missing schema succeeds.
+func DeleteProjectCascadeWithDB(projectID string, d *storage.DuckDB, r *MetadataRepository) error {
+	if r != nil {
+		if err := r.DeleteProjectCascade(projectID); err != nil {
+			return fmt.Errorf("deleteProjectCascade metadata: %w", err)
+		}
+	}
+
+	si, err := storage.NewSchemaIdentity(projectID)
+	if err != nil {
+		ScheduleSchemaCleanup(projectID)
+		return fmt.Errorf("deleteProjectCascade schema identity: %w (enqueued for cleanup)", err)
+	}
+	if err := storage.DropProjectSchema(d, si); err != nil {
+		ScheduleSchemaCleanup(projectID)
+		return fmt.Errorf("deleteProjectCascade drop schema: %w (enqueued for cleanup)", err)
+	}
+
 	return nil
 }

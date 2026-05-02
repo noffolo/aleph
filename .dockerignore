@@ -3,13 +3,18 @@
 .gitignore
 
 # Go
+*.test
+coverage/
+*.out
+*.prof
+/plans/
+# Python
 __pycache__/
 *.pyc
 *.pyo
 .venv/
 venv/
 .pytest_cache/
-coverage/
 .mypy_cache/
 .ruff_cache/
 *.egg-info/

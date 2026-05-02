@@ -361,10 +361,15 @@ func (s *SitemapIngester) fetchAllPages(ctx context.Context, urls []string) ([]P
 		defer cancel()
 
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					ch <- PageResult{URL: pageURL, Err: fmt.Errorf("fetchSinglePage panic: %v", r)}
+				}
+			}()
 			fetchSinglePage(pageCtx, pageURL, ch)
 		}()
 
-		select {
+	select {
 		case pr := <-ch:
 			mu.Lock()
 			results[job.Index] = pr

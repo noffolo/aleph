@@ -1,6 +1,7 @@
 package safeident
 
 import (
+	"math/rand"
 	"strings"
 	"testing"
 )
@@ -281,6 +282,83 @@ func TestQuoteStringLiteral(t *testing.T) {
 		got := QuoteStringLiteral(tt.input)
 		if got != tt.want {
 			t.Errorf("QuoteStringLiteral(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+// FuzzValidateIdentifier verifies that ValidateIdentifier never panics on
+// arbitrary input, and that any identifier it accepts can be safely
+// round-tripped through QuoteIdentifier.
+func FuzzValidateIdentifier(f *testing.F) {
+	seeds := []string{
+		"",
+		"users",
+		"my_table",
+		"_private",
+		"123abc",
+		"DROP",
+		"; DROP TABLE",
+		"' OR '1'='1",
+		strings.Repeat("a", 65),
+		"\x00",
+		"\n",
+		"a",
+	}
+	for _, s := range seeds {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, id string) {
+		err := ValidateIdentifier(id)
+		if err == nil {
+			// Property: accepted identifiers must have valid first char
+			if len(id) > 0 && id[0] != '_' && !((id[0] >= 'a' && id[0] <= 'z') || (id[0] >= 'A' && id[0] <= 'Z')) {
+				t.Errorf("ValidateIdentifier accepted %q, but first char is not letter or underscore", id)
+			}
+			// Property: accepted identifiers round-trip through QuoteIdentifier
+			quoted := QuoteIdentifier(id)
+			if !strings.HasPrefix(quoted, `"`) || !strings.HasSuffix(quoted, `"`) {
+				t.Errorf("QuoteIdentifier(%q) = %q, not properly quoted", id, quoted)
+			}
+		}
+	})
+}
+
+// TestValidateIdentifier_PropertyBased generates random valid identifiers
+// and verifies they all pass validation and round-trip through quoting.
+func TestValidateIdentifier_PropertyBased(t *testing.T) {
+	chars := []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+	firstChars := []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+	keywords := []string{"SELECT", "DROP", "TABLE", "INSERT", "DELETE", "CREATE", "ALTER"}
+
+	rng := rand.New(rand.NewSource(1))
+	for i := 0; i < 500; i++ {
+		length := rng.Intn(63) + 1
+		var sb strings.Builder
+		sb.WriteByte(firstChars[rng.Intn(len(firstChars))])
+		for j := 1; j < length; j++ {
+			sb.WriteByte(chars[rng.Intn(len(chars))])
+		}
+		id := sb.String()
+
+		// Skip keywords — they are explicitly rejected
+		isKeyword := false
+		upper := strings.ToUpper(id)
+		for _, kw := range keywords {
+			if upper == kw {
+				isKeyword = true
+				break
+			}
+		}
+		if isKeyword {
+			continue
+		}
+
+		if err := ValidateIdentifier(id); err != nil {
+			t.Errorf("ValidateIdentifier(%q) = %v, want nil (generated from pattern)", id, err)
+		}
+		quoted := QuoteIdentifier(id)
+		if !strings.HasPrefix(quoted, `"`) || !strings.HasSuffix(quoted, `"`) {
+			t.Errorf("QuoteIdentifier(%q) = %q, not properly quoted", id, quoted)
 		}
 	}
 }

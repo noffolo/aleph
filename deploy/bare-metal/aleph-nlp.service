@@ -1,0 +1,31 @@
+[Unit]
+Description=Aleph Data OS NLP Sidecar (Python gRPC)
+Documentation=https://github.com/ff3300/aleph-v2
+After=network.target
+
+[Service]
+Type=simple
+User=aleph
+Group=aleph
+WorkingDirectory=/opt/aleph/nlp
+
+EnvironmentFile=/opt/aleph/.env
+Environment="PYTHONUNBUFFERED=1"
+Environment="GRPC_POLL_STRATEGY=epoll1"
+
+ExecStartPre=/opt/aleph/nlp/venv/bin/python -c "import grpc, numpy, pandas, duckdb"
+ExecStart=/opt/aleph/nlp/venv/bin/python /opt/aleph/nlp/main.py
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=always
+RestartSec=5
+
+LimitNOFILE=65536
+LimitNPROC=4096
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aleph-nlp
+
+[Install]
+WantedBy=multi-user.target

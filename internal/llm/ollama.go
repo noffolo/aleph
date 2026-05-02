@@ -7,13 +7,22 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type OllamaProvider struct {
-	client *http.Client
+	client  *http.Client
+	timeout time.Duration
 }
 
 func (p *OllamaProvider) Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
+	callCtx := ctx
+	if p.timeout > 0 {
+		var cancel context.CancelFunc
+		callCtx, cancel = context.WithTimeout(ctx, p.timeout)
+		defer cancel()
+	}
+
 	messages := req.Messages
 	tools := req.Tools
 
@@ -38,7 +47,7 @@ func (p *OllamaProvider) Complete(ctx context.Context, req CompletionRequest) (*
 
 	baseURL := strings.TrimRight(req.BaseURL, "/")
 	endpoint := baseURL + "/api/chat"
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, strings.NewReader(string(bodyJSON)))
+	httpReq, err := http.NewRequestWithContext(callCtx, "POST", endpoint, strings.NewReader(string(bodyJSON)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

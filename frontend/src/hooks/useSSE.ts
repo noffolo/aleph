@@ -1,5 +1,7 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { useStore } from '../store/useStore'
+
+export type SSEConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
 
 interface ToolStatusPayload {
   tool_id: string
@@ -54,42 +56,37 @@ export function useSSE(handlers: SSEHandlers = {}) {
   const handlersRef = useRef(handlers)
   const mountedRef = useRef(true)
   const lastEventIdRef = useRef<string | null>(null)
+  const [status, setStatus] = useState<SSEConnectionStatus>('disconnected')
+  const [reconnectCount, setReconnectCount] = useState(0)
 
   handlersRef.current = handlers
 
-  const apiKeyRef = useRef('')
+
   useEffect(() => {
-    const unsub = useStore.subscribe((state) => {
-      apiKeyRef.current = state.apiKey
-    })
-    return unsub
   }, [])
 
   const connect = useCallback(async () => {
     if (abortRef.current) return // already connected/connecting
-
+    
     const baseUrl = window.location.origin
     const url = new URL('/api/v1/events', baseUrl)
-
+    
     // Sync lastEventIdRef from module-level tracker (updated by handleSSEEvent)
     if (lastEventIdInternal) {
       lastEventIdRef.current = lastEventIdInternal
     }
-
+    
     // Last-Event-ID is a forbidden header for fetch() in browsers,
-    // so we send it as a query param. The api_key is sent as a header.
+    // so we send it as a query param.
     if (lastEventIdRef.current) {
       url.searchParams.set('lastEventId', lastEventIdRef.current)
     }
-
+    
     const headers: Record<string, string> = {}
-    if (apiKeyRef.current) {
-      headers['X-Aleph-Api-Key'] = apiKeyRef.current
-    }
-
+    
     const abortController = new AbortController()
     abortRef.current = abortController
-
+    
     try {
       const response = await fetch(url.toString(), {
         headers,
@@ -99,11 +96,13 @@ export function useSSE(handlers: SSEHandlers = {}) {
       if (!response.ok) {
         // Non-200: trigger error reconnection
         abortRef.current = null
+        setStatus('reconnecting')
         handlersRef.current.onError?.(new Event('error'))
         scheduleReconnect()
         return
       }
 
+      setStatus('connected')
       handlersRef.current.onOpen?.()
       reconnectDelayRef.current = RECONNECT_BASE_DELAY
 
@@ -139,9 +138,11 @@ export function useSSE(handlers: SSEHandlers = {}) {
       }
     } catch {
       // Network error: reconnect
+      setStatus('reconnecting')
     }
-
+    
     abortRef.current = null
+
 
     // Stream ended (server closed or network error): reconnect
     if (mountedRef.current) {
@@ -150,6 +151,8 @@ export function useSSE(handlers: SSEHandlers = {}) {
   }, [])
 
   function scheduleReconnect() {
+    setStatus('reconnecting')
+    setReconnectCount(prev => prev + 1)
     const delay = Math.min(reconnectDelayRef.current, RECONNECT_MAX_DELAY)
     reconnectDelayRef.current = Math.min(
       reconnectDelayRef.current * 2,
@@ -180,7 +183,7 @@ export function useSSE(handlers: SSEHandlers = {}) {
     }
   }, [connect, disconnect])
 
-  return { connect, disconnect }
+  return { connect, disconnect, status, reconnectCount }
 }
 
 export function useToolStatusSSE() {

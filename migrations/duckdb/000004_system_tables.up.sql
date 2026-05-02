@@ -5,95 +5,87 @@
 
 -- Table: system_tasks (from internal/repository/metadata.go)
 CREATE TABLE IF NOT EXISTS system_tasks (
-	id VARCHAR PRIMARY KEY,
-	project_id VARCHAR,
-	name VARCHAR,
-	source_type VARCHAR,
-	config_json VARCHAR,
-	status VARCHAR,
+	id TEXT PRIMARY KEY,
+	project_id TEXT,
+	name TEXT,
+	source_type TEXT,
+	config_json TEXT,
+	status TEXT,
 	progress INTEGER,
-	schedule VARCHAR DEFAULT '',
+	schedule TEXT DEFAULT '',
 	is_predictive INTEGER DEFAULT 0,
 	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table: system_simulations (from internal/repository/metadata.go)
 CREATE TABLE IF NOT EXISTS system_simulations (
-	id VARCHAR PRIMARY KEY,
-	project_id VARCHAR,
-	task_id VARCHAR,
-	scenario_name VARCHAR,
-	results_json VARCHAR,
+	id TEXT PRIMARY KEY,
+	project_id TEXT,
+	task_id TEXT,
+	scenario_name TEXT,
+	results_json TEXT,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table: system_proposals (from internal/repository/metadata.go)
 CREATE TABLE IF NOT EXISTS system_proposals (
-	id VARCHAR PRIMARY KEY,
-	project_id VARCHAR,
-	action_name VARCHAR,
-	object_id VARCHAR,
-	params_json VARCHAR,
-	status VARCHAR DEFAULT 'pending',
+	id TEXT PRIMARY KEY,
+	project_id TEXT,
+	action_name TEXT,
+	object_id TEXT,
+	params_json TEXT,
+	status TEXT DEFAULT 'pending',
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table: system_chat_history (from internal/repository/metadata.go)
 CREATE TABLE IF NOT EXISTS system_chat_history (
-	id VARCHAR PRIMARY KEY,
-	project_id VARCHAR,
-	agent_id VARCHAR,
-	role VARCHAR,
-	content VARCHAR,
-	tool_call VARCHAR,
+	id TEXT PRIMARY KEY,
+	project_id TEXT,
+	agent_id TEXT,
+	role TEXT,
+	content TEXT,
+	tool_call TEXT,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table: system_agents (from internal/repository/metadata.go)
 CREATE TABLE IF NOT EXISTS system_agents (
-	id VARCHAR PRIMARY KEY,
-	project_id VARCHAR,
-	name VARCHAR,
-	provider VARCHAR,
-	model VARCHAR,
-	api_key VARCHAR,
-	system_prompt VARCHAR,
-	skill_ids VARCHAR,
-	base_url VARCHAR DEFAULT ''
+	id TEXT PRIMARY KEY,
+	project_id TEXT,
+	name TEXT,
+	provider TEXT,
+	model TEXT,
+	api_key TEXT,
+	system_prompt TEXT,
+	skill_ids TEXT,
+	base_url TEXT DEFAULT ''
 );
 
--- Table: system_skills (from internal/repository/metadata.go)
 CREATE TABLE IF NOT EXISTS system_skills (
-	id VARCHAR PRIMARY KEY,
-	project_id VARCHAR,
-	name VARCHAR,
-	description VARCHAR,
-	tool_ids VARCHAR
+	id TEXT PRIMARY KEY,
+	project_id TEXT,
+	name TEXT,
+	description TEXT,
+	tool_ids TEXT
 );
 
--- Table: system_tools (from internal/repository/metadata.go)
 CREATE TABLE IF NOT EXISTS system_tools (
-	id VARCHAR PRIMARY KEY,
-	name VARCHAR,
-	description VARCHAR,
-	code VARCHAR
+	id TEXT PRIMARY KEY,
+	name TEXT,
+	description TEXT,
+	code TEXT
 );
 
--- Table: system_api_keys (from internal/repository/metadata.go)
 CREATE TABLE IF NOT EXISTS system_api_keys (
-	id VARCHAR PRIMARY KEY,
-	project_id VARCHAR,
-	label VARCHAR,
-	key VARCHAR,
+	id TEXT PRIMARY KEY,
+	project_id TEXT,
+	label TEXT,
+	key TEXT,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table: system_notification_channels (from internal/repository/metadata.go)
 CREATE TABLE IF NOT EXISTS system_notification_channels (
-	id VARCHAR PRIMARY KEY,
-	project_id VARCHAR,
-	name VARCHAR,
-	type VARCHAR,
-	config_json VARCHAR,
+	id TEXT PRIMARY KEY,
+	project_id TEXT,
+	name TEXT,
+	type TEXT,
+	config_json TEXT,
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

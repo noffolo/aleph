@@ -3,6 +3,9 @@ package genesis
 import (
 	"context"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,29 +14,65 @@ import (
 	"time"
 )
 
-// SandboxResult provides a structured validation report for tool code.
-//
-// IMPORTANT: This sandbox provides heuristic isolation, NOT container-guaranteed
-// isolation. It uses layered pattern matching and subprocess execution with
-// timeout, but a determined adversary can bypass these checks via indirection,
-// dynamic code generation, or exploiting the host Go runtime. For production
-// workloads requiring strong isolation, use gVisor, Firecracker, or a full
-// container runtime.
+var blockedGoImports = map[string]string{
+	"os":             "os: filesystem manipulation",
+	"os/exec":        "os/exec: arbitrary command execution",
+	"plugin":         "plugin: dynamic library loading",
+	"runtime":        "runtime: low-level runtime access",
+	"net":            "net: network access",
+	"net/http":       "net/http: HTTP client/server",
+	"net/url":        "net/url: SSRF vector",
+	"net/smtp":       "net/smtp: email sending",
+	"net/rpc":        "net/rpc: remote procedure calls",
+	"syscall":        "syscall: low-level system access",
+	"unsafe":         "unsafe: memory unsafety",
+	"reflect":        "reflect: runtime type manipulation",
+	"text/template":  "text/template: code injection via templates",
+	"html/template":  "html/template: code injection via templates",
+}
+
+// blockedGoImportPrefixes defines import path prefixes that are always
+// blocked. Any import starting with one of these prefixes is rejected.
+// This covers wildcard packages like crypto/*, encoding/*, debug/*,
+// internal/*, and net/* sub-packages not already in blockedGoImports.
+var blockedGoImportPrefixes = map[string]string{
+	"crypto/":   "crypto/*: cryptographic operations",
+	"encoding/": "encoding/*: data encoding/decoding (potential obfuscation)",
+	"debug/":    "debug/*: debugging and runtime introspection",
+	"internal/": "internal/*: internal packages",
+	"net/":      "net/*: network sub-package",
+}
+
+var blockedGoCalls = map[string]string{
+	"os.Remove":    "file deletion",
+	"os.RemoveAll": "recursive directory deletion",
+	"os.Chmod":     "permission manipulation",
+	"os.Rename":    "file race condition",
+	"os.Symlink":   "symlink escape",
+	"os.Create":    "file creation",
+	"net.Listen":   "network listener",
+	"net.Dial":     "network dialer",
+	"plugin.Open":  "dynamic library loading",
+	"runtime.Goexit":     "goroutine termination",
+	"runtime.Stack":       "goroutine stack introspection",
+	"runtime.Callers":     "call stack introspection",
+	"runtime.Breakpoint":  "trigger debugger breakpoint",
+	"os.Exit":            "hard process termination",
+}
+
 type SandboxResult struct {
-	Passed          bool      `json:"passed"`
-	Warnings        []string  `json:"warnings,omitempty"`
-	RiskScore       float64   `json:"risk_score"`
-	BlockedPatterns []string  `json:"blocked_patterns,omitempty"`
+	Passed          bool          `json:"passed"`
+	Warnings        []string      `json:"warnings,omitempty"`
+	RiskScore       float64       `json:"risk_score"`
+	BlockedPatterns []string      `json:"blocked_patterns,omitempty"`
 	Duration        time.Duration `json:"duration"`
 }
 
-// Sandbox validates tool code through layered heuristic checks.
 type Sandbox struct {
-	timeout    time.Duration
-	execPath   string // path to "go" binary for subprocess validation
+	timeout  time.Duration
+	execPath string
 }
 
-// NewSandbox creates a Sandbox with the given timeout for subprocess validation.
 func NewSandbox(timeout time.Duration) *Sandbox {
 	return &Sandbox{
 		timeout:  timeout,
@@ -72,7 +111,7 @@ func (s *Sandbox) validateCode(ctx context.Context, code string) (*SandboxResult
 		RiskScore: 0,
 	}
 
-	blocked := s.checkDangerousPatterns(ctx, code)
+	blocked := s.checkDangerousPatternsAST(ctx, code)
 	if len(blocked) > 0 {
 		result.Passed = false
 		result.BlockedPatterns = blocked
@@ -111,56 +150,95 @@ func (s *Sandbox) validateCode(ctx context.Context, code string) (*SandboxResult
 	return result, nil
 }
 
-func (s *Sandbox) checkDangerousPatterns(ctx context.Context, code string) []string {
-	dangerous := []string{
-		"os/exec", "syscall", "unsafe", "reflect",
-		"os.Remove", "os.RemoveAll", "os.Chmod",
-		"net.Listen", "net.Dial",
+func (s *Sandbox) checkDangerousPatternsAST(ctx context.Context, code string) []string {
+	select {
+	case <-ctx.Done():
+		return nil
+	default:
 	}
 
 	var blocked []string
-	for _, pattern := range dangerous {
-		select {
-		case <-ctx.Done():
-			return blocked
-		default:
+
+	fset := token.NewFileSet()
+	node, err := parser.ParseFile(fset, "", code, parser.AllErrors|parser.ParseComments)
+	if err != nil {
+		return s.checkDangerousPatternsFallback(code)
+	}
+
+	for _, imp := range node.Imports {
+		importPath := strings.Trim(imp.Path.Value, `"`)
+		if reason, isBlocked := blockedGoImports[importPath]; isBlocked {
+			blocked = append(blocked, fmt.Sprintf("%s (%s)", importPath, reason))
 		}
+		for prefix, reason := range blockedGoImportPrefixes {
+			if strings.HasPrefix(importPath, prefix) {
+				if _, alreadyBlocked := blockedGoImports[importPath]; !alreadyBlocked {
+					blocked = append(blocked, fmt.Sprintf("%s (%s)", importPath, reason))
+				}
+				break
+			}
+		}
+	}
+
+	ast.Inspect(node, func(n ast.Node) bool {
+		callExpr, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+
+		selExpr, ok := callExpr.Fun.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+
+		ident, ok := selExpr.X.(*ast.Ident)
+		if !ok {
+			return true
+		}
+
+		fullCall := ident.Name + "." + selExpr.Sel.Name
+		if reason, isBlocked := blockedGoCalls[fullCall]; isBlocked {
+			blocked = append(blocked, fmt.Sprintf("%s (%s)", fullCall, reason))
+		}
+
+		return true
+	})
+
+	return blocked
+}
+
+func (s *Sandbox) checkDangerousPatternsFallback(code string) []string {
+	var blocked []string
+	for pattern, reason := range blockedGoImports {
 		if strings.Contains(code, pattern) {
-			blocked = append(blocked, pattern)
+			blocked = append(blocked, fmt.Sprintf("%s (%s)", pattern, reason))
+		}
+	}
+	for pattern, reason := range blockedGoCalls {
+		if strings.Contains(code, pattern) {
+			blocked = append(blocked, fmt.Sprintf("%s (%s)", pattern, reason))
 		}
 	}
 	return blocked
 }
 
-// obfuscationPatterns matches common encoding/indirection tricks used to bypass
-// string-based pattern matching.
 var obfuscationPatterns = []struct {
 	name    string
 	pattern *regexp.Regexp
 	score   float64
 }{
-	// Base64 decode attempts
 	{"base64_decode", regexp.MustCompile(`encoding/base64`), 0.3},
 	{"base64_decode_call", regexp.MustCompile(`base64\.(?:StdEncoding|URLEncoding)\.Decode`), 0.5},
-	// Hex encoding/decoding
 	{"hex_decode", regexp.MustCompile(`encoding/hex`), 0.2},
 	{"hex_decode_call", regexp.MustCompile(`hex\.(?:DecodeString|Decode)`), 0.4},
-	// Eval-like dynamic execution patterns
 	{"exec_command_dynamic", regexp.MustCompile(`exec\.Command\(.*\+`), 0.5},
 	{"exec_command_variable", regexp.MustCompile(`exec\.Command\([a-zA-Z_]\w*\)`), 0.4},
-	// String concatenation to construct dangerous imports
 	{"import_concat", regexp.MustCompile(`import\s*\(\s*[^)]*\+`), 0.6},
-	// Reflect-based dynamic calls
 	{"reflect_value_call", regexp.MustCompile(`reflect\.Value\.\w+Call`), 0.4},
-	// Plugin dynamic loading
 	{"plugin_open", regexp.MustCompile(`plugin\.Open`), 0.7},
-	// os.Getenv used to construct commands
 	{"getenv_command", regexp.MustCompile(`os\.Getenv\(.*\).*exec`), 0.5},
-	// Runtime manipulation
 	{"runtime_mmap", regexp.MustCompile(`syscall\.Mmap|Mmap`), 0.6},
-	// Indirect process spawning via /proc or shell
 	{"shell_redirect", regexp.MustCompile(`/proc/self|/dev/stdin`), 0.7},
-	// CGo escape hatch
 	{"cgo_escape", regexp.MustCompile(`(?:#include|import\s*"C")`), 0.6},
 }
 
@@ -175,7 +253,6 @@ func (s *Sandbox) detectObfuscation(code string) ([]string, float64) {
 		}
 	}
 
-	// Heuristic: unusually high ratio of string literals to code may indicate packing
 	stringLiteralCount := strings.Count(code, `"`) / 2
 	lines := strings.Count(code, "\n") + 1
 	if lines > 0 && stringLiteralCount > 3*lines {

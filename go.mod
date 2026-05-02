@@ -1,11 +1,14 @@
 module github.com/ff3300/aleph-v2
 
-go 1.25.0
+go 1.26.0
 
 require (
 	connectrpc.com/connect v1.19.1
 	github.com/alecthomas/participle/v2 v2.1.4
+	github.com/bilustek/gosecrets v0.4.0
 	github.com/fsnotify/fsnotify v1.9.0
+	github.com/getsentry/sentry-go v0.46.1
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackc/pgx/v5 v5.7.2
@@ -28,7 +31,10 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-require github.com/getsentry/sentry-go v0.46.1 // indirect
+require (
+	github.com/elastic/go-seccomp-bpf v1.6.0 // indirect
+	github.com/goccy/go-yaml v1.19.2 // indirect
+)
 
 require (
 	github.com/apache/arrow-go/v18 v18.1.0 // indirect
@@ -59,7 +65,6 @@ require (
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

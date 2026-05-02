@@ -214,6 +214,46 @@ import socket
 import os`,
 			wantErr: true,
 		},
+		{
+			name: "Blocked imaplib import",
+			code: `import imaplib
+mail = imaplib.IMAP4_SSL("imap.example.com")`,
+			wantErr: true,
+		},
+		{
+			name: "Blocked from imaplib import",
+			code: `from imaplib import IMAP4_SSL
+mail = IMAP4_SSL("imap.example.com")`,
+			wantErr: true,
+		},
+		{
+			name: "Multi-line eval bypass via backslash",
+			code: `import json
+result = ev\
+al("2+2")
+print(result)`,
+			wantErr: true,
+		},
+		{
+			name: "Multi-line exec bypass via backslash",
+			code: `ex\
+ec("import os; os.system('ls')")
+`,
+			wantErr: true,
+		},
+		{
+			name: "Multi-line __import__ bypass via backslash",
+			code: `mod = __imp\
+ort__("subprocess")`,
+			wantErr: true,
+		},
+		{
+			name: "Normal line continuation (allowed)",
+			code: `result = "hel\
+lo"
+print(result)`,
+			wantErr: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -415,5 +455,119 @@ func TestX(t *testing.T) {
 `)
 	if cov <= 0 {
 		t.Errorf("expected positive coverage estimate, got %f", cov)
+	}
+}
+
+// FuzzValidateGoCode verifies that ValidateGoCode never panics on arbitrary
+// input, even malformed Go source or binary data.
+func FuzzValidateGoCode(f *testing.F) {
+	seeds := []string{
+		`package main
+import "fmt"
+func main() { fmt.Println("hello") }`,
+		`package main
+import "os/exec"
+func main() { exec.Command("ls") }`,
+		`package main
+import "os/exec"`,
+		`package main
+import (
+	"fmt"
+	"os/exec"
+	"strings"
+)`,
+		`package main
+import exec "os/exec"`,
+		``,
+		`this is not go code at all ; drop table users`,
+		`import "syscall"`,
+		`import "unsafe"`,
+		`package main`,
+	}
+	for _, s := range seeds {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, source string) {
+		// Must never panic
+		_ = ValidateGoCode(source)
+	})
+}
+
+// FuzzValidatePythonCode verifies that ValidatePythonCode never panics on
+// arbitrary input, including malformed Python or binary data.
+func FuzzValidatePythonCode(f *testing.F) {
+	seeds := []string{
+		`import json
+def hello():
+    print("world")`,
+		`import subprocess
+subprocess.run(["ls"])`,
+		`import socket`,
+		`x = eval("2+2")`,
+		`exec("print('hello')")`,
+		`module = __import__("subprocess")`,
+		`import imaplib`,
+		`from subprocess import run`,
+		`f = open("http://example.com")`,
+		`ex\
+ec("import os; os.system('ls')")`,
+		``,
+		`not python at all ; drop table users`,
+		`# comment`,
+		`print("hello")`,
+	}
+	for _, s := range seeds {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, source string) {
+		// Must never panic
+		_ = ValidatePythonCode(source)
+	})
+}
+
+// TestValidateGoCode_PropertyBased generates random Go-like sources and
+// verifies that ValidateGoCode never panics, even on nonsensical input.
+func TestValidateGoCode_PropertyBased(t *testing.T) {
+	prefixes := []string{
+		`package main`,
+		`package main
+import "fmt"`,
+		`package main
+func main() {}`,
+		`package main
+import (
+	"fmt"
+	"strings"
+	"time"
+)`,
+	}
+	bodies := []string{
+		"",
+		`func main() { println("hello") }`,
+		`func main() {}`,
+		`func f() int { return 42 }`,
+	}
+	suffixes := []string{
+		"",
+		"; DROP TABLE",
+		"<script>alert(1)</script>",
+		"\x00\x01\x02",
+		"\n\n\n",
+	}
+
+	for _, prefix := range prefixes {
+		for _, body := range bodies {
+			for _, suffix := range suffixes {
+				source := prefix + "\n" + body + "\n" + suffix
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							t.Errorf("ValidateGoCode panicked on %q: %v", source, r)
+						}
+					}()
+					_ = ValidateGoCode(source)
+				}()
+			}
+		}
 	}
 }

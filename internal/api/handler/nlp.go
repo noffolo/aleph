@@ -37,6 +37,10 @@ func (h *NLPHandler) MarkHealthy() {
 	h.breakerClient.MarkHealthy()
 }
 
+func (h *NLPHandler) MarkUnhealthy() {
+	h.breakerClient.MarkUnhealthy()
+}
+
 func (h *NLPHandler) AnalyzeSentiment(
 	ctx context.Context,
 	req *connect.Request[nlp.AnalyzeSentimentRequest],

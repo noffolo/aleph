@@ -10,6 +10,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
+	"github.com/ff3300/aleph-v2/internal/errors"
 	"github.com/ff3300/aleph-v2/internal/ingestion"
 	"github.com/ff3300/aleph-v2/internal/repository"
 )
@@ -89,10 +90,18 @@ func (h *IngestionHandler) RunTask(
 
 	t, err := h.metaRepo.GetTaskByID(taskID)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeNotFound, err)
+		return nil, connect.NewError(connect.CodeNotFound, errors.NewAPIErrorWithMeta(
+			errors.ErrNotFound, "ingestion task not found", err,
+			"ingestion", "query", false, 0,
+		))
 	}
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("ingestion RunTask goroutine panic", "projectID", projectID, "taskID", t.ID, "recover", r)
+			}
+		}()
 		v1Task := &v1.IngestionTask{Id: t.ID, Name: t.Name, SourceType: t.SourceType, ConfigJson: t.ConfigJSON}
 		taskCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 		defer cancel()

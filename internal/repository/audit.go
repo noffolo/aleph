@@ -20,8 +20,9 @@ type AuditEntry struct {
 	ID           int64
 	UserID       string
 	Action       string // "create", "update", "delete"
-	ResourceType string // "agent", "tool", "skill", "ingestion", "task", "api_key", "notification"
+	ResourceType string // "agent", "tool", "skill", "ingestion", "task", "api_key", "notification", "project"
 	ResourceID   string
+	ProjectID    string // project scope for multi-tenancy; empty if global
 	Timestamp    time.Time
 	Diff         json.RawMessage // nullable JSON diff
 }
@@ -39,14 +40,15 @@ type AuditFilters struct {
 
 func (r *AuditRepository) InsertAuditLog(ctx context.Context, entry AuditEntry) error {
 	query := `
-	INSERT INTO audit_log (user_id, action, resource_type, resource_id, timestamp, diff)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	INSERT INTO audit_log (user_id, action, resource_type, resource_id, project_id, timestamp, diff)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		entry.UserID,
 		entry.Action,
 		entry.ResourceType,
 		entry.ResourceID,
+		entry.ProjectID,
 		entry.Timestamp,
 		entry.Diff,
 	)
@@ -58,7 +60,7 @@ func (r *AuditRepository) InsertAuditLog(ctx context.Context, entry AuditEntry) 
 
 func (r *AuditRepository) QueryAuditLog(ctx context.Context, filters AuditFilters) ([]AuditEntry, error) {
 	query := `
-	SELECT id, user_id, action, resource_type, resource_id, timestamp, diff
+	SELECT id, user_id, action, resource_type, resource_id, project_id, timestamp, diff
 	FROM audit_log
 	WHERE 1=1
 	`
@@ -124,6 +126,7 @@ func (r *AuditRepository) QueryAuditLog(ctx context.Context, filters AuditFilter
 			&entry.Action,
 			&entry.ResourceType,
 			&entry.ResourceID,
+			&entry.ProjectID,
 			&entry.Timestamp,
 			&diff,
 		)

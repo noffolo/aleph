@@ -38,7 +38,9 @@ jobs:
           working-directory: ./
 
       - name: Run Go tests with race detector (no cache)
-        run: go test -race -count=1 ./... 2>&1 | tee test-output.txt
+        run: |
+          set -o pipefail
+          go test -race -count=1 ./... 2>&1 | tee test-output.txt
 
       - name: Run go vet
         run: go vet ./...

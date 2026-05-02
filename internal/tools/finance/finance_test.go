@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -518,6 +520,256 @@ func TestMathRounding(t *testing.T) {
 	// Verify math.Round works as expected in our context
 	assert.Equal(t, 123.46, math.Round(123.456*100)/100)
 	assert.Equal(t, 123.45, math.Round(123.454*100)/100)
+}
+
+func TestParseYahooCSV(t *testing.T) {
+	t.Run("parses valid CSV correctly", func(t *testing.T) {
+		csvData := `Date,Open,High,Low,Close,Volume,Adj Close
+2024-01-05,181.25,182.50,180.75,182.00,50000000,182.00
+2024-01-04,180.00,181.75,179.80,181.20,45000000,181.20
+2024-01-03,179.50,180.50,178.90,179.80,48000000,179.80
+2024-01-02,178.00,179.80,177.50,179.00,52000000,179.00`
+		r := strings.NewReader(csvData)
+		points, err := parseYahooCSV(r)
+		require.NoError(t, err)
+		require.Len(t, points, 4)
+
+		// Should be sorted ascending by date
+		assert.Equal(t, "2024-01-02", points[0].Date.Format("2006-01-02"))
+		assert.Equal(t, "2024-01-05", points[3].Date.Format("2006-01-02"))
+
+		// Verify last data point
+		last := points[3]
+		assert.InDelta(t, 182.00, last.Close, 0.01)
+		assert.InDelta(t, 181.25, last.Open, 0.01)
+		assert.InDelta(t, 182.50, last.High, 0.01)
+		assert.InDelta(t, 180.75, last.Low, 0.01)
+		assert.Equal(t, int64(50000000), last.Volume)
+	})
+
+	t.Run("skips null close rows (dividends)", func(t *testing.T) {
+		csvData := `Date,Open,High,Low,Close,Volume,Adj Close
+2024-01-05,181.25,182.50,180.75,182.00,50000000,182.00
+2024-01-04,180.00,181.75,179.80,null,,null`
+		r := strings.NewReader(csvData)
+		points, err := parseYahooCSV(r)
+		require.NoError(t, err)
+		require.Len(t, points, 1)
+	})
+
+	t.Run("handles empty body", func(t *testing.T) {
+		r := strings.NewReader("Date,Open,High,Low,Close,Volume,Adj Close\n")
+		_, err := parseYahooCSV(r)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no valid data points")
+	})
+
+	t.Run("rejects missing columns", func(t *testing.T) {
+		r := strings.NewReader("Date,Price\n2024-01-05,100")
+		_, err := parseYahooCSV(r)
+		require.Error(t, err)
+	})
+}
+
+func TestComputeRSI(t *testing.T) {
+	t.Run("rising prices give high RSI", func(t *testing.T) {
+		closes := make([]float64, 20)
+		for i := range closes {
+			closes[i] = 100.0 + float64(i)*2 // steady uptrend
+		}
+		rsi := computeRSI(closes, 14)
+		assert.Greater(t, rsi, 50.0, "RSI should be above 50 for uptrend")
+		assert.LessOrEqual(t, rsi, 100.0)
+	})
+
+	t.Run("falling prices give low RSI", func(t *testing.T) {
+		closes := make([]float64, 20)
+		for i := range closes {
+			closes[i] = 200.0 - float64(i)*3 // steady downtrend
+		}
+		rsi := computeRSI(closes, 14)
+		assert.Less(t, rsi, 50.0, "RSI should be below 50 for downtrend")
+		assert.GreaterOrEqual(t, rsi, 0.0)
+	})
+
+	t.Run("flat prices give neutral RSI", func(t *testing.T) {
+		closes := make([]float64, 20)
+		for i := range closes {
+			closes[i] = 100.0
+		}
+		rsi := computeRSI(closes, 14)
+		assert.InDelta(t, 50.0, rsi, 0.01)
+	})
+
+	t.Run("insufficient data returns neutral", func(t *testing.T) {
+		rsi := computeRSI([]float64{100, 101}, 14)
+		assert.InDelta(t, 50.0, rsi, 0.01)
+	})
+
+	t.Run("no losses gives RSI 100", func(t *testing.T) {
+		closes := make([]float64, 20)
+		for i := range closes {
+			closes[i] = 100.0 + float64(i)*0.5
+		}
+		rsi := computeRSI(closes, 14)
+		assert.InDelta(t, 100.0, rsi, 0.01)
+	})
+}
+
+func TestComputeIndicators(t *testing.T) {
+	t.Run("computes SMA20 and RSI14 from data", func(t *testing.T) {
+		now := time.Now().UTC()
+		data := make([]HistoricalDataPoint, 25)
+		for i := range data {
+			price := 100.0 + float64(i)*0.5
+			data[i] = HistoricalDataPoint{
+				Date:   now.AddDate(0, 0, -(25 - i)),
+				Open:   price - 0.5,
+				High:   price + 1.0,
+				Low:    price - 1.0,
+				Close:  price,
+				Volume: 1000000,
+			}
+		}
+
+		result := computeIndicators("AAPL", data)
+		require.NotNil(t, result)
+		assert.Equal(t, "AAPL", result.Symbol)
+		assert.Equal(t, 25, result.DataPoints)
+		assert.NotNil(t, result.SMA20)
+		assert.NotNil(t, result.RSI14)
+		assert.Greater(t, result.LastClose, 0.0)
+	})
+
+	t.Run("insufficient data for SMA", func(t *testing.T) {
+		now := time.Now().UTC()
+		data := make([]HistoricalDataPoint, 10)
+		for i := range data {
+			data[i] = HistoricalDataPoint{
+				Date:   now.AddDate(0, 0, -(10 - i)),
+				Close:  100.0,
+				Volume: 1000000,
+			}
+		}
+
+		result := computeIndicators("MSFT", data)
+		require.NotNil(t, result)
+		assert.Nil(t, result.SMA20)
+		assert.Nil(t, result.RSI14)
+		assert.Equal(t, 10, result.DataPoints)
+	})
+
+	t.Run("empty data returns zero-point result", func(t *testing.T) {
+		result := computeIndicators("EMPTY", nil)
+		assert.Equal(t, "EMPTY", result.Symbol)
+		assert.Equal(t, 0, result.DataPoints)
+	})
+}
+
+func TestOpenBBMarketDataTool_HistoricalDataType(t *testing.T) {
+	tool := NewOpenBBMarketDataTool()
+	ctx := context.Background()
+
+	result, err := tool.Execute(ctx, map[string]any{
+		"symbol":    "AAPL",
+		"data_type": "historical",
+		"days":      10,
+	})
+	require.NoError(t, err)
+
+	// Should fall back to mock data since API is unreachable
+	points, ok := result.([]HistoricalDataPoint)
+	require.True(t, ok, "result should be []HistoricalDataPoint")
+	require.Greater(t, len(points), 0, "should have data points from mock")
+	for _, p := range points {
+		assert.Greater(t, p.Close, 0.0)
+		assert.Greater(t, p.Volume, int64(0))
+		assert.False(t, p.Date.IsZero())
+	}
+}
+
+func TestOpenBBMarketDataTool_IndicatorsDataType(t *testing.T) {
+	tool := NewOpenBBMarketDataTool()
+	ctx := context.Background()
+
+	result, err := tool.Execute(ctx, map[string]any{
+		"symbol":    "AAPL",
+		"data_type": "indicators",
+		"days":      30,
+	})
+	require.NoError(t, err)
+
+	ind, ok := result.(*IndicatorResult)
+	require.True(t, ok, "result should be *IndicatorResult")
+	assert.Equal(t, "AAPL", ind.Symbol)
+	assert.Greater(t, ind.DataPoints, 0)
+	assert.Greater(t, ind.LastClose, 0.0)
+	// Should have enough mock data for SMA20 and RSI14
+	if ind.SMA20 != nil {
+		assert.Greater(t, *ind.SMA20, 0.0)
+	}
+	if ind.RSI14 != nil {
+		assert.GreaterOrEqual(t, *ind.RSI14, 0.0)
+		assert.LessOrEqual(t, *ind.RSI14, 100.0)
+	}
+}
+
+func TestOpenBBMarketDataTool_UnsupportedDataType(t *testing.T) {
+	tool := NewOpenBBMarketDataTool()
+	ctx := context.Background()
+
+	_, err := tool.Execute(ctx, map[string]any{
+		"symbol":    "AAPL",
+		"data_type": "options",
+	})
+	require.Error(t, err)
+	var connectErr *connect.Error
+	assert.True(t, errors.As(err, &connectErr))
+	assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
+}
+
+func TestMockHistoricalData(t *testing.T) {
+	data := mockHistoricalData("AAPL", 30)
+	require.Greater(t, len(data), 0)
+	require.LessOrEqual(t, len(data), 30)
+
+	for i, p := range data {
+		assert.Greater(t, p.Close, 0.0, "point %d should have positive close", i)
+		assert.Greater(t, p.Volume, int64(0), "point %d should have positive volume", i)
+		assert.False(t, p.Date.IsZero(), "point %d should have a date", i)
+		// No weekends
+		assert.NotEqual(t, time.Saturday, p.Date.Weekday(), "point %d is Saturday", i)
+		assert.NotEqual(t, time.Sunday, p.Date.Weekday(), "point %d is Sunday", i)
+	}
+
+	// Verify chronological order
+	for i := 1; i < len(data); i++ {
+		assert.True(t, data[i].Date.After(data[i-1].Date) || data[i].Date.Equal(data[i-1].Date),
+			"data should be in chronological order")
+	}
+}
+
+func TestOpenBBMarketDataTool_PriceWithDays(t *testing.T) {
+	tool := NewOpenBBMarketDataTool()
+	ctx := context.Background()
+
+	// data_type="price" with days param should still work (default path via getStockPrice mock)
+	result, err := tool.Execute(ctx, map[string]any{
+		"symbol":    "MSFT",
+		"data_type": "price",
+		"days":      100,
+	})
+	require.NoError(t, err)
+	r, ok := result.(*OpenBBMarketDataResult)
+	require.True(t, ok)
+	assert.Equal(t, "MSFT", r.Symbol)
+	assert.Greater(t, r.Price, 0.0)
+}
+
+func TestMeanFunction(t *testing.T) {
+	assert.InDelta(t, 3.0, mean([]float64{1, 2, 3, 4, 5}), 0.01)
+	assert.InDelta(t, 0.0, mean([]float64{}), 0.01)
+	assert.InDelta(t, 5.0, mean([]float64{5}), 0.01)
 }
 
 func TestSentimentScoreBounds(t *testing.T) {

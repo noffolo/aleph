@@ -1,5 +1,4 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { useStore } from "../store/useStore";
 
 export const createSession = async (apiKey: string) => {
   const res = await fetch("/api/v1/auth/session", {
@@ -20,11 +19,7 @@ export const deleteSession = async () => {
 };
 
 export const apiGet = async (path: string) => {
-  const state = useStore.getState();
   const res = await fetch(path, {
-    headers: {
-      ...(state.apiKey ? { "Authorization": `Bearer ${state.apiKey}` } : {}),
-    },
     credentials: "include",
   });
   if (!res.ok) {
@@ -35,13 +30,9 @@ export const apiGet = async (path: string) => {
 };
 
 export const apiPost = async (path: string, body: unknown) => {
-  const state = useStore.getState();
   const res = await fetch(path, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(state.apiKey ? { "Authorization": `Bearer ${state.apiKey}` } : {}),
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     credentials: "include",
   });

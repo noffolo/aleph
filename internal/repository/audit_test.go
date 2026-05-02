@@ -26,6 +26,7 @@ func setupAuditRepo(t *testing.T) *AuditRepository {
 		action VARCHAR,
 		resource_type VARCHAR,
 		resource_id VARCHAR,
+		project_id VARCHAR,
 		timestamp TIMESTAMP,
 		diff VARCHAR
 	)`)

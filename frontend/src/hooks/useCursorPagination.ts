@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { reportError } from '../lib/errorReporter';
 
 interface UseCursorPaginationProps<T, Req, Resp> {
   clientMethod: (req: Req) => Promise<Resp>;
@@ -35,7 +36,7 @@ export function useCursorPagination<T, Req, Resp>({
       setCursor(nextCursor);
       setHasMore(!!nextCursor);
     } catch (error) {
-      console.error('Pagination error:', error);
+      reportError('useCursorPagination', error);
     } finally {
       setLoading(false);
     }

@@ -8,27 +8,18 @@ import (
 	"net/http"
 
 	"github.com/ff3300/aleph-v2/internal/api/sse"
+	"github.com/ff3300/aleph-v2/internal/auth"
 	"github.com/ff3300/aleph-v2/internal/middleware"
 	"github.com/ff3300/aleph-v2/internal/repository"
 )
 
-// SSEHandler provides an HTTP handler for Server-Sent Events streaming.
-// It uses the SSE broker to manage client connections and broadcast events.
-//
-// SSE is used here (rather than gRPC streaming via connect-go) because:
-//   - Notification delivery is unidirectional (server→client only)
-//   - EventSource is native in browsers — no gRPC-Web transport needed
-//   - Auto-reconnect with Last-Event-ID is built into the browser
-//
-// gRPC streaming (connect-go) sources like Chat and StreamPredictions
-// remain unchanged — they require bidirectional or protocol-level semantics.
 type SSEHandler struct {
-	broker   *sse.Broker
-	logger   *slog.Logger
-	metaRepo *repository.MetadataRepository
+	broker    *sse.Broker
+	logger    *slog.Logger
+	metaRepo  *repository.MetadataRepository
+	jwtSecret []byte
 }
 
-// NewSSEHandler creates a new SSEHandler with the given broker and logger.
 func NewSSEHandler(broker *sse.Broker, logger *slog.Logger) *SSEHandler {
 	if logger == nil {
 		logger = slog.Default()
@@ -36,26 +27,28 @@ func NewSSEHandler(broker *sse.Broker, logger *slog.Logger) *SSEHandler {
 	return &SSEHandler{broker: broker, logger: logger}
 }
 
-// WithMetaRepo sets the MetadataRepository for API key validation.
 func (h *SSEHandler) WithMetaRepo(repo *repository.MetadataRepository) *SSEHandler {
 	h.metaRepo = repo
+	return h
+}
+
+func (h *SSEHandler) WithJWTSecret(secret []byte) *SSEHandler {
+	h.jwtSecret = secret
 	return h
 }
 
 // Stream is the HTTP handler for SSE connections.
 // GET /api/v1/events — opens an SSE stream for real-time notifications.
 //
-// Authentication uses the X-Aleph-Api-Key header.
-// Events include: tool_status, notification, ingestion_progress, system_alert.
+// Authentication: JWT cookie (aleph_jwt) or legacy X-Aleph-Api-Key header (deprecated).
 func (h *SSEHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Validate authentication
-	if !isAuthenticatedForSSE(r, h.metaRepo) {
-		http.Error(w, "unauthorized — valid X-Aleph-Api-Key header required", http.StatusUnauthorized)
+	if !h.isAuthenticatedForSSE(r) {
+		http.Error(w, "unauthorized — valid session or X-Aleph-Api-Key required", http.StatusUnauthorized)
 		return
 	}
 
@@ -149,13 +142,16 @@ func extractAPIKeyFromSSE(r *http.Request) string {
 	return r.Header.Get("X-Aleph-Api-Key")
 }
 
-// isAuthenticatedForSSE checks if the request has valid authentication.
-// Validates the X-Aleph-Api-Key header against the repository.
-func isAuthenticatedForSSE(r *http.Request, metaRepo *repository.MetadataRepository) bool {
+func (h *SSEHandler) isAuthenticatedForSSE(r *http.Request) bool {
+	if c, err := r.Cookie("aleph_jwt"); err == nil && c.Value != "" {
+		_, err := auth.ValidateToken(c.Value, h.jwtSecret)
+		return err == nil
+	}
+
 	key := extractAPIKeyFromSSE(r)
-	if key == "" {
+	if key == "" || h.metaRepo == nil {
 		return false
 	}
-	_, _, err := middleware.ValidateAPIKey(metaRepo, key)
+	_, _, err := middleware.ValidateAPIKey(h.metaRepo, key)
 	return err == nil
 }

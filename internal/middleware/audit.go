@@ -70,6 +70,7 @@ func (a *AuditInterceptor) logAuditEvent(ctx context.Context, req connect.AnyReq
 		Action:       action,
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
+		ProjectID:    projectID,
 		Timestamp:    time.Now(),
 		Diff:         extractDiff(req, resp),
 	}

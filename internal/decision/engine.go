@@ -14,15 +14,30 @@ import (
 	"github.com/ff3300/aleph-v2/internal/telemetry"
 )
 
+// toolExecutionHistory tracks success/failure counts per tool for TrustDelta calculation.
+type toolExecutionHistory struct {
+	successes int
+	failures  int
+}
+
+// total returns the total number of recorded executions.
+func (h *toolExecutionHistory) total() int {
+	return h.successes + h.failures
+}
+
 // Engine is the concrete implementation of DecisionEngine.
 type Engine struct {
-	provider      llm.Provider
-	metaRepo      ToolRepository
-	executor      ToolExecutor
-	registry      PluginRegistry
-	maxAttempts   int
-	linkPredictor LinkPredictor
-	graph         *gnn.Graph
+	provider              llm.Provider
+	metaRepo              ToolRepository
+	executor              ToolExecutor
+	registry              PluginRegistry
+	maxAttempts           int
+	linkPredictor         LinkPredictor
+	graph                 *gnn.Graph
+	reflector             Reflector
+	confirmationThreshold float64
+	truncationThreshold   int
+	toolHistory           map[string]*toolExecutionHistory // per-tool success/failure tracking
 }
 
 // compile-time interface check
@@ -34,14 +49,33 @@ func NewEngine(cfg EngineConfig) *Engine {
 	if maxAttempts <= 0 {
 		maxAttempts = 5
 	}
+	reflector := cfg.Reflector
+	if reflector == nil {
+		reflector = NewDefaultReflector()
+	}
+	confThreshold := cfg.ConfirmationThreshold
+	if confThreshold < 0 {
+		confThreshold = 0
+	}
+	if confThreshold > 1 {
+		confThreshold = 1
+	}
+	truncThreshold := cfg.TruncationThreshold
+	if truncThreshold <= 0 {
+		truncThreshold = 1900
+	}
 	return &Engine{
-		provider:      cfg.Provider,
-		metaRepo:      cfg.MetaRepo,
-		executor:      cfg.Executor,
-		registry:      cfg.Registry,
-		maxAttempts:   maxAttempts,
-		linkPredictor: cfg.LinkPredictor,
-		graph:         cfg.Graph,
+		provider:              cfg.Provider,
+		metaRepo:              cfg.MetaRepo,
+		executor:              cfg.Executor,
+		registry:              cfg.Registry,
+		maxAttempts:           maxAttempts,
+		linkPredictor:         cfg.LinkPredictor,
+		graph:                 cfg.Graph,
+		reflector:             reflector,
+		confirmationThreshold: confThreshold,
+		truncationThreshold:   truncThreshold,
+		toolHistory:           make(map[string]*toolExecutionHistory),
 	}
 }
 
@@ -191,7 +225,8 @@ func (e *Engine) Plan(ctx context.Context, msg string, projectID string, agentID
 }
 
 // Act implements DecisionEngine.Act.
-// Executes a single tool via the executor.
+// Executes a single tool via the executor and records the outcome in tool history
+// for subsequent TrustDelta computation during Observe.
 func (e *Engine) Act(ctx context.Context, step PlannedStep, projectID string) (*ActResult, error) {
 	start := time.Now()
 
@@ -208,6 +243,18 @@ func (e *Engine) Act(ctx context.Context, step PlannedStep, projectID string) (*
 		result.Output = ""
 	} else {
 		result.Output = output
+	}
+
+	// Record execution outcome in tool history for TrustDelta calculation
+	hist := e.toolHistory[step.ToolName]
+	if hist == nil {
+		hist = &toolExecutionHistory{}
+		e.toolHistory[step.ToolName] = hist
+	}
+	if err != nil {
+		hist.failures++
+	} else {
+		hist.successes++
 	}
 
 	// If the tool requires confirmation, set requiresConfirmation
@@ -227,12 +274,31 @@ func (e *Engine) Act(ctx context.Context, step PlannedStep, projectID string) (*
 
 // Observe implements DecisionEngine.Observe.
 // Evaluates the result of a tool execution.
+// TrustDelta is computed from recorded tool history: (success/total) - 0.5 baseline,
+// producing -0.5..+0.5. Initial executions with no history default to a neutral 0.05
+// if successful, -0.1 if failed.
 func (e *Engine) Observe(ctx context.Context, step PlannedStep, result *ActResult) (*Observation, error) {
+	// Compute TrustDelta from tool execution history
+	hist := e.toolHistory[step.ToolName]
+	var trustDelta float64
+	if hist != nil && hist.total() > 0 {
+		// Baseline = 0.5. Rate = successes / total.
+		// Positive delta when success rate exceeds baseline.
+		rate := float64(hist.successes) / float64(hist.total())
+		trustDelta = rate - 0.5
+	} else if result.Error == "" {
+		// No history yet, first execution succeeded — small positive delta
+		trustDelta = 0.05
+	} else {
+		// No history yet, first execution failed — small negative delta
+		trustDelta = -0.1
+	}
+
 	obs := &Observation{
 		Step:       step,
 		ActResult:  *result,
 		Success:    result.Error == "",
-		TrustDelta: 0,
+		TrustDelta: trustDelta,
 		Issues:     []string{},
 	}
 
@@ -245,6 +311,15 @@ func (e *Engine) Observe(ctx context.Context, step PlannedStep, result *ActResul
 		obs.Issues = append(obs.Issues, "tool returned empty output")
 	}
 
+	// Configurable truncation threshold from EngineConfig
+	threshold := e.truncationThreshold
+	if threshold <= 0 {
+		threshold = 1900
+	}
+	if len(result.Output) > threshold {
+		obs.Issues = append(obs.Issues, fmt.Sprintf("output was truncated due to context limits (%d > %d)", len(result.Output), threshold))
+	}
+
 	outcome := "success"
 	if !obs.Success {
 		outcome = "error"
@@ -255,30 +330,21 @@ func (e *Engine) Observe(ctx context.Context, step PlannedStep, result *ActResul
 }
 
 // Reflect implements DecisionEngine.Reflect.
-// Determines next steps based on observations from previous actions.
+// Delegates to the configured Reflector (DefaultReflector by default) which
+// analyzes ALL observations, classifies each as expected/unexpected/critical,
+// and produces a structured reflection with actionable insights.
 func (e *Engine) Reflect(ctx context.Context, plan *PlanResult, observations []Observation) (*PlanResult, error) {
-	// Check if we already have a plan result that says we can't proceed
-	if !plan.CanProceed {
-		return plan, nil
+	result, err := e.reflector.Reflect(ctx, plan, observations)
+	if err != nil {
+		telemetry.RecordPAORACycle("reflect", "error")
+		return plan, fmt.Errorf("reflection failed: %w", err)
 	}
-
-	// If the last observation failed, mark as unable to proceed
-	if len(observations) > 0 {
-		lastObs := observations[len(observations)-1]
-		if !lastObs.Success {
-			telemetry.RecordPAORACycle("reflect", "error")
-			return &PlanResult{
-				Intent:     plan.Intent,
-				Steps:      plan.Steps,
-				CanProceed: false,
-				Reason:     fmt.Sprintf("tool execution failed: %s", strings.Join(lastObs.Issues, "; ")),
-			}, nil
-		}
+	if result != nil && !result.CanProceed {
+		telemetry.RecordPAORACycle("reflect", "error")
+	} else {
+		telemetry.RecordPAORACycle("reflect", "success")
 	}
-
-	// No reflection needed — Chat loop handles iteration
-	telemetry.RecordPAORACycle("reflect", "success")
-	return plan, nil
+	return result, err
 }
 
 // Admit implements DecisionEngine.Admit.
@@ -316,6 +382,76 @@ func (e *Engine) TrainLinkModel(ctx context.Context, graph *gnn.Graph, epochs in
 		return fmt.Errorf("decision: cannot train link model on empty graph")
 	}
 	return e.linkPredictor.TrainFromGraph(ctx, graph, epochs)
+}
+
+// SortStepsByDependencies topologically sorts steps so that steps listed in
+// Depends execute before their dependents. Circular dependencies are resolved
+// by placing the step in its original position. Stable sort: order is preserved
+// for independent steps.
+func SortStepsByDependencies(steps []PlannedStep) []PlannedStep {
+	if len(steps) <= 1 {
+		return steps
+	}
+	// Build name→index map
+	nameIndex := make(map[string]int, len(steps))
+	for i, s := range steps {
+		nameIndex[s.ToolName] = i
+	}
+	// Track visited states for cycle detection (0=unvisited, 1=visiting, 2=done)
+	state := make([]int, len(steps))
+	var sorted []PlannedStep
+	var visit func(int)
+	visit = func(i int) {
+		if state[i] == 2 {
+			return
+		}
+		if state[i] == 1 {
+			// Cycle detected — skip to avoid infinite recursion
+			return
+		}
+		state[i] = 1
+		for _, dep := range steps[i].Depends {
+			if depIdx, ok := nameIndex[dep]; ok {
+				visit(depIdx)
+			}
+			// Unknown deps are tolerated (may reference tools not in this plan)
+		}
+		state[i] = 2
+		sorted = append(sorted, steps[i])
+	}
+	for i := range steps {
+		if state[i] == 0 {
+			visit(i)
+		}
+	}
+	return sorted
+}
+
+// FailedStepNames returns the set of tool names that failed during execution.
+func FailedStepNames(results []*ActResult) map[string]bool {
+	failed := make(map[string]bool)
+	for _, r := range results {
+		if r.Error != "" {
+			failed[r.Step.ToolName] = true
+		}
+	}
+	return failed
+}
+
+// ShouldSkipStep returns true if any of the step's dependencies failed.
+func ShouldSkipStep(step PlannedStep, failedDeps map[string]bool) bool {
+	for _, dep := range step.Depends {
+		if failedDeps[dep] {
+			return true
+		}
+	}
+	return false
+}
+
+// ShouldAutoSkip returns true if the step requires confirmation and
+// the engine's confirmation threshold is > 0 (meaning auto-skip).
+func (e *Engine) ShouldAutoSkip(step PlannedStep) bool {
+	return step.RequiresConfirmation && e.confirmationThreshold > 0
 }
 
 // isKnownTool checks if a tool name is one of the built-in tools or registered in the registry.

@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { useStore } from '../../store/useStore'
+import { useState, type FormEvent } from 'react'
 import { useComponentActions } from '../../hooks/domain/useComponentActions'
 import { t } from '../../i18n'
 import { RegistryComponentSchema } from '../../schemas'
@@ -29,7 +28,8 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
   const [toolIdsJson, setToolIdsJson] = useState('[]')
   const [errors, setErrors] = useState<FormErrors>({})
 
-  const handleSubmit = () => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     setErrors({})
 
     if (!name.trim()) {
@@ -75,8 +75,10 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
     onClose()
   }
 
+  const errorId = (field: string) => `so-comp-${field}-error`
+
   return (
-    <div className="p-6 space-y-4">
+    <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
       <h3 className="text-xl font-bold">{title || t('components.register')}</h3>
 
       <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
@@ -87,14 +89,22 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
               id="so-comp-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
+              required
+              minLength={2}
+              className={`w-full p-3 bg-background rounded-lg border text-sm focus:outline-none focus:border-primary/50 ${
+                errors.name ? 'border-danger bg-danger/5' : 'border-border'
+              }`}
               placeholder={t('components.form.name')}
+              aria-describedby={errors.name ? errorId('name') : undefined}
+              aria-invalid={errors.name ? true : undefined}
             />
+            {errors.name && <p id={errorId('name')} role="alert" className="text-danger text-[10px] mt-1">{errors.name}</p>}
           </div>
 
           <div>
             <label htmlFor="so-comp-type" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo</label>
             <select
+              id="so-comp-type"
               value={type}
               onChange={(e) => setType(e.target.value)}
               className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50"
@@ -192,9 +202,14 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
             value={configSchemaJson}
             onChange={(e) => setConfigSchemaJson(e.target.value)}
             rows={2}
-            className="w-full p-3 bg-background rounded-lg border border-border text-xs font-mono resize-none focus:outline-none focus:border-primary/50"
+            className={`w-full p-3 bg-background rounded-lg border text-xs font-mono resize-none focus:outline-none focus:border-primary/50 ${
+              errors.configSchemaJson ? 'border-danger bg-danger/5' : 'border-border'
+            }`}
             placeholder='{"fields": []}'
+            aria-describedby={errors.configSchemaJson ? errorId('configschema') : undefined}
+            aria-invalid={errors.configSchemaJson ? true : undefined}
           />
+          {errors.configSchemaJson && <p id={errorId('configschema')} role="alert" className="text-danger text-[10px] mt-1">{errors.configSchemaJson}</p>}
         </div>
 
         <div>
@@ -275,18 +290,19 @@ export function ComponentFormSlideOver({ title, onClose }: ComponentFormSlideOve
 
       <div className="flex gap-3 pt-2">
         <button
+          type="button"
           onClick={onClose}
           className="flex-1 py-3 bg-surface-alt text-text rounded-lg text-sm font-bold hover:bg-border transition-colors border border-border"
         >
           {t('confirmDialog.cancel')}
         </button>
         <button
-          onClick={handleSubmit}
+          type="submit"
           className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors"
         >
           {t('components.register')}
         </button>
       </div>
-    </div>
+    </form>
   )
 }

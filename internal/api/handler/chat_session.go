@@ -10,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 	v1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/decision"
+	"github.com/ff3300/aleph-v2/internal/errors"
 	"github.com/ff3300/aleph-v2/internal/llm"
 	"github.com/ff3300/aleph-v2/internal/repository"
 )
@@ -30,10 +31,11 @@ type ChatSession struct {
 	needsPlanning    bool
 
 	// Decision loop state
-	engine      decision.DecisionEngine
-	plan        *decision.PlanResult
-	observations []decision.Observation
-	actResults   []*decision.ActResult
+	engine        decision.DecisionEngine
+	plan          *decision.PlanResult
+	observations  []decision.Observation
+	actResults    []*decision.ActResult
+	maxAttempts   int
 }
 
 // AgentInfo holds the resolved agent configuration for a session.
@@ -95,12 +97,13 @@ func NewChatSession(
 		baseURL:          strings.TrimRight(agent.BaseURL, "/"),
 		needsPlanning:    true,
 		engine:           h.engine,
+		maxAttempts:      5,
 	}
 }
 
-// Run executes the chat loop: up to 5 iterations of LLM call, tool dispatch, and decision loop.
+// Run executes the chat loop: up to maxAttempts iterations of LLM call, tool dispatch, and decision loop.
 func (s *ChatSession) Run() error {
-	for i := 0; i < 5; i++ {
+	for i := 0; i < s.maxAttempts; i++ {
 		select {
 		case <-s.ctx.Done():
 			return s.ctx.Err()
@@ -109,8 +112,10 @@ func (s *ChatSession) Run() error {
 
 		// DECISION LOOP: Plan phase (first iteration only)
 		if s.engine != nil && s.needsPlanning {
-			provider := llm.NewProvider(s.agent.Provider, s.baseURL, s.handler.httpClient)
-			if provider != nil {
+			provider, err := llm.NewProvider(s.agent.Provider, s.baseURL, s.handler.httpClient, s.handler.llmTimeout)
+			if err != nil {
+				slog.Warn("decision engine: NewProvider failed", "error", err)
+			} else if provider != nil {
 				plan, err := s.engine.PlanWithProvider(s.ctx, s.lastUserMessage(),
 					s.projectID, s.agentID, nil, nil, provider)
 				if err == nil {
@@ -123,6 +128,24 @@ func (s *ChatSession) Run() error {
 				}
 			}
 			s.needsPlanning = false
+
+			// Multi-step execution: if the plan has multiple steps, execute them
+			// in dependency order before the first LLM call.
+			if s.plan != nil && len(s.plan.Steps) > 0 {
+				if err := s.executePlanSteps(i); err != nil {
+					return err
+				}
+				// If the plan executed all steps, skip the LLM round and go to reflect.
+				// We still stream a summary to the user.
+				summary := s.buildMultiStepSummary()
+				if summary != "" {
+					if err := s.streamResponse(summary); err != nil {
+						return err
+					}
+				}
+				// After executing all planned steps, go to reflect/admit
+				break
+			}
 		}
 
 		responseContent, toolCalls, err := s.callLLM()
@@ -163,16 +186,126 @@ func (s *ChatSession) Run() error {
 
 	// DECISION LOOP: Admit phase at loop end
 	if s.engine != nil && len(s.actResults) > 0 {
-		s.engine.Admit(s.ctx, s.actResults, 5)
+		s.engine.Admit(s.ctx, s.actResults, s.maxAttempts)
 	}
 
 	return nil
 }
 
+// executePlanSteps executes all planned steps in dependency order.
+// Skips steps whose dependencies failed and steps requiring confirmation
+// when the auto-skip threshold is active. Feeds results back into
+// the chat message history for LLM context.
+func (s *ChatSession) executePlanSteps(iteration int) error {
+	steps := decision.SortStepsByDependencies(s.plan.Steps)
+
+	// Track which tools succeeded and failed for dependency resolution
+	failedDeps := make(map[string]bool)
+
+	for _, step := range steps {
+		select {
+		case <-s.ctx.Done():
+			return s.ctx.Err()
+		default:
+		}
+
+		// Check if dependencies failed
+		if decision.ShouldSkipStep(step, failedDeps) {
+			skipMsg := fmt.Sprintf("Skipping tool %s: dependency failed", step.ToolName)
+			slog.Warn("decision engine: skipping step due to failed dependency", "tool", step.ToolName, "deps", step.Depends)
+			if err := s.stream.Send(&v1.ChatResponse{ToolCall: skipMsg}); err != nil {
+				return err
+			}
+			s.appendToolResult(iteration, "SKIPPED: "+skipMsg)
+			s.actResults = append(s.actResults, &decision.ActResult{
+				Step:   step,
+				Output: "SKIPPED: dependency failed",
+			})
+			continue
+		}
+
+		// Check confirmation threshold for auto-skip
+		if s.engine != nil && s.engine.ShouldAutoSkip(step) {
+			skipMsg := fmt.Sprintf("Skipping tool %s: requires confirmation (threshold active)", step.ToolName)
+			slog.Warn("decision engine: skipping step requiring confirmation", "tool", step.ToolName)
+			if err := s.stream.Send(&v1.ChatResponse{ToolCall: skipMsg}); err != nil {
+				return err
+			}
+			s.appendToolResult(iteration, "SKIPPED: "+skipMsg)
+			s.actResults = append(s.actResults, &decision.ActResult{
+				Step:   step,
+				Output: "SKIPPED: requires confirmation",
+			})
+			continue
+		}
+
+		// Execute the step
+		reasoning := fmt.Sprintf("Executing planned tool: %s", step.ToolName)
+		if err := s.stream.Send(&v1.ChatResponse{ToolCall: reasoning}); err != nil {
+			return err
+		}
+		s.handler.metaRepo.SaveChatMessage(s.ctx, s.projectID, s.agentID, "assistant", "", reasoning)
+
+		actResult, err := s.engine.Act(s.ctx, step, s.projectID)
+		var resultStr string
+		if err != nil {
+			resultStr = "Errore: " + err.Error()
+		} else {
+			resultStr = actResult.Output
+			if actResult.Error != "" {
+				resultStr = "Errore: " + actResult.Error
+			}
+		}
+
+		if actResult != nil && actResult.Step.RequiresConfirmation {
+			s.stream.Send(&v1.ChatResponse{RequiresConfirmation: true})
+		}
+
+		// Feed result back: append to chat history for LLM context
+		s.appendToolResult(iteration, resultStr)
+		s.actResults = append(s.actResults, actResult)
+
+		// DECISION LOOP: Observe
+		if s.engine != nil && actResult != nil {
+			obs, obsErr := s.engine.Observe(s.ctx, step, actResult)
+			if obsErr == nil && obs != nil {
+				s.observations = append(s.observations, *obs)
+			}
+		}
+
+		// Track failures for dependency chain skipping
+		if actResult.Error != "" {
+			failedDeps[step.ToolName] = true
+		}
+	}
+	return nil
+}
+
+// buildMultiStepSummary creates a human-readable summary of multi-step execution results.
+func (s *ChatSession) buildMultiStepSummary() string {
+	if len(s.actResults) == 0 {
+		return ""
+	}
+	var total, succeeded, skipped, failed int
+	for _, r := range s.actResults {
+		total++
+		if r.Output == "SKIPPED: dependency failed" || r.Output == "SKIPPED: requires confirmation" {
+			skipped++
+		} else if r.Error != "" {
+			failed++
+		} else {
+			succeeded++
+		}
+	}
+	summary := fmt.Sprintf("Multi-step execution complete: %d steps (%d succeeded, %d failed, %d skipped)", total, succeeded, failed, skipped)
+	slog.Info("decision engine: multi-step execution", "total", total, "succeeded", succeeded, "failed", failed, "skipped", skipped)
+	return summary
+}
+
 // callLLM sends the current messages to the LLM and returns the response.
 func (s *ChatSession) callLLM() (string, []llm.ToolCall, error) {
-	provider := llm.NewProvider(s.agent.Provider, s.baseURL, s.handler.httpClient)
-	if provider == nil {
+	provider, err := llm.NewProvider(s.agent.Provider, s.baseURL, s.handler.httpClient, s.handler.llmTimeout)
+	if err != nil {
 		return "", nil, connect.NewError(connect.CodeFailedPrecondition,
 			fmt.Errorf("unsupported provider: %s", s.agent.Provider))
 	}
@@ -193,7 +326,10 @@ func (s *ChatSession) callLLM() (string, []llm.ToolCall, error) {
 
 	completion, err := provider.Complete(s.ctx, req)
 	if err != nil {
-		return "", nil, connect.NewError(connect.CodeUnavailable, err)
+		return "", nil, connect.NewError(connect.CodeUnavailable, errors.NewAPIErrorWithMeta(
+			errors.ErrUnavailable, "LLM completion failed", err,
+			"llm", "complete", true, 10000,
+		))
 	}
 
 	return completion.Content, completion.ToolCalls, nil
@@ -208,6 +344,7 @@ func (s *ChatSession) streamResponse(content string) error {
 }
 
 // executeAndStreamTool executes a single tool call and streams the result.
+// Uses engine.Act() for telemetry/timing when engine is available.
 func (s *ChatSession) executeAndStreamTool(tc llm.ToolCall, iteration int) error {
 	reasoning := fmt.Sprintf("Executing tool: %s", tc.Name)
 	if err := s.stream.Send(&v1.ChatResponse{ToolCall: reasoning}); err != nil {
@@ -216,7 +353,29 @@ func (s *ChatSession) executeAndStreamTool(tc llm.ToolCall, iteration int) error
 	s.handler.metaRepo.SaveChatMessage(s.ctx, s.projectID, s.agentID, "assistant", "", reasoning)
 
 	var resultStr string
-	if s.handler.executor != nil {
+	var actResult *decision.ActResult
+
+	if s.engine != nil {
+		// Use engine.Act() for execution with telemetry and timing
+		step := decision.PlannedStep{
+			ToolName:  tc.Name,
+			Arguments: tc.Arguments,
+		}
+		var engineErr error
+		actResult, engineErr = s.engine.Act(s.ctx, step, s.projectID)
+		if engineErr != nil {
+			resultStr = "Errore: " + engineErr.Error()
+		} else {
+			resultStr = actResult.Output
+			if actResult.Error != "" {
+				resultStr = "Errore: " + actResult.Error
+			}
+		}
+		if actResult != nil && actResult.Step.RequiresConfirmation {
+			s.stream.Send(&v1.ChatResponse{RequiresConfirmation: true})
+		}
+	} else if s.handler.executor != nil {
+		// Fallback: direct executor call (no engine)
 		result, requiresConfirmation, execErr := s.handler.executor.ExecuteTool(
 			s.ctx, tc.Name, tc.Arguments, s.projectID, s.agentID)
 		if execErr != nil {
@@ -227,29 +386,36 @@ func (s *ChatSession) executeAndStreamTool(tc llm.ToolCall, iteration int) error
 		if requiresConfirmation {
 			s.stream.Send(&v1.ChatResponse{RequiresConfirmation: true})
 		}
+		actResult = &decision.ActResult{
+			Step: decision.PlannedStep{
+				ToolName:             tc.Name,
+				Arguments:            tc.Arguments,
+				RequiresConfirmation: requiresConfirmation,
+			},
+			Output: resultStr,
+		}
+		if execErr != nil {
+			actResult.Error = resultStr
+		}
 	} else {
 		s.stream.Send(&v1.ChatResponse{RequiresConfirmation: true})
 		resultStr = fmt.Sprintf("Proposta azione '%s' in attesa di conferma.", tc.Name)
+		actResult = &decision.ActResult{
+			Step: decision.PlannedStep{
+				ToolName:             tc.Name,
+				Arguments:            tc.Arguments,
+				RequiresConfirmation: true,
+			},
+			Output: resultStr,
+		}
 	}
 
 	s.appendToolResult(iteration, resultStr)
 
 	// DECISION LOOP: Observe
-	if s.engine != nil {
-		step := decision.PlannedStep{
-			ToolName:  tc.Name,
-			Arguments: tc.Arguments,
-		}
-		actResult := &decision.ActResult{
-			Step:   step,
-			Output: resultStr,
-		}
-		if strings.HasPrefix(resultStr, "Errore:") {
-			actResult.Error = resultStr
-		}
+	if s.engine != nil && actResult != nil {
 		s.actResults = append(s.actResults, actResult)
-
-		obs, err := s.engine.Observe(s.ctx, step, actResult)
+		obs, err := s.engine.Observe(s.ctx, actResult.Step, actResult)
 		if err == nil && obs != nil {
 			s.observations = append(s.observations, *obs)
 		}

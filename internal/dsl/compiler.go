@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/ff3300/aleph-v2/internal/safeident"
 )
 
 type Compiler struct {
@@ -39,6 +41,8 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 		return "", fmt.Errorf("object %s not found", objName)
 	}
 
+	qiObj := safeident.QuoteIdentifier(objName)
+
 	var selectClauses []string
 	for _, prop := range obj.Properties {
 		sourceField := prop.From
@@ -46,18 +50,21 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 			sourceField = prop.Name
 		}
 
-		safeSource := fmt.Sprintf("\"%s\".\"%s\"", objName, sourceField)
-		clause := fmt.Sprintf("%s AS \"%s\"", safeSource, prop.Name)
+		qiSource := safeident.QuoteIdentifier(sourceField)
+		qiProp := safeident.QuoteIdentifier(prop.Name)
+
+		safeSource := fmt.Sprintf("%s.%s", qiObj, qiSource)
+		clause := fmt.Sprintf("%s AS %s", safeSource, qiProp)
 
 		// Predictive AI Enhancement: If 'predict' is set, add probability and embedding placeholders
 		if prop.Predict {
-			selectClauses = append(selectClauses, fmt.Sprintf("0.0 AS \"%s_probability\"", prop.Name))
-			selectClauses = append(selectClauses, fmt.Sprintf("NULL AS \"%s_vector\"", prop.Name))
+			selectClauses = append(selectClauses, fmt.Sprintf("0.0 AS %s_probability", qiProp))
+			selectClauses = append(selectClauses, fmt.Sprintf("NULL AS %s_vector", qiProp))
 		}
 
 		// Phase 2: Factor Decomposition Support
 		for _, f := range obj.Factors {
-			selectClauses = append(selectClauses, fmt.Sprintf("0.0 AS \"_factor_%s\"", f.Name))
+			selectClauses = append(selectClauses, fmt.Sprintf("0.0 AS %s", safeident.QuoteIdentifier("_factor_"+f.Name)))
 		}
 
 		if len(prop.Maps) > 0 {
@@ -68,7 +75,7 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 				caseExpr += fmt.Sprintf(" WHEN '%s' THEN '%s'", safeFrom, safeTo)
 			}
 			caseExpr += " END"
-			clause = fmt.Sprintf("%s AS \"%s\"", caseExpr, prop.Name)
+			clause = fmt.Sprintf("%s AS %s", caseExpr, qiProp)
 		}
 
 		selectClauses = append(selectClauses, clause)
@@ -85,17 +92,23 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 				}
 			}
 			if targetObj != nil {
+				qiLeftOn := safeident.QuoteIdentifier(stmt.Relation.LeftOn)
+				qiRightOn := safeident.QuoteIdentifier(stmt.Relation.RightOn)
+				qiTo := safeident.QuoteIdentifier(stmt.Relation.To)
 				var source string
 				if c.UseViews {
-					source = fmt.Sprintf("\"%s\"", stmt.Relation.To)
+					source = fmt.Sprintf("%s", qiTo)
 				} else {
-					source = fmt.Sprintf("read_parquet('%s/%s/latest/*.parquet') AS \"%s\"",
-						c.DataRoot, targetObj.FromSource, stmt.Relation.To)
+					filePath := fmt.Sprintf("%s/%s/latest/*.parquet", c.DataRoot, targetObj.FromSource)
+					if err := safeident.SanitizeFilePath(filePath); err != nil {
+						return "", fmt.Errorf("invalid data source in relation %q: %w", stmt.Relation.Name, err)
+					}
+					source = fmt.Sprintf("read_parquet(%s) AS %s", safeident.QuoteStringLiteral(filePath), qiTo)
 				}
 				joinClauses = append(joinClauses, fmt.Sprintf(
-					" LEFT JOIN %s ON \"%s\".\"%s\" = \"%s\".\"%s\"",
+					" LEFT JOIN %s ON %s.%s = %s.%s",
 					source,
-					objName, stmt.Relation.LeftOn, stmt.Relation.To, stmt.Relation.RightOn,
+					qiObj, qiLeftOn, qiTo, qiRightOn,
 				))
 			}
 		}
@@ -105,14 +118,16 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 	for _, agg := range obj.Aggregates {
 		aggregateFields[agg.Field] = true
 		sqlFunc := strings.ToUpper(agg.Function)
-		selectClauses = append(selectClauses, fmt.Sprintf("%s(\"%s\".\"%s\") AS \"%s\"", sqlFunc, objName, agg.Field, agg.Alias))
+		qiField := safeident.QuoteIdentifier(agg.Field)
+		qiAlias := safeident.QuoteIdentifier(agg.Alias)
+		selectClauses = append(selectClauses, fmt.Sprintf("%s(%s.%s) AS %s", sqlFunc, qiObj, qiField, qiAlias))
 	}
 
 	var groupByClauses []string
 	if len(obj.Aggregates) > 0 {
 		for _, prop := range obj.Properties {
 			if !aggregateFields[prop.Name] {
-				groupByClauses = append(groupByClauses, fmt.Sprintf("\"%s\".\"%s\"", objName, prop.Name))
+				groupByClauses = append(groupByClauses, fmt.Sprintf("%s.%s", qiObj, safeident.QuoteIdentifier(prop.Name)))
 			}
 		}
 	}
@@ -130,7 +145,8 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 			}
 			val = fmt.Sprintf("'%s'", strings.ReplaceAll(val, "'", "''"))
 		}
-		whereClauses = append(whereClauses, fmt.Sprintf("\"%s\".\"%s\" %s %s", objName, f.Field, sqlOp, val))
+		qiField := safeident.QuoteIdentifier(f.Field)
+		whereClauses = append(whereClauses, fmt.Sprintf("%s.%s %s %s", qiObj, qiField, sqlOp, val))
 	}
 
 	whereClause := ""
@@ -145,10 +161,13 @@ func (c *Compiler) CompileObject(objName string) (string, error) {
 
 	var fromSource string
 	if c.UseViews {
-		fromSource = fmt.Sprintf("\"%s\"", objName)
+		fromSource = fmt.Sprintf("%s", qiObj)
 	} else {
-		fromSource = fmt.Sprintf("read_parquet('%s/%s/latest/*.parquet') AS \"%s\"",
-			c.DataRoot, obj.FromSource, objName)
+		filePath := fmt.Sprintf("%s/%s/latest/*.parquet", c.DataRoot, obj.FromSource)
+		if err := safeident.SanitizeFilePath(filePath); err != nil {
+			return "", fmt.Errorf("invalid data source for object %q: %w", obj.Name, err)
+		}
+		fromSource = fmt.Sprintf("read_parquet(%s) AS %s", safeident.QuoteStringLiteral(filePath), qiObj)
 	}
 
 	sql := fmt.Sprintf(
@@ -179,15 +198,19 @@ func (c *Compiler) CompileDDL() ([]string, error) {
 			if sourceField == "" {
 				sourceField = prop.Name
 			}
-			safeSource := fmt.Sprintf("source.\"%s\"", sourceField)
-			clause := fmt.Sprintf("%s AS \"%s\"", safeSource, prop.Name)
+			safeSource := fmt.Sprintf("source.%s", safeident.QuoteIdentifier(sourceField))
+			clause := fmt.Sprintf("%s AS %s", safeSource, safeident.QuoteIdentifier(prop.Name))
 			selectClauses = append(selectClauses, clause)
 		}
-		ddl := fmt.Sprintf("CREATE OR REPLACE VIEW \"%s\" AS SELECT %s FROM read_parquet('%s/%s/latest/*.parquet') AS source",
-			obj.Name,
+		if err := safeident.SanitizeFilePath(obj.FromSource); err != nil {
+			return nil, fmt.Errorf("invalid data source for object %q: %w", obj.Name, err)
+		}
+		filePath := fmt.Sprintf("%s/%s/latest/*.parquet", c.DataRoot, obj.FromSource)
+		qiName := safeident.QuoteIdentifier(obj.Name)
+		ddl := fmt.Sprintf("CREATE OR REPLACE VIEW %s AS SELECT %s FROM read_parquet(%s) AS source",
+			qiName,
 			strings.Join(selectClauses, ", "),
-			c.DataRoot,
-			obj.FromSource,
+			safeident.QuoteStringLiteral(filePath),
 		)
 		ddls = append(ddls, ddl)
 	}

@@ -134,7 +134,7 @@ const SettingsViewComponent: React.FC<SettingsViewProps> = ({
                 <Shield size={16} className="text-textMuted" />
                 <div>
                   <span className="font-bold text-sm">{k.label}</span>
-                   <span className="text-[10px] font-mono text-textMuted ml-3">{k.key ? '...' + k.key.slice(-4) : '••••••••'}</span>
+                   <span className="text-[10px] font-mono text-textMuted ml-3">{k.key ? k.key.slice(0, 4) + '••••••' : '••••••••'}</span>
                 </div>
               </div>
               <div className="flex items-center space-x-3">

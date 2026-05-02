@@ -4,16 +4,24 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/ff3300/aleph-v2/internal/auth"
 	"github.com/ff3300/aleph-v2/internal/middleware"
 	"github.com/ff3300/aleph-v2/internal/repository"
 )
 
 type SessionHandler struct {
-	metaRepo *repository.MetadataRepository
+	metaRepo       *repository.MetadataRepository
+	jwtSecret      []byte
+	revocationStore *middleware.TokenRevocationStore
 }
 
-func NewSessionHandler(metaRepo *repository.MetadataRepository) *SessionHandler {
-	return &SessionHandler{metaRepo: metaRepo}
+func NewSessionHandler(metaRepo *repository.MetadataRepository, jwtSecret []byte) *SessionHandler {
+	return &SessionHandler{metaRepo: metaRepo, jwtSecret: jwtSecret}
+}
+
+func (h *SessionHandler) WithRevocationStore(store *middleware.TokenRevocationStore) *SessionHandler {
+	h.revocationStore = store
+	return h
 }
 
 type createSessionRequest struct {
@@ -36,20 +44,32 @@ func (h *SessionHandler) HandleCreateSession(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	projectID, _, err := middleware.ValidateAPIKey(h.metaRepo, req.APIKey)
+	projectID, role, err := middleware.ValidateAPIKey(h.metaRepo, req.APIKey)
 	if err != nil {
 		http.Error(w, `{"error":"invalid api key"}`, http.StatusUnauthorized)
 		return
 	}
 
+	maskedKey := maskAPIKey(req.APIKey)
+
+	token, err := auth.GenerateToken(auth.SessionToken{
+		UserID:    maskedKey,
+		ProjectID: projectID,
+		Role:      string(role),
+	}, h.jwtSecret, auth.JWTTTL)
+	if err != nil {
+		http.Error(w, `{"error":"failed to create session"}`, http.StatusInternalServerError)
+		return
+	}
+
 	http.SetCookie(w, &http.Cookie{
-		Name:     "aleph_session",
-		Value:    req.APIKey,
+		Name:     "aleph_jwt",
+		Value:    token,
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
-		MaxAge:   86400,
+		MaxAge:   3600,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -57,8 +77,14 @@ func (h *SessionHandler) HandleCreateSession(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *SessionHandler) HandleDeleteSession(w http.ResponseWriter, r *http.Request) {
+	if c, err := r.Cookie("aleph_jwt"); err == nil && h.revocationStore != nil {
+		if claims, verr := auth.ValidateToken(c.Value, h.jwtSecret); verr == nil && claims.ID != "" {
+			h.revocationStore.Revoke(claims.ID)
+		}
+	}
+
 	http.SetCookie(w, &http.Cookie{
-		Name:     "aleph_session",
+		Name:     "aleph_jwt",
 		Value:    "",
 		HttpOnly: true,
 		Secure:   true,
@@ -76,16 +102,26 @@ func (h *SessionHandler) HandleValidateSession(w http.ResponseWriter, r *http.Re
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	apiKey := middleware.ExtractAPIKeyFromCookie(r)
-	if apiKey == "" {
+
+	c, err := r.Cookie("aleph_jwt")
+	if err != nil {
 		http.Error(w, `{"error":"no session"}`, http.StatusUnauthorized)
 		return
 	}
-	projectID, _, err := middleware.ValidateAPIKey(h.metaRepo, apiKey)
+
+	claims, err := auth.ValidateToken(c.Value, h.jwtSecret)
 	if err != nil {
 		http.Error(w, `{"error":"invalid session"}`, http.StatusUnauthorized)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(createSessionResponse{ProjectID: projectID})
+	json.NewEncoder(w).Encode(createSessionResponse{ProjectID: claims.ProjectID})
+}
+
+func maskAPIKey(key string) string {
+	if len(key) <= 4 {
+		return "****"
+	}
+	return key[len(key)-4:]
 }

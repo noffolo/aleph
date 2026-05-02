@@ -3,13 +3,20 @@ import { useQueryState } from 'nuqs';
 import { useStore } from '../store/useStore';
 import { Terminal, Plus, Trash2, Activity, AlertCircle, CheckCircle2, Search, BarChart3 } from 'lucide-react';
 import { t } from '../i18n';
+import { SkeletonLoader } from './SkeletonLoader';
+import { InlineError } from './ui/InlineError';
 import type { Tool } from '../store/types';
 
 interface ToolManagementViewProps {
   inline?: boolean;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
-export const ToolManagementView: React.FC<ToolManagementViewProps> = ({ inline }) => {
+export const ToolManagementView: React.FC<ToolManagementViewProps> = ({ inline, isLoading, error }) => {
+  if (isLoading) return <SkeletonLoader />;
+  if (error) return <div className="max-w-6xl mx-auto"><InlineError message={error} /></div>;
+
   const tools = useStore(s => s.tools)
   const [searchQuery, setSearchQuery] = useQueryState('q', { defaultValue: '' });
   
@@ -17,7 +24,7 @@ export const ToolManagementView: React.FC<ToolManagementViewProps> = ({ inline }
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     t.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
+  
   const getStatusIcon = (status: 'healthy' | 'warning' | 'error' | 'unknown') => {
     const s = String(status);
     switch (s) {
@@ -101,22 +108,23 @@ export const ToolManagementView: React.FC<ToolManagementViewProps> = ({ inline }
             
             <div className="flex justify-between items-center">
                <div className="text-[10px] text-textDim">
-                 Ultimo check: {tool.lastCheckedAt ? new Date(tool.lastCheckedAt as string | number | Date).toLocaleString() : 'Mai'}
+                  Ultimo check: {tool.lastCheckedAt ? new Date(tool.lastCheckedAt as string | number | Date).toLocaleString() : 'Mai'}
                </div>
-               <button 
-                onClick={() => useStore.getState().setSlideOverContent({ type: 'tool', title: 'Dettagli Tool', data: tool })}
-                className="text-xs font-bold text-primary hover:underline"
-               >
-                 Dettagli →
-               </button>
+                <button 
+                 onClick={() => useStore.getState().setSlideOverContent({ type: 'tool', title: 'Dettagli Tool', data: tool })}
+                 className="text-xs font-bold text-primary hover:underline"
+                >
+                  Dettagli →
+                </button>
             </div>
           </div>
-        )) : (
-          <div className="col-span-full py-12 text-center text-textDim text-sm">
-            Nessun strumento trovato.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+         )) : (
+           <div className="col-span-full py-12 text-center text-textDim text-sm">
+             Nessun strumento trovato.
+           </div>
+         )}
+       </div>
+     </div>
+   );
+ };
+

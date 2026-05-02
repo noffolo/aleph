@@ -17,11 +17,14 @@ vi.mock('@/api/factory', () => ({
 }));
 
 describe('useToolActions', () => {
-  const mockStore = {
+  const mockStore: Record<string, any> = {
     projectID: 'test-project',
     setSlideOverContent: vi.fn(),
     setSandboxInput: vi.fn(),
     tools: [{ id: 'tool-1', name: 'Test Tool' }],
+    setTools: vi.fn(),
+    setPendingCrud: vi.fn(),
+    clearPendingCrud: vi.fn(),
   };
 
   const mockLoadProjectData = vi.fn();

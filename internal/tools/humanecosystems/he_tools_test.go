@@ -214,12 +214,225 @@ func TestPluginViz(t *testing.T) {
 	})
 }
 
+func TestDemographicProfileTool(t *testing.T) {
+	dbl := SyntheticDuckDBLayer()
+	tool := NewDemographicProfileTool(dbl)
+
+	t.Run("returns demographic data for USA", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "USA"})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "USA", r["country_code"])
+		assert.Equal(t, "United States", r["country_name"])
+		assert.True(t, r["is_synthetic"].(bool))
+		pop, ok := r["population"].(int64)
+		require.True(t, ok, "population should be int64")
+		assert.Greater(t, pop, int64(300000000))
+		assert.Less(t, pop, int64(400000000))
+		gdp, ok := r["gdp_per_capita"].(float64)
+		require.True(t, ok)
+		assert.Greater(t, gdp, 50000.0)
+	})
+
+	t.Run("returns demographic data for JPN", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "JPN"})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "Japan", r["country_name"])
+		assert.Equal(t, "JPN", r["country_code"])
+		lifeExp, ok := r["life_expectancy"].(float64)
+		require.True(t, ok)
+		assert.Greater(t, lifeExp, 80.0)
+	})
+
+	t.Run("errors on unknown country code", func(t *testing.T) {
+		_, err := tool.Execute(context.Background(), map[string]any{"countryCode": "XYZ"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown country code")
+	})
+
+	t.Run("errors on missing countryCode", func(t *testing.T) {
+		_, err := tool.Execute(context.Background(), map[string]any{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "countryCode is required")
+	})
+}
+
+func TestSocioeconomicIndicatorsTool(t *testing.T) {
+	dbl := SyntheticDuckDBLayer()
+	tool := NewSocioeconomicIndicatorsTool(dbl)
+
+	t.Run("returns socioeconomic data for ZAF", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "ZAF"})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "ZAF", r["country_code"])
+		gini, ok := r["gini_coefficient"].(float64)
+		require.True(t, ok)
+		assert.Greater(t, gini, 50.0) // South Africa has very high Gini
+		unemp, ok := r["unemployment_rate"].(float64)
+		require.True(t, ok)
+		assert.Greater(t, unemp, 20.0)
+	})
+
+	t.Run("returns low Gini for KOR", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "KOR"})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		gini, ok := r["gini_coefficient"].(float64)
+		require.True(t, ok)
+		assert.Less(t, gini, 35.0)
+	})
+
+	t.Run("errors on unknown country code", func(t *testing.T) {
+		_, err := tool.Execute(context.Background(), map[string]any{"countryCode": "ZZZ"})
+		require.Error(t, err)
+	})
+
+	t.Run("errors on missing countryCode", func(t *testing.T) {
+		_, err := tool.Execute(context.Background(), map[string]any{})
+		require.Error(t, err)
+	})
+}
+
+func TestCulturalMetricsTool(t *testing.T) {
+	dbl := SyntheticDuckDBLayer()
+	tool := NewCulturalMetricsTool(dbl)
+
+	t.Run("returns cultural metrics for IND", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "IND"})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "IND", r["country_code"])
+		langDiv, ok := r["language_diversity"].(float64)
+		require.True(t, ok)
+		assert.Greater(t, langDiv, 0.8) // India is highly diverse
+	})
+
+	t.Run("returns low language diversity for KOR", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "KOR"})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		langDiv, ok := r["language_diversity"].(float64)
+		require.True(t, ok)
+		assert.Less(t, langDiv, 0.1) // Korea is homogeneous
+	})
+
+	t.Run("errors on unknown country code", func(t *testing.T) {
+		_, err := tool.Execute(context.Background(), map[string]any{"countryCode": "ZZZ"})
+		require.Error(t, err)
+	})
+}
+
+func TestUrbanRuralDistributionTool(t *testing.T) {
+	dbl := SyntheticDuckDBLayer()
+	tool := NewUrbanRuralDistributionTool(dbl)
+
+	t.Run("returns urban distribution for JPN", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "JPN"})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "JPN", r["country_code"])
+		urbanPct, ok := r["urban_pct"].(float64)
+		require.True(t, ok)
+		assert.Greater(t, urbanPct, 80.0) // Japan is highly urbanized
+		assert.Equal(t, "highly_urbanized", r["classification"])
+		assert.True(t, r["above_threshold"].(bool))
+	})
+
+	t.Run("returns mostly_rural for ETH", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "ETH"})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		urbanPct, ok := r["urban_pct"].(float64)
+		require.True(t, ok)
+		assert.Less(t, urbanPct, 30.0)
+		assert.Equal(t, "mostly_rural", r["classification"])
+	})
+
+	t.Run("respects custom threshold", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "JPN", "threshold": 90.0})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, float64(90), r["threshold_pct"])
+	})
+
+	t.Run("errors on unknown country code", func(t *testing.T) {
+		_, err := tool.Execute(context.Background(), map[string]any{"countryCode": "ZZZ"})
+		require.Error(t, err)
+	})
+}
+
+func TestMigrationPatternsTool(t *testing.T) {
+	dbl := SyntheticDuckDBLayer()
+	tool := NewMigrationPatternsTool(dbl)
+
+	t.Run("returns migration data for MEX to USA", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{
+			"originCountry": "MEX",
+			"destCountry":   "USA",
+		})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "MEX", r["origin"])
+		assert.Equal(t, "USA", r["dest"])
+		stock, ok := r["stock"].(int64)
+		require.True(t, ok)
+		assert.Greater(t, stock, int64(5000000))
+	})
+
+	t.Run("returns migration data for TUR to DEU", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{
+			"originCountry": "TUR",
+			"destCountry":   "DEU",
+		})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		stock, ok := r["stock"].(int64)
+		require.True(t, ok)
+		assert.Greater(t, stock, int64(1000000))
+	})
+
+	t.Run("returns empty stock for unknown corridor", func(t *testing.T) {
+		result, err := tool.Execute(context.Background(), map[string]any{
+			"originCountry": "ETH",
+			"destCountry":   "JPN",
+		})
+		require.NoError(t, err)
+		r, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		stock, ok := r["stock"].(int64)
+		require.True(t, ok)
+		assert.Equal(t, int64(0), stock)
+	})
+
+	t.Run("errors on missing parameters", func(t *testing.T) {
+		_, err := tool.Execute(context.Background(), map[string]any{"originCountry": "USA"})
+		require.Error(t, err)
+		_, err = tool.Execute(context.Background(), map[string]any{"destCountry": "USA"})
+		require.Error(t, err)
+		_, err = tool.Execute(context.Background(), map[string]any{})
+		require.Error(t, err)
+	})
+}
+
 func TestListTools(t *testing.T) {
 	dbl := SyntheticDuckDBLayer()
 	tools := ListTools(dbl)
 
-	t.Run("returns 5 tools", func(t *testing.T) {
-		assert.Len(t, tools, 5)
+	t.Run("returns 10 tools", func(t *testing.T) {
+		assert.Len(t, tools, 10)
 	})
 
 	t.Run("all tools have unique names", func(t *testing.T) {
@@ -231,8 +444,20 @@ func TestListTools(t *testing.T) {
 	})
 
 	t.Run("all tools return valid Execute results", func(t *testing.T) {
+		// Tools that require specific arguments.
+		argMap := map[string]map[string]any{
+			"demographicProfile":     {"countryCode": "USA"},
+			"socioeconomicIndicators": {"countryCode": "USA"},
+			"culturalMetrics":        {"countryCode": "USA"},
+			"urbanRuralDistribution": {"countryCode": "USA"},
+			"migrationPatterns":      {"originCountry": "MEX", "destCountry": "USA"},
+		}
 		for _, tool := range tools {
-			result, err := tool.Execute(context.Background(), map[string]any{})
+			args, ok := argMap[tool.Name()]
+			if !ok {
+				args = map[string]any{}
+			}
+			result, err := tool.Execute(context.Background(), args)
 			require.NoError(t, err, "tool %s failed", tool.Name())
 			assert.NotNil(t, result, "tool %s returned nil", tool.Name())
 		}

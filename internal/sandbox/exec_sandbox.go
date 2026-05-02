@@ -83,6 +83,13 @@ func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[
 		var stdout, stderr strings.Builder
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
+		cgCleanup, sandboxErr := prepareSandboxedCmd(cmd, "py-"+toolID)
+		if cgCleanup != nil {
+			defer cgCleanup()
+		}
+		if sandboxErr != nil {
+			s.logger.Warn("sandbox: isolation setup partial", "error", sandboxErr)
+		}
 		err := cmd.Run()
 		exitCode := 0
 		if err != nil {
@@ -116,6 +123,13 @@ func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[
 		"ALEPH_INPUT=" + string(inputJSON),
 		"PATH=/usr/bin:/bin",
 		"HOME=" + tmpDir,
+	}
+	runCgCleanup, runSandboxErr := prepareSandboxedCmd(runCmd, "go-"+toolID)
+	if runCgCleanup != nil {
+		defer runCgCleanup()
+	}
+	if runSandboxErr != nil {
+		s.logger.Warn("sandbox: isolation setup partial", "error", runSandboxErr)
 	}
 	var stdout, stderr strings.Builder
 	runCmd.Stdout = &stdout

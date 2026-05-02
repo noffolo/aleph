@@ -99,6 +99,49 @@ groups:
           description: |
             P95 DB query latency is {{ $value | humanizeDuration }}.
 
+      # Service down (no successful requests for 5 minutes)
+      - alert: AlephServiceDown
+        expr: absent(up{job="aleph-v2"}) or up{job="aleph-v2"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Aleph service is down"
+          description: "No healthy instance responding. Last seen: {{ $labels.instance }}."
+
+      # NLP sidecar offline
+      - alert: AlephNLPSidecarDown
+        expr: |
+          sum(rate(aleph_nlp_requests_total[5m])) == 0
+          and
+          absent(up{job="aleph-nlp-sidecar"}) or up{job="aleph-nlp-sidecar"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "NLP sidecar is unreachable"
+          description: |
+            NLP sidecar has not responded to health checks for 3+ minutes.
+            Last seen: {{ $labels.instance }}.
+
+      # DuckDB lock contention (queries waiting > 1s)
+      - alert: AlephDuckDBLockContention
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aleph_duckdb_lock_wait_seconds_bucket[5m]))
+            by (le, operation)
+          ) > 1
+        for: 3m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "DuckDB experiencing lock contention"
+          description: |
+            P95 lock wait time is {{ $value | humanizeDuration }} over 5 minutes.
+
   - name: aleph_recording_rules
     rules:
       # Recording rule: request rate by method and path

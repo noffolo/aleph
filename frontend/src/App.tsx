@@ -1,5 +1,6 @@
 import { useEffect, Suspense, lazy } from 'react'
 import { Sidebar } from './components/Sidebar'
+import { SkeletonLoader, SkeletonList } from './components/SkeletonLoader'
 const WorkspaceOnboarding = lazy(() => import('./components/WorkspaceOnboarding').then(module => ({ default: module.WorkspaceOnboarding })))
 import { CommandPalette } from './components/CommandPalette'
 import { NavigationStateSync } from './hooks/NavigationStateSync'
@@ -20,12 +21,8 @@ declare global {
   }
 }
 
-// Expose store state helpers for Playwright e2e tests running against Vite dev mode.
-if (typeof window !== 'undefined') {
-  window.__ALEPH_STORE__ = useStore
-}
-
 const SlideOverContent = lazy(() => import('./components/terminal/SlideOverContent').then(module => ({ default: module.SlideOverContent })))
+const DashboardView = lazy(() => import('./components/DashboardView').then(module => ({ default: module.DashboardView })))
 
 import { projectClient, authClient, queryClient } from './api/factory'
 
@@ -46,36 +43,43 @@ function App() {
   const { handleError, loadProjectData, onSend, onConfirmAction } = actions
 
   useEffect(() => {
-    projectClient.listProjects({}).then((res: { projects: any[] }) => useStore.getState().setProjects(res.projects)).catch((e) => handleError(e, 'listProjects'))
+    const controller = new AbortController()
+    projectClient.listProjects({ signal: controller.signal }).then((res: { projects: any[] }) => useStore.getState().setProjects(res.projects)).catch((e) => {
+      if (e.name === 'AbortError') return
+      handleError(e, 'listProjects')
+    })
+    return () => controller.abort()
   }, [])
 
   useEffect(() => { loadProjectData() }, [loadProjectData])
 
   useEffect(() => {
     if (!projectID || !selectedObject) return
+    const controller = new AbortController()
     useStore.getState().setIsExplorerLoading(true)
-    const opts = {}
+    const opts = { signal: controller.signal }
     Promise.all([
       (async () => {
-        const { queryClient } = await import('./api/factory')
-        const res = await queryClient.executeQuery({ projectId: projectID, objectType: selectedObject, limit: 100 })
+        const res = await queryClient.executeQuery({ ...opts, projectId: projectID, objectType: selectedObject })
         useStore.getState().setData(res)
       })(),
       (async () => {
-        const { queryClient } = await import('./api/factory')
-        const res = await queryClient.getDataStats({ projectId: projectID, objectType: selectedObject })
+        const res = await queryClient.getDataStats({ ...opts, projectId: projectID, objectType: selectedObject })
         useStore.getState().setDataHealthStats(res.stats || [])
       })(),
     ]).catch((e) => {
+      if (e.name === 'AbortError') return
       useStore.getState().setData(null)
       useStore.getState().setDataHealthStats([])
       handleError(e, 'loadData')
     }).finally(() => useStore.getState().setIsExplorerLoading(false))
+    return () => controller.abort()
   }, [projectID, selectedObject])
 
   useEffect(() => {
     if (!projectID || !selectedAgent) return
-    queryClient.getChatHistory({ projectId: projectID, agentId: selectedAgent }).then((res: { messages?: any[] }) => {
+    const controller = new AbortController()
+    queryClient.getChatHistory({ signal: controller.signal, projectId: projectID, agentId: selectedAgent }).then((res: { messages?: any[] }) => {
       const messages = res.messages
       if (messages && messages.length > 0) {
         useStore.getState().setChat(messages.map((m: { role: string; content: string; toolCall?: string; createdAt?: number }) => ({
@@ -86,7 +90,11 @@ function App() {
           createdAt: m.createdAt || 0,
         })))
       }
-    }).catch((e) => handleError(e, 'getChatHistory'))
+    }).catch((e) => {
+      if (e.name === 'AbortError') return
+      handleError(e, 'getChatHistory')
+    })
+    return () => controller.abort()
   }, [projectID, selectedAgent])
 
   useEffect(() => {
@@ -102,25 +110,25 @@ function App() {
 
   if (showWizard) return (
     <AlephErrorBoundary>
-      <Suspense fallback={<div className="flex items-center justify-center h-screen text-textDim text-xs font-mono">{t('app.loading.setupWizard')}</div>}>
-        <SetupWizard
-          onCreateProject={async (n: string) => { const r = await projectClient.createProject({ id: n.toLowerCase(), name: n }); return r.project?.id ?? n.toLowerCase() }}
-          onCreateApiKey={async (pid: string, l: string) => { const r = await authClient.createApiKey({ projectId: pid, label: l }); return r.key?.key ?? '' }}
-          onComplete={async (pid: string, key: string) => { await createSession(key); useStore.getState().setProjectContext(pid, ''); useStore.getState().setShowWizard(false); useStore.getState().setShowOnboarding(false) }}
-        />
+      <Suspense fallback={<div className="flex items-center justify-center h-screen"><SkeletonLoader rows={10} cols={1} /></div>}>
+                <SetupWizard
+                  onCreateProject={async (n: string) => { const r = await projectClient.createProject({ id: n.toLowerCase(), name: n }); return r.project?.id ?? n.toLowerCase() }}
+                  onCreateApiKey={async (pid: string, l: string) => { const r = await authClient.createApiKey({ projectId: pid, label: l }); return r.key?.key ?? '' }}
+                  onComplete={async (pid: string, key: string) => { await createSession(key); useStore.getState().setProjectContext(pid); useStore.getState().setShowWizard(false); useStore.getState().setShowOnboarding(false) }}
+                />
       </Suspense>
     </AlephErrorBoundary>
   )
 
   if (showOnboarding) return (
     <AlephErrorBoundary>
-      <Suspense fallback={<div className="flex items-center justify-center h-screen text-textDim text-xs font-mono">{t('app.loading.onboarding')}</div>}>
-        <WorkspaceOnboarding
-          projects={projects}
-          onSelectProject={async (id: string, key: string) => { await createSession(key); useStore.getState().setProjectContext(id, ''); useStore.getState().setShowOnboarding(false) }}
-          onDeleteProject={async (id: string, key: string) => { await createSession(key); projectClient.deleteProject({ id }).then(() => projectClient.listProjects({}).then((res: { projects: any[] }) => useStore.getState().setProjects(res.projects))).catch((e) => handleError(e, 'deleteProject')) }}
-          onCreateProject={() => useStore.getState().setShowWizard(true)}
-        />
+      <Suspense fallback={<div className="flex items-center justify-center h-screen"><SkeletonList itemCount={8} /></div>}>
+            <WorkspaceOnboarding
+              projects={projects}
+              onSelectProject={async (id: string, key: string) => { await createSession(key); useStore.getState().setProjectContext(id); useStore.getState().setShowOnboarding(false) }}
+              onDeleteProject={async (id: string, key: string) => { await createSession(key); projectClient.deleteProject({ id }).then(() => projectClient.listProjects({}).then((res: { projects: any[] }) => useStore.getState().setProjects(res.projects))).catch((e) => handleError(e, 'deleteProject')) }}
+              onCreateProject={() => useStore.getState().setShowWizard(true)}
+            />
       </Suspense>
     </AlephErrorBoundary>
   )
@@ -135,15 +143,15 @@ function App() {
            onClose={() => useStore.getState().setIsCommandPaletteOpen(false)}
            availableObjects={availableObjects}
            projects={projects}
-           onSelectProject={(id: string) => {
-             const p = projects.find((x: any) => x.id === id)
-             if (p) {
-               useStore.getState().setProjectContext(p.id, '')
-               useStore.getState().setShowOnboarding(false)
-             } else {
-               useStore.getState().setShowOnboarding(true)
-             }
-           }}
+              onSelectProject={(id: string) => {
+                const p = projects.find((x: any) => x.id === id)
+                if (p) {
+                  useStore.getState().setProjectContext(p.id)
+                  useStore.getState().setShowOnboarding(false)
+                } else {
+                  useStore.getState().setShowOnboarding(true)
+                }
+              }}
            onSelectObject={(name: string) => {
              useStore.getState().setSelectedObject(name)
              useStore.getState().setIsCommandPaletteOpen(false)
@@ -160,17 +168,26 @@ function App() {
            )}
 
           <main id="main-content" className="flex-1 overflow-hidden relative">
-            <TerminalView />
+            <div className="h-full w-full relative">
+              <TerminalView />
+              <Suspense fallback={<div className="absolute inset-0 z-10 bg-background animate-fade-in"><SkeletonLoader rows={15} cols={1} /></div>}>
+                {slideOverContent?.type === 'dashboard' && (
+                  <div className="absolute inset-0 z-10 bg-background animate-fade-in">
+                    <DashboardView />
+                  </div>
+                )}
+              </Suspense>
+            </div>
           </main>
 
-           {slideOverContent && (
+           {slideOverContent && slideOverContent.type !== 'dashboard' && (
              <AlephErrorBoundary>
                <SlideOverPanel
                  isOpen={true}
                  onClose={() => useStore.getState().setSlideOverContent(null)}
                  title={slideOverContent.title}
                >
-                 <Suspense fallback={<div className="p-4 text-textDim text-xs font-mono">Loading...</div>}>
+                 <Suspense fallback={<SkeletonLoader rows={8} cols={1} />}>
                    <SlideOverContent />
                  </Suspense>
                </SlideOverPanel>

@@ -21,7 +21,7 @@ func (i *ErrorHandlerInterceptor) WrapUnary(next connect.UnaryFunc) connect.Unar
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		resp, err := next(ctx, req)
 		if err != nil {
-			return nil, i.wrapError(err)
+			return nil, i.wrapError(ctx, err)
 		}
 		return resp, nil
 	}
@@ -39,7 +39,7 @@ func (i *ErrorHandlerInterceptor) WrapStreamingHandler(next connect.StreamingHan
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		err := next(ctx, conn)
 		if err != nil {
-			return i.wrapError(err)
+			return i.wrapError(ctx, err)
 		}
 		return nil
 	}
@@ -48,28 +48,44 @@ func (i *ErrorHandlerInterceptor) WrapStreamingHandler(next connect.StreamingHan
 // wrapError converts raw errors into structured APIError types.
 // If the error is already an APIError or connect.Error with APIError details,
 // it passes through unchanged. Otherwise, it wraps the error with context.
-func (i *ErrorHandlerInterceptor) wrapError(err error) error {
+func (i *ErrorHandlerInterceptor) wrapError(ctx context.Context, err error) error {
 	if err == nil {
 		return nil
 	}
 
-	// If already an APIError, wrap it in a connect.Error
+	// Attempt to extract subsystem/operation from context
+	subsystem, operation := errors.SubsystemFromContext(ctx)
+
+	// If already an APIError, enrich with context metadata if not already set
 	if apiErr, ok := errors.AsAPIError(err); ok {
+		if apiErr.Subsystem == "" {
+			apiErr.Subsystem = subsystem
+		}
+		if apiErr.Operation == "" {
+			apiErr.Operation = operation
+		}
 		code := i.apiErrorCodeToConnectCode(apiErr.Code)
 		return connect.NewError(code, apiErr)
 	}
 
 	// Already a connect.Error - check if it contains APIError details
 	if connectErr, ok := err.(*connect.Error); ok {
-		return i.wrapConnectError(connectErr)
+		return i.wrapConnectError(connectErr, subsystem, operation)
 	}
 
 	// Unknown error - wrap as internal error
-	return connect.NewError(connect.CodeInternal, errors.NewInternal("unexpected error occurred", err))
+	apiErr := errors.NewInternal("unexpected error occurred", err)
+	if subsystem != "" {
+		apiErr.Subsystem = subsystem
+	}
+	if operation != "" {
+		apiErr.Operation = operation
+	}
+	return connect.NewError(connect.CodeInternal, apiErr)
 }
 
 // wrapConnectError wraps a connect.Error with structured APIError details.
-func (i *ErrorHandlerInterceptor) wrapConnectError(err *connect.Error) *connect.Error {
+func (i *ErrorHandlerInterceptor) wrapConnectError(err *connect.Error, subsystem, operation string) *connect.Error {
 	code := err.Code()
 	msg := err.Message()
 
@@ -103,6 +119,14 @@ func (i *ErrorHandlerInterceptor) wrapConnectError(err *connect.Error) *connect.
 		apiErr = errors.NewDeadlineExceeded(msg, err)
 	default:
 		apiErr = errors.NewInternal(msg, err)
+	}
+
+	// Enrich with subsystem/operation from context
+	if subsystem != "" {
+		apiErr.Subsystem = subsystem
+	}
+	if operation != "" {
+		apiErr.Operation = operation
 	}
 
 	return connect.NewError(code, apiErr)

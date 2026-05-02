@@ -9,7 +9,10 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ff3300/aleph-v2/internal/ssrf"
@@ -33,27 +36,129 @@ type ollamaEmbedResp struct {
 	Embedding []float32 `json:"embedding"`
 }
 
+// cacheEntry holds a cached embedding with an expiration time.
+type cacheEntry struct {
+	embedding []float32
+	expiresAt time.Time
+}
+
+// embeddingCache provides a thread-safe, TTL+LRU in-memory cache for embeddings.
+type embeddingCache struct {
+	mu      sync.RWMutex
+	entries map[string]*cacheEntry
+	order   []string // LRU eviction list; oldest first
+	maxSize int
+	ttl     time.Duration
+}
+
+// newEmbeddingCache creates a cache with the given max size and TTL.
+func newEmbeddingCache(maxSize int, ttl time.Duration) *embeddingCache {
+	if maxSize <= 0 {
+		maxSize = 1000
+	}
+	if ttl <= 0 {
+		ttl = 5 * time.Minute
+	}
+	return &embeddingCache{
+		entries: make(map[string]*cacheEntry),
+		order:   make([]string, 0, maxSize),
+		maxSize: maxSize,
+		ttl:     ttl,
+	}
+}
+
+// normalizeKey produces a canonical cache key from input text.
+func normalizeKey(text string) string {
+	return strings.TrimSpace(strings.ToLower(text))
+}
+
+// get returns the cached embedding if present and not expired.
+func (c *embeddingCache) get(key string) ([]float32, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	entry, ok := c.entries[key]
+	if !ok {
+		return nil, false
+	}
+	if time.Now().After(entry.expiresAt) {
+		return nil, false
+	}
+	return entry.embedding, true
+}
+
+// put stores an embedding and evicts the LRU entry if over maxSize.
+func (c *embeddingCache) put(key string, embedding []float32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// If key already exists, just update and move to end.
+	if _, exists := c.entries[key]; exists {
+		c.entries[key] = &cacheEntry{embedding: embedding, expiresAt: time.Now().Add(c.ttl)}
+		// Move key to end of LRU order.
+		for i, k := range c.order {
+			if k == key {
+				c.order = append(c.order[:i], c.order[i+1:]...)
+				break
+			}
+		}
+		c.order = append(c.order, key)
+		return
+	}
+	// Evict oldest entries while over capacity.
+	for len(c.entries) >= c.maxSize && len(c.order) > 0 {
+		oldest := c.order[0]
+		c.order = c.order[1:]
+		delete(c.entries, oldest)
+	}
+	c.entries[key] = &cacheEntry{embedding: embedding, expiresAt: time.Now().Add(c.ttl)}
+	c.order = append(c.order, key)
+}
+
 // Embedder generates embeddings via Ollama's embedding API.
 type Embedder struct {
 	baseURL string
 	model   string
 	client  *http.Client
+	cache   *embeddingCache
 }
 
 // NewEmbedder creates an Embedder that calls Ollama at the given base URL with the given model.
+// Cache size and TTL are configurable via EMBEDDING_CACHE_SIZE and EMBEDDING_CACHE_TTL_SECONDS env vars.
 func NewEmbedder(baseURL, model string) *Embedder {
 	if model == "" {
 		model = "nomic-embed-text"
 	}
+
+	maxSize := 1000
+	if v := os.Getenv("EMBEDDING_CACHE_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxSize = n
+		}
+	}
+
+	ttl := 5 * time.Minute
+	if v := os.Getenv("EMBEDDING_CACHE_TTL_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			ttl = time.Duration(n) * time.Second
+		}
+	}
+
 	return &Embedder{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		model:   model,
 		client:  ssrf.NewClient(),
+		cache:   newEmbeddingCache(maxSize, ttl),
 	}
 }
 
-// Embed generates an embedding vector for the given text.
+// Embed generates an embedding vector for the given text, with TTL+LRU caching.
 func (e *Embedder) Embed(ctx context.Context, text string) ([]float32, error) {
+	key := normalizeKey(text)
+	if cached, ok := e.cache.get(key); ok {
+		slog.Debug("embedding cache HIT", "key_len", len(key))
+		return cached, nil
+	}
+	slog.Debug("embedding cache MISS", "key_len", len(key))
+
 	body := ollamaEmbedReq{Model: e.model, Prompt: text}
 	raw, err := json.Marshal(body)
 	if err != nil {
@@ -85,6 +190,7 @@ func (e *Embedder) Embed(ctx context.Context, text string) ([]float32, error) {
 		return nil, fmt.Errorf("empty embedding returned")
 	}
 
+	e.cache.put(key, result.Embedding)
 	return result.Embedding, nil
 }
 

@@ -3,6 +3,7 @@ import { Activity, Users, Shield, Star, AlertTriangle, CheckCircle2, BarChart3 }
 import type { ToolIntel, ToolAnomaly } from '../store/types';
 import { useStore } from '../store/useStore';
 import { apiGet, apiPost, apiPatch } from '../api/client';
+import { reportError } from '../lib/errorReporter';
 
 const Card = ({ title, icon: Icon, children, className = "" }: { title: string, icon: any, children: React.ReactNode, className?: string }) => (
   <div className={`bg-[#0e0e18] border border-[#2a2a3a] rounded-lg p-4 flex flex-col ${className}`}>
@@ -31,7 +32,7 @@ export default function ToolIntelligenceView() {
         const data = await apiGet('/api/v1/tools/intelligence?tool_id=all');
         setTools(Array.isArray(data) ? data : [data]);
       } catch (e) {
-        console.error("Failed to fetch tool intelligence", e);
+        reportError('ToolIntelligenceView', e);
       } finally {
         setLoading(false);
       }

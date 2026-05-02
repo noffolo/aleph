@@ -72,11 +72,12 @@ func (d *DuckDBLayer) SchemaContext(ctx context.Context, projectID string) conte
 	if projectID == "" {
 		return ctx
 	}
-	if err := storage.SanitizeProjectID(projectID); err != nil {
+	si, err := storage.NewSchemaIdentity("project_" + projectID)
+	if err != nil {
 		slog.Warn("SchemaContext: invalid projectID rejected", "projectID", projectID, "error", err)
 		return ctx
 	}
-	return storage.ContextWithSchema(ctx, "project_"+projectID)
+	return storage.ContextWithSchema(ctx, si)
 }
 
 // SyntheticDuckDBLayer returns a DuckDBLayer that always returns synthetic

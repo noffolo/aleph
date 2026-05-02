@@ -55,7 +55,10 @@ func NewHealthChecker(logger *slog.Logger, metaRepo *repository.MetadataReposito
 		opt(&cfg)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	// context.TODO: NewHealthChecker creates a placeholder context that is
+	// replaced by Start(parentCtx) when the checker is actually launched.
+	// The initial ctx/cancel pair ensures the struct is always valid.
+	ctx, cancel := context.WithCancel(context.TODO())
 	history := NewHistoryStore(cfg.HistoryLen)
 
 	builtinChecker := NewBuiltinChecker(metaRepo)

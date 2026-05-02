@@ -1,0 +1,53 @@
+Thank you for installing {{ .Chart.Name }} (version {{ .Chart.Version }}).
+
+⚠️  THIS IS A SKELETON CHART — NO DEPLOYMENT TEMPLATES EXIST YET.
+
+Aleph-v2 is currently a monolith (Go backend + embedded DuckDB) that runs best
+via Docker Compose. A production-ready Helm chart is planned for v2.1+, after
+the service split is complete (NLP sidecar and frontend become independently
+scalable).
+
+---
+
+WHAT WOULD BE DEPLOYED (IF TEMPLATES EXISTED)
+=============================================
+
+1. Backend (Go) — monolith until service extraction in v2.1
+   - Service: {{ include "aleph-v2.fullname" . }}-backend:8080
+   - DuckDB volume: requires single-pod access (ReadWriteOnce PVC)
+
+2. Frontend (React + Vite) — will become independent Deployment in v2.1
+   - Service: {{ include "aleph-v2.fullname" . }}-frontend:80
+
+3. NLP Sidecar (Python gRPC) — extract to independent service in v2.1
+   - Service: {{ include "aleph-v2.fullname" . }}-nlp-sidecar:50051
+
+4. PostgreSQL — shared metadata persistence
+   - Use external managed Postgres in production (Cloud SQL, RDS, etc.)
+
+5. Ollama — optional LLM inference (requires GPU node)
+   - StatefulSet with model cache PVC recommended
+
+6. Prometheus + Grafana — observability stack
+   - Prometheus: scrape backend metrics on /metrics
+   - Grafana: provisioned dashboards from deploy/grafana/dashboards/
+
+---
+
+NEXT STEPS
+==========
+
+1. Review ARCHITECTURE.md for the full K8s postponement rationale.
+2. For v2.0 deployment, use docker-compose.yml instead:
+   $ docker compose up -d
+3. To migrate from Compose to Helm (v2.1+):
+   - Export DuckDB and Postgres data using backup scripts in scripts/
+   - Split backend packages into independently deployable services
+   - Replace emptyDir PVC with stable ReadWriteOnce / ReadWriteMany PVC
+   - Configure ingress with TLS certificates via cert-manager
+   - Enable autoscaling (HPA) only after DuckDB bottleneck is resolved
+
+For questions or contribution, see:
+- https://github.com/ff3300/aleph-v2
+- ../ARCHITECTURE.md
+- ../../docs/CI-CD-README.md

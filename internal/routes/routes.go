@@ -34,6 +34,7 @@ func SetDraining(draining bool) {
 // RegisterConfig carries all dependencies needed to register routes.
 type RegisterConfig struct {
 	MetaRepo          *repository.MetadataRepository
+	JWTSecret         []byte
 	SSEBroker         *sse.Broker
 	SSEHandler        *handler.SSEHandler
 	DiagnosticMonitor *diagnostic.DiagnosticMonitor
@@ -59,6 +60,7 @@ type RegisterConfig struct {
 	CodeFlowHandler   *handler.CodeFlowHandler
 	SuggestPipeline   http.Handler
 	SessionHandler    *handler.SessionHandler
+	AuthRateLimiter   *middleware.AuthRateLimiter
 
 	Interceptors []connect.HandlerOption
 }
@@ -108,55 +110,64 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 	mux.Handle(v1connect.NewRegistryServiceHandler(cfg.RegistryHandler, cfg.Interceptors...))
 
 	// Session management (unauthenticated — validates credentials then sets cookie)
-	mux.HandleFunc("/api/v1/auth/session", func(w http.ResponseWriter, r *http.Request) {
+	// Rate-limited: 5 req/min per IP to prevent brute-force attacks
+	sessionHandler := cfg.SessionHandler
+	sessionMux := http.NewServeMux()
+	sessionMux.HandleFunc("/api/v1/auth/session", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
-			cfg.SessionHandler.HandleCreateSession(w, r)
+			cfg.AuthRateLimiter.RateLimitHTTPFunc("session_create", sessionHandler.HandleCreateSession)(w, r)
 		case http.MethodGet:
-			cfg.SessionHandler.HandleValidateSession(w, r)
+			sessionHandler.HandleValidateSession(w, r)
 		case http.MethodDelete:
-			cfg.SessionHandler.HandleDeleteSession(w, r)
+			sessionHandler.HandleDeleteSession(w, r)
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	mux.Handle("/api/v1/auth/session", sessionMux)
 
-	// Raw HTTP routes (protected by AuthMiddleware)
+	// Raw HTTP routes (protected by AuthMiddleware + RBAC)
 	authMW := func(next http.HandlerFunc) http.Handler {
-		return middleware.AuthMiddleware(cfg.MetaRepo, next)
+		return middleware.AuthMiddleware(cfg.MetaRepo, cfg.JWTSecret, next)
 	}
 
-	mux.Handle("/api/v1/tools/intelligence", authMW(cfg.ToolHandler.ServeHTTP))
-	mux.Handle("/api/v1/tools/recommendations", authMW(cfg.ToolHandler.ServeHTTP))
-	mux.Handle("/api/v1/tools/health", authMW(cfg.ToolHandler.ServeHTTP))
-	mux.Handle("/api/v1/tools/verify", authMW(cfg.ToolHandler.HandleVerify))
-	mux.Handle("/api/v1/tools/", authMW(cfg.ToolHandler.HandleHealthHistory))
-	mux.Handle("/api/v1/tools", authMW(cfg.ToolHandler.ServeHTTP))
+	adminOnly := middleware.RequireRoleHTTP(middleware.RoleAdmin)
+	readWrite := middleware.RequireRoleHTTP(middleware.RoleAdmin, middleware.RoleUser)
+	readAny := middleware.RequireRoleHTTP(middleware.RoleAdmin, middleware.RoleUser, middleware.RoleReadOnly)
+
+	mux.Handle("/api/v1/tools/intelligence", readAny(authMW(cfg.ToolHandler.ServeHTTP)))
+	mux.Handle("/api/v1/tools/recommendations", readAny(authMW(cfg.ToolHandler.ServeHTTP)))
+	mux.Handle("/api/v1/tools/health", readAny(authMW(cfg.ToolHandler.ServeHTTP)))
+	mux.Handle("/api/v1/tools/verify", readWrite(authMW(cfg.ToolHandler.HandleVerify)))
+	mux.Handle("/api/v1/tools/", readAny(authMW(cfg.ToolHandler.HandleHealthHistory)))
+	mux.Handle("/api/v1/tools", readAny(authMW(cfg.ToolHandler.ServeHTTP)))
 
 	// Tool suggestion workflow
-	mux.Handle("/api/v1/tools/suggest", middleware.AuthMiddleware(cfg.MetaRepo, cfg.SuggestPipeline))
-	mux.Handle("/api/v1/tools/suggest/approve", middleware.AuthMiddleware(cfg.MetaRepo, cfg.SuggestPipeline))
+	suggestHandler := middleware.AuthMiddleware(cfg.MetaRepo, cfg.JWTSecret, cfg.SuggestPipeline)
+	mux.Handle("/api/v1/tools/suggest", readWrite(suggestHandler))
+	mux.Handle("/api/v1/tools/suggest/approve", adminOnly(suggestHandler))
 
 	// Tool execution routes
-	mux.Handle("/api/v1/tools/categories", authMW(cfg.ToolExecHandler.HandleListCategories))
-	mux.Handle("/api/v1/tools/execute/{category}/{name}", authMW(cfg.ToolExecHandler.ServeHTTP))
-	mux.Handle("/api/v1/tools/call", authMW(cfg.ToolExecHandler.HandleCallTool))
-	mux.Handle("/api/v1/tools/register", authMW(cfg.ToolExecHandler.HandleRegister))
+	mux.Handle("/api/v1/tools/categories", readAny(authMW(cfg.ToolExecHandler.HandleListCategories)))
+	mux.Handle("/api/v1/tools/execute/{category}/{name}", readWrite(authMW(cfg.ToolExecHandler.ServeHTTP)))
+	mux.Handle("/api/v1/tools/call", readWrite(authMW(cfg.ToolExecHandler.HandleCallTool)))
+	mux.Handle("/api/v1/tools/register", adminOnly(authMW(cfg.ToolExecHandler.HandleRegister)))
 
 	// CodeFlow routes
-	mux.Handle("/api/v1/codeflow/graph", authMW(cfg.CodeFlowHandler.HandleGetGraph))
-	mux.Handle("/api/v1/codeflow/metrics", authMW(cfg.CodeFlowHandler.HandleGetMetrics))
-	mux.Handle("/api/v1/codeflow/executions", authMW(cfg.CodeFlowHandler.HandleListExecutions))
-	mux.Handle("/api/v1/codeflow/engines", authMW(cfg.CodeFlowHandler.HandleListEngines))
+	mux.Handle("/api/v1/codeflow/graph", readAny(authMW(cfg.CodeFlowHandler.HandleGetGraph)))
+	mux.Handle("/api/v1/codeflow/metrics", readAny(authMW(cfg.CodeFlowHandler.HandleGetMetrics)))
+	mux.Handle("/api/v1/codeflow/executions", readAny(authMW(cfg.CodeFlowHandler.HandleListExecutions)))
+	mux.Handle("/api/v1/codeflow/engines", readAny(authMW(cfg.CodeFlowHandler.HandleListEngines)))
 
 	// Ontology Negotiation routes (W2C-01)
-	mux.Handle("/api/v1/ontology/propose", authMW(cfg.ProjectHandler.NegotiatePropose))
-	mux.Handle("/api/v1/ontology/accept", authMW(cfg.ProjectHandler.NegotiateAccept))
-	mux.Handle("/api/v1/ontology/reject", authMW(cfg.ProjectHandler.NegotiateReject))
-	mux.Handle("/api/v1/ontology/versions", authMW(cfg.ProjectHandler.NegotiateList))
+	mux.Handle("/api/v1/ontology/propose", readWrite(authMW(cfg.ProjectHandler.NegotiatePropose)))
+	mux.Handle("/api/v1/ontology/accept", readWrite(authMW(cfg.ProjectHandler.NegotiateAccept)))
+	mux.Handle("/api/v1/ontology/reject", readWrite(authMW(cfg.ProjectHandler.NegotiateReject)))
+	mux.Handle("/api/v1/ontology/versions", readAny(authMW(cfg.ProjectHandler.NegotiateList)))
 
 	// Diagnostic patterns
-	mux.Handle("/api/v1/diagnostic/patterns", authMW(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/api/v1/diagnostic/patterns", readAny(authMW(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -169,7 +180,7 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 			return
 		}
 		w.Write(jsonData)
-	}))
+	})))
 
 	// SSE endpoint
 	mux.HandleFunc("/api/v1/events", cfg.SSEHandler.Stream)

@@ -7,13 +7,22 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type OpenAIProvider struct {
-	client *http.Client
+	client  *http.Client
+	timeout time.Duration
 }
 
 func (p *OpenAIProvider) Complete(ctx context.Context, req CompletionRequest) (*CompletionResponse, error) {
+	callCtx := ctx
+	if p.timeout > 0 {
+		var cancel context.CancelFunc
+		callCtx, cancel = context.WithTimeout(ctx, p.timeout)
+		defer cancel()
+	}
+
 	endpoint := req.BaseURL + "/v1/chat/completions"
 	if strings.HasSuffix(req.BaseURL, "/completions") || strings.HasSuffix(req.BaseURL, "/v4/chat/completions") {
 		endpoint = req.BaseURL
@@ -42,7 +51,7 @@ func (p *OpenAIProvider) Complete(ctx context.Context, req CompletionRequest) (*
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, strings.NewReader(string(bodyJSON)))
+	httpReq, err := http.NewRequestWithContext(callCtx, "POST", endpoint, strings.NewReader(string(bodyJSON)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

@@ -49,6 +49,7 @@ type Verifier struct {
 	metaRepo  *repository.MetadataRepository
 	pythonCmd string
 	goCmd     string
+	sandbox   SandboxManager
 }
 
 // NewVerifier creates a new sandbox verifier.
@@ -61,12 +62,26 @@ func NewVerifier(logger *slog.Logger, metaRepo *repository.MetadataRepository, p
 	}
 }
 
+// WithSandbox returns a copy of the Verifier that uses the given SandboxManager for execution.
+func (v *Verifier) WithSandbox(s SandboxManager) *Verifier {
+	cp := *v
+	cp.sandbox = s
+	return &cp
+}
+
 // VerifyTool runs a tool in verification mode with strict isolation.
 // It validates the code, executes it in a sandboxed environment with
 // resource limits, and captures complete results.
 func (v *Verifier) VerifyTool(ctx context.Context, toolID string, config VerificationConfig) (VerificationResult, error) {
 	result := VerificationResult{
 		ToolID: toolID,
+	}
+
+	// Fast-fail: refuse to proceed if the caller's context is already expired.
+	if err := ctx.Err(); err != nil {
+		result.Error = fmt.Sprintf("context expired before verification: %v", err)
+		result.ExitCode = -1
+		return result, nil
 	}
 
 	toolCode, err := v.metaRepo.GetToolCode(ctx, toolID)
@@ -101,8 +116,13 @@ func (v *Verifier) VerifyTool(ctx context.Context, toolID string, config Verific
 
 	start := time.Now()
 
-	sandbox := NewExecSandbox(v.logger, nil, v.metaRepo, v.pythonCmd, v.goCmd)
-	execResult, err := sandbox.ExecuteTool(execCtx, toolID, map[string]interface{}{"verification": true})
+	var execSandbox SandboxManager
+	if v.sandbox != nil {
+		execSandbox = v.sandbox
+	} else {
+		execSandbox = NewExecSandbox(v.logger, nil, v.metaRepo, v.pythonCmd, v.goCmd)
+	}
+	execResult, err := execSandbox.ExecuteTool(execCtx, toolID, map[string]interface{}{"verification": true})
 
 	result.Duration = time.Since(start)
 	result.Stdout = execResult.Stdout
@@ -198,6 +218,12 @@ func (v *Verifier) VerifyMultipleTools(ctx context.Context, toolIDs []string, co
 
 	for i, id := range toolIDs {
 		go func(idx int, toolID string) {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Error("verification goroutine panic", "toolID", toolID, "recover", r)
+					ch <- indexedResult{index: idx, result: VerificationResult{Passed: false, Error: fmt.Sprintf("panic: %v", r)}, err: fmt.Errorf("panic: %v", r)}
+				}
+			}()
 			r, err := v.VerifyTool(ctx, toolID, config)
 			ch <- indexedResult{index: idx, result: r, err: err}
 		}(i, id)

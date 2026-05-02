@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -15,13 +16,19 @@ import (
 )
 
 type AgentHandler struct {
-	projectsRoot  string
-	metaRepo      *repository.MetadataRepository
-	ollamaBaseURL string
+	projectsRoot      string
+	metaRepo          *repository.MetadataRepository
+	ollamaBaseURL     string
+	maxAgentsPerProject int
 }
 
 func NewAgentHandler(projectsRoot string, metaRepo *repository.MetadataRepository, ollamaBaseURL string) *AgentHandler {
 	return &AgentHandler{projectsRoot: projectsRoot, metaRepo: metaRepo, ollamaBaseURL: ollamaBaseURL}
+}
+
+// SetMaxAgentsPerProject sets the soft limit for agent creation per project.
+func (h *AgentHandler) SetMaxAgentsPerProject(n int) {
+	h.maxAgentsPerProject = n
 }
 
 func (h *AgentHandler) ListAgents(
@@ -46,7 +53,9 @@ func (h *AgentHandler) ListAgents(
 			if len(runes) > 8 { agent.ApiKey = string(runes[:8]) + "****" } else { agent.ApiKey = "****" }
 		}
 		if a.SkillIDsJSON != "" {
-			json.Unmarshal([]byte(a.SkillIDsJSON), &agent.SkillIds)
+			if err := json.Unmarshal([]byte(a.SkillIDsJSON), &agent.SkillIds); err != nil {
+				slog.Warn("failed to unmarshal agent skill IDs", "agentId", a.ID, "error", err)
+			}
 		}
 		agents = append(agents, agent)
 	}
@@ -61,6 +70,18 @@ func (h *AgentHandler) CreateAgent(
 	if projectID == "" {
 		projectID = req.Msg.ProjectId
 	}
+
+	if h.maxAgentsPerProject > 0 {
+		count, err := h.metaRepo.CountProjectAgents(projectID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("count agents: %w", err))
+		}
+		if count >= h.maxAgentsPerProject {
+			return nil, connect.NewError(connect.CodeFailedPrecondition,
+				fmt.Errorf("agent limit reached (%d max) for this project", h.maxAgentsPerProject))
+		}
+	}
+
 	agent := req.Msg.Agent
 	if agent == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("agent is required"))

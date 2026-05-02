@@ -1,0 +1,31 @@
+[Unit]
+Description=Aleph Data OS Backend (Go)
+Documentation=https://github.com/ff3300/aleph-v2
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=aleph
+Group=aleph
+WorkingDirectory=/opt/aleph
+
+EnvironmentFile=/opt/aleph/.env
+Environment="GOMEMLIMIT=2GiB"
+
+ExecStartPre=/bin/sh -c 'test -f /opt/aleph/aleph-backend || exit 1'
+ExecStart=/opt/aleph/aleph-backend
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=always
+RestartSec=5
+
+LimitNOFILE=65536
+LimitNPROC=4096
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aleph-backend
+
+[Install]
+WantedBy=multi-user.target

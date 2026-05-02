@@ -16,5 +16,9 @@ func ListTools(broker *Shadowbroker) []interface {
 		NewVesselTrackingTool(broker),
 		NewFlightTrackingTool(broker),
 		NewCorrelationAlertsTool(broker),
+		NewIPLookupTool(),
+		NewDNSResolutionTool(),
+		NewWhoisLookupTool(),
+		NewThreatIntelCheckTool(),
 	}
 }

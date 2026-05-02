@@ -5,6 +5,7 @@ import { t } from '../i18n'
 import { apiPost, apiPatch } from '../api/client'
 import { ToolFormSchema } from '../schemas'
 import type { ToolFormData } from '../schemas'
+import { Loader2 } from 'lucide-react'
 
 interface ToolFormProps {
   tool?: Tool | null
@@ -82,7 +83,7 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
       )}
 
       <div className="space-y-3">
-        <div>
+        <div className="flex-1">
           <label htmlFor="tool-name" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Nome</label>
           <input
             id="tool-name"
@@ -97,7 +98,7 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
           {errors.name && <p className="text-danger text-[10px] mt-1">{errors.name}</p>}
         </div>
         
-        <div>
+        <div className="flex-1">
           <label htmlFor="tool-description" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Descrizione</label>
           <textarea
             id="tool-description"
@@ -105,12 +106,15 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             disabled={isSaving}
             rows={2}
-            className={`w-full p-3 bg-background rounded-lg border border-border text-sm font-mono resize-none focus:outline-none focus:border-primary/50 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full p-3 bg-background rounded-lg border ${
+              errors.description ? 'border-danger bg-danger/5' : 'border-border'
+            } text-sm font-mono resize-none focus:outline-none focus:border-primary/50 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
             placeholder={t('tools.form.description')}
           />
+          {errors.description && <p className="text-danger text-[10px] mt-1">{errors.description}</p>}
         </div>
         
-        <div>
+        <div className="flex-1">
           <label htmlFor="tool-code" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Codice</label>
           <textarea
             id="tool-code"
@@ -118,9 +122,12 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
             onChange={(e) => setFormData({ ...formData, code: e.target.value })}
             disabled={isSaving}
             rows={8}
-            className={`w-full p-3 bg-background rounded-lg border border-border text-xs font-mono resize-none focus:outline-none focus:border-primary/50 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full p-3 bg-background rounded-lg border ${
+              errors.code ? 'border-danger bg-danger/5' : 'border-border'
+            } text-xs font-mono resize-none focus:outline-none focus:border-primary/50 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
             placeholder="// Implementazione del tool..."
           />
+          {errors.code && <p className="text-danger text-[10px] mt-1">{errors.code}</p>}
         </div>
       </div>
       
@@ -135,9 +142,16 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
         <button
           onClick={handleSubmit}
           disabled={isSaving}
-          className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors disabled:opacity-50"
+          className="flex-1 py-3 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary-light transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {isSaving ? 'Salvataggio...' : (isEdit ? t('tools.edit') : t('tools.create'))}
+          {isSaving ? (
+            <>
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Salvando...</span>
+            </>
+          ) : (
+            isEdit ? t('tools.edit') : t('tools.create')
+          )}
         </button>
       </div>
     </div>
