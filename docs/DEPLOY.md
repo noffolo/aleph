@@ -70,7 +70,9 @@ curl -sf http://localhost:8080/api/v1/healthz && echo "health ok"
 curl -sf http://localhost:8080/metrics && echo "metrics ok"
 ```
 
-The web UI runs on `http://localhost:5174`.
+The web UI runs on `http://localhost:5173`.
+
+> **Note:** In development, the Vite dev server runs on port 5173. Docker Compose maps to port 5174 to avoid conflicts.
 
 ---
 
@@ -205,14 +207,13 @@ chmod 600 secrets/*.txt
 If you run Aleph outside Docker, use the `gosecrets` tool to store secrets in the operating system's credential store:
 
 ```bash
-# Install
-go install github.com/ff3300/aleph-v2/cmd/gosecrets@latest
-
 # Set
 gosecrets set key_encryption_key "$(openssl rand -hex 32)"
 gosecrets set jwt.secret "$(openssl rand -hex 32)"
 gosecrets set postgres.dsn "postgres://..."
 ```
+
+For development, see the secrets section in [docs/developer-onboarding.md](developer-onboarding.md). For production, use Docker Secrets.
 
 On startup, the backend calls `LoadSecrets()`, which first checks `gosecrets`, then falls back to env vars. Set `GOSECRETS_ENV=ci` to force env-var-only mode in CI pipelines.
 
@@ -235,13 +236,6 @@ Save as `/etc/nginx/conf.d/aleph.conf`:
 
 ```nginx
 # Aleph-v2 NGINX Reverse Proxy with TLS Termination
-worker_processes auto;
-error_log /var/log/nginx/error.log warn;
-pid /var/run/nginx.pid;
-
-events {
-    worker_connections 1024;
-}
 
 http {
     include /etc/nginx/mime.types;
@@ -444,13 +438,16 @@ docker compose cp aleph-backend:/app/aleph_registry.duckdb ./backups/aleph_$(dat
 # 1. Stop the backend
 docker compose stop aleph-backend
 
-# 2. Replace the database file
-docker compose cp ./backups/aleph_2026-05-02.duckdb aleph-backend:/app/aleph_registry.duckdb
-
-# 3. Restart the backend
+# 2. Start the backend (required for `docker compose cp` on some Docker configurations)
 docker compose start aleph-backend
 
-# 4. Verify
+# 3. Replace the database file
+docker compose cp ./backups/aleph_2026-05-02.duckdb aleph-backend:/app/aleph_registry.duckdb
+
+# 4. Restart the backend
+docker compose start aleph-backend
+
+# 5. Verify
 curl -sf http://localhost:8080/readyz && echo "ok"
 ```
 
@@ -475,6 +472,7 @@ sleep 10
 docker compose exec -T aleph-db psql -U postgres -d aleph < /path/to/previous_backup.sql
 
 # Restore DuckDB
+docker compose start aleph-backend
 docker compose cp /path/to/previous.duckdb aleph-backend:/app/aleph_registry.duckdb
 ```
 
@@ -667,7 +665,7 @@ Aleph isolates data by project. If you need to serve multiple teams or large org
 ## Reference
 
 - [AGENTS.md](../AGENTS.md) — Agent map and workflow
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — System design and data flow
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — System design and data flow
 - [SECURITY.md](../SECURITY.md) — Vulnerability reporting and security model
 - [CHANGELOG.md](./CHANGELOG.md) — Release history and tag list
 - [deploy/docker-secrets-readme.md](../deploy/docker-secrets-readme.md) — Deep dive into Docker Secrets

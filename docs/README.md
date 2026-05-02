@@ -9,9 +9,9 @@ Aleph-v2 is a Data Operating System that turns unstructured data into actionable
 | If you are... | Start here |
 |---|---|
 | New user | [user-guide-en.md](./user-guide-en.md) |
-| Developer | [README.md](../README.md), [AGENTS.md](../AGENTS.md), [CONTRIBUTING.md](./CONTRIBUTING.md) |
+| Developer | [README.md](../README.md), [AGENTS.md](../AGENTS.md), [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | DevOps | [DEPLOY.md](./DEPLOY.md), [ARCHITECTURE.md](../ARCHITECTURE.md) |
-| Contributor | [CONTRIBUTING.md](./CONTRIBUTING.md), [AGENTS.md](../AGENTS.md) |
+| Contributor | [CONTRIBUTING.md](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md) |
 | Just curious | [README.md](../README.md), [release-announcement.md](./release-announcement.md) |
 
 ---
@@ -44,7 +44,7 @@ Aleph-v2 is a Data Operating System that turns unstructured data into actionable
 
 | File | Description | Audience | Link |
 |---|---|---|---|
-| CONTRIBUTING.md | Local setup, build workflow, pull request process, and coding standards. | Contributors | [./CONTRIBUTING.md](./CONTRIBUTING.md) |
+| CONTRIBUTING.md | Local setup, build workflow, pull request process, and coding standards. | Contributors | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
 | developer-onboarding.md | From zero to a working development environment. | New contributors | [./developer-onboarding.md](./developer-onboarding.md) |
 | manuale-tecnico.md | Full technical manual in Italian covering stack and security. | Italian-speaking engineers | [./manuale-tecnico.md](./manuale-tecnico.md) |
 | CHANGELOG.md | Detailed release history maintained in the docs folder. | Everyone | [./CHANGELOG.md](./CHANGELOG.md) |
@@ -59,7 +59,7 @@ Aleph-v2 is a Data Operating System that turns unstructured data into actionable
 
 | File | Description | Audience | Link |
 |---|---|---|---|
-| DEPLOY.md | Deployment and rollback procedures with a decision matrix. | DevOps, SRE | [./DEPLOY.md](./DEPLOY.md) |
+| DEPLOY.md | Deployment and rollback procedures. | DevOps, SRE | [./DEPLOY.md](./DEPLOY.md) |
 | deployment-guide.md | Docker Compose production deployment guide with SSL and monitoring. | DevOps | [./deployment-guide.md](./deployment-guide.md) |
 | runbook.md | On-call procedures, incident response, and troubleshooting steps. | SRE, On-call engineers | [./runbook.md](./runbook.md) |
 | backup-recovery.md | Backup strategies and disaster recovery procedures. | DevOps, SRE | [./backup-recovery.md](./backup-recovery.md) |

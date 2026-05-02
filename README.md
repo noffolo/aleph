@@ -3,7 +3,7 @@
 > Transform raw data into structured intelligence through AI agents, sandboxed execution, and DuckDB.
 
 [![CI](https://github.com/noffolo/aleph/actions/workflows/ci.yml/badge.svg)](https://github.com/noffolo/aleph/actions)
-[![Go](https://img.shields.io/badge/go-1.24-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Go](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![React](https://img.shields.io/badge/react-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
@@ -12,7 +12,7 @@
 
 Aleph is a Data Operating System that turns unstructured and raw data into actionable, structured intelligence. It brings together AI agents, a secure sandboxed runtime, and high-performance DuckDB analytics to let you ingest, query, and reason over your data without heavy infrastructure overhead.
 
-Built with Go, React, and Python, Aleph connects to your existing data sources through a modular ingestion pipeline. It stores metadata in PostgreSQL, runs analytics in DuckDB, and uses an NLP sidecar powered by modern language models to extract meaning, entities, and relationships automatically. Every tool call follows the PAORA cycle: Plan, Act, Observe, Reflect, Admit. This means execution is deliberate, observable, and safe by default.
+Built with Go, React, and Python, Aleph connects to your existing data sources through a modular ingestion pipeline. It stores metadata in PostgreSQL, runs analytics in DuckDB, and uses a heuristic sentiment analysis pipeline for Italian and English to extract meaning, entities, and relationships automatically. Every tool call follows the PAORA cycle: Plan, Act, Observe, Reflect, Admit. This means execution is deliberate, observable, and safe by default.
 
 ## Quick Start
 
@@ -81,9 +81,9 @@ This returns ranked memories with confidence scores, ready to be injected into t
 
 ## Documentation
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — System design and data flow
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — System design and data flow
 - [`docs/API.md`](docs/API.md) — API contracts and protobuf definitions
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — Release history
+- [`CHANGELOG.md`](CHANGELOG.md) — Release history
 - [`SECURITY.md`](SECURITY.md) — Vulnerability reporting and security model
 
 ## License

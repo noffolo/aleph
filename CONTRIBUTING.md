@@ -174,7 +174,7 @@ npx prettier --check .
 ### CSS / Tailwind
 
 - Prefer Tailwind utility classes.
-- Use CSS variables for theme values (see `design-tokens.json`).
+- Use CSS variables for theme values (see Tailwind config or `frontend/src/index.css`).
 - Dark palette `#080810` is the background base.
 - Volatility layers: `.vol-static`, `.vol-structural`, `.vol-interactive`, `.vol-signal`.
 
@@ -192,7 +192,7 @@ If you have a fix, reference the issue number in your PR description (e.g., `Fix
 
 ## Additional Resources
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — System design and data flow
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — System design and data flow
 - [`docs/API.md`](docs/API.md) — API contracts and protobuf definitions
 - [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — Release history
 - [`SECURITY.md`](SECURITY.md) — Vulnerability reporting and security model
