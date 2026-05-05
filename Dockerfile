@@ -7,35 +7,33 @@ COPY frontend/ ./
 RUN npm run build
 
 # --- Stage 2: Go Backend Build ---
-FROM golang:1.24-alpine AS backend-builder
-RUN apk add --no-cache git
+FROM golang:1.26-bookworm AS backend-builder
+RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ libc6-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go env -w GOPROXY=https://proxy.golang.org,direct && go mod download
 COPY . .
 # Embed frontend dist from stage 1
 COPY --from=frontend-builder /app/frontend/dist ./dist
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o aleph main.go
+RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o aleph main.go
 
 # --- Stage 3: Python NLP Dependencies ---
-FROM python:3.12-alpine AS python-builder
+FROM python:3.12-slim-bookworm AS python-builder
+RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ libc6-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/nlp
 COPY nlp/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- Stage 4: Production (alpine:3.20, <80MB target) ---
-FROM alpine:3.20
+# --- Stage 4: Production (debian:bookworm-slim) ---
+FROM debian:bookworm-slim
 WORKDIR /app
 
-# Install only runtime essentials: Python for sandbox tool execution, ca-certs, wget for healthcheck
-RUN apk add --no-cache \
-    python3 \
-    py3-pip \
-    ca-certificates \
-    wget \
-    libstdc++
+# Install only runtime essentials
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip ca-certificates wget libstdc++6 && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy Go binary (CGO_ENABLED=0, static, ~15MB)
+# Copy Go binary
 COPY --from=backend-builder /app/aleph .
 # Copy entrypoint script
 COPY docker-entrypoint.sh .
@@ -45,7 +43,7 @@ COPY internal/api/proto/aleph_api.swagger.json ./internal/api/proto/
 
 # Copy NLP source code
 COPY nlp/ ./nlp/
-# Copy pre-built Python packages from alpine-compatible builder
+# Copy pre-built Python packages from bookworm-compatible builder
 COPY --from=python-builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
 # Environment defaults
@@ -54,11 +52,11 @@ ENV DATA_ROOT=/app/data/raw
 ENV DUCKDB_PATH="/app/data/aleph.duckdb"
 
 # Create non-root user & data directories
-RUN adduser -D -h /app appuser \
+RUN groupadd -r aleph && useradd -r -g aleph -d /app aleph \
     && mkdir -p /app/data/projects /app/data/raw /app/data/ontologies \
-    && chown -R appuser:appuser /app
+    && chown -R aleph:aleph /app
 
-USER appuser
+USER aleph
 EXPOSE 8080
 
 # Healthcheck uses /healthz (registered by app.go via mux)

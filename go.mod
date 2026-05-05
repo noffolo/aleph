@@ -6,6 +6,7 @@ require (
 	connectrpc.com/connect v1.19.1
 	github.com/alecthomas/participle/v2 v2.1.4
 	github.com/bilustek/gosecrets v0.4.0
+	github.com/elastic/go-seccomp-bpf v1.6.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/getsentry/sentry-go v0.46.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -31,10 +32,7 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-require (
-	github.com/elastic/go-seccomp-bpf v1.6.0 // indirect
-	github.com/goccy/go-yaml v1.19.2 // indirect
-)
+require github.com/goccy/go-yaml v1.19.2 // indirect
 
 require (
 	github.com/apache/arrow-go/v18 v18.1.0 // indirect
