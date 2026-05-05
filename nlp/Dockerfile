@@ -17,7 +17,7 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy app code
-COPY nlp_pb2.py nlp_pb2_grpc.py main.py ensemble.py markets.py simulator.py ./
+COPY nlp_pb2.py nlp_pb2_grpc.py main.py ensemble.py markets.py simulator.py cache.py ./
 COPY docker-entrypoint.sh .
 RUN chmod +x docker-entrypoint.sh
 

@@ -31,14 +31,14 @@ services:
       # JWT_SECRET loaded from Docker secret at /run/secrets/jwt_secret
       # ALEPH_API_KEY_SECRET_BACKEND loaded from Docker secret at /run/secrets/aleph_api_key_secret_backend
       NLP_ADDR: "aleph-nlp-sidecar:8001"
-      OLLAMA_BASE_URL: "http://ollama:11434"
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
     secrets:
       - key_encryption_key
       - jwt_secret
       - postgres_dsn
       - aleph_api_key_secret_backend
     ports:
-      - "8080:8080"
+      - "8081:8080"
     deploy:
       resources:
         limits:
@@ -47,36 +47,11 @@ services:
     volumes:
       - ./aleph_tools:/app/aleph_tools
       - aleph-data:/app/data
-      - aleph-duckdb:/app/aleph_registry.duckdb
     depends_on:
       aleph-db:
         condition: service_healthy
-      ollama:
-        condition: service_started
 
-  # SECURITY: Ollama binds to 127.0.0.1 to prevent external network access.
-  # The Go backend connects via Docker DNS (http://ollama:11434), not via host port.
-  # DO NOT expose Ollama to 0.0.0.0 in production — models can generate arbitrary code output.
-  ollama:
-    image: ollama/ollama:latest
-    container_name: aleph-ollama
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 2 && ollama pull llama3 && ollama pull nomic-embed-text && wait"]
-    ports:
-      - "127.0.0.1:11434:11434"
-    volumes:
-      - ollama-models:/root/.ollama
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      start_period: 30s
-      retries: 3
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 8G
-
+  # Ollama runs on the host (not in Docker). Backend connects via host.docker.internal.
   aleph-python-sidecar:
     build:
       context: ./nlp
@@ -129,8 +104,7 @@ services:
 
   # SECURITY: PostgreSQL binds to localhost only (container-internal).
   # Backend connects via Docker DNS (aleph-db:5432), not host port.
-  # If host access is needed for pgAdmin/CLI, use 127.0.0.1:5432:5432, never 0.0.0.0.
-  # Production firewall: block 5432 from external networks at the host level.
+  # Host port removed — you have PostgreSQL running locally.
   aleph-db:
     image: postgres:16-alpine
     container_name: aleph-db
@@ -141,8 +115,6 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     secrets:
       - postgres_password
-    ports:
-      - "127.0.0.1:5432:5432"
     volumes:
       - aleph-pgdata:/var/lib/postgresql/data
     deploy:
@@ -217,7 +189,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/aleph-overview.json
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -250,10 +222,8 @@ services:
           memory: 128M
 
 volumes:
-  aleph-pgdata:
   aleph-data:
-  aleph-duckdb:
-  ollama-models:
+  aleph-pgdata:
   prometheus-data:
   grafana-data:
   alertmanager-data:
