@@ -1,0 +1,48 @@
+# Aleph-v2 Dev Container Compose Override
+# Extends docker-compose.yml by adding a dev service that:
+#   - Joins aleph-network for access to db, sidecar
+#   - Mounts the Docker socket for ContainerSandbox
+#   - Exposes dev ports (Vite, Go backend)
+#   - Depends on infrastructure services only (not aleph-backend)
+#
+# Usage: Used automatically by devcontainer.json. The devcontainer CLI
+# merges this with ../docker-compose.yml and starts aleph-dev + deps.
+
+services:
+  aleph-dev:
+    image: mcr.microsoft.com/devcontainers/base:bookworm
+    container_name: aleph-dev
+    command: sleep infinity
+    volumes:
+      - ..:/workspace:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Aleph backend will be run from within the dev container (via air)
+      DUCKDB_PATH: /workspace/data/aleph.duckdb
+      DUCKDB_SCHEMA: main
+      DATA_ROOT: /workspace/data/raw
+      NLP_ADDR: aleph-python-sidecar:8001
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      # PostgreSQL — defaults for dev (post-create generates the password)
+      POSTGRES_DSN: postgres://postgres:devpassword@aleph-db:5432/aleph?sslmode=disable
+      # CORS for Vite dev server
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:8080
+      # Dev settings
+      ENV: development
+      LOG_LEVEL: debug
+      KEY_ENCRYPTION_KEY_FILE: /workspace/secrets/key_encryption_key.txt
+    depends_on:
+      aleph-db:
+        condition: service_healthy
+      aleph-python-sidecar:
+        condition: service_started
+    networks:
+      - aleph-network
+    ports:
+      - "8080:8080"   # Go backend (manual/dev mode)
+      - "5173:5173"   # Vite frontend dev server
+    cap_add:
+      - SYS_PTRACE    # For debugging tools
+    security_opt:
+      - seccomp:unconfined  # For seccomp experimentation
+    # No resource limits in dev — full machine access
