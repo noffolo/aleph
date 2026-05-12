@@ -61,7 +61,10 @@ func TestIsPrivateIP(t *testing.T) {
 			if ip == nil {
 				t.Fatalf("failed to parse IP %q", tt.ip)
 			}
-			got := isPrivateIP(ip)
+			got, err := isPrivateIP(ip)
+			if err != nil {
+				t.Fatalf("isPrivateIP(%q) unexpected error: %v", tt.ip, err)
+			}
 			if got != tt.private {
 				t.Errorf("isPrivateIP(%q) = %v, want %v", tt.ip, got, tt.private)
 			}

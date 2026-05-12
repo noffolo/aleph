@@ -18,6 +18,8 @@ const SceneSelector = lazy(() => import('./scenes/SceneSelector').then(module =>
 const SlideOverContent = lazy(() => import('./components/terminal/SlideOverContent').then(module => ({ default: module.SlideOverContent })))
 
 import { projectClient, authClient, queryClient } from './api/factory'
+import type { Project } from './store/types'
+import { ListProjectsResponse, GetChatHistoryResponse } from './api/proto/aleph/v1/query_pb'
 
 declare global {
   interface Window {
@@ -44,7 +46,7 @@ function App() {
 
   useEffect(() => {
     const controller = new AbortController()
-    projectClient.listProjects({ signal: controller.signal }).then((res: { projects: any[] }) => useStore.getState().setProjects(res.projects)).catch((e) => {
+    projectClient.listProjects({ signal: controller.signal }).then((res: ListProjectsResponse) => useStore.getState().setProjects(res.projects)).catch((e) => {
       if (e.name === 'AbortError') return
       handleError(e, 'listProjects')
     })
@@ -79,15 +81,15 @@ function App() {
   useEffect(() => {
     if (!projectID || !selectedAgent) return
     const controller = new AbortController()
-    queryClient.getChatHistory({ projectId: projectID, agentId: selectedAgent }, { signal: controller.signal }).then((res: { messages?: any[] }) => {
+    queryClient.getChatHistory({ projectId: projectID, agentId: selectedAgent }, { signal: controller.signal }).then((res: GetChatHistoryResponse) => {
       const messages = res.messages
       if (messages && messages.length > 0) {
-        useStore.getState().setMessages(messages.map((m: { role: string; content: string; toolCall?: string; createdAt?: number }) => ({
+        useStore.getState().setMessages(res.messages.map((m) => ({
           role: m.role as "user" | "assistant" | "system",
           content: m.content,
           toolCall: m.toolCall || '',
           requiresConfirmation: false,
-          createdAt: m.createdAt || 0,
+          createdAt: Number(m.createdAt) || 0,
         })))
       }
     }).catch((e) => {
@@ -127,7 +129,7 @@ function App() {
             <WorkspaceOnboarding
               projects={projects}
               onSelectProject={async (id: string, key: string) => { await createSession(key); useStore.getState().setProjectContext(id); useStore.getState().setShowOnboarding(false) }}
-              onDeleteProject={async (id: string, key: string) => { await createSession(key); projectClient.deleteProject({ id }).then(() => projectClient.listProjects({}).then((res: { projects: any[] }) => useStore.getState().setProjects(res.projects))).catch((e) => handleError(e, 'deleteProject')) }}
+              onDeleteProject={async (id: string, key: string) => { await createSession(key); projectClient.deleteProject({ id }).then(() => projectClient.listProjects({}).then((res: ListProjectsResponse) => useStore.getState().setProjects(res.projects))).catch((e) => handleError(e, 'deleteProject')) }}
               onCreateProject={() => useStore.getState().setShowWizard(true)}
             />
       </Suspense>
@@ -145,7 +147,7 @@ function App() {
            availableObjects={availableObjects}
            projects={projects}
               onSelectProject={(id: string) => {
-                const p = projects.find((x: any) => x.id === id)
+                const p = projects.find((x: Project) => x.id === id)
                 if (p) {
                   useStore.getState().setProjectContext(p.id)
                   useStore.getState().setShowOnboarding(false)
