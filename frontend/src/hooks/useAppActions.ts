@@ -41,28 +41,22 @@ interface StreamChunk {
   requiresConfirmation?: boolean
 }
 
+let errorTimer: ReturnType<typeof setTimeout> | null = null
+
 export const handleError = (err: unknown, context: string) => {
   const store = useStore.getState()
   const msg = err instanceof Error ? err.message : `Errore in ${context}`
   store.setLastError(msg)
   store.addToast({ message: msg, type: 'error', context })
-  setTimeout(() => useStore.getState().setLastError(null), 5000)
+  if (errorTimer) clearTimeout(errorTimer)
+  errorTimer = setTimeout(() => useStore.getState().setLastError(null), 5000)
 }
 
 export function useAppActions() {
   const projectID = useStore((s) => s.projectID)
-  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadAbortRef = useRef<AbortController | null>(null)
   const streamAbortRef = useRef<AbortController | null>(null)
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null)
-
-  const handleError = useCallback((err: unknown, context: string) => {
-    const store = useStore.getState()
-    const msg = err instanceof Error ? err.message : `Errore in ${context}`
-    store.setLastError(msg)
-    if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
-    errorTimerRef.current = setTimeout(() => store.setLastError(null), 5000)
-  }, [])
 
   const loadProjectData = useCallback(() => {
     const store = useStore.getState()
@@ -129,7 +123,7 @@ export function useAppActions() {
     registryClient.listComponents({}, opts).then((res: ListComponentsResponse) => {
       useStore.getState().setRegistryComponents((res.components || []) as unknown as RegistryComponent[])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listComponents') })
-  }, [projectID, handleError])
+  }, [projectID])
 
    const handleCommandResult = useCallback((result: ReturnType<typeof executeCommand>) => {
     const store = useStore.getState()
