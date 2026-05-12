@@ -8,7 +8,7 @@ describe('Store Integration', () => {
     expect(state).toBeDefined();
     expect(state.projectID).toBe('');
     expect(state.currentView).toBe('copilot');
-    expect(state.chat).toEqual([]);
+    expect(state.messages).toEqual([]);
     expect(state.sandboxInput).toBe('{}');
     expect(state.ollamaHealthy).toBe(false);
     expect(state.showOnboarding).toBe(true);

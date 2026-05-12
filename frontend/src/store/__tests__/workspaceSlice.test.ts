@@ -19,10 +19,7 @@ describe('workspaceSlice', () => {
     const get = () => ({} as any);
     const slice = createWorkspaceSlice(set, get, {} as any);
     
-    expect(slice.sandboxResult).toBeNull();
     expect(slice.sandboxInput).toBe('{}');
-    expect(slice.searchQuery).toBe('');
-    expect(slice.selectedObject).toBe('');
     expect(slice.predictions).toEqual([]);
     expect(slice.data).toBeNull();
     expect(slice.selectedRow).toBeNull();
@@ -30,28 +27,11 @@ describe('workspaceSlice', () => {
     expect(slice.ingestionTasks).toEqual([]);
     expect(slice.ontologyRaw).toBe('');
     expect(slice.availableObjects).toEqual([]);
+    expect(slice.scenarios).toEqual([]);
+    expect(slice.selectedScenarioIds).toEqual([]);
     expect(slice.taskLogs).toBe('');
     expect(slice.skills).toEqual([]);
     expect(slice.tools).toEqual([]);
-  });
-
-  it('should set sandbox result', () => {
-    const set = createMockSet();
-    const get = () => ({} as any);
-    const slice = createWorkspaceSlice(set, get, {} as any);
-    const result = { stdout: 'hello', exitCode: 0 };
-    
-    slice.setSandboxResult(result);
-    expect(set({ sandboxResult: result })).toMatchObject({ sandboxResult: result });
-  });
-
-  it('should update search query via yMap', () => {
-    const set = createMockSet();
-    const get = () => ({} as any);
-    const slice = createWorkspaceSlice(set, get, {} as any);
-    
-    slice.setSearchQuery('test query');
-    expect(set({ searchQuery: 'test query' })).toMatchObject({ searchQuery: 'test query' });
   });
 
   it('should reset workspace', () => {
@@ -61,7 +41,6 @@ describe('workspaceSlice', () => {
     
     slice.resetWorkspace();
     expect(set({
-      sandboxResult: null,
       sandboxInput: '{}',
       predictions: [],
       data: null,
@@ -70,11 +49,12 @@ describe('workspaceSlice', () => {
       ingestionTasks: [],
       ontologyRaw: '',
       availableObjects: [],
+      scenarios: [],
+      selectedScenarioIds: [],
       taskLogs: '',
       skills: [],
       tools: [],
     })).toMatchObject({
-      sandboxResult: null,
       sandboxInput: '{}',
       predictions: [],
       data: null,
@@ -83,6 +63,8 @@ describe('workspaceSlice', () => {
       ingestionTasks: [],
       ontologyRaw: '',
       availableObjects: [],
+      scenarios: [],
+      selectedScenarioIds: [],
       taskLogs: '',
       skills: [],
       tools: [],

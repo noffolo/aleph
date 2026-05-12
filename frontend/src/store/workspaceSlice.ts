@@ -1,26 +1,18 @@
 import type { StateCreator } from 'zustand'
 import type {
   Agent,
-  ChatMessage,
   IngestionTask,
   Prediction,
   QueryData,
   Row,
-  SandboxResult,
   Scenario,
   Skill,
   Tool,
 } from './types'
 
 export interface WorkspaceSlice {
-  sandboxResult: SandboxResult | null
-  setSandboxResult: (r: SandboxResult | null) => void
   sandboxInput: string
   setSandboxInput: (s: string) => void
-  searchQuery: string
-  setSearchQuery: (query: string) => void
-  selectedObject: string
-  setSelectedObject: (obj: string) => void
   predictions: Prediction[]
   setPredictions: (preds: Prediction[]) => void
   data: QueryData | null
@@ -33,12 +25,6 @@ export interface WorkspaceSlice {
   setIngestionTasks: (t: IngestionTask[]) => void
   ontologyRaw: string
   setOntologyRaw: (o: string) => void
-  ontologyVersions: any[]
-  setOntologyVersions: (v: any[]) => void
-  selectedVersionId: string | null
-  setSelectedVersionId: (id: string | null) => void
-  isVersionHistoryOpen: boolean
-  setVersionHistoryOpen: (open: boolean) => void
   availableObjects: string[]
   setAvailableObjects: (o: string[]) => void
   scenarios: Scenario[]
@@ -56,14 +42,8 @@ export interface WorkspaceSlice {
 
 export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set) => {
   return {
-    sandboxResult: null,
-    setSandboxResult: (r) => set({ sandboxResult: r }),
     sandboxInput: '{}',
     setSandboxInput: (s) => set({ sandboxInput: s }),
-    searchQuery: '',
-    setSearchQuery: (query) => set({ searchQuery: query }),
-    selectedObject: '',
-    setSelectedObject: (obj) => set({ selectedObject: obj }),
     predictions: [],
     setPredictions: (preds) => set({ predictions: preds }),
     data: null,
@@ -76,12 +56,6 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set) => {
     setIngestionTasks: (t) => set({ ingestionTasks: t }),
     ontologyRaw: '',
     setOntologyRaw: (o) => set({ ontologyRaw: o }),
-    ontologyVersions: [],
-    setOntologyVersions: (v) => set({ ontologyVersions: v }),
-    selectedVersionId: null,
-    setSelectedVersionId: (id) => set({ selectedVersionId: id }),
-    isVersionHistoryOpen: false,
-    setVersionHistoryOpen: (open) => set({ isVersionHistoryOpen: open }),
     availableObjects: [],
     setAvailableObjects: (o) => set({ availableObjects: o }),
     scenarios: [],
@@ -95,7 +69,6 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set) => {
     tools: [],
     setTools: (t) => set({ tools: t }),
     resetWorkspace: () => set({
-      sandboxResult: null,
       sandboxInput: '{}',
       predictions: [],
       data: null,

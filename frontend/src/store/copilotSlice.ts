@@ -1,78 +1,46 @@
 import type { StateCreator } from 'zustand'
-import type { ChatMessage, PendingConfirmation } from './types'
+import type { ChatMessage } from './types'
+
+export interface ToolCall {
+  name: string
+  args: string
+}
 
 export interface CopilotSlice {
-  chat: ChatMessage[]
-  setChat: (c: ChatMessage[]) => void
+  messages: ChatMessage[]
+  setMessages: (m: ChatMessage[]) => void
   addChatMessage: (msg: ChatMessage) => void
-  clearChat: () => void
-  input: string
-  setInput: (i: string) => void
+  clearMessages: () => void
   isStreaming: boolean
   setIsStreaming: (s: boolean) => void
-  streamAbortController: AbortController | null
-  setStreamAbortController: (c: AbortController | null) => void
-  cancelStream: () => void
-  pendingConfirmation: PendingConfirmation | null
-  setPendingConfirmation: (c: PendingConfirmation | null) => void
+  streamingMessage: string
+  setStreamingMessage: (s: string) => void
+  streamingToolCalls: ToolCall[]
+  setStreamingToolCalls: (c: ToolCall[]) => void
   selectedAgent: string
   setSelectedAgent: (a: string) => void
-  splitView: boolean
-  setSplitView: (s: boolean) => void
-  bookmarkedIds: Set<number>
-  toggleBookmark: (idx: number) => void
-  chatSearchQuery: string
-  setChatSearchQuery: (q: string) => void
-  onlyBookmarks: boolean
-  setOnlyBookmarks: (b: boolean) => void
   resetCopilot: () => void
 }
 
 export const createCopilotSlice: StateCreator<CopilotSlice> = (set) => ({
-  chat: [],
-  setChat: (c) => set({ chat: c }),
+  messages: [],
+  setMessages: (m) => set({ messages: m }),
   addChatMessage: (msg) =>
-    set((state) => ({ chat: [...state.chat, msg] })),
-  clearChat: () => set({ chat: [] }),
-  input: '',
-  setInput: (i) => set({ input: i }),
+    set((state) => ({ messages: [...state.messages, msg] })),
+  clearMessages: () => set({ messages: [] }),
   isStreaming: false,
   setIsStreaming: (s) => set({ isStreaming: s }),
-  streamAbortController: null,
-  setStreamAbortController: (c) => set({ streamAbortController: c }),
-  cancelStream: () =>
-    set((state) => {
-      state.streamAbortController?.abort()
-      return { isStreaming: false, streamAbortController: null }
-    }),
-  pendingConfirmation: null,
-  setPendingConfirmation: (c) => set({ pendingConfirmation: c }),
+  streamingMessage: '',
+  setStreamingMessage: (s) => set({ streamingMessage: s }),
+  streamingToolCalls: [],
+  setStreamingToolCalls: (c) => set({ streamingToolCalls: c }),
   selectedAgent: '',
   setSelectedAgent: (a) => set({ selectedAgent: a }),
-  splitView: false,
-  setSplitView: (s) => set({ splitView: s }),
-  bookmarkedIds: new Set(),
-  toggleBookmark: (idx) =>
-    set((state) => {
-      const next = new Set(state.bookmarkedIds)
-      if (next.has(idx)) next.delete(idx)
-      else next.add(idx)
-      return { bookmarkedIds: next }
-    }),
-  chatSearchQuery: '',
-  setChatSearchQuery: (q) => set({ chatSearchQuery: q }),
-  onlyBookmarks: false,
-  setOnlyBookmarks: (b) => set({ onlyBookmarks: b }),
   resetCopilot: () => set({
-    chat: [],
-    input: '',
+    messages: [],
     isStreaming: false,
-    streamAbortController: null,
-    pendingConfirmation: null,
+    streamingMessage: '',
+    streamingToolCalls: [],
     selectedAgent: '',
-    splitView: false,
-    bookmarkedIds: new Set(),
-    chatSearchQuery: '',
-    onlyBookmarks: false,
   }),
 })

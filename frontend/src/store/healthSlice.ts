@@ -27,7 +27,10 @@ export const createHealthSlice: StateCreator<HealthSlice> = (set) => ({
   ollamaModels: [],
   setOllamaModels: (m) => set({ ollamaModels: m }),
   resetHealth: () => set({
-    dataHealthStats: [],
+    ollamaHealthy: false,
     nlpHealthy: false,
+    dataHealthStats: [],
+    lastError: null,
+    ollamaModels: [],
   }),
 })

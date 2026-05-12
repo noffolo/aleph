@@ -7,6 +7,8 @@ import type { CopilotSlice } from './copilotSlice'
 import { createCopilotSlice } from './copilotSlice'
 import type { WorkspaceSlice } from './workspaceSlice'
 import { createWorkspaceSlice } from './workspaceSlice'
+import type { ExplorerSlice } from './explorerSlice'
+import { createExplorerSlice } from './explorerSlice'
 import type { HealthSlice } from './healthSlice'
 import { createHealthSlice } from './healthSlice'
 import type { UISlice } from './uiSlice'
@@ -44,17 +46,19 @@ export interface SlideOverContent {
     | 'tool-intelligence'
     | 'scenario-comparison'
     | 'dashboard'
+    | 'confirm'
   title: string
   data?: unknown
 }
 
-export type AppState = AuthSlice & NavigationSlice & CopilotSlice & WorkspaceSlice & HealthSlice & UISlice
+export type AppState = AuthSlice & NavigationSlice & CopilotSlice & WorkspaceSlice & ExplorerSlice & HealthSlice & UISlice
 
 export const useStore = create<AppState>()((...a) => ({
   ...createAuthSlice(...a),
   ...createNavigationSlice(...a),
   ...createCopilotSlice(...a),
   ...createWorkspaceSlice(...a),
+  ...createExplorerSlice(...a),
   ...createHealthSlice(...a),
   ...createUISlice(...a),
 
@@ -72,5 +76,5 @@ export const useStore = create<AppState>()((...a) => ({
 }))
 
 if (typeof window !== 'undefined' && import.meta.env.DEV && import.meta.env.VITE_ALEPH_DEV_TOOLS === 'true') {
-  (window as any).__ALEPH_STORE__ = useStore
+  window.__ALEPH_STORE__ = useStore
 }

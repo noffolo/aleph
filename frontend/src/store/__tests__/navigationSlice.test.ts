@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createNavigationSlice } from '../navigationSlice';
 
 const createMockSet = () => {
-  let state: any = { commandHistory: [] };
+  let state: any = {};
   const mockSet = vi.fn((update: any) => {
     if (typeof update === 'function') {
       const result = update(state);
@@ -22,32 +22,27 @@ describe('navigationSlice', () => {
     const slice = createNavigationSlice(set, get, {} as any);
     
     expect(slice.currentView).toBe('copilot');
-    expect(slice.inlineContent).toBeNull();
-    expect(slice.showInlinePanel).toBe(false);
     expect(slice.slideOverContent).toBeNull();
     expect(slice.isCommandPaletteOpen).toBe(false);
-    expect(slice.activeView).toBe('table');
   });
 
-  it('should update views and content', () => {
+  it('should update currentScene and currentView', () => {
     const set = createMockSet();
     const get = () => ({} as any);
     const slice = createNavigationSlice(set, get, {} as any);
     
-    slice.setCurrentView('inline');
+    slice.setCurrentView('copilot');
     expect(set).toHaveBeenCalled();
-    slice.setActiveView('graph');
+    slice.setCurrentScene('explore');
     expect(set).toHaveBeenCalledTimes(2);
-    slice.setShowInlinePanel(true);
-    expect(set).toHaveBeenCalledTimes(3);
   });
 
-  it('should add to command history', () => {
+  it('should set and clear slideOverContent', () => {
     const set = createMockSet();
     const get = () => ({} as any);
     const slice = createNavigationSlice(set, get, {} as any);
     
-    slice.addToHistory('test command');
+    slice.setSlideOverContent({ type: 'explore', title: 'Test' });
     expect(set).toHaveBeenCalled();
   });
 

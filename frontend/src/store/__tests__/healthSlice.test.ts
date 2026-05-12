@@ -55,11 +55,17 @@ describe('healthSlice', () => {
     
     slice.resetHealth();
     expect(set({
-      dataHealthStats: [],
+      ollamaHealthy: false,
       nlpHealthy: false,
+      dataHealthStats: [],
+      lastError: null,
+      ollamaModels: [],
     })).toMatchObject({
-      dataHealthStats: [],
+      ollamaHealthy: false,
       nlpHealthy: false,
+      dataHealthStats: [],
+      lastError: null,
+      ollamaModels: [],
     });
   });
 });
