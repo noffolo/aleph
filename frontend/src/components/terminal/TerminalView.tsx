@@ -1,21 +1,23 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { CopilotView } from '../CopilotView'
 import { useStore } from '../../store/useStore'
 import { useAppActions } from '../../hooks/useAppActions'
 
 const TerminalViewInner = () => {
-  const currentView = useStore(s => s.currentView)
-  const showInlinePanel = useStore(s => s.showInlinePanel)
   const agents = useStore(s => s.agents)
   const selectedAgent = useStore(s => s.selectedAgent)
   const setSelectedAgent = useStore(s => s.setSelectedAgent)
-  const chat = useStore(s => s.chat)
-  const input = useStore(s => s.input)
-  const setInput = useStore(s => s.setInput)
+  const messages = useStore(s => s.messages)
   const isStreaming = useStore(s => s.isStreaming)
-  const cancelStream = useStore(s => s.cancelStream)
-  const clearChat = useStore(s => s.clearChat)
-  const { onSend, onConfirmAction } = useAppActions()
+  const clearMessages = useStore(s => s.clearMessages)
+  const [input, setInput] = useState('')
+  const { onSend: onSendAction, onConfirmAction, onCancelStream } = useAppActions()
+  const handleSend = () => {
+    if (input.trim()) {
+      onSendAction(input)
+      setInput('')
+    }
+  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -32,14 +34,14 @@ const TerminalViewInner = () => {
         agents={agents}
         selectedAgent={selectedAgent}
         setSelectedAgent={setSelectedAgent}
-        chat={chat}
+        chat={messages}
         input={input}
         setInput={setInput}
-        onSend={onSend}
+        onSend={handleSend}
         isStreaming={isStreaming}
-        onCancelStream={() => cancelStream()}
+        onCancelStream={onCancelStream}
         onConfirmAction={onConfirmAction}
-        onClearChat={() => clearChat()}
+        onClearChat={() => clearMessages()}
       />
     </div>
   )

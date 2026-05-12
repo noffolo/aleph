@@ -291,12 +291,46 @@ export const SlideOverContent = React.memo(() => {
          /></AlephErrorBoundary>
        }
 
-      case 'tool-intelligence': {
-        return <AlephErrorBoundary key="tool-intelligence"><ToolIntelligenceView /></AlephErrorBoundary>
-      }
-      
-      default:
-       return null
+       case 'tool-intelligence': {
+         return <AlephErrorBoundary key="tool-intelligence"><ToolIntelligenceView /></AlephErrorBoundary>
+       }
+
+       case 'confirm': {
+         return (
+           <AlephErrorBoundary key="confirm">
+             <div className="flex items-center justify-center p-8" style={{ minHeight: '200px' }}>
+               <div className="bg-surface rounded-xl border border-border shadow-2xl w-full max-w-sm p-6">
+                 <h3 className="text-lg font-bold text-text mb-2">{content.title || 'Conferma'}</h3>
+                 <p className="text-sm text-textMuted mb-6 leading-relaxed">
+                   {typeof content.data === 'string' ? content.data : (content.data as Record<string, unknown>)?.message as string}
+                 </p>
+                 <div className="flex justify-end space-x-3">
+                   <button
+                     onClick={() => useStore.getState().setSlideOverContent(null)}
+                     className="px-4 py-2 text-sm font-bold text-textMuted hover:text-text bg-surface-alt hover:bg-border rounded-lg transition-colors"
+                   >
+                     Annulla
+                   </button>
+                   <button
+                     onClick={() => {
+                       const data = content.data as Record<string, unknown>
+                       const callback = data?.onConfirm as (() => void) | undefined
+                       callback?.()
+                       useStore.getState().setSlideOverContent(null)
+                     }}
+                     className="px-4 py-2 text-sm font-bold text-white bg-danger hover:bg-danger/90 rounded-lg transition-colors"
+                   >
+                     Conferma
+                   </button>
+                 </div>
+               </div>
+             </div>
+           </AlephErrorBoundary>
+         )
+       }
+       
+       default:
+        return null
     }
   }
 

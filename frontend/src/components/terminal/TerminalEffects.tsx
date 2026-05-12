@@ -4,7 +4,9 @@ import { useStore } from '../../store/useStore'
 export const TerminalEffects: React.FC<{ className?: string }> = ({
   className = '',
 }) => {
-  const { enableScanline, enableGlow, enableFlicker } = useStore()
+  const enableScanline = useStore(s => s.enableScanline)
+  const enableGlow = useStore(s => s.enableGlow)
+  const enableFlicker = useStore(s => s.enableFlicker)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
   useEffect(() => {
