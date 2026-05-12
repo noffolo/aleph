@@ -111,7 +111,11 @@ func dialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	}
 
 	for _, ip := range ips {
-		if isPrivateIP(ip.IP) {
+		private, err := isPrivateIP(ip.IP)
+		if err != nil {
+			return nil, fmt.Errorf("SSRF check failed: %w", err)
+		}
+		if private {
 			return nil, fmt.Errorf("SSRF blocked: private IP %s is not permitted", ip.IP)
 		}
 	}
@@ -141,7 +145,11 @@ func validateHost(host string) error {
 	}
 
 	for _, ip := range ips {
-		if isPrivateIP(ip) {
+		private, err := isPrivateIP(ip)
+		if err != nil {
+			return fmt.Errorf("SSRF check failed: %w", err)
+		}
+		if private {
 			return fmt.Errorf("private IP address %s is not permitted", ip)
 		}
 	}
@@ -152,7 +160,9 @@ func validateHost(host string) error {
 // ─── Private IP detection ─────────────────────────────────────────────────────────
 
 var (
-	cidrOnce    sync.Once
+	initMu      sync.Mutex
+	initDone    bool
+	initErr     error
 	privateNets []*net.IPNet
 )
 
@@ -170,27 +180,45 @@ var cidrStrs = []string{
 	"fe80::/10",         // IPv6 link-local
 }
 
-func initPrivateNets() {
-	cidrOnce.Do(func() {
-		for _, s := range cidrStrs {
-			_, n, err := net.ParseCIDR(s)
-			if err != nil {
-				// Should never happen with hardcoded CIDRs
-				panic("invalid hardcoded CIDR: " + s + ": " + err.Error())
-			}
-			privateNets = append(privateNets, n)
-		}
-	})
+// validateCIDR parses s as a CIDR notation IP address and prefix, returning
+// an error if the CIDR string is invalid.
+func validateCIDR(s string) error {
+	_, _, err := net.ParseCIDR(s)
+	if err != nil {
+		return fmt.Errorf("internal/ssrf/validator: invalid hardcoded CIDR %q: %w", s, err)
+	}
+	return nil
 }
 
-func isPrivateIP(ip net.IP) bool {
-	initPrivateNets()
+func initPrivateNets() error {
+	initMu.Lock()
+	defer initMu.Unlock()
+	if initDone {
+		return initErr
+	}
+	for _, s := range cidrStrs {
+		if err := validateCIDR(s); err != nil {
+			initErr = err
+			initDone = true
+			return err
+		}
+		_, n, _ := net.ParseCIDR(s) // safe: already validated above
+		privateNets = append(privateNets, n)
+	}
+	initDone = true
+	return nil
+}
+
+func isPrivateIP(ip net.IP) (bool, error) {
+	if err := initPrivateNets(); err != nil {
+		return false, err
+	}
 	for _, n := range privateNets {
 		if n.Contains(ip) {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 // ─── Bypass IP detection ──────────────────────────────────────────────────────────
