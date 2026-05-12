@@ -1,7 +1,9 @@
 # Build directories
 dist/
+build/
 node_modules/
 venv/
+.aleph/
 /aleph
 
 # Compiled binaries
@@ -13,6 +15,7 @@ integration.test
 coverage.out
 aleph-v2
 *.test
+*.exe
 
 # Test output
 test-results/
@@ -22,9 +25,13 @@ frontend/coverage/
 # Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
 
 # Databases and data
 *.duckdb
+*.db
+*.sqlite
 data/projects/
 data/raw/
 data/ontologies/
@@ -45,13 +52,18 @@ secrets/*.key
 
 # OS files
 .DS_Store
+Thumbs.db
 
 # Logs
 *.log
 
 # Backup files
 backups/
+audit/
 
 # Docker secrets (production)
 secrets/*.txt
 !secrets/*.txt.example
+
+# AI reading surface filter
+.opencode-ignore

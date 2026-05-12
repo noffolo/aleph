@@ -1,10 +1,8 @@
 #!/bin/sh
-# docker-entrypoint.sh — Reads Docker secrets into env vars before starting the app.
-# This allows all sensitive values to be passed as Docker secrets (opaque files)
-# while keeping the application code unchanged (it still reads env vars).
-#
-# Priority: Docker secret file > existing env var > default
 set -e
+
+# Fix permissions on volumes (may be root-owned when first mounted)
+chown -R aleph:aleph /app/data 2>/dev/null || true
 
 # KEY_ENCRYPTION_KEY
 if [ -f /run/secrets/key_encryption_key ]; then

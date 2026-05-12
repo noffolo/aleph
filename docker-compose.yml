@@ -23,14 +23,17 @@ services:
     entrypoint: ["/app/docker-entrypoint.sh"]
     command: ["./aleph"]
     environment:
-      DUCKDB_PATH: /app/aleph_registry.duckdb
+      DUCKDB_PATH: /app/data/aleph.duckdb
       PYTHON_CMD: python3
       GO_CMD: go
       SERVER_ADDRESS: ":8080"
-      # POSTGRES_DSN loaded from Docker secret at /run/secrets/postgres_dsn
-      # JWT_SECRET loaded from Docker secret at /run/secrets/jwt_secret
-      # ALEPH_API_KEY_SECRET_BACKEND loaded from Docker secret at /run/secrets/aleph_api_key_secret_backend
-      NLP_ADDR: "aleph-nlp-sidecar:8001"
+      # POSTGRES_DSN — loaded from Docker secret
+      POSTGRES_DSN_FILE: /run/secrets/postgres_dsn
+      # JWT_SECRET — loaded from Docker secret
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      # ALEPH_API_KEY_SECRET_BACKEND — loaded from Docker secret
+      ALEPH_API_KEY_SECRET_BACKEND_FILE: /run/secrets/aleph_api_key_secret_backend
+      NLP_ADDR: "aleph-python-sidecar:8001"
       OLLAMA_BASE_URL: "http://host.docker.internal:11434"
     secrets:
       - key_encryption_key
@@ -47,6 +50,12 @@ services:
     volumes:
       - ./aleph_tools:/app/aleph_tools
       - aleph-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       aleph-db:
         condition: service_healthy
@@ -93,6 +102,11 @@ services:
       ALEPH_REGISTRY_URL: http://aleph-backend:8080
     ports:
       - "5174:80"
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     depends_on:
       aleph-backend:
         condition: service_started
