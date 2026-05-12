@@ -7,6 +7,11 @@ import { AlephTimeline } from '../lib/AlephTimeline';
 import { AlephGraph } from '../lib/AlephGraph';
 import { SkeletonLoader } from './SkeletonLoader';
 
+/** Compatible row shape for lib components (AlephTable/Map/Timeline/Graph) */
+interface LibRow {
+  values: { [key: string]: string };
+}
+
 interface ExplorerViewProps {
   availableObjects: string[];
   selectedObject: string;
@@ -34,7 +39,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = React.memo(({
 }) => {
   const queryData = data as QueryData | null
   // Cast rows for lib components which expect their own Row type
-  const rows = (queryData?.rows ?? []) as any[]
+  const rows = (queryData?.rows ?? []) as unknown as LibRow[]
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -74,10 +79,10 @@ export const ExplorerView: React.FC<ExplorerViewProps> = React.memo(({
           <SkeletonLoader />
         ) : (
           <>
-            {activeView === 'table' && <AlephTable columns={queryData?.columns || []} rows={rows} onRowClick={onRowClick as any} />}
-            {activeView === 'map' && <AlephMap rows={rows} onRowClick={onRowClick as any} />}
-            {activeView === 'timeline' && <AlephTimeline rows={rows} onRowClick={onRowClick as any} />}
-            {activeView === 'graph' && <AlephGraph rows={rows} onRowClick={onRowClick as any} />}
+            {activeView === 'table' && <AlephTable columns={queryData?.columns || []} rows={rows} onRowClick={onRowClick as unknown as (row: LibRow) => void} />}
+            {activeView === 'map' && <AlephMap rows={rows} onRowClick={onRowClick as unknown as (row: LibRow) => void} />}
+            {activeView === 'timeline' && <AlephTimeline rows={rows} onRowClick={onRowClick as unknown as (row: LibRow) => void} />}
+            {activeView === 'graph' && <AlephGraph rows={rows} onRowClick={onRowClick as unknown as (row: LibRow) => void} />}
           </>
         )}
       </div>
