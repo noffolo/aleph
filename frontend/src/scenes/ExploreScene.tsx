@@ -9,6 +9,8 @@ export function ExploreScene() {
   const activeView = view && EXPLORE_VIEWS.includes(view) ? view : 'explore'
 
   useEffect(() => {
+    const existing = useStore.getState().slideOverContent
+    if (existing && EXPLORE_VIEWS.includes(existing.type) && existing.type !== 'explore') return
     useStore.getState().setSlideOverContent({
       type: activeView as SlideOverContent['type'],
       title: VIEW_LABELS[activeView] ?? activeView,
