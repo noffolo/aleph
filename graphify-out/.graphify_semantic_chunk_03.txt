@@ -1,0 +1,16 @@
+/Users/ff3300/Desktop/aleph-v2/docs/specs/relazione-opportunita.md
+/Users/ff3300/Desktop/aleph-v2/docs/specs/piano-operativo-specs.md
+/Users/ff3300/Desktop/aleph-v2/docs/specs/wave4-concurrency-spec.md
+/Users/ff3300/Desktop/aleph-v2/docs/specs/wave0-auth-spec.md
+/Users/ff3300/Desktop/aleph-v2/docs/specs/wave3-frontend-spec.md
+/Users/ff3300/Desktop/aleph-v2/docs/specs/wave3-api-spec.md
+/Users/ff3300/Desktop/aleph-v2/docs/specs/wave2-database-spec.md
+/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-02-content-production-plan.md
+/Users/ff3300/Desktop/aleph-v2/docs/reports/report-1.md
+/Users/ff3300/Desktop/aleph-v2/audit/gosec-report.md
+/Users/ff3300/Desktop/aleph-v2/audit/security-audit-2026-05-02.md
+/Users/ff3300/Desktop/aleph-v2/audit/govulncheck-report.md
+/Users/ff3300/Desktop/aleph-v2/audit/zap-config.md
+/Users/ff3300/Desktop/aleph-v2/audit/trivy-report.md
+/Users/ff3300/Desktop/aleph-v2/scripts/pg-restore.md
+/Users/ff3300/Desktop/aleph-v2/nlp/requirements.txt

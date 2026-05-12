@@ -9,6 +9,8 @@ export function AgentsScene() {
   const activeView = view && AGENT_VIEWS.includes(view) ? view : 'agent'
 
   useEffect(() => {
+    const existing = useStore.getState().slideOverContent
+    if (existing && AGENT_VIEWS.includes(existing.type) && existing.type !== 'agent') return
     useStore.getState().setSlideOverContent({
       type: activeView as SlideOverContent['type'],
       title: VIEW_LABELS[activeView] ?? activeView,

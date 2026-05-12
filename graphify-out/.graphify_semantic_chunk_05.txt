@@ -1,0 +1,1 @@
+/Users/ff3300/Desktop/aleph-v2/frontend/src/assets/vite.svg

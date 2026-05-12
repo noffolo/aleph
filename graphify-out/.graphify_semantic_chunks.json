@@ -1,0 +1,125 @@
+{
+  "total_chunks": 7,
+  "chunks": [
+    {
+      "idx": 0,
+      "files": [
+        "/Users/ff3300/Desktop/aleph-v2/ARCHITECTURE.md",
+        "/Users/ff3300/Desktop/aleph-v2/buf.yaml",
+        "/Users/ff3300/Desktop/aleph-v2/CHANGELOG.md",
+        "/Users/ff3300/Desktop/aleph-v2/README.md",
+        "/Users/ff3300/Desktop/aleph-v2/buf.gen.yaml",
+        "/Users/ff3300/Desktop/aleph-v2/CONTRIBUTING.md",
+        "/Users/ff3300/Desktop/aleph-v2/docker-compose.yml",
+        "/Users/ff3300/Desktop/aleph-v2/AGENTS.md",
+        "/Users/ff3300/Desktop/aleph-v2/CLAUDE.md",
+        "/Users/ff3300/Desktop/aleph-v2/SECURITY.md",
+        "/Users/ff3300/Desktop/aleph-v2/frontend/index.html",
+        "/Users/ff3300/Desktop/aleph-v2/frontend/README.md",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/alertmanager/alertmanager.yml",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/bare-metal/README.md",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/bare-metal/SECURITY.md",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/grafana/provisioning/datasources/datasource.yml",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/grafana/provisioning/dashboards/dashboard.yml",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/prometheus/alert_rules.yml",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/prometheus/prometheus.yml",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/helm/ARCHITECTURE.md",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/helm/Chart.yaml",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/helm/README.md"
+      ]
+    },
+    {
+      "idx": 1,
+      "files": [
+        "/Users/ff3300/Desktop/aleph-v2/deploy/helm/values.yaml",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/helm/templates/NOTES.txt",
+        "/Users/ff3300/Desktop/aleph-v2/deploy/load-tests/README.md",
+        "/Users/ff3300/Desktop/aleph-v2/secrets/key_encryption_key.txt",
+        "/Users/ff3300/Desktop/aleph-v2/secrets/aleph_api_key_secret.txt",
+        "/Users/ff3300/Desktop/aleph-v2/secrets/grafana_admin_password.txt",
+        "/Users/ff3300/Desktop/aleph-v2/secrets/aleph_api_key_secret_backend.txt",
+        "/Users/ff3300/Desktop/aleph-v2/secrets/jwt_secret.txt",
+        "/Users/ff3300/Desktop/aleph-v2/secrets/postgres_dsn.txt",
+        "/Users/ff3300/Desktop/aleph-v2/secrets/postgres_password.txt",
+        "/Users/ff3300/Desktop/aleph-v2/docs/i18n-evaluation.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/deployment-guide.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/onboarding-guide.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/API.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/CI-CD-README.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/developer-onboarding.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/CHANGELOG.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/backup-recovery.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/privacy-impact-assessment.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/pre-release-check.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/user-guide-en.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/manuale-tecnico.md"
+      ]
+    },
+    {
+      "idx": 2,
+      "files": [
+        "/Users/ff3300/Desktop/aleph-v2/docs/accessibility.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/runbook.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/user-guide-it.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/data-residency.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/css-purge-audit.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/README.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/DEPLOY.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/community-outreach-strategy.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/version-history.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/guided-tour.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/CONTRIBUTING.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/release-checklist.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/migration-v1-v2.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/release-announcement.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/api-reference.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/plans/piano-final-integrato.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/plans/audit-remediation.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/plans/archive/piano-operativo-90gg.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/wave1-injection-spec.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/wave1-sandbox-spec.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/wave4-infra-spec.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/relazione-criticita.md"
+      ]
+    },
+    {
+      "idx": 3,
+      "files": [
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/relazione-opportunita.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/piano-operativo-specs.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/wave4-concurrency-spec.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/wave0-auth-spec.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/wave3-frontend-spec.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/wave3-api-spec.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/specs/wave2-database-spec.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-02-content-production-plan.md",
+        "/Users/ff3300/Desktop/aleph-v2/docs/reports/report-1.md",
+        "/Users/ff3300/Desktop/aleph-v2/audit/gosec-report.md",
+        "/Users/ff3300/Desktop/aleph-v2/audit/security-audit-2026-05-02.md",
+        "/Users/ff3300/Desktop/aleph-v2/audit/govulncheck-report.md",
+        "/Users/ff3300/Desktop/aleph-v2/audit/zap-config.md",
+        "/Users/ff3300/Desktop/aleph-v2/audit/trivy-report.md",
+        "/Users/ff3300/Desktop/aleph-v2/scripts/pg-restore.md",
+        "/Users/ff3300/Desktop/aleph-v2/nlp/requirements.txt"
+      ]
+    },
+    {
+      "idx": 4,
+      "files": [
+        "/Users/ff3300/Desktop/aleph-v2/frontend/src/assets/hero.png"
+      ]
+    },
+    {
+      "idx": 5,
+      "files": [
+        "/Users/ff3300/Desktop/aleph-v2/frontend/src/assets/vite.svg"
+      ]
+    },
+    {
+      "idx": 6,
+      "files": [
+        "/Users/ff3300/Desktop/aleph-v2/frontend/src/assets/react.svg"
+      ]
+    }
+  ]
+}

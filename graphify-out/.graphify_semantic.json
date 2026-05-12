@@ -1,0 +1,648 @@
+{
+  "nodes": [
+    {
+      "id": "aleph_backend",
+      "label": "Aleph Backend (Go)",
+      "file_type": "code",
+      "source_file": "main.go"
+    },
+    {
+      "id": "aleph_frontend",
+      "label": "Aleph Frontend (React/TS)",
+      "file_type": "code",
+      "source_file": "frontend/src/App.tsx"
+    },
+    {
+      "id": "duckdb_storage",
+      "label": "DuckDB (Analytics + VSS)",
+      "file_type": "code",
+      "source_file": "internal/storage/duckdb.go"
+    },
+    {
+      "id": "postgres_storage",
+      "label": "PostgreSQL (Metadata)",
+      "file_type": "code",
+      "source_file": "internal/storage/postgres.go"
+    },
+    {
+      "id": "nlp_sidecar",
+      "label": "NLP Sidecar (Python/gRPC)",
+      "file_type": "code",
+      "source_file": "nlp/main.py"
+    },
+    {
+      "id": "paora_engine",
+      "label": "PAORA Decision Engine",
+      "file_type": "code",
+      "source_file": "internal/decision/decision.go"
+    },
+    {
+      "id": "connect_rpc_api",
+      "label": "Connect RPC API Handlers",
+      "file_type": "code",
+      "source_file": "internal/api/handler/"
+    },
+    {
+      "id": "sse_broker",
+      "label": "SSE Event Broker",
+      "file_type": "code",
+      "source_file": "internal/api/sse/sse.go"
+    },
+    {
+      "id": "sandbox_execution",
+      "label": "Sandbox Execution Environment",
+      "file_type": "code",
+      "source_file": "internal/sandbox/"
+    },
+    {
+      "id": "ingestion_pipeline",
+      "label": "Data Ingestion Pipeline",
+      "file_type": "code",
+      "source_file": "internal/ingestion/"
+    },
+    {
+      "id": "mcp_discovery",
+      "label": "MCP Discovery Engine",
+      "file_type": "code",
+      "source_file": "internal/mcp/"
+    },
+    {
+      "id": "memory_store_vss",
+      "label": "Memory Store (VSS DuckDB)",
+      "file_type": "code",
+      "source_file": "internal/memory/"
+    },
+    {
+      "id": "genesis_autosuggestion",
+      "label": "Genesis Auto-suggestion Engine",
+      "file_type": "code",
+      "source_file": "internal/genesis/"
+    },
+    {
+      "id": "repair_engine",
+      "label": "Repair Engine (7 strategies)",
+      "file_type": "code",
+      "source_file": "internal/repair/"
+    },
+    {
+      "id": "tool_adaptation",
+      "label": "Tool Adaptation Pipeline",
+      "file_type": "code",
+      "source_file": "internal/tools/adaptation/"
+    },
+    {
+      "id": "tool_synthesis",
+      "label": "Cross-Context Synthesis",
+      "file_type": "code",
+      "source_file": "internal/tools/synthesis/"
+    },
+    {
+      "id": "health_checker",
+      "label": "Periodic Health Checker",
+      "file_type": "code",
+      "source_file": "internal/health/"
+    },
+    {
+      "id": "llm_providers",
+      "label": "LLM Providers (Ollama, OpenAI)",
+      "file_type": "code",
+      "source_file": "internal/llm/"
+    },
+    {
+      "id": "middleware_stack",
+      "label": "Middleware Stack (Auth, CORS, CSRF, Rate-limit, etc)",
+      "file_type": "code",
+      "source_file": "internal/middleware/"
+    },
+    {
+      "id": "zustand_state",
+      "label": "Zustand State Management (7 slices)",
+      "file_type": "code",
+      "source_file": "frontend/src/store/"
+    },
+    {
+      "id": "terminal_view",
+      "label": "Terminal View UI",
+      "file_type": "code",
+      "source_file": "frontend/src/components/terminal/"
+    },
+    {
+      "id": "zod_schemas",
+      "label": "Zod Validation Schemas (22)",
+      "file_type": "code",
+      "source_file": "frontend/src/schemas/"
+    },
+    {
+      "id": "command_palette",
+      "label": "Command Palette (16 commands)",
+      "file_type": "code",
+      "source_file": "frontend/src/commands/"
+    },
+    {
+      "id": "slideover_panels",
+      "label": "SlideOver Panel System",
+      "file_type": "code",
+      "source_file": "frontend/src/components/terminal/SlideOverPanel.tsx"
+    },
+    {
+      "id": "arch_duckdb_pg_separation",
+      "label": "DuckDB for analytics, PostgreSQL for metadata",
+      "file_type": "rationale",
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "id": "arch_connect_rpc",
+      "label": "Connect RPC (gRPC over HTTP/2) \u2014 no REST overhead",
+      "file_type": "rationale",
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "id": "arch_sse_over_grpcweb",
+      "label": "SSE for unidirectional push \u2014 simpler than gRPC-Web",
+      "file_type": "rationale",
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "id": "arch_no_react_router",
+      "label": "No React Router \u2014 view switching via Zustand",
+      "file_type": "rationale",
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "id": "arch_zod_runtime_validation",
+      "label": "Zod schemas for runtime validation on frontend",
+      "file_type": "rationale",
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "id": "arch_paora_loop",
+      "label": "PAORA loop for every chat interaction",
+      "file_type": "rationale",
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "id": "arch_duckdb_vss",
+      "label": "VSS via DuckDB array_cosine_similarity",
+      "file_type": "rationale",
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "id": "agent_sisyphus",
+      "label": "Sisyphus \u2014 Orchestrator Agent",
+      "file_type": "rationale",
+      "source_file": "AGENTS.md"
+    },
+    {
+      "id": "agent_junior",
+      "label": "Sisyphus-Junior \u2014 Executor Agent",
+      "file_type": "rationale",
+      "source_file": "AGENTS.md"
+    },
+    {
+      "id": "agent_explore",
+      "label": "Explore \u2014 Codebase Grep Agent",
+      "file_type": "rationale",
+      "source_file": "AGENTS.md"
+    },
+    {
+      "id": "agent_librarian",
+      "label": "Librarian \u2014 Reference Grep Agent",
+      "file_type": "rationale",
+      "source_file": "AGENTS.md"
+    },
+    {
+      "id": "agent_oracle",
+      "label": "Oracle \u2014 Consultation Agent",
+      "file_type": "rationale",
+      "source_file": "AGENTS.md"
+    },
+    {
+      "id": "agent_metis",
+      "label": "Metis \u2014 Planning Agent",
+      "file_type": "rationale",
+      "source_file": "AGENTS.md"
+    },
+    {
+      "id": "agent_momus",
+      "label": "Momus \u2014 Review/Critic Agent",
+      "file_type": "rationale",
+      "source_file": "AGENTS.md"
+    },
+    {
+      "id": "prometheus_monitoring",
+      "label": "Prometheus Metrics",
+      "file_type": "code",
+      "source_file": "deploy/prometheus/"
+    },
+    {
+      "id": "grafana_dashboards",
+      "label": "Grafana Dashboards",
+      "file_type": "code",
+      "source_file": "deploy/grafana/"
+    },
+    {
+      "id": "alertmanager",
+      "label": "Alertmanager",
+      "file_type": "code",
+      "source_file": "deploy/alertmanager/"
+    },
+    {
+      "id": "rbac_authorization",
+      "label": "RBAC Authorization (admin/user/readonly)",
+      "file_type": "code",
+      "source_file": "CHANGELOG.md"
+    },
+    {
+      "id": "schema_registry",
+      "label": "Schema Registry with versioning",
+      "file_type": "code",
+      "source_file": "CHANGELOG.md"
+    },
+    {
+      "id": "jwt_hardening",
+      "label": "JWT Hardening (short-lived, audience validation)",
+      "file_type": "code",
+      "source_file": "CHANGELOG.md"
+    },
+    {
+      "id": "csp_strict_mode",
+      "label": "CSP Strict Mode (no unsafe-inline)",
+      "file_type": "code",
+      "source_file": "CHANGELOG.md"
+    },
+    {
+      "id": "finance_tools",
+      "label": "Finance Tools (Prophet, OpenBB, Sentiment)",
+      "file_type": "code",
+      "source_file": "internal/tools/finance/"
+    },
+    {
+      "id": "osint_tools",
+      "label": "OSINT Tools (Flights, Region, Social, etc)",
+      "file_type": "code",
+      "source_file": "internal/tools/osint/"
+    },
+    {
+      "id": "humanecosystem_tools",
+      "label": "Human Ecosystem Tools",
+      "file_type": "code",
+      "source_file": "internal/tools/humanecosystems/"
+    }
+  ],
+  "edges": [
+    {
+      "source": "aleph_frontend",
+      "target": "connect_rpc_api",
+      "relation": "communicates_via",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "connect_rpc_api",
+      "target": "paora_engine",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "paora_engine",
+      "target": "duckdb_storage",
+      "relation": "stores_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "paora_engine",
+      "target": "postgres_storage",
+      "relation": "stores_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "paora_engine",
+      "target": "nlp_sidecar",
+      "relation": "uses",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "paora_engine",
+      "target": "memory_store_vss",
+      "relation": "queries",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md"
+    },
+    {
+      "source": "paora_engine",
+      "target": "sandbox_execution",
+      "relation": "executes_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "paora_engine",
+      "target": "llm_providers",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "ingestion_pipeline",
+      "target": "duckdb_storage",
+      "relation": "writes_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "ingestion_pipeline",
+      "target": "postgres_storage",
+      "relation": "writes_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "middleware_stack",
+      "target": "connect_rpc_api",
+      "relation": "protects",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "sse_broker",
+      "target": "aleph_frontend",
+      "relation": "pushes_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "mcp_discovery",
+      "target": "tool_adaptation",
+      "relation": "feeds",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "tool_adaptation",
+      "target": "sandbox_execution",
+      "relation": "deploys_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "health_checker",
+      "target": "sse_broker",
+      "relation": "reports_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "genesis_autosuggestion",
+      "target": "mcp_discovery",
+      "relation": "suggests_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "README.md"
+    },
+    {
+      "source": "genesis_autosuggestion",
+      "target": "sandbox_execution",
+      "relation": "validates_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "README.md"
+    },
+    {
+      "source": "repair_engine",
+      "target": "ingestion_pipeline",
+      "relation": "fixes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CHANGELOG.md"
+    },
+    {
+      "source": "tool_synthesis",
+      "target": "paora_engine",
+      "relation": "informs",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "arch_paora_loop",
+      "target": "paora_engine",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "arch_duckdb_pg_separation",
+      "target": "duckdb_storage",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "arch_connect_rpc",
+      "target": "connect_rpc_api",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "arch_sse_over_grpcweb",
+      "target": "sse_broker",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "arch_no_react_router",
+      "target": "zustand_state",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "arch_zod_runtime_validation",
+      "target": "zod_schemas",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "arch_duckdb_vss",
+      "target": "memory_store_vss",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "agent_sisyphus",
+      "target": "agent_junior",
+      "relation": "delegates_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "AGENTS.md"
+    },
+    {
+      "source": "agent_sisyphus",
+      "target": "agent_explore",
+      "relation": "delegates_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "AGENTS.md"
+    },
+    {
+      "source": "agent_sisyphus",
+      "target": "agent_oracle",
+      "relation": "consults",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "AGENTS.md"
+    },
+    {
+      "source": "agent_sisyphus",
+      "target": "agent_metis",
+      "relation": "consults",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "AGENTS.md"
+    },
+    {
+      "source": "agent_sisyphus",
+      "target": "agent_momus",
+      "relation": "consults",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "AGENTS.md"
+    },
+    {
+      "source": "prometheus_monitoring",
+      "target": "grafana_dashboards",
+      "relation": "feeds",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md"
+    },
+    {
+      "source": "prometheus_monitoring",
+      "target": "alertmanager",
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md"
+    },
+    {
+      "source": "aleph_frontend",
+      "target": "terminal_view",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "AGENTS.md"
+    },
+    {
+      "source": "aleph_frontend",
+      "target": "zustand_state",
+      "relation": "uses",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "aleph_frontend",
+      "target": "zod_schemas",
+      "relation": "uses",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "aleph_frontend",
+      "target": "command_palette",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md"
+    },
+    {
+      "source": "aleph_frontend",
+      "target": "slideover_panels",
+      "relation": "contains",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "AGENTS.md"
+    },
+    {
+      "source": "jwt_hardening",
+      "target": "middleware_stack",
+      "relation": "part_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CHANGELOG.md"
+    },
+    {
+      "source": "csp_strict_mode",
+      "target": "aleph_frontend",
+      "relation": "protects",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CHANGELOG.md"
+    },
+    {
+      "source": "rbac_authorization",
+      "target": "middleware_stack",
+      "relation": "part_of",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "CHANGELOG.md"
+    },
+    {
+      "source": "finance_tools",
+      "target": "sandbox_execution",
+      "relation": "runs_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "osint_tools",
+      "target": "sandbox_execution",
+      "relation": "runs_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "ARCHITECTURE.md"
+    },
+    {
+      "source": "humanecosystem_tools",
+      "target": "sandbox_execution",
+      "relation": "runs_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "ARCHITECTURE.md"
+    }
+  ],
+  "input_tokens": 5000,
+  "output_tokens": 3000
+}
