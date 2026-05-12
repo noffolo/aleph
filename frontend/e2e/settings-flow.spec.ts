@@ -27,6 +27,10 @@ test.describe('Settings Flow — theme toggle, API key management, webhook test'
       notificationChannels: [
         { id: 'nc-1', name: 'Slack Alerts', type: 'slack', configJson: '{}' },
       ],
+      expandedSections: {
+        'settings.quick': true,
+        'settings.all': true,
+      },
     });
     await page.waitForTimeout(300);
   });
@@ -40,7 +44,7 @@ test.describe('Settings Flow — theme toggle, API key management, webhook test'
     await expect(panel).toBeVisible();
 
     // Verify the three main sections are rendered
-    await expect(panel.getByText('Effetti Terminale')).toBeVisible();
+    await expect(panel.getByText('Effetto Scanline')).toBeVisible();
     await expect(panel.getByText('Gestione chiavi di accesso')).toBeVisible();
     await expect(panel.getByText('Canali di Notifica')).toBeVisible();
   });
@@ -229,6 +233,10 @@ test.describe('Settings Flow — theme toggle, API key management, webhook test'
     await hydrateStore(page, {
       apiKeys: [],
       notificationChannels: [],
+      expandedSections: {
+        'settings.quick': true,
+        'settings.all': true,
+      },
     });
     await page.waitForTimeout(200);
 

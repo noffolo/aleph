@@ -18,12 +18,9 @@ test.describe('User Journey', () => {
       apiKey: 'aleph_test_xxx',
       selectedAgent: 'agent-1',
       projects: [{ id: 'proj-1', name: 'Journey Project' }],
-      agents: [{ 
-        id: 'agent-1', 
-        name: 'Journey Agent', 
-        model: 'gpt-4', 
-        systemPrompt: 'Journey test agent' 
-      }],
+      expandedSections: {
+        'agents.list': true,
+      },
     });
     await page.waitForTimeout(300);
 
@@ -57,6 +54,9 @@ test.describe('User Journey', () => {
       apiKey: 'aleph_test_xxx',
       selectedAgent: 'agent-1',
       projects: [{ id: 'proj-1', name: 'Journey Project' }],
+      expandedSections: {
+        'agents.list': true,
+      },
     });
     await page.waitForTimeout(300);
 

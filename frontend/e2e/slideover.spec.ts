@@ -15,6 +15,12 @@ test.describe('SlideOverPanel — open/close/fullscreen flows', () => {
       apiKey: 'test-api-key',
       selectedAgent: 'agent-1',
       agents: [{ id: 'agent-1', name: 'TestAgent', model: 'gpt-4', systemPrompt: 'You are a test agent.' }],
+      expandedSections: {
+        'agents.list': true,
+        'tools.list': true,
+        'library.list': true,
+        'components.list': true,
+      },
     });
     await page.waitForTimeout(300);
   });

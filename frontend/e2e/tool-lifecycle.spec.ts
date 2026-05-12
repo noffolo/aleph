@@ -20,6 +20,9 @@ test.describe('Tool Lifecycle — register, execute, view results', () => {
         model: 'gpt-4',
         systemPrompt: 'You are a tool testing agent.',
       }],
+      expandedSections: {
+        'tools.list': true,
+      },
     });
     await page.waitForTimeout(300);
   });
