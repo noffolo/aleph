@@ -22,8 +22,6 @@ vi.mock('@/store/useStore', () => {
     setSandboxInput: vi.fn(),
     setLastError: vi.fn(),
     addToast: vi.fn(),
-    setPendingCrud: vi.fn(),
-    clearPendingCrud: vi.fn(),
   };
   const m = vi.fn((selector?: any) => {
     if (typeof selector === 'function') return selector(mockState);

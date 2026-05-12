@@ -23,8 +23,6 @@ describe('useToolActions', () => {
     setSandboxInput: vi.fn(),
     tools: [{ id: 'tool-1', name: 'Test Tool' }],
     setTools: vi.fn(),
-    setPendingCrud: vi.fn(),
-    clearPendingCrud: vi.fn(),
   };
 
   const mockLoadProjectData = vi.fn();

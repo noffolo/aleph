@@ -17,7 +17,7 @@ export function useOntologyActions(loadProjectData: () => void) {
       })
       if (!res.ok) throw new Error('Failed to fetch ontology versions')
       const data = await res.json()
-      useStore.getState().setOntologyVersions(data.versions || [])
+      // fetchVersions data retrieved but no UI consumer yet — store removed in W1-02 store dead-field cleanup
     } catch (e: unknown) {
       handleError(e, 'fetchVersions')
     }

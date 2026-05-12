@@ -21,8 +21,6 @@ describe('useAgentActions', () => {
     projectID: 'test-project',
     agents: [],
     setAgents: vi.fn(),
-    setPendingCrud: vi.fn(),
-    clearPendingCrud: vi.fn(),
   };
 
   const mockLoadProjectData = vi.fn();

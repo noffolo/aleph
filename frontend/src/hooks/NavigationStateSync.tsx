@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useQueryState } from 'nuqs'
 import { useStore } from '../store/useStore'
 import type { SlideOverContent } from '../store/useStore'
+import { VIEW_TO_SCENE } from '../store/sceneMapping'
 
 export function NavigationStateSync() {
   const [view, setView] = useQueryState('view', {
@@ -11,6 +12,11 @@ export function NavigationStateSync() {
     defaultValue: 'table',
   })
   const [slide, setSlide] = useQueryState('slide', {
+    defaultValue: null,
+    parse: (v: string | null) => v || null,
+    serialize: (v: string | null) => v || '',
+  })
+  const [scene, setScene] = useQueryState('scene', {
     defaultValue: null,
     parse: (v: string | null) => v || null,
     serialize: (v: string | null) => v || '',
@@ -27,11 +33,22 @@ export function NavigationStateSync() {
     } else {
       useStore.getState().setSlideOverContent(null)
     }
+    if (scene) {
+      useStore.getState().setCurrentScene(scene)
+    } else if (view) {
+      const inferred = VIEW_TO_SCENE[view] ?? null
+      if (inferred) {
+        useStore.getState().setCurrentScene(inferred)
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     const unsubscribe = useStore.subscribe((state) => {
+      if (state.currentScene !== scene) {
+        setScene(state.currentScene)
+      }
       if (state.currentView !== view) {
         setView(state.currentView)
       }
@@ -45,7 +62,7 @@ export function NavigationStateSync() {
     })
 
     return () => unsubscribe()
-  }, [view, tab, slide, setView, setTab, setSlide])
+  }, [view, tab, slide, scene, setView, setTab, setSlide, setScene])
 
   return null
 }
