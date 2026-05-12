@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { produce } from 'immer'
 import { useStore } from '../store/useStore'
-import type { PendingConfirmation } from '../store/types'
-import type { SlideOverContent } from '../store/useStore'
+import type { PendingConfirmation, Agent, Asset, Skill, Tool, ApiKey, RegistryComponent } from '../store/types'
+import type { AppState, SlideOverContent } from '../store/useStore'
 import { VIEW_TO_SCENE } from '../store/sceneMapping'
 import { executeCommand, parseCommand, SLASH_COMMANDS } from '../components/terminal/slashCommands'
 import {
@@ -19,6 +19,21 @@ import {
   sandboxClient,
   notificationClient,
 } from '../api/factory'
+import {
+  ListAgentsResponse,
+  ListToolsResponse,
+  ListSkillsResponse,
+  ListModelsResponse,
+  ListAssetsResponse,
+  GetAssetContentResponse,
+  GetOntologyResponse,
+  ListTasksResponse,
+  ListApiKeysResponse,
+} from '../api/proto/aleph/v1/query_pb'
+import { ListChannelsResponse } from '../api/proto/aleph/v1/notification_pb'
+import { ListComponentsResponse } from '../api/proto/aleph/v1/registry_pb'
+import { ExecuteToolResponse, RunSkillResponse } from '../api/proto/aleph/v1/sandbox_pb'
+import { AnalyzeSentimentResponse } from '../api/proto/aleph/nlp/v1/nlp_pb'
 
 interface StreamChunk {
   token?: string
@@ -26,9 +41,9 @@ interface StreamChunk {
   requiresConfirmation?: boolean
 }
 
-export const handleError = (err: any, context: string) => {
+export const handleError = (err: unknown, context: string) => {
   const store = useStore.getState()
-  const msg = err?.message || `Errore in ${context}`
+  const msg = err instanceof Error ? err.message : `Errore in ${context}`
   store.setLastError(msg)
   store.addToast({ message: msg, type: 'error', context })
   setTimeout(() => useStore.getState().setLastError(null), 5000)
@@ -41,9 +56,9 @@ export function useAppActions() {
   const streamAbortRef = useRef<AbortController | null>(null)
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null)
 
-  const handleError = useCallback((err: any, context: string) => {
+  const handleError = useCallback((err: unknown, context: string) => {
     const store = useStore.getState()
-    const msg = err?.message || `Errore in ${context}`
+    const msg = err instanceof Error ? err.message : `Errore in ${context}`
     store.setLastError(msg)
     if (errorTimerRef.current) clearTimeout(errorTimerRef.current)
     errorTimerRef.current = setTimeout(() => store.setLastError(null), 5000)
@@ -58,7 +73,7 @@ export function useAppActions() {
     loadAbortRef.current = ac
     const opts = { signal: ac.signal }
 
-    projectClient.getOntology({ projectId: projectID }, opts).then((res: any) => {
+    projectClient.getOntology({ projectId: projectID }, opts).then((res: GetOntologyResponse) => {
       const current = useStore.getState()
       current.setOntologyRaw(res.alephDefinition || '')
       current.setAvailableObjects(res.objectNames || [])
@@ -67,27 +82,27 @@ export function useAppActions() {
       }
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'getOntology') })
 
-    agentClient.listAgents({ projectId: projectID }, opts).then((res: any) => {
-      useStore.getState().setAgents(res.agents || [])
+    agentClient.listAgents({ projectId: projectID }, opts).then((res: ListAgentsResponse) => {
+      useStore.getState().setAgents((res.agents || []) as unknown as Agent[])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listAgents') })
 
-    ingestionClient.listTasks({ projectId: projectID }, opts).then((res: any) => {
+    ingestionClient.listTasks({ projectId: projectID }, opts).then((res: ListTasksResponse) => {
       useStore.getState().setIngestionTasks(res.tasks || [])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listTasks') })
 
-    libraryClient.listAssets({ projectId: projectID }, opts).then((res: any) => {
-      useStore.getState().setAssets(res.assets || [])
+    libraryClient.listAssets({ projectId: projectID }, opts).then((res: ListAssetsResponse) => {
+      useStore.getState().setAssets((res.assets || []) as unknown as Asset[])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listAssets') })
 
-    skillClient.listSkills({ projectId: projectID }, opts).then((res: any) => {
-      useStore.getState().setSkills(res.skills || [])
+    skillClient.listSkills({ projectId: projectID }, opts).then((res: ListSkillsResponse) => {
+      useStore.getState().setSkills((res.skills || []) as unknown as Skill[])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listSkills') })
 
-    toolClient.listTools({ projectId: projectID }, opts).then((res: any) => {
-      useStore.getState().setTools(res.tools || [])
+    toolClient.listTools({ projectId: projectID }, opts).then((res: ListToolsResponse) => {
+      useStore.getState().setTools((res.tools || []) as unknown as Tool[])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listTools') })
 
-    agentClient.listModels({}, opts).then((res: any) => {
+    agentClient.listModels({}, opts).then((res: ListModelsResponse) => {
       const current = useStore.getState()
       current.setOllamaHealthy(true)
       current.setOllamaModels(res.models || [])
@@ -103,16 +118,16 @@ export function useAppActions() {
       useStore.getState().setNlpHealthy(false)
     })
 
-    authClient.listApiKeys({ projectId: projectID }, opts).then((res: any) => {
-      useStore.getState().setApiKeys(res.keys || [])
+    authClient.listApiKeys({ projectId: projectID }, opts).then((res: ListApiKeysResponse) => {
+      useStore.getState().setApiKeys((res.keys || []) as unknown as ApiKey[])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listApiKeys') })
 
-    notificationClient.listChannels({ projectId: projectID }, opts).then((res: any) => {
+    notificationClient.listChannels({ projectId: projectID }, opts).then((res: ListChannelsResponse) => {
       useStore.getState().setNotificationChannels(res.channels || [])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listChannels') })
 
-    registryClient.listComponents({}, opts).then((res: any) => {
-      useStore.getState().setRegistryComponents(res.components || [])
+    registryClient.listComponents({}, opts).then((res: ListComponentsResponse) => {
+      useStore.getState().setRegistryComponents((res.components || []) as unknown as RegistryComponent[])
     }).catch((e) => { if (e?.code !== 'CANCELLED') handleError(e, 'listComponents') })
   }, [projectID, handleError])
 
@@ -197,7 +212,7 @@ export function useAppActions() {
          fullToolCall += chunk.toolCall || ''
          if (chunk.requiresConfirmation) requiresConfirmation = true
          
-         useStore.setState(produce((state: any) => {
+          useStore.setState(produce((state: AppState) => {
            const messages = state.messages
            if (messages[msgIndex] && messages[msgIndex].role === 'assistant') {
              messages[msgIndex] = { ...messages[msgIndex], content: fullContent, toolCall: fullToolCall, requiresConfirmation }
@@ -209,8 +224,10 @@ export function useAppActions() {
       if (requiresConfirmation) {
         setPendingConfirmation({ projectId: store.projectID, agentId: store.selectedAgent })
       }
-    } catch (err: any) {
-      const msg = err.name === 'AbortError' ? 'Richiesta annullata' : `Errore: ${err.message || 'impossibile contattare il backend'}`
+    } catch (err: unknown) {
+      const msg = err instanceof DOMException && err.name === 'AbortError'
+        ? 'Richiesta annullata'
+        : `Errore: ${err instanceof Error ? err.message : 'impossibile contattare il backend'}`
       store.addChatMessage({ role: 'assistant', content: msg, toolCall: '', createdAt: Date.now() })
     } finally {
       store.setIsStreaming(false)
@@ -230,8 +247,8 @@ export function useAppActions() {
     try {
       await queryClient.confirmAction({ projectId: pc?.projectId || store.projectID, agentId: pc?.agentId || store.selectedAgent, approved })
       store.addChatMessage({ role: 'assistant', content: approved ? 'Azione approvata e eseguita.' : 'Azione rifiutata.', toolCall: '', createdAt: Date.now() })
-    } catch (e: any) {
-      const msg = e.message || 'Errore nella conferma dell\'azione.'
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Errore nella conferma dell\'azione.'
       store.addChatMessage({ role: 'assistant', content: msg, toolCall: '', createdAt: Date.now() })
       store.addToast({ message: msg, type: 'error', context: 'confirmAction' })
     } finally {
@@ -247,8 +264,8 @@ export function useAppActions() {
       const res = await sandboxClient.runSkill({ skillId, inputParams, context: { projectId: store.projectID } })
       const r = (res as unknown as { result: { exitCode?: number; stdout?: string; stderr?: string } }).result
       store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: r })
-    } catch (e: any) {
-      const msg = e.message || 'Errore durante l\'esecuzione della skill'
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Errore durante l\'esecuzione della skill'
       store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: { stderr: msg, exitCode: 1 } })
       store.addToast({ message: msg, type: 'error', context: 'runSkill' })
     }
@@ -262,8 +279,8 @@ export function useAppActions() {
       const res = await sandboxClient.executeTool({ toolId, inputParams })
       const r2 = (res as unknown as { result: { exitCode?: number; stdout?: string; stderr?: string } }).result
       store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: r2 })
-    } catch (e: any) {
-      const msg = e.message || 'Errore durante l\'esecuzione del tool'
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Errore durante l\'esecuzione del tool'
       store.setSlideOverContent({ type: 'sandbox', title: 'Risultato Esecuzione', data: { stderr: msg, exitCode: 1 } })
       store.addToast({ message: msg, type: 'error', context: 'executeTool' })
     }
