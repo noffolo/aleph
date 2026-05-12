@@ -99,7 +99,7 @@
   "onboarding.apiKey": "Inserisci API Key...",
   "onboarding.prompt": "Scegli o crea uno spazio di lavoro per il tuo progetto.",
 
-  "copilot.splitView": "Split View",
+  "copilot.showMessageDetail": "Dettaglio Messaggio",
   "copilot.cancelStream": "Interrompi streaming",
   "copilot.clearChat": "Pulisci",
   "copilot.search": "Cerca nei messaggi...",
@@ -107,9 +107,12 @@
 
   "commandPalette.search": "Cerca entità, progetti o comandi (CMD+K)...",
   "commandPalette.searchCommands": "Cerca...",
-  "commandPalette.section.slash": "Comandi Slash",
-  "commandPalette.section.ontology": "Entità Ontologiche",
-  "commandPalette.section.workspaces": "Spazi di lavoro",
+  "commandPalette.section.navigate": "Navigate",
+  "commandPalette.section.actions": "Actions",
+  "commandPalette.section.system": "System",
+  "commandPalette.section.actions": "Actions",
+  "commandPalette.section.navigate": "Navigate",
+  "commandPalette.section.system": "System",
   "commandPalette.prompt": "Digita per navigare istantaneamente in Aleph",
   "commandPalette.genericPrompt": "Digita per cercare {title}...",
 
