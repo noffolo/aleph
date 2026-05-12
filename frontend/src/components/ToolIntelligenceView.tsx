@@ -5,7 +5,7 @@ import { useStore } from '../store/useStore';
 import { apiGet, apiPost, apiPatch } from '../api/client';
 import { reportError } from '../lib/errorReporter';
 
-const Card = ({ title, icon: Icon, children, className = "" }: { title: string, icon: any, children: React.ReactNode, className?: string }) => (
+const Card = ({ title, icon: Icon, children, className = "" }: { title: string, icon: React.ElementType, children: React.ReactNode, className?: string }) => (
   <div className={`bg-[#0e0e18] border border-[#2a2a3a] rounded-lg p-4 flex flex-col ${className}`}>
     <div className="flex items-center gap-2 mb-4 text-[#e0e0e0] font-medium border-b border-[#2a2a3a] pb-2">
       <Icon size={16} className="text-[#60a5fa]" />

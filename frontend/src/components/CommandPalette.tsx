@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import type { Project } from '../store/types';
 import { t } from '../i18n';
 import { Command, ArrowRight, Navigation, Zap, Settings, Database } from 'lucide-react';
 import { SLASH_COMMANDS, executeCommand, getTabCompletion, type SlashCommand } from './terminal/slashCommands';
@@ -7,7 +8,7 @@ interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
   availableObjects: string[];
-  projects: any[];
+  projects: Project[];
   onSelectProject: (id: string) => void;
   onSelectObject: (name: string) => void;
 }

@@ -27,7 +27,7 @@ export function SkillExecuteSlideOver({ skill, title }: SkillExecuteSlideOverPro
           <div className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-2">Strumenti Associati</div>
           <div className="flex flex-wrap gap-2">
              {skill.toolIds.map((tid: string) => {
-               const tool = tools.find((t: any) => t.id === tid)
+               const tool = tools.find((t) => t.id === tid)
                return <span key={tid} className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded font-mono">{tool?.name || tid}</span>
              })}
           </div>

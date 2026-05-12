@@ -74,8 +74,9 @@ export const OracleView: React.FC<{inline?: boolean; isLoading?: boolean; error?
           predsRef.current = [...predsRef.current, p];
           setPredictions(predsRef.current);
         }
-        } catch (err: any) {
-          if (err?.code !== 'CANCELLED') {
+        } catch (err: unknown) {
+          const e = err as { code?: string; message?: string }
+          if (e?.code !== 'CANCELLED') {
             reportError('OracleView', err);
           }
         } finally {
@@ -93,13 +94,13 @@ export const OracleView: React.FC<{inline?: boolean; isLoading?: boolean; error?
       entityId: pred.entityId,
       isCorrect,
       feedbackType: 'prediction',
-    }).catch((err: any) => {
+    }).catch((err: unknown) => {
       setFeedbackGiven(prev => {
         const next = { ...prev };
         delete next[pred.entityId];
         return next;
       });
-      useStore.getState().setLastError(t('generic.feedbackNotSent', { msg: err?.message || 'network error' }))
+      useStore.getState().setLastError(t('generic.feedbackNotSent', { msg: err instanceof Error ? err.message : 'network error' }))
       if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
       errorTimerRef.current = setTimeout(() => useStore.getState().setLastError(null), 4000)
     });
@@ -111,9 +112,9 @@ export const OracleView: React.FC<{inline?: boolean; isLoading?: boolean; error?
     try {
       const res = await nlpClient.analyzeSentiment({ text: sentimentText }) as unknown as SentimentResponse;
       setSentimentResult({ score: res.score || 0, label: (res.label || 'neutral').toLowerCase() });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setSentimentResult({ score: 0, label: 'error' });
-      useStore.getState().setLastError(t('generic.sentimentFailed', { msg: err?.message || 'unknown error' }))
+      useStore.getState().setLastError(t('generic.sentimentFailed', { msg: err instanceof Error ? err.message : 'unknown error' }))
       if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
       errorTimerRef.current = setTimeout(() => useStore.getState().setLastError(null), 4000)
     } finally {
@@ -169,7 +170,7 @@ export const OracleView: React.FC<{inline?: boolean; isLoading?: boolean; error?
         icon={<Zap size={16} />}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {predictions.map((pred: any, i: number) => (
+          {predictions.map((pred, i: number) => (
             <div key={i} className="bg-surface-alt rounded-lg p-10 border border-border shadow-lg shadow-primary/5 flex flex-col justify-between group hover:border-primary/30 transition-all duration-500 animate-in slide-in-from-bottom-4">
               <div className="space-y-6">
                 <div className="flex justify-between items-start">

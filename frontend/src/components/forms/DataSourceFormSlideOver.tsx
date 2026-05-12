@@ -23,7 +23,7 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
   const [configJson, setConfigJson] = useState('{}')
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({})
 
-  const updateConfig = (key: string, value: any) => {
+  const updateConfig = (key: string, value: string) => {
     try {
       const config = JSON.parse(configJson || '{}')
       config[key] = value

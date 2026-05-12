@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 interface DataPanelProps {
-  data: any;
+  data: Record<string, unknown> | null;
   isOpen: boolean;
   onClose: () => void;
   title?: string;

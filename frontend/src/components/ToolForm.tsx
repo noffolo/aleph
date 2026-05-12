@@ -65,8 +65,8 @@ export function ToolForm({ tool, onSave, onCancel, title }: ToolFormProps) {
 
       onSave(formData)
       onCancel()
-    } catch (e: any) {
-      setSaveError(e.message)
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : String(e))
     } finally {
       setIsSaving(false)
     }

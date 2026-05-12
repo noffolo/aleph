@@ -102,8 +102,8 @@ export const SlideOverContent = React.memo(() => {
             setSearchQuery={setSearchQuery}
             activeView={activeView}
             setActiveView={setActiveView}
-            data={searchQuery ? globalSearchResults : data}
-            onRowClick={setSelectedRow}
+            data={(searchQuery ? globalSearchResults : data) as Record<string, unknown> | null}
+            onRowClick={setSelectedRow as unknown as (row: Record<string, unknown>) => void}
             isLoading={isExplorerLoading}
             inline
           />
@@ -219,7 +219,7 @@ export const SlideOverContent = React.memo(() => {
             onDeleteAsset={onDeleteAsset}
             selectedAssetContent={selectedAssetContent}
             setSelectedAssetContent={setSelectedAssetContent}
-            selectedAssetName={assets.find((a: any) => a.id === selectedAssetId)?.name}
+            selectedAssetName={assets.find((a) => a.id === selectedAssetId)?.name}
             onGetAssetContent={onGetAssetContent}
             onGeneratePdf={onGeneratePdf}
             onUploadAsset={onUploadAsset}

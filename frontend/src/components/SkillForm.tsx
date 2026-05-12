@@ -60,8 +60,8 @@ export function SkillForm({ skill, tools, onSave, onCancel, title }: SkillFormPr
 
       onSave(formData)
       onCancel()
-    } catch (e: any) {
-      setSaveError(e.message)
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : String(e))
     } finally {
       setIsSaving(false)
     }

@@ -1,9 +1,10 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import type { Row } from '../store/types';
 import { t } from '../i18n';
 
 interface DetailPanelProps {
-  selectedRow: any;
+  selectedRow: Row | null;
   onClose: () => void;
 }
 

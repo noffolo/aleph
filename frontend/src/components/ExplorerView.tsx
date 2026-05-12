@@ -15,10 +15,16 @@ interface ExplorerViewProps {
   setSearchQuery: (query: string) => void;
   activeView: string;
   setActiveView: (view: string) => void;
-  data: any;
-  onRowClick: (row: any) => void;
+  data: Record<string, unknown> | null;
+  onRowClick: (row: Record<string, unknown>) => void;
   isLoading: boolean;
   inline?: boolean;
+}
+
+type QueryData = {
+  columns?: string[];
+  rows?: Record<string, unknown>[];
+  sql?: string;
 }
 
 export const ExplorerView: React.FC<ExplorerViewProps> = React.memo(({
@@ -26,6 +32,10 @@ export const ExplorerView: React.FC<ExplorerViewProps> = React.memo(({
   searchQuery, setSearchQuery, activeView, setActiveView,
   data, onRowClick, isLoading
 }) => {
+  const queryData = data as QueryData | null
+  // Cast rows for lib components which expect their own Row type
+  const rows = (queryData?.rows ?? []) as any[]
+
   return (
     <div className="max-w-6xl mx-auto space-y-4">
       <div className="flex items-center space-x-1 overflow-x-auto pb-2 no-scrollbar">
@@ -64,15 +74,15 @@ export const ExplorerView: React.FC<ExplorerViewProps> = React.memo(({
           <SkeletonLoader />
         ) : (
           <>
-            {activeView === 'table' && <AlephTable columns={data?.columns || []} rows={data?.rows || []} onRowClick={onRowClick} />}
-            {activeView === 'map' && <AlephMap rows={data?.rows || []} onRowClick={onRowClick} />}
-            {activeView === 'timeline' && <AlephTimeline rows={data?.rows || []} onRowClick={onRowClick} />}
-            {activeView === 'graph' && <AlephGraph rows={data?.rows || []} onRowClick={onRowClick} />}
+            {activeView === 'table' && <AlephTable columns={queryData?.columns || []} rows={rows} onRowClick={onRowClick as any} />}
+            {activeView === 'map' && <AlephMap rows={rows} onRowClick={onRowClick as any} />}
+            {activeView === 'timeline' && <AlephTimeline rows={rows} onRowClick={onRowClick as any} />}
+            {activeView === 'graph' && <AlephGraph rows={rows} onRowClick={onRowClick as any} />}
           </>
         )}
       </div>
       
-      {data?.sql && (
+      {queryData?.sql && (
         <div className="mt-6 p-4 bg-surface overflow-hidden border border-border">
            <div className="text-textDim text-[10px] font-mono mb-3 uppercase tracking-widest flex justify-between items-center">
              <span>DuckDB Engine • No-ETL Query</span>
@@ -82,7 +92,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = React.memo(({
                 <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
              </div>
            </div>
-           <code className="text-primary font-mono text-xs break-all leading-relaxed">{data.sql}</code>
+           <code className="text-primary font-mono text-xs break-all leading-relaxed">{queryData.sql}</code>
         </div>
       )}
     </div>
