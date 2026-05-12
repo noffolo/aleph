@@ -177,6 +177,7 @@ func (a *AlephApp) Serve(port int) error {
 	timeoutInterceptor := middleware.NewTimeoutInterceptor(nil) // defaults
 	retryInterceptor := middleware.NewRetryInterceptor(nil)     // defaults
 	bulkheadInterceptor := middleware.NewBulkheadInterceptor(nil) // defaults
+	circuitBreakerInterceptor := middleware.NewCircuitBreakerInterceptor(5, 30*time.Second)
 	trackingInterceptor := tracker.NewTrackingInterceptor(a.usageTracker)
 
 	authRateLimiter := middleware.NewAuthRateLimiter(nil, middleware.DefaultAuthRateLimitConfig)
@@ -193,6 +194,7 @@ func (a *AlephApp) Serve(port int) error {
 			timeoutInterceptor,
 			retryInterceptor,
 			bulkheadInterceptor,
+			circuitBreakerInterceptor,
 			trackingInterceptor,
 		),
 	}

@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
+
+	"connectrpc.com/connect"
 )
 
 // State represents circuit breaker state.
@@ -98,4 +101,47 @@ func (cb *CircuitBreaker) Reset() {
 	defer cb.mu.Unlock()
 	cb.state = StateClosed
 	cb.failureCount = 0
+}
+
+// CircuitBreakerInterceptor wraps a CircuitBreaker as a ConnectRPC interceptor.
+// It opens the circuit when handler errors exceed the threshold, preventing
+// cascading failures by rejecting requests until the cooldown period expires.
+type CircuitBreakerInterceptor struct {
+	breaker *CircuitBreaker
+}
+
+// NewCircuitBreakerInterceptor creates a circuit breaker interceptor.
+// threshold: consecutive failures before opening (default 5).
+// cooldown: time before retry (default 30s).
+func NewCircuitBreakerInterceptor(threshold int, cooldown time.Duration) *CircuitBreakerInterceptor {
+	return &CircuitBreakerInterceptor{
+		breaker: NewCircuitBreaker(threshold, cooldown),
+	}
+}
+
+// WrapUnary runs the unary handler through the circuit breaker.
+func (c *CircuitBreakerInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		var resp connect.AnyResponse
+		err := c.breaker.Execute(func() error {
+			var innerErr error
+			resp, innerErr = next(ctx, req)
+			return innerErr
+		})
+		return resp, err
+	}
+}
+
+// WrapStreamingHandler runs the streaming handler through the circuit breaker.
+func (c *CircuitBreakerInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		return c.breaker.Execute(func() error {
+			return next(ctx, conn)
+		})
+	}
+}
+
+// WrapStreamingClient is a no-op — circuit breaker does not apply to client-side calls.
+func (c *CircuitBreakerInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
 }
