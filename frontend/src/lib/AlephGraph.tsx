@@ -1,4 +1,12 @@
 import React, { useEffect, useRef } from 'react';
+import type { SimulationNodeDatum, SimulationLinkDatum } from 'd3-force';
+import type { D3DragEvent } from 'd3-drag';
+
+interface GraphNode extends SimulationNodeDatum {
+  id: number;
+  label: string;
+  data: Row;
+}
 
 interface Row {
   values: { [key: string]: string };
@@ -14,15 +22,15 @@ export const AlephGraph: React.FC<AlephGraphProps> = ({ rows, onRowClick }) => {
 
   useEffect(() => {
     const loadD3 = async () => {
-      const d3 = await import('d3');
+      const d3Mod: typeof import('d3') = await import('d3');
       
       if (!svgRef.current || rows.length === 0) return;
 
       const width = svgRef.current.clientWidth;
       const height = 500;
 
-      const nodes: any[] = rows.map((r, i) => ({ id: i, label: r.values['oggetto'] || r.values['name'] || r.values['title'] || `Node ${i}`, data: r }));
-      const links: any[] = [];
+      const nodes: GraphNode[] = rows.map((r, i) => ({ id: i, label: r.values['oggetto'] || r.values['name'] || r.values['title'] || `Node ${i}`, data: r }));
+      const links: SimulationLinkDatum<GraphNode>[] = [];
 
       const idMap = new Map<string, number>();
       const labelMap = new Map<string, number>();
@@ -47,13 +55,13 @@ export const AlephGraph: React.FC<AlephGraphProps> = ({ rows, onRowClick }) => {
         });
       });
 
-      const svg = d3.select(svgRef.current);
+      const svg = d3Mod.select(svgRef.current);
       svg.selectAll("*").remove();
 
-      const simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(links).id((d: any) => d.id).distance(100))
-        .force("charge", d3.forceManyBody().strength(-300))
-        .force("center", d3.forceCenter(width / 2, height / 2));
+      const simulation = d3Mod.forceSimulation(nodes)
+        .force("link", d3Mod.forceLink(links).id((d: GraphNode) => d.id).distance(100))
+        .force("charge", d3Mod.forceManyBody().strength(-300))
+        .force("center", d3Mod.forceCenter(width / 2, height / 2));
 
       const link = svg.append("g")
         .attr("stroke", "#2a2a3a")
@@ -63,21 +71,23 @@ export const AlephGraph: React.FC<AlephGraphProps> = ({ rows, onRowClick }) => {
         .join("line")
         .attr("stroke-width", 1);
 
+      const dragHandler = d3Mod.drag()
+        .on("start", (event: D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode) => {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          d.fx = d.x; d.fy = d.y;
+        })
+        .on("drag", (event: D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode) => { d.fx = event.x; d.fy = event.y; })
+        .on("end", (event: D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode) => {
+          if (!event.active) simulation.alphaTarget(0);
+          d.fx = null; d.fy = null;
+        });
+
       const node = svg.append("g")
         .selectAll("g")
         .data(nodes)
         .join("g")
-        .call(d3.drag()
-          .on("start", (event: any, d: any) => {
-            if (!event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x; d.fy = d.y;
-          })
-          .on("drag", (event: any, d: any) => { d.fx = event.x; d.fy = event.y; })
-          .on("end", (event: any, d: any) => {
-            if (!event.active) simulation.alphaTarget(0);
-            d.fx = null; d.fy = null;
-          }))
-        .on("click", (event: any, d: any) => onRowClick?.(d.data));
+        .call(dragHandler)
+        .on("click", (_event: MouseEvent, d: GraphNode) => onRowClick?.(d.data));
 
 
 
@@ -89,7 +99,7 @@ export const AlephGraph: React.FC<AlephGraphProps> = ({ rows, onRowClick }) => {
         .attr("stroke-width", 1.5);
 
       node.append("text")
-        .text((d: any) => d.label.length > 15 ? d.label.substring(0, 15) + "…" : d.label)
+        .text((d: GraphNode) => d.label.length > 15 ? d.label.substring(0, 15) + "…" : d.label)
         .attr("x", 0)
         .attr("y", 32)
         .attr("text-anchor", "middle")
@@ -99,12 +109,12 @@ export const AlephGraph: React.FC<AlephGraphProps> = ({ rows, onRowClick }) => {
 
       simulation.on("tick", () => {
         link
-          .attr("x1", (d: any) => d.source.x)
-          .attr("y1", (d: any) => d.source.y)
-          .attr("x2", (d: any) => d.target.x)
-          .attr("y2", (d: any) => d.target.y);
+          .attr("x1", (d: SimulationLinkDatum<GraphNode>) => (d.source as GraphNode).x)
+          .attr("y1", (d: SimulationLinkDatum<GraphNode>) => (d.source as GraphNode).y)
+          .attr("x2", (d: SimulationLinkDatum<GraphNode>) => (d.target as GraphNode).x)
+          .attr("y2", (d: SimulationLinkDatum<GraphNode>) => (d.target as GraphNode).y);
 
-        node.attr("transform", (d: any) => `translate(${d.x},${d.y})`);
+        node.attr("transform", (d: GraphNode) => `translate(${d.x},${d.y})`);
       });
 
       return simulation;
