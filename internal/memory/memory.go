@@ -217,7 +217,7 @@ func (m *MemoryStore) List(ctx context.Context, limit, offset int) ([]MemEntry, 
 // tableName returns the schema-qualified table name.
 func (m *MemoryStore) tableName() string {
 	if m.schema != "" {
-		return fmt.Sprintf(`"%s".memory_store`, m.schema)
+		return safeident.QuoteIdentifier(m.schema) + ".memory_store"
 	}
 	return "memory_store"
 }

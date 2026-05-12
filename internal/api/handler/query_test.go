@@ -34,6 +34,22 @@ func createProjectWithOntology(t *testing.T, projectsRoot, projectID, ontology s
 	require.NoError(t, os.WriteFile(filepath.Join(ontDir, "core.aleph"), []byte(ontology), 0644))
 }
 
+func TestSQLInjectionFailClosed(t *testing.T) {
+	h, projectsRoot := setupQueryHandler(t)
+	createProjectWithOntology(t, projectsRoot, "inj-proj", "// empty\n")
+
+	t.Run("projectID with SQL injection returns validation error", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		_, err := h.ExecuteQuery(ctx, connect.NewRequest(&v1.ExecuteQueryRequest{
+			ObjectType: "items",
+			ProjectId:  "valid_project; DROP TABLE metadata; --",
+		}))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid")
+	})
+}
+
 func TestQueryHandler_ExecuteQuery_FallbackToTable(t *testing.T) {
 	h, projectsRoot := setupQueryHandler(t)
 
@@ -146,3 +162,4 @@ func TestQueryHandler_GlobalQuery(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, resp.Msg.Rows, 1)
 }
+

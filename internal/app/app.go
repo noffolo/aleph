@@ -290,6 +290,10 @@ func (a *AlephApp) Serve(port int) error {
 
 	queryHandler.SetDecisionEngine(decisionEngine, helperExec)
 
+	if a.memStore != nil {
+		queryHandler.SetMemoryStore(a.memStore)
+	}
+
 	// ── Tool Suggestion Pipeline ──────────────────────────────────────────────
 	suggestPipeline := adaptation.NewPipeline(a.metaRepo)
 	toolSuggestHandler := handler.NewToolSuggestHandler(a.discoveryEngine, suggestPipeline, a.cfg.MCPServerURIs)

@@ -56,7 +56,7 @@ func LoadConfigWithSecrets(secrets SecretsProvider) (*Config, error) {
 	viper.SetDefault("RATE_LIMIT_HEALTH", 100)
 	viper.SetDefault("RATE_LIMIT_DEFAULT", 500)
 	viper.SetDefault("LLM_TIMEOUT_SECONDS", 30)
-	viper.SetDefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
+	viper.SetDefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://localhost:8081,http://localhost:5174")
 	viper.SetDefault("MAX_PROJECTS", 50)
 	viper.SetDefault("MAX_AGENTS_PER_PROJECT", 20)
 	viper.SetDefault("SLOW_QUERY_THRESHOLD_MS", 500)
@@ -138,7 +138,7 @@ func parseMCPServerURIs(s string) []string {
 
 func parseCORSOrigins(s string) []string {
 	if s == "" {
-		return []string{"http://localhost:5173", "http://localhost:3000"}
+		return []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:8081", "http://localhost:5174"}
 	}
 	parts := strings.Split(s, ",")
 	result := make([]string, 0, len(parts))

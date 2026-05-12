@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"testing"
 )
 
@@ -94,4 +95,37 @@ func TestDuckDB_VSSVectorSearch(t *testing.T) {
 	if count != 3 {
 		t.Errorf("expected 3 results, got %d", count)
 	}
+}
+
+func TestDuckDBContextCancellation(t *testing.T) {
+	db, err := NewDuckDB(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec("CREATE TABLE ctx_test (id INTEGER)")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("pre-cancelled context makes ExecContext fail", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := db.ExecContext(ctx, "INSERT INTO ctx_test VALUES (1)")
+		if err == nil {
+			t.Error("expected error with cancelled context, got nil")
+		}
+	})
+
+	t.Run("pre-cancelled context makes QueryContext fail", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := db.QueryContext(ctx, "SELECT 1")
+		if err == nil {
+			t.Error("expected error with cancelled context, got nil")
+		}
+	})
 }

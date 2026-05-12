@@ -7,7 +7,43 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestDiscoveryGoroutineLeak(t *testing.T) {
+	// Phase 0 confirmed all select blocks have ctx.Done(), so this should pass.
+	// If any select is missing a ctx.Done() case, cancel() will deadlock and
+	// the test will time out.
+	ctx, cancel := context.WithCancel(context.Background())
+	engine := NewDiscoveryEngine(slog.Default(), nil, DiscoveryConfig{
+		ServerURIs:  []string{},
+		HealthCheck: 100 * time.Millisecond,
+	})
+
+	err := engine.Start(ctx)
+	require.NoError(t, err)
+	assert.True(t, engine.running)
+
+	cancel()
+
+	// Stop waits for wg (which tracks the health-loop goroutine).
+	// If the goroutine leaks (select without <-ctx.Done()), Stop hangs and
+	// the test exceeds its timeout.
+	done := make(chan struct{})
+	go func() {
+		engine.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Goroutine exited cleanly — PASS.
+	case <-time.After(3 * time.Second):
+		t.Fatal("discovery engine goroutine leaked — Stop did not return after context cancellation")
+	}
+
+	assert.False(t, engine.running)
+}
 
 func TestNewDiscoveryEngine(t *testing.T) {
 	logger := slog.Default()

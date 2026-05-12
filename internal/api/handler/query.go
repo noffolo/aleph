@@ -15,6 +15,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/decision"
 	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/errors"
+	"github.com/ff3300/aleph-v2/internal/memory"
 	"github.com/ff3300/aleph-v2/internal/middleware"
 	"github.com/ff3300/aleph-v2/internal/registry"
 	"github.com/ff3300/aleph-v2/internal/repository"
@@ -35,6 +36,7 @@ type QueryHandler struct {
 	executor     decision.ToolExecutor   // set after construction — bridges engine to handler dispatch
 	engine       decision.DecisionEngine // optional, nil = degraded mode (uses hardcoded if-else fallback)
 	llmTimeout   time.Duration           // per-request LLM timeout, 0 = no timeout
+	memoryStore  *memory.MemoryStore     // optional VSS memory store, nil = disabled
 }
 
 // SetDecisionEngine attaches a decision engine and tool executor to the handler.
@@ -43,6 +45,11 @@ type QueryHandler struct {
 func (h *QueryHandler) SetDecisionEngine(eng decision.DecisionEngine, exec decision.ToolExecutor) {
 	h.engine = eng
 	h.executor = exec
+}
+
+// SetMemoryStore attaches the optional VSS memory store. Nil = disabled (no context retrieval).
+func (h *QueryHandler) SetMemoryStore(ms *memory.MemoryStore) {
+	h.memoryStore = ms
 }
 
 func NewQueryHandler(db *storage.DuckDB, projectsRoot string, metaRepo *repository.MetadataRepository, nlpHandler *NLPHandler, reg *registry.DuckDBRegistry, llmTimeout time.Duration) *QueryHandler {
@@ -267,10 +274,14 @@ func (h *QueryHandler) GetDataStats(ctx context.Context, req *connect.Request[v1
 	if projectID == "" {
 		projectID = req.Msg.ProjectId
 	}
-		objName := req.Msg.ObjectType
-		if err := safeident.ValidateStrictIdentifier(objName); err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid object name: %w", err))
-		}
+	// Defense-in-depth: validate projectID before SQL construction
+	if projectID != "" && storage.SanitizeProjectID(projectID) != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project_id"))
+	}
+	objName := req.Msg.ObjectType
+	if err := safeident.ValidateStrictIdentifier(objName); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid object name: %w", err))
+	}
 	projectPath, prog, err := h.resolveProject(projectID)
 	if err != nil { return nil, connect.NewError(connect.CodeNotFound, err) }
 	dataRoot := filepath.Join(projectPath, "raw"); compiler := dsl.NewCompiler(prog, dataRoot)
@@ -391,11 +402,19 @@ func (h *QueryHandler) GetDataLineage(ctx context.Context, req *connect.Request[
 	if err := safeident.ValidateStrictIdentifier(tableName); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid table_name: %w", err))
 	}
+	// Defense-in-depth: validate identifiers before SQL construction
+	if err := safeident.ValidateIdentifier(projectID); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project_id: %w", err))
+	}
+	if err := safeident.ValidateIdentifier(tableName); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid table_name: %w", err))
+	}
+
 	var columnsCount int64
 	var rowsCount int64
 	var jsonCols string
 	row, err := h.db.QueryRowContextOrError(ctx,
-		"SELECT (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2), (SELECT COUNT(*) FROM "+safeident.QuoteIdentifier(projectID)+"."+safeident.QuoteIdentifier(tableName)+"), json_group_array(column_name || ':' || data_type) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2", // safe: projectID validated via validProjectID regex; tableName validated via safeident.ValidateStrictIdentifier
+		"SELECT (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2), (SELECT COUNT(*) FROM "+safeident.QuoteIdentifier(projectID)+"."+safeident.QuoteIdentifier(tableName)+"), json_group_array(column_name || ':' || data_type) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2", // safe: projectID validated via SanitizeProjectID + ValidateIdentifier; tableName validated via safeident.ValidateStrictIdentifier + ValidateIdentifier
 		projectID, tableName,
 	)
 	if err != nil {
@@ -436,7 +455,15 @@ func (h *QueryHandler) GetChecksum(ctx context.Context, req *connect.Request[v1.
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid table_name: %w", err))
 	}
 
-	// safe: identifiers validated (validProjectID regex + safeident.ValidateStrictIdentifier) and quoted via safeident.QuoteIdentifier
+	// Defense-in-depth: validate identifiers before SQL construction
+	if err := safeident.ValidateIdentifier(projectID); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project_id: %w", err))
+	}
+	if err := safeident.ValidateIdentifier(tableName); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid table_name: %w", err))
+	}
+
+	// safe: identifiers validated (SanitizeProjectID + ValidateIdentifier + safeident.ValidateStrictIdentifier) and quoted via safeident.QuoteIdentifier
 	var checksum string
 	row1, err := h.db.QueryRowContextOrError(ctx,
 		"SELECT md5(CAST(SUM(hash(TO_JSON(*))) AS VARCHAR)) FROM "+safeident.QuoteIdentifier(projectID)+"."+safeident.QuoteIdentifier(tableName),
@@ -526,6 +553,27 @@ func (h *QueryHandler) Chat(
 	if len(ontContent) > 0 {
 		fullSystemPrompt += "\n\nCONTEXTUAL DATA ONTOLOGY (Aleph Format):\n" + string(ontContent) +
 			"\n\nUse the 'search_data' tool to query the objects defined above. Always refer to columns exactly as named in the ontology."
+	}
+
+	// VSS Memory Retrieval: inject relevant past memories as context
+	if h.memoryStore != nil {
+		memories, memErr := h.memoryStore.SearchText(ctx, msg, 5)
+		if memErr == nil && len(memories) > 0 {
+			relevant := 0
+			var memBuf strings.Builder
+			memBuf.WriteString("\n\nRELEVANT PAST CONTEXT (retrieved from project memory):\n")
+			for _, m := range memories {
+				if m.Score >= 0.5 {
+					memBuf.WriteString(fmt.Sprintf("- [score=%.2f] %s\n", m.Score, string(m.Value)))
+					relevant++
+				}
+			}
+			if relevant > 0 {
+				fullSystemPrompt += memBuf.String()
+			}
+		} else if memErr != nil {
+			slog.Warn("memory retrieval failed", "error", memErr)
+		}
 	}
 
 	session := NewChatSession(ctx, stream, h, projectID, agentID, msg, agent, ontContent, fullSystemPrompt)

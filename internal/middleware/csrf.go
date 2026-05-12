@@ -26,6 +26,12 @@ func CSRFProtection(allowedOrigins []string) func(http.Handler) http.Handler {
 				return
 			}
 
+			// Session creation must work without Origin (first request, no cookie yet)
+			if r.Method == http.MethodPost && r.URL.Path == "/api/v1/auth/session" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			origin := r.Header.Get("Origin")
 			referer := r.Header.Get("Referer")
 

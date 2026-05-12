@@ -48,6 +48,12 @@ func ValidateAPIKey(metaRepo *repository.MetadataRepository, apiKey string) (str
 		return "", "", ErrInvalidAPIKey
 	}
 
+	// Bootstrap key check: if the key matches ALEPH_API_KEY_SECRET_BACKEND,
+	// skip DB lookup (the bootstrap key is not stored in the database).
+	if role := bootstrapRole(apiKey); role != "" {
+		return "bootstrap", role, nil
+	}
+
 	keyID := apiKey[:8]
 
 	storedHash, projectID, role, err := metaRepo.GetAPIKeyByID(keyID)
@@ -76,6 +82,11 @@ var roleFromEnvFn = roleFromEnvImpl
 // roleFromEnv determines role using the overridable function.
 func roleFromEnv(apiKey string) Role {
 	return roleFromEnvFn(apiKey)
+}
+
+// bootstrapRole checks if the key matches the ALEPH_API_KEY_SECRET_BACKEND env var.
+func bootstrapRole(apiKey string) Role {
+	return roleFromEnvImpl(apiKey)
 }
 
 func roleFromEnvImpl(apiKey string) Role {
