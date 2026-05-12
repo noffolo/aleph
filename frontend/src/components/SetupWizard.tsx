@@ -4,13 +4,15 @@ import { t } from '../i18n';
 
 interface SetupWizardProps {
   onComplete: (projectID: string, apiKey: string) => void;
+  onLogin: (apiKey: string) => Promise<void>;
   onCreateProject: (name: string) => Promise<string>;
   onCreateApiKey: (projectID: string, label: string) => Promise<string>;
 }
 
-export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCreateProject, onCreateApiKey }) => {
-  const [step, setStep] = useState(1);
+export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onLogin, onCreateProject, onCreateApiKey }) => {
+  const [step, setStep] = useState(0);
   const [language, setLanguage] = useState<'it' | 'en'>('it');
+  const [loginKey, setLoginKey] = useState('');
   const [projectName, setProjectName] = useState('');
   const [projectID, setProjectID] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -19,6 +21,10 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCreatePr
   const [error, setError] = useState('');
   const copy = {
     it: {
+      loginTitle: 'Connettiti ad Aleph',
+      loginSubtitle: 'Inserisci la tua chiave API per autenticarti. Se è la prima volta, usa la chiave bootstrap.',
+      loginPlaceholder: 'Inserisci la tua API Key',
+      login: 'Connettiti',
       createTitle: 'Crea il tuo spazio di lavoro',
       createSubtitle: 'Assegna un nome per organizzare i dati e gli agenti del progetto.',
       continue: 'Prosegui',
@@ -33,6 +39,10 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCreatePr
       start: 'Inizia',
     },
     en: {
+      loginTitle: 'Connect to Aleph',
+      loginSubtitle: 'Enter your API key to authenticate. If this is your first time, use the bootstrap key.',
+      loginPlaceholder: 'Enter your API Key',
+      login: 'Connect',
       createTitle: 'Create your workspace',
       createSubtitle: 'Choose a name to organize this project data and agents.',
       continue: 'Continue',
@@ -47,6 +57,19 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCreatePr
       start: 'Start',
     },
   }[language];
+
+  const handleLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await onLogin(loginKey);
+      setStep(1);
+    } catch (err: any) {
+      setError(err.message || 'Invalid API key');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleStep1 = async () => {
     setLoading(true);
@@ -81,10 +104,10 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCreatePr
       <div className="max-w-xl w-full">
         {error && <div className="mb-6 p-4 bg-danger/10 text-danger rounded-lg text-sm text-center">{error}</div>}
           <div className="flex items-center justify-between mb-8">
-            {[1, 2, 3].map(s => (
+            {[0, 1, 2, 3].map(s => (
               <div key={s} className="flex items-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${step >= s ? 'bg-primary text-white shadow-lg' : 'bg-surface-alt text-textMuted'}`}>
-                  {step > s ? <CheckCircle2 size={20} /> : s}
+                  {step > s ? <CheckCircle2 size={20} /> : s + 1}
                 </div>
                 {s < 3 && <div className={`w-20 h-1 mx-2 rounded-full ${step > s ? 'bg-primary' : 'bg-surface-alt'}`}></div>}
               </div>
@@ -105,6 +128,32 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCreatePr
              ))}
            </div>
          </div>
+
+         {step === 0 && (
+           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="text-center">
+                  <Key size={48} className="mx-auto text-primary mb-4" />
+                  <h2 className="text-4xl font-bold tracking-tight text-text mb-4">{copy.loginTitle}</h2>
+                  <p className="text-textMuted">{copy.loginSubtitle}</p>
+              </div>
+              <input
+                 autoFocus
+                 type="password"
+                 value={loginKey}
+                 onChange={e => setLoginKey(e.target.value)}
+                 onKeyDown={e => e.key === 'Enter' && loginKey && handleLogin()}
+                 className="w-full p-6 bg-surface border border-border rounded-lg text-center text-lg font-mono focus:ring-4 focus:ring-primary/10 outline-none transition-all shadow-lg"
+                 placeholder={copy.loginPlaceholder}
+              />
+              <button
+                 onClick={handleLogin}
+                 disabled={!loginKey || loading}
+                 className="w-full py-5 bg-primary text-white rounded-lg font-bold text-lg hover:bg-primary/90 transition-all shadow-lg flex items-center justify-center space-x-3"
+              >
+                 {loading ? <Activity size={24} className="animate-spin" /> : <><span>{copy.login}</span> <ArrowRight size={24} /></>}
+              </button>
+           </div>
+         )}
 
          {step === 1 && (
            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -168,7 +217,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onComplete, onCreatePr
                        navigator.clipboard.writeText(apiKey).then(() => { 
                          alert(t('setup.copied'));
                          setShowKey(false);
-                       }).catch(() => {}); 
+                       }).catch((e) => { 
+                        console.error('SetupWizard: failed to copy API key to clipboard:', e);
+                      }); 
                      }}
                      className={`absolute top-4 right-4 p-2 bg-surface-alt rounded-lg text-textMuted hover:text-primary opacity-0 group-hover:opacity-100 transition-all ${!showKey && 'hidden'}`}
                      title={t('setup.copy')}

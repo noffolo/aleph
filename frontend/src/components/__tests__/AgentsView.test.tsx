@@ -18,6 +18,8 @@ vi.mock('../../store/useStore', () => ({
           selectedObject: 'proj-1',
           setSlideOverContent: mockSetSlideOverContent,
           agents: [],
+          expandedSections: { 'agents.list': true },
+          toggleSection: vi.fn(),
         }
         return selector(state)
       }
@@ -47,6 +49,19 @@ vi.mock('../../hooks/useCursorPagination', () => ({
 // Mock nuqs
 vi.mock('nuqs', () => ({
   useQueryState: vi.fn(() => ['', vi.fn()]),
+}))
+
+vi.mock('lucide-react', () => ({
+  Bot: () => null,
+  Brain: () => null,
+  ChevronDown: () => null,
+  Play: () => null,
+  Edit: () => null,
+  Pencil: () => null,
+  Trash2: () => null,
+  Plus: () => null,
+  Wifi: () => null,
+  WifiOff: () => null,
 }))
 
 // Mock i18n
@@ -107,7 +122,8 @@ describe('AgentsView', () => {
         onUpdateAgent={mockOnUpdate}
       />,
     )
-    expect(screen.getByText('Gestore Agenti')).toBeInTheDocument()
+    // Title appears in both summary bar and GlassPanel header
+    expect(screen.getAllByText('Gestore Agenti').length).toBeGreaterThan(0)
     expect(screen.getByText('Configura agenti AI con qualsiasi provider')).toBeInTheDocument()
   })
 
@@ -166,17 +182,30 @@ describe('AgentsView', () => {
   })
 
   it('shows service active indicator when ollamaHealthy=true', () => {
-    const agents = [makeAgent('1')]
     render(
       <AgentsView
-        agents={agents}
+        agents={[]}
+        ollamaHealthy={true}
         onCreateAgent={mockOnCreate}
         onDeleteAgent={mockOnDelete}
         onUpdateAgent={mockOnUpdate}
-        ollamaHealthy={true}
       />,
     )
-    expect(screen.getByText('Servizio Attivo')).toBeInTheDocument()
+    // Appears in both summary bar and agent cards
+    expect(screen.getAllByText('Servizio Attivo').length).toBeGreaterThan(0)
+  })
+
+  it('shows offline indicator when ollamaHealthy=false', () => {
+    render(
+      <AgentsView
+        agents={[]}
+        ollamaHealthy={false}
+        onCreateAgent={mockOnCreate}
+        onDeleteAgent={mockOnDelete}
+        onUpdateAgent={mockOnUpdate}
+      />,
+    )
+    expect(screen.getAllByText('Offline').length).toBeGreaterThan(0)
   })
 
   it('shows offline indicator when ollamaHealthy=false', () => {
@@ -190,7 +219,7 @@ describe('AgentsView', () => {
         ollamaHealthy={false}
       />,
     )
-    expect(screen.getByText('Offline')).toBeInTheDocument()
+    expect(screen.getAllByText('Offline').length).toBeGreaterThan(0)
   })
 
   // —— Empty state ——

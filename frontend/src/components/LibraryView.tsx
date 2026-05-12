@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore';
 import { t } from '../i18n';
 import { SkeletonLoader } from './SkeletonLoader';
 import { InlineError } from './ui/InlineError';
+import { GlassPanel } from './ui/GlassPanel';
 
 interface Asset {
   id: string;
@@ -32,6 +33,8 @@ export const LibraryView: React.FC<LibraryViewProps> = React.memo(({ assets, onV
   const [uploading, setUploading] = React.useState(false);
   const [dragOver, setDragOver] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const expandedSections = useStore(s => s.expandedSections);
+  const toggleSection = useStore(s => s.toggleSection);
 
   if (isLoading) return <SkeletonLoader />;
   if (error) return <div className="max-w-6xl mx-auto"><InlineError message={error} /></div>;
@@ -105,11 +108,25 @@ export const LibraryView: React.FC<LibraryViewProps> = React.memo(({ assets, onV
         onDrop={handleDrop}
         className={`rounded-lg border-2 border-dashed transition-all p-2 ${dragOver ? 'border-primary bg-primary/5' : 'border-transparent'}`}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {assets.map(a => (
+        <GlassPanel
+          header="Library"
+          sectionKey="library.list"
+          icon={<Book size={16} />}
+          expanded={!!expandedSections['library.list']}
+          onToggle={() => toggleSection('library.list')}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {assets.map(a => (
             <div key={a.id} className="bg-surface p-6 rounded-lg border border-border shadow-sm hover:shadow-lg transition-all group relative">
 <button
-  onClick={(e) => { e.stopPropagation(); if (confirm('Sei sicuro di voler eliminare questo asset?')) onDeleteAsset(a.id); }}
+  onClick={(e) => { 
+    e.stopPropagation()
+    useStore.getState().setSlideOverContent({ 
+      type: 'confirm', 
+      title: 'Conferma eliminazione', 
+      data: { message: 'Sei sicuro di voler eliminare questo asset?', onConfirm: () => onDeleteAsset(a.id) } 
+    })
+  }}
   className="absolute top-6 right-6 p-2 text-textDim hover:text-danger hover:bg-danger/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
   aria-label={`Elimina ${a.name}`}
 >
@@ -140,20 +157,21 @@ export const LibraryView: React.FC<LibraryViewProps> = React.memo(({ assets, onV
                </div>
             </div>
           ))}
-          {assets.length === 0 && !dragOver && (
-            <div className="col-span-full py-24 bg-surface border-2 border-dashed border-border rounded-lg text-center">
-               <Book size={48} className="mx-auto text-textDim mb-4" />
-                <p className="text-textMuted font-bold uppercase text-[10px] tracking-[0.2em]">Nessun report generato in questo spazio di lavoro</p>
-                 <p className="text-textDim text-xs mt-2">{t('library.dragAndDrop')}</p>
-            </div>
-          )}
-          {dragOver && (
-            <div className="col-span-full py-24 border-2 border-primary bg-primary/5 rounded-lg text-center">
-              <Upload size={48} className="mx-auto text-primary/70 mb-4" />
-              <p className="text-primary font-bold text-sm">{t('library.dropToUpload')}</p>
-            </div>
-          )}
-        </div>
+          </div>
+        </GlassPanel>
+        {assets.length === 0 && !dragOver && (
+          <div className="col-span-full py-24 bg-surface border-2 border-dashed border-border rounded-lg text-center">
+             <Book size={48} className="mx-auto text-textDim mb-4" />
+              <p className="text-textMuted font-bold uppercase text-[10px] tracking-[0.2em]">Nessun report generato in questo spazio di lavoro</p>
+               <p className="text-textDim text-xs mt-2">{t('library.dragAndDrop')}</p>
+          </div>
+        )}
+        {dragOver && (
+          <div className="col-span-full py-24 border-2 border-primary bg-primary/5 rounded-lg text-center">
+            <Upload size={48} className="mx-auto text-primary/70 mb-4" />
+            <p className="text-primary font-bold text-sm">{t('library.dropToUpload')}</p>
+          </div>
+        )}
       </div>
     </div>
   );

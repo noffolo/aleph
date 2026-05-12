@@ -56,7 +56,9 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
           if (config.url && !/^https?:\/\/.+/.test(config.url)) {
             newErrors.configJson = "URL in config must start with http:// or https://"
           }
-        } catch {}
+        } catch {
+          console.error('DataSourceForm: failed to parse API config JSON for validation')
+        }
       }
       if (mode === 'db') {
         try {
@@ -64,7 +66,9 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
           if (!config.connectionString || !config.connectionString.trim()) {
             newErrors.configJson = "connectionString is required in config JSON"
           }
-        } catch {}
+        } catch {
+          console.error('DataSourceForm: failed to parse DB config JSON for validation')
+        }
       }
       setErrors(newErrors)
       return false

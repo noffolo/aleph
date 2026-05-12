@@ -31,7 +31,9 @@ export class AlephErrorBoundary extends Component<Props, State> {
       store.setPredictions([]);
       store.setLastError(null);
       store.setCurrentView('copilot');
-    } catch {}
+    } catch (e) {
+      console.error('AlephErrorBoundary.handleRetry failed:', e)
+    }
     this.setState({ hasError: false });
   }
 

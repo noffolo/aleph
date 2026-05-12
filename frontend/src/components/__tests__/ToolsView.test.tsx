@@ -1,6 +1,16 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+vi.mock('lucide-react', () => ({
+  Terminal: () => null,
+  Plus: () => null,
+  Code: () => null,
+  Trash2: () => null,
+  Play: () => null,
+  X: () => null,
+  ChevronDown: () => null,
+}))
 import { ToolsView } from '../ToolsView'
 
 interface Tool {
@@ -24,6 +34,8 @@ vi.mock('../../store/useStore', () => ({
           selectedObject: 'proj-1',
           setSlideOverContent: mockSetSlideOverContent,
           tools: [],
+          expandedSections: { 'tools.overview': true, 'tools.list': true },
+          toggleSection: vi.fn(),
         }
         return selector(state)
       }

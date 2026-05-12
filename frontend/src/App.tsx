@@ -8,23 +8,22 @@ const SetupWizard = lazy(() => import('./components/SetupWizard').then(module =>
 import { AlephErrorBoundary } from './components/AlephErrorBoundary'
 import { StatusBar } from './components/terminal'
 import { SlideOverPanel } from './components/terminal/SlideOverPanel'
-import { TerminalView } from './components/terminal/TerminalView'
 import { ToastContainer } from './components/Toast'
 import { t } from './i18n'
 import { useStore } from './store/useStore'
 import { useAppActions } from './hooks/useAppActions'
 import { createSession } from './api/client'
 
+const SceneSelector = lazy(() => import('./scenes/SceneSelector').then(module => ({ default: module.SceneSelector })))
+const SlideOverContent = lazy(() => import('./components/terminal/SlideOverContent').then(module => ({ default: module.SlideOverContent })))
+
+import { projectClient, authClient, queryClient } from './api/factory'
+
 declare global {
   interface Window {
     __ALEPH_STORE__: typeof useStore
   }
 }
-
-const SlideOverContent = lazy(() => import('./components/terminal/SlideOverContent').then(module => ({ default: module.SlideOverContent })))
-const DashboardView = lazy(() => import('./components/DashboardView').then(module => ({ default: module.DashboardView })))
-
-import { projectClient, authClient, queryClient } from './api/factory'
 
 function App() {
   const projects = useStore(s => s.projects)
@@ -37,6 +36,7 @@ function App() {
   const availableObjects = useStore(s => s.availableObjects)
   const lastError = useStore(s => s.lastError)
   const slideOverContent = useStore(s => s.slideOverContent)
+  const currentScene = useStore(s => s.currentScene)
   const ollamaHealthy = useStore(s => s.ollamaHealthy)
   const nlpHealthy = useStore(s => s.nlpHealthy)
   const actions = useAppActions()
@@ -82,7 +82,7 @@ function App() {
     queryClient.getChatHistory({ projectId: projectID, agentId: selectedAgent }, { signal: controller.signal }).then((res: { messages?: any[] }) => {
       const messages = res.messages
       if (messages && messages.length > 0) {
-        useStore.getState().setChat(messages.map((m: { role: string; content: string; toolCall?: string; createdAt?: number }) => ({
+        useStore.getState().setMessages(messages.map((m: { role: string; content: string; toolCall?: string; createdAt?: number }) => ({
           role: m.role as "user" | "assistant" | "system",
           content: m.content,
           toolCall: m.toolCall || '',
@@ -112,6 +112,7 @@ function App() {
     <AlephErrorBoundary>
       <Suspense fallback={<div className="flex items-center justify-center h-screen"><SkeletonLoader rows={10} cols={1} /></div>}>
                 <SetupWizard
+                  onLogin={async (key: string) => { await createSession(key) }}
                   onCreateProject={async (n: string) => { const r = await projectClient.createProject({ id: n.toLowerCase(), name: n }); return r.project?.id ?? n.toLowerCase() }}
                   onCreateApiKey={async (pid: string, l: string) => { const r = await authClient.createApiKey({ projectId: pid, label: l }); return r.key?.key ?? '' }}
                   onComplete={async (pid: string, key: string) => { await createSession(key); useStore.getState().setProjectContext(pid); useStore.getState().setShowWizard(false); useStore.getState().setShowOnboarding(false) }}
@@ -169,18 +170,13 @@ function App() {
 
           <main id="main-content" className="flex-1 overflow-hidden relative">
             <div className="h-full w-full relative">
-              <TerminalView />
               <Suspense fallback={<div className="absolute inset-0 z-10 bg-background animate-fade-in"><SkeletonLoader rows={15} cols={1} /></div>}>
-                {slideOverContent?.type === 'dashboard' && (
-                  <div className="absolute inset-0 z-10 bg-background animate-fade-in">
-                    <DashboardView />
-                  </div>
-                )}
+                <SceneSelector />
               </Suspense>
             </div>
           </main>
 
-           {slideOverContent && slideOverContent.type !== 'dashboard' && (
+           {currentScene !== 'terminal' && slideOverContent && (
              <AlephErrorBoundary>
                <SlideOverPanel
                  isOpen={true}

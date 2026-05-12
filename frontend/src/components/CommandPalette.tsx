@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { t } from '../i18n';
-import { Command, Database, Zap, ArrowRight, Terminal } from 'lucide-react';
-import { SLASH_COMMANDS, executeCommand, getTabCompletion } from './terminal/slashCommands';
+import { Command, ArrowRight, Navigation, Zap, Settings, Database } from 'lucide-react';
+import { SLASH_COMMANDS, executeCommand, getTabCompletion, type SlashCommand } from './terminal/slashCommands';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -13,10 +13,57 @@ interface CommandPaletteProps {
 }
 
 interface PaletteItem {
-  type: 'object' | 'project' | 'command';
+  type: 'command' | 'object' | 'project';
   key: string;
   label: string;
+  description?: string;
   id: string;
+  section: 'navigate' | 'actions' | 'system';
+}
+
+const NAVIGATE_COMMAND_NAMES = new Set([
+  '/explore', '/agent', '/ontology', '/data', '/predict',
+  '/library', '/health', '/skills', '/tools', '/components', '/settings',
+])
+
+const ACTIONS_COMMAND_NAMES = new Set([
+  '/tool install', '/tool list', '/tool health', '/tool health-all', '/tool diagnose',
+])
+
+const SYSTEM_COMMAND_NAMES = new Set([
+  '/help', '/model', '/clear',
+])
+
+function categorizeCommand(c: SlashCommand): PaletteItem['section'] {
+  if (NAVIGATE_COMMAND_NAMES.has(c.name)) return 'navigate'
+  if (ACTIONS_COMMAND_NAMES.has(c.name)) return 'actions'
+  if (SYSTEM_COMMAND_NAMES.has(c.name)) return 'system'
+  return 'navigate'
+}
+
+function renderCommandItem(
+  c: SlashCommand,
+  idx: number,
+  selectedIndex: number,
+  onExecute: () => void,
+) {
+  return (
+    <button
+      key={c.name}
+      data-idx={idx}
+      onClick={onExecute}
+      className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === idx ? 'bg-primary/10' : 'hover:bg-primary/10'}`}
+    >
+      <div className={`flex items-center space-x-3 font-bold ${selectedIndex === idx ? 'text-primary' : 'text-textMuted group-hover:text-primary'}`}>
+        <Navigation size={18} />
+        <span className="flex items-center space-x-2">
+          <span>{c.name}</span>
+          <span className="text-[10px] font-normal text-textDim opacity-50 group-hover:opacity-100 transition-opacity">{c.description}</span>
+        </span>
+      </div>
+      <ArrowRight size={16} className={selectedIndex === idx ? 'text-primary/50' : 'text-textDim group-hover:text-primary/50'} />
+    </button>
+  )
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -31,34 +78,76 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     setSelectedIndex(-1);
   }, [isOpen]);
 
+  const allCommands = SLASH_COMMANDS;
+
+  const filteredCommands = allCommands.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.description.toLowerCase().includes(search.toLowerCase())
+  );
+
   const filteredObjects = availableObjects.filter(o => o.toLowerCase().includes(search.toLowerCase()));
   const filteredProjects = projects.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
-  const filteredCommands = search.startsWith('/') 
-    ? SLASH_COMMANDS.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.description.toLowerCase().includes(search.toLowerCase()))
-    : [];
 
-  const items: PaletteItem[] = [
-    ...filteredObjects.map(o => ({ type: 'object' as const, key: `obj-${o}`, label: o, id: o })),
-    ...filteredProjects.map(p => ({ type: 'project' as const, key: `proj-${p.id}`, label: p.name, id: p.id })),
-    ...filteredCommands.map(c => ({ type: 'command' as const, key: `cmd-${c.name}`, label: c.name, id: c.name })),
-  ];
+  const sections: { section: PaletteItem['section']; label: string; cmds: SlashCommand[] }[] = [
+    {
+      section: 'navigate' as const,
+      label: t('commandPalette.section.navigate'),
+      cmds: filteredCommands.filter(c => categorizeCommand(c) === 'navigate'),
+    },
+    {
+      section: 'actions' as const,
+      label: t('commandPalette.section.actions'),
+      cmds: filteredCommands.filter(c => categorizeCommand(c) === 'actions'),
+    },
+    {
+      section: 'system' as const,
+      label: t('commandPalette.section.system'),
+      cmds: filteredCommands.filter(c => categorizeCommand(c) === 'system'),
+    },
+  ].filter(s => s.cmds.length > 0);
+
+  const totalCommandCount = sections.reduce((sum, s) => sum + s.cmds.length, 0);
+  const objectBaseIdx = totalCommandCount;
+  const projectBaseIdx = totalCommandCount + filteredObjects.length;
+
+  const sectionIcons: Record<PaletteItem['section'], React.ReactNode> = {
+    navigate: <Navigation size={16} className="text-primary" />,
+    actions: <Zap size={16} className="text-warning" />,
+    system: <Settings size={16} className="text-textMuted" />,
+  }
 
   const executeSelected = () => {
-    if (selectedIndex < 0 || selectedIndex >= items.length) return;
-    const item = items[selectedIndex];
-    if (item.type === 'object') {
-      onSelectObject(item.id);
-    } else if (item.type === 'project') {
-      onSelectProject(item.id);
-    } else if (item.type === 'command') {
-      executeCommand(item.id);
+    if (selectedIndex < 0) return;
+    if (selectedIndex < totalCommandCount) {
+      let cursor = 0;
+      for (const s of sections) {
+        if (selectedIndex < cursor + s.cmds.length) {
+          const cmd = s.cmds[selectedIndex - cursor];
+          executeCommand(cmd.name);
+          onClose();
+          return;
+        }
+        cursor += s.cmds.length;
+      }
     }
-    onClose();
+    const objIdx = selectedIndex - objectBaseIdx;
+    if (objIdx >= 0 && objIdx < filteredObjects.length) {
+      onSelectObject(filteredObjects[objIdx]);
+      onClose();
+      return;
+    }
+    const projIdx = selectedIndex - projectBaseIdx;
+    if (projIdx >= 0 && projIdx < filteredProjects.length) {
+      onSelectProject(filteredProjects[projIdx].id);
+      onClose();
+    }
   };
+
+  const totalItems = totalCommandCount + filteredObjects.length + filteredProjects.length;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') { onClose(); return; }
-    if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex(i => Math.min(i + 1, items.length - 1)); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex(i => Math.min(i + 1, totalItems - 1)); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIndex(i => Math.max(i - 1, 0)); return; }
     if (e.key === 'Enter') { e.preventDefault(); executeSelected(); return; }
     if (e.key === 'Tab') {
@@ -91,13 +180,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
      <div role="dialog" aria-modal="true" aria-label="Command palette" className="fixed inset-0 bg-black/60 backdrop-blur-md z-[200] flex items-start justify-center pt-[15vh] p-4 animate-in fade-in duration-200" onClick={onClose} onKeyDown={handleKeyDown}>
-      <div 
-        className="bg-surface w-full max-w-2xl rounded-lg   overflow-hidden border border-border animate-in zoom-in-95 duration-200"
+      <div
+        className="bg-surface w-full max-w-2xl rounded-lg overflow-hidden border border-border animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-6 border-b flex items-center space-x-4 bg-surface-alt/50">
            <Command size={24} className="text-primary" />
-            <input 
+            <input
                autoFocus
                aria-label="Search commands"
                value={search}
@@ -108,86 +197,82 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
            <div className="px-2 py-1 bg-surface rounded-lg border border-border text-[10px] font-bold text-textMuted">ESC</div>
         </div>
 
-         <div className="max-h-[60vh] overflow-auto p-4 custom-scrollbar" ref={listRef}>
-            {search && filteredCommands.length > 0 && (
-              <div className="mb-6">
-                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">{t('commandPalette.section.slash')}</div>
+        <div className="max-h-[60vh] overflow-auto p-4 custom-scrollbar" ref={listRef}>
+            {search && sections.map((section) => (
+              <div key={section.section} className="mb-6">
+                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest flex items-center gap-1">
+                   {sectionIcons[section.section]}
+                   {section.label}
+                 </div>
                  <div className="space-y-1">
-                    {filteredCommands.map((c, cIdx) => {
-                      const idx = cIdx;
-                      return (
-                        <button
-                          key={c.name}
-                          data-idx={idx}
-                          onClick={() => { executeCommand(c.name); onClose(); }}
-                          className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === idx ? 'bg-primary/10' : 'hover:bg-primary/10'}`}
-                        >
-                           <div className={`flex items-center space-x-3 font-bold ${selectedIndex === idx ? 'text-primary' : 'text-textMuted group-hover:text-primary'}`}>
-                              <Terminal size={18} />
-                              <span className="flex items-center space-x-2">
-                                <span>{c.name}</span>
-                                <span className="text-[10px] font-normal text-textDim opacity-50 group-hover:opacity-100 transition-opacity"> {c.description}</span>
-                              </span>
-                            </div>
-                            <ArrowRight size={16} className={selectedIndex === idx ? 'text-primary/50' : 'text-textDim group-hover:text-primary/50'} />
-                        </button>
-                      );
+                    {section.cmds.map((c, cIdx) => {
+                      let baseIdx = 0;
+                      for (const s of sections) {
+                        if (s.section === section.section) break;
+                        baseIdx += s.cmds.length;
+                      }
+                      const idx = baseIdx + cIdx;
+                      return renderCommandItem(c, idx, selectedIndex, () => { executeCommand(c.name); onClose(); });
                     })}
                  </div>
               </div>
-            )}
+            ))}
 
             {search && filteredObjects.length > 0 && (
               <div className="mb-6">
-                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">{t('commandPalette.section.ontology')}</div>
+                 <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest flex items-center gap-1">
+                   <Navigation size={16} className="text-primary" />
+                   {t('commandPalette.section.navigate')}
+                 </div>
                  <div className="space-y-1">
-                    {filteredObjects.map((o, idx) => {
-                      const actualIdx = filteredCommands.length + idx;
+                    {filteredObjects.map((o, oIdx) => {
+                      const idx = objectBaseIdx + oIdx;
                       return (
                         <button
                           key={o}
-                          data-idx={actualIdx}
-                         onClick={() => { onSelectObject(o); onClose(); }}
-                          className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === actualIdx ? 'bg-primary/10' : 'hover:bg-primary/10'}`}
+                          data-idx={idx}
+                          onClick={() => { onSelectObject(o); onClose(); }}
+                          className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === idx ? 'bg-primary/10' : 'hover:bg-primary/10'}`}
                         >
-                         <div className={`flex items-center space-x-3 font-bold ${selectedIndex === actualIdx ? 'text-primary' : 'text-textMuted group-hover:text-primary'}`}>
+                         <div className={`flex items-center space-x-3 font-bold ${selectedIndex === idx ? 'text-primary' : 'text-textMuted group-hover:text-primary'}`}>
                             <Database size={18} />
                             <span>{o}</span>
                          </div>
-                         <ArrowRight size={16} className={selectedIndex === actualIdx ? 'text-primary/50' : 'text-textDim group-hover:text-primary/50'} />
+                         <ArrowRight size={16} className={selectedIndex === idx ? 'text-primary/50' : 'text-textDim group-hover:text-primary/50'} />
                         </button>
                       );
                     })}
                  </div>
               </div>
             )}
-
 
             {search && filteredProjects.length > 0 && (
               <div className="mb-6">
-                  <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest">{t('commandPalette.section.workspaces')}</div>
+                  <div className="px-4 mb-2 text-[10px] font-bold text-textMuted uppercase tracking-widest flex items-center gap-1">
+                    <Zap size={16} className="text-warning" />
+                    {t('commandPalette.section.system')}
+                  </div>
                  <div className="space-y-1">
                     {filteredProjects.map((p, pIdx) => {
-                      const actualIdx = filteredCommands.length + filteredObjects.length + pIdx;
+                      const idx = projectBaseIdx + pIdx;
                       return (
                         <button
                           key={p.id}
-                          data-idx={actualIdx}
+                          data-idx={idx}
                           onClick={() => { onSelectProject(p.id); onClose(); }}
-                          className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === actualIdx ? 'bg-warning/10' : 'hover:bg-warning/10'}`}
+                          className={`w-full flex items-center justify-between p-4 rounded-lg transition-colors group ${selectedIndex === idx ? 'bg-warning/10' : 'hover:bg-warning/10'}`}
                         >
-                           <div className={`flex items-center space-x-3 font-bold ${selectedIndex === actualIdx ? 'text-warning' : 'text-textMuted group-hover:text-warning'}`}>
+                           <div className={`flex items-center space-x-3 font-bold ${selectedIndex === idx ? 'text-warning' : 'text-textMuted group-hover:text-warning'}`}>
                               <Zap size={18} />
                               <span>{p.name}</span>
                            </div>
-                           <ArrowRight size={16} className={selectedIndex === actualIdx ? 'text-warning/50' : 'text-textDim group-hover:text-warning/50'} />
+                           <ArrowRight size={16} className={selectedIndex === idx ? 'text-warning/50' : 'text-textDim group-hover:text-warning/50'} />
                         </button>
                       );
                     })}
                  </div>
               </div>
             )}
-
 
            {!search && (
              <div className="text-center py-20">

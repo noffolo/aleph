@@ -1,92 +1,92 @@
 import React from 'react'
-import { LayoutGrid, Binary, Activity, Bot, Eye, Book, Zap, Database, Users, Cpu, Wrench, Package, Sliders, Settings, Gauge } from 'lucide-react'
+import { LayoutGrid, Binary, Activity, Bot, Eye, Book, Compass, Cpu, Database, Gauge, Package, Sliders, Monitor, Settings as SettingsIcon, Terminal, Wrench, Zap, Users } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { SlideOverContent } from '../store/useStore'
+import { isEnabled, FEATURE_COMPACT_SIDEBAR } from '../config/features'
+import type { LucideIcon } from 'lucide-react'
 
 interface SidebarProps {
   projectID: string
   onShowOnboarding: () => void
 }
 
-const ID_TO_INLINE_TYPE: Record<string, SlideOverContent['type']> = {
-  'Explorer': 'explore',
-  'Data Health': 'health',
-  'Oracle': 'predict',
-  'Library': 'library',
-  'Ontologies': 'ontology',
-  'Data Sources': 'data',
-  'Agents': 'agent',
-  'Skills': 'skill',
-  'Tools': 'tool',
-  'Components': 'component',
-  'Settings': 'settings',
-  'Dashboard': 'dashboard',
+interface SidebarItem {
+  id: string
+  icon: LucideIcon
+  scene: string | null
 }
 
-const PANEL_TITLES: Record<string, string> = {
-  Explorer: 'Explorer',
-  'Data Health': 'Data Health',
-  Oracle: 'Oracle',
-  Library: 'Library',
-  Ontologies: 'Ontologies',
-  'Data Sources': 'Data Sources',
-  Agents: 'Agents',
-  Skills: 'Skills',
-  Tools: 'Tools',
-  Components: 'Components',
-  Settings: 'Settings',
-  Dashboard: 'Dashboard',
-}
-
-const sidebarItems = [
-  { id: 'Dashboard', icon: Gauge, command: '/dashboard' },
-  { id: 'Explorer', icon: LayoutGrid, command: '/explore' },
-  { id: 'Data Health', icon: Activity, command: '/health' },
-  { id: 'Copilot', icon: Bot, command: '' },
-  { id: 'Oracle', icon: Eye, command: '/predict' },
-  { id: 'Library', icon: Book, command: '/library' },
-  { id: 'Ontologies', icon: Zap, command: '/ontology' },
-  { id: 'Data Sources', icon: Database, command: '/data' },
-  { id: 'Agents', icon: Users, command: '/agent' },
-  { id: 'Skills', icon: Cpu, command: '/skills' },
-  { id: 'Tools', icon: Wrench, command: '/tools' },
-  { id: 'Components', icon: Package, command: '/components' },
-  { id: 'Settings', icon: Sliders, command: '/settings' },
+const SIDEBAR_ITEMS_ALL: SidebarItem[] = [
+  { id: 'Dashboard', icon: Gauge, scene: 'terminal' },
+  { id: 'Explorer', icon: LayoutGrid, scene: 'explore' },
+  { id: 'Data Health', icon: Activity, scene: 'system' },
+  { id: 'Copilot', icon: Bot, scene: null },
+  { id: 'Oracle', icon: Eye, scene: 'system' },
+  { id: 'Library', icon: Book, scene: 'explore' },
+  { id: 'Ontologies', icon: Zap, scene: 'explore' },
+  { id: 'Data Sources', icon: Database, scene: 'explore' },
+  { id: 'Agents', icon: Users, scene: 'agents' },
+  { id: 'Skills', icon: Cpu, scene: 'agents' },
+  { id: 'Tools', icon: Wrench, scene: 'agents' },
+  { id: 'Components', icon: Package, scene: 'agents' },
+  { id: 'Settings', icon: Sliders, scene: 'system' },
 ]
 
-const DIVIDER_AFTER = new Set([1, 4, 7])
+const SIDEBAR_ITEMS_CORE: SidebarItem[] = [
+  { id: 'Terminal', icon: Terminal, scene: 'terminal' },
+  { id: 'Explore', icon: Compass, scene: 'explore' },
+  { id: 'Agents', icon: Users, scene: 'agents' },
+  { id: 'System', icon: Monitor, scene: 'system' },
+  { id: 'Copilot', icon: Bot, scene: null },
+]
+
+const DIVIDER_SET_ALL = new Set([1, 4, 7])
+const DIVIDER_SET_CORE = new Set<number>([])
 
 export const Sidebar: React.FC<SidebarProps> = React.memo(({ projectID, onShowOnboarding }) => {
-  const inlineContent = useStore(s => s.inlineContent)
   const slideOverContent = useStore(s => s.slideOverContent)
+  const currentScene = useStore(s => s.currentScene)
   const currentView = useStore(s => s.currentView)
-  const inlineType = inlineContent?.type
-  const slideOverType = slideOverContent?.type
-  const activeType = slideOverType || inlineType
 
-  const isActive = (id: string) => {
-    if (id === 'Copilot') return !activeType && currentView === 'copilot'
-    return ID_TO_INLINE_TYPE[id] === activeType
+  const isUxRedesign = isEnabled(FEATURE_COMPACT_SIDEBAR)
+  const sidebarItems = isUxRedesign ? SIDEBAR_ITEMS_CORE : SIDEBAR_ITEMS_ALL
+  const dividerSet = isUxRedesign ? DIVIDER_SET_CORE : DIVIDER_SET_ALL
+
+  const isActive = (item: SidebarItem) => {
+    if (item.id === 'Copilot') return currentScene === null && currentView === 'copilot'
+    return currentScene === item.scene
   }
 
-  const handleClick = (item: { id: string; command: string }) => {
+  const SIDEBAR_TO_SLIDEOVER: Record<string, string> = {
+    'Explorer': 'explore',
+    'Data Health': 'health',
+    'Oracle': 'predict',
+    'Library': 'library',
+    'Ontologies': 'ontology',
+    'Data Sources': 'data',
+    'Agents': 'agent',
+    'Skills': 'skill',
+    'Tools': 'tool',
+    'Components': 'component',
+    'Settings': 'settings',
+    'Dashboard': 'dashboard',
+  }
+
+  const handleClick = (item: SidebarItem) => {
     if (!projectID) {
       onShowOnboarding()
       return
     }
-    if (item.id === 'Copilot') {
+    if (item.scene === null) {
+      useStore.getState().setCurrentScene(null)
       useStore.getState().setCurrentView('copilot')
-      useStore.getState().setShowInlinePanel(false)
       useStore.getState().setSlideOverContent(null)
       return
     }
-    
-    const type = ID_TO_INLINE_TYPE[item.id]
-    if (type) {
-      useStore.getState().setCurrentView('copilot')
-      useStore.getState().setShowInlinePanel(false)
-      useStore.getState().setInlineContent(null)
-      useStore.getState().setSlideOverContent({ type, title: PANEL_TITLES[item.id] || item.id })
+    useStore.getState().setCurrentScene(item.scene)
+    const slideType = SIDEBAR_TO_SLIDEOVER[item.id]
+    if (slideType) {
+      useStore.getState().setSlideOverContent({ type: slideType as SlideOverContent['type'], title: item.id })
     }
   }
 
@@ -99,26 +99,25 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({ projectID, onShowOn
        <nav aria-label="Main navigation" className="flex-1 flex flex-col items-center gap-0.5 overflow-y-auto no-scrollbar">
         {sidebarItems.map((item, i) => {
           const Icon = item.icon
-          const active = isActive(item.id)
+          const active = isActive(item)
           return (
             <React.Fragment key={item.id}>
-              {DIVIDER_AFTER.has(i) && <div className="w-6 h-px bg-border my-2" />}
+              {dividerSet.has(i) && <div className="w-6 h-px bg-border my-2" />}
                  <button
-                   onClick={() => handleClick(item)}
-                   title={item.id}
-                   aria-label={item.id}
-                   data-testid={`sidebar-${item.id.toLowerCase().replace(/\s+/g, '-')}`}
-                   aria-current={active ? 'page' : undefined}
-                  className={`relative w-9 h-9 flex items-center justify-center rounded transition-colors focus:ring-2 focus:ring-primary ${
-                    active
-                      ? 'bg-primary/10 text-primary border-l-2 border-primary rounded-none pl-[calc(0.75rem-2px)]'
-                      : 'text-textMuted hover:text-text hover:bg-surface-alt'
-                  }`}
-                >
-                  <Icon size={18} />
-                  <span className="sr-only">{item.id}</span>
-                  <span className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-success" style={{ boxShadow: '0 0 4px rgba(34,197,94,0.5)' }} />
-                </button>
+                    onClick={() => handleClick(item)}
+                    title={item.id}
+                    aria-label={item.id}
+                    data-testid={`sidebar-${item.id.toLowerCase().replace(/\s+/g, '-')}`}
+                    aria-current={active ? 'page' : undefined}
+                   className={`relative w-9 h-9 flex items-center justify-center rounded transition-colors focus:ring-2 focus:ring-primary ${
+                     active
+                       ? 'bg-primary/10 text-primary border-l-2 border-primary rounded-none pl-[calc(0.75rem-2px)]'
+                       : 'text-textMuted hover:text-text hover:bg-surface-alt'
+                   }`}
+                 >
+                   <Icon size={18} />
+                   <span className="sr-only">{item.id}</span>
+                 </button>
             </React.Fragment>
           )
         })}
@@ -130,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({ projectID, onShowOn
         aria-label={projectID || 'Select Project'}
         className="w-9 h-9 flex items-center justify-center rounded text-textMuted hover:text-primary hover:bg-primary/10 transition-colors mt-2 focus:ring-2 focus:ring-primary"
       >
-        <Settings size={16} />
+        <SettingsIcon size={16} />
         <span className="sr-only">{projectID || 'Select Project'}</span>
       </button>
     </div>
