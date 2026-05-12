@@ -180,7 +180,7 @@ export const SlideOverContent = React.memo(() => {
             onCreateTool={onCreateTool as unknown as ToolsViewProps['onCreateTool']}
             onEditTool={onEditTool as unknown as ToolsViewProps['onEditTool']}
             onDeleteTool={onDeleteTool as unknown as ToolsViewProps['onDeleteTool']}
-            onExecuteTool={onExecuteTool as unknown as ToolsViewProps['onExecuteTool']}
+            onExecuteTool={onExecuteTool}
             inline
           />
         </AlephErrorBoundary>
