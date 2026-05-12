@@ -22,7 +22,7 @@ import (
 // In-memory databases return an error.
 //
 // For a schema-and-data export (DuckDB EXPORT DATABASE) see ExportDatabase.
-func (d *DuckDB) Backup(destPath string) error {
+func (d *DuckDB) Backup(ctx context.Context, destPath string) error {
 	if d.path == ":memory:" || d.path == "" {
 		return fmt.Errorf("cannot backup an in-memory database; use a file-based DuckDB path")
 	}
@@ -34,9 +34,7 @@ func (d *DuckDB) Backup(destPath string) error {
 	// Use a read transaction so we get a consistent snapshot without blocking
 	// concurrent reads. The read transaction ensures no writes can interfere
 	// during the checkpoint + file copy, but reads proceed unimpeded.
-	// context.TODO: Backup is called synchronously (not from a handler with a request
-	// context). A proper context should be threaded through when Backup gains a ctx param.
-	tx, err := d.BeginReadTX(context.TODO())
+	tx, err := d.BeginReadTX(ctx)
 	if err != nil {
 		return fmt.Errorf("begin read tx for backup: %w", err)
 	}
@@ -361,7 +359,7 @@ func (d *DuckDB) AutoBackup(ctx context.Context, interval time.Duration, dir str
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	d.createBackup(dir, baseName)
+	d.createBackup(ctx, dir, baseName)
 
 	for {
 		select {
@@ -369,7 +367,7 @@ func (d *DuckDB) AutoBackup(ctx context.Context, interval time.Duration, dir str
 			slog.Info("auto-backup stopped")
 			return
 		case <-ticker.C:
-			d.createBackup(dir, baseName)
+			d.createBackup(ctx, dir, baseName)
 			if keep > 0 {
 				d.cleanOldBackups(dir, baseName, keep)
 			}
@@ -377,7 +375,7 @@ func (d *DuckDB) AutoBackup(ctx context.Context, interval time.Duration, dir str
 	}
 }
 
-func (d *DuckDB) createBackup(dir, baseName string) {
+func (d *DuckDB) createBackup(ctx context.Context, dir, baseName string) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		slog.Error("auto-backup: failed to create backup directory",
 			"dir", dir, "error", err)
@@ -387,7 +385,7 @@ func (d *DuckDB) createBackup(dir, baseName string) {
 	ts := time.Now().UTC().Format("20060102T150405Z")
 	destPath := filepath.Join(dir, fmt.Sprintf("%s_backup_%s.duckdb", baseName, ts))
 
-	if err := d.Backup(destPath); err != nil {
+	if err := d.Backup(ctx, destPath); err != nil {
 		slog.Error("auto-backup failed",
 			"dest", destPath, "error", err)
 		return

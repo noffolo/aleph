@@ -12,12 +12,12 @@ func TestNewDuckDB_InMemory(t *testing.T) {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("CREATE TABLE test (id INTEGER, name VARCHAR)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE test (id INTEGER, name VARCHAR)")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = db.Exec("INSERT INTO test VALUES (1, 'hello')")
+	_, err = db.Exec(context.Background(), "INSERT INTO test VALUES (1, 'hello')")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestDuckDB_VSSVectorSearch(t *testing.T) {
 		t.Skip("VSS extension not available")
 	}
 
-	_, err = db.Exec(`CREATE TABLE embeddings (
+	_, err = db.Exec(context.Background(), `CREATE TABLE embeddings (
 		id INTEGER PRIMARY KEY,
 		vec FLOAT[3]
 	)`)
@@ -66,7 +66,7 @@ func TestDuckDB_VSSVectorSearch(t *testing.T) {
 		t.Fatalf("create embeddings table: %v", err)
 	}
 
-	_, err = db.Exec(`INSERT INTO embeddings VALUES
+	_, err = db.Exec(context.Background(), `INSERT INTO embeddings VALUES
 		(1, [0.1, 0.2, 0.3]),
 		(2, [0.4, 0.5, 0.6]),
 		(3, [0.9, 0.8, 0.7])`)
@@ -74,7 +74,7 @@ func TestDuckDB_VSSVectorSearch(t *testing.T) {
 		t.Fatalf("insert embeddings: %v", err)
 	}
 
-	_, err = db.Exec(`CREATE INDEX idx_vec ON embeddings USING HNSW (vec) WITH (metric = 'cosine')`)
+	_, err = db.Exec(context.Background(), `CREATE INDEX idx_vec ON embeddings USING HNSW (vec) WITH (metric = 'cosine')`)
 	if err != nil {
 		t.Fatalf("create VSS index: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestDuckDBContextCancellation(t *testing.T) {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("CREATE TABLE ctx_test (id INTEGER)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE ctx_test (id INTEGER)")
 	if err != nil {
 		t.Fatal(err)
 	}

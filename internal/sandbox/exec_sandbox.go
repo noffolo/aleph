@@ -83,7 +83,7 @@ func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[
 		var stdout, stderr strings.Builder
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
-		cgCleanup, sandboxErr := prepareSandboxedCmd(cmd, "py-"+toolID)
+		cgCleanup, sandboxErr := prepareSandboxedCmd(execCtx, cmd, "py-"+toolID)
 		if cgCleanup != nil {
 			defer cgCleanup()
 		}
@@ -124,7 +124,7 @@ func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[
 		"PATH=/usr/bin:/bin",
 		"HOME=" + tmpDir,
 	}
-	runCgCleanup, runSandboxErr := prepareSandboxedCmd(runCmd, "go-"+toolID)
+	runCgCleanup, runSandboxErr := prepareSandboxedCmd(execCtx, runCmd, "go-"+toolID)
 	if runCgCleanup != nil {
 		defer runCgCleanup()
 	}

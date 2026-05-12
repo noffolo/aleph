@@ -102,7 +102,7 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open duckdb: %v", err)
 	}
-	db.Exec("PRAGMA memory_limit='80%'")
+	db.Exec(context.Background(), "PRAGMA memory_limit='80%'")
 	if cfg.SlowQueryThresholdMs > 0 {
 		db.SetSlowQueryThreshold(time.Duration(cfg.SlowQueryThresholdMs) * time.Millisecond)
 	}
@@ -199,7 +199,7 @@ func (a *AlephApp) Serve(port int) error {
 
 	// ── Subsystem Startups ──────────────────────────────────────────────────
 	// Health checker
-	a.healthChecker = health.NewHealthChecker(a.logger, a.metaRepo)
+	a.healthChecker = health.NewHealthChecker(a.ctx, a.logger, a.metaRepo)
 	go a.healthChecker.Start(a.ctx)
 
 	// Diagnostic monitor

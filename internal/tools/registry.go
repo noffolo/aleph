@@ -145,15 +145,16 @@ func (r *ToolRegistry) Get(category, name string) (ToolDefinition, bool) {
 	return def, ok
 }
 
-// Execute runs a tool by category and name with the given parameters.
-func (r *ToolRegistry) Execute(category, name string, params map[string]any) (any, error) {
+// Execute runs a tool by category and name with the given context and parameters.
+// The context is wrapped with a 30-second timeout for per-tool execution.
+func (r *ToolRegistry) Execute(ctx context.Context, category, name string, params map[string]any) (any, error) {
 	def, ok := r.Get(category, name)
 	if !ok {
 		return nil, fmt.Errorf("tool not found: %q in category %q", name, category)
 	}
-	ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
+	execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	return def.Execute(ctx, params)
+	return def.Execute(execCtx, params)
 }
 
 // ExecuteContext runs a tool by category and name with the given context and parameters.

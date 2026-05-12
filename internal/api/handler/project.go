@@ -154,7 +154,7 @@ func (h *ProjectHandler) CreateProject(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid project id for schema: %w", err))
 	}
-	if err := storage.EnsureProjectSchema(h.db, si); err != nil {
+	if err := storage.EnsureProjectSchema(ctx, h.db, si); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("ensure project schema: %w", err))
 	}
 
@@ -448,7 +448,7 @@ func (h *ProjectHandler) DeleteProject(
 	}
 
 	if h.metaRepo != nil {
-		if err := repository.DeleteProjectCascadeWithDB(id, h.db, h.metaRepo); err != nil {
+		if err := repository.DeleteProjectCascadeWithDB(ctx, id, h.db, h.metaRepo); err != nil {
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("cascade delete: %w", err))
 		}
 	}

@@ -53,9 +53,9 @@ func TestSQLInjectionFailClosed(t *testing.T) {
 func TestQueryHandler_ExecuteQuery_FallbackToTable(t *testing.T) {
 	h, projectsRoot := setupQueryHandler(t)
 
-	_, err := h.db.Exec("CREATE TABLE items (name VARCHAR, qty INTEGER)")
+	_, err := h.db.Exec(context.Background(), "CREATE TABLE items (name VARCHAR, qty INTEGER)")
 	require.NoError(t, err)
-	_, err = h.db.Exec("INSERT INTO items VALUES ('apple', 10), ('banana', 5)")
+	_, err = h.db.Exec(context.Background(), "INSERT INTO items VALUES ('apple', 10), ('banana', 5)")
 	require.NoError(t, err)
 
 	createProjectWithOntology(t, projectsRoot, "test-proj", "// empty ontology\n")
@@ -72,10 +72,10 @@ func TestQueryHandler_ExecuteQuery_FallbackToTable(t *testing.T) {
 func TestQueryHandler_ExecuteQuery_WithLimit(t *testing.T) {
 	h, projectsRoot := setupQueryHandler(t)
 
-	_, err := h.db.Exec("CREATE TABLE limited (val INTEGER)")
+	_, err := h.db.Exec(context.Background(), "CREATE TABLE limited (val INTEGER)")
 	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
-		h.db.Exec("INSERT INTO limited VALUES (?)", i)
+		h.db.Exec(context.Background(), "INSERT INTO limited VALUES (?)", i)
 	}
 
 	createProjectWithOntology(t, projectsRoot, "lim-proj", "// empty\n")
@@ -112,9 +112,9 @@ func TestQueryHandler_ExecuteQuery_NotFound(t *testing.T) {
 func TestQueryHandler_ExecuteQuery_OntologyMatchesTable(t *testing.T) {
 	h, projectsRoot := setupQueryHandler(t)
 
-	_, err := h.db.Exec("CREATE TABLE orders (id INTEGER, amount DOUBLE, status VARCHAR)")
+	_, err := h.db.Exec(context.Background(), "CREATE TABLE orders (id INTEGER, amount DOUBLE, status VARCHAR)")
 	require.NoError(t, err)
-	_, err = h.db.Exec("INSERT INTO orders VALUES (1, 99.5, 'open'), (2, 150.0, 'closed')")
+	_, err = h.db.Exec(context.Background(), "INSERT INTO orders VALUES (1, 99.5, 'open'), (2, 150.0, 'closed')")
 	require.NoError(t, err)
 
 	createProjectWithOntology(t, projectsRoot, "ont-proj", "// empty\n")
@@ -149,9 +149,9 @@ func TestQueryHandler_ConfirmAction(t *testing.T) {
 func TestQueryHandler_GlobalQuery(t *testing.T) {
 	h, projectsRoot := setupQueryHandler(t)
 
-	_, err := h.db.Exec("CREATE TABLE global_test (k VARCHAR)")
+	_, err := h.db.Exec(context.Background(), "CREATE TABLE global_test (k VARCHAR)")
 	require.NoError(t, err)
-	h.db.Exec("INSERT INTO global_test VALUES ('val')")
+	h.db.Exec(context.Background(), "INSERT INTO global_test VALUES ('val')")
 
 	createProjectWithOntology(t, projectsRoot, "gq-proj", "// empty\n")
 

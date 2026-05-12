@@ -11,7 +11,7 @@ func ExecuteIsolated(_ context.Context, _ string, cmd *exec.Cmd) error {
 	return cmd.Run()
 }
 
-func prepareSandboxedCmd(_ *exec.Cmd, _ string) (func(), error) {
+func prepareSandboxedCmd(_ context.Context, _ *exec.Cmd, _ string) (func(), error) {
 	return func() {}, nil
 }
 

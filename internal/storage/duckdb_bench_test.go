@@ -20,12 +20,12 @@ func BenchmarkConcurrentReads(b *testing.B) {
 	defer db.Close()
 
 	// Setup: create table with test data
-	_, err = db.Exec("CREATE TABLE benchmark_data (id INTEGER, value VARCHAR)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE benchmark_data (id INTEGER, value VARCHAR)")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for i := 0; i < 1000; i++ {
-		_, err = db.Exec("INSERT INTO benchmark_data VALUES (?, ?)", i, fmt.Sprintf("value_%d", i))
+		_, err = db.Exec(context.Background(), "INSERT INTO benchmark_data VALUES (?, ?)", i, fmt.Sprintf("value_%d", i))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -62,7 +62,7 @@ func BenchmarkConcurrentWrites(b *testing.B) {
 	defer db.Close()
 
 	// Setup: create table
-	_, err = db.Exec("CREATE TABLE benchmark_writes (id INTEGER, value VARCHAR, created_at TIMESTAMP)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE benchmark_writes (id INTEGER, value VARCHAR, created_at TIMESTAMP)")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func BenchmarkConcurrentWrites(b *testing.B) {
 		for pb.Next() {
 			for i := 0; i < writesPerGoroutine; i++ {
 				id := gid*1000 + i
-				_, err := db.Exec("INSERT INTO benchmark_writes VALUES (?, ?, ?)", id, fmt.Sprintf("value_%d_%d", gid, i), time.Now())
+				_, err := db.Exec(context.Background(), "INSERT INTO benchmark_writes VALUES (?, ?, ?)", id, fmt.Sprintf("value_%d_%d", gid, i), time.Now())
 				if err != nil {
 					b.Errorf("insert failed: %v", err)
 				}
@@ -96,12 +96,12 @@ func BenchmarkMixedReadWrite(b *testing.B) {
 	defer db.Close()
 
 	// Setup: create table with initial data
-	_, err = db.Exec("CREATE TABLE benchmark_mixed (id INTEGER, value VARCHAR, updated_at TIMESTAMP)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE benchmark_mixed (id INTEGER, value VARCHAR, updated_at TIMESTAMP)")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for i := 0; i < 500; i++ {
-		_, err = db.Exec("INSERT INTO benchmark_mixed VALUES (?, ?, ?)", i, fmt.Sprintf("initial_%d", i), time.Now())
+		_, err = db.Exec(context.Background(), "INSERT INTO benchmark_mixed VALUES (?, ?, ?)", i, fmt.Sprintf("initial_%d", i), time.Now())
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -119,7 +119,7 @@ func BenchmarkMixedReadWrite(b *testing.B) {
 			for i := 0; i < opsPerWorker; i++ {
 				id := (gid + i) % 500
 				if isWriter {
-					_, err := db.Exec("UPDATE benchmark_mixed SET value = ?, updated_at = ? WHERE id = ?",
+					_, err := db.Exec(context.Background(), "UPDATE benchmark_mixed SET value = ?, updated_at = ? WHERE id = ?",
 						fmt.Sprintf("updated_%d_%d", gid, i), time.Now(), id)
 					if err != nil {
 						b.Errorf("update failed: %v", err)
@@ -155,12 +155,12 @@ func BenchmarkReadLatency(b *testing.B) {
 	defer db.Close()
 
 	// Setup
-	_, err = db.Exec("CREATE TABLE latency_test (id INTEGER, value VARCHAR)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE latency_test (id INTEGER, value VARCHAR)")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for i := 0; i < 100; i++ {
-		_, err = db.Exec("INSERT INTO latency_test VALUES (?, ?)", i, fmt.Sprintf("value_%d", i))
+		_, err = db.Exec(context.Background(), "INSERT INTO latency_test VALUES (?, ?)", i, fmt.Sprintf("value_%d", i))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -205,7 +205,7 @@ func BenchmarkWriteLatency(b *testing.B) {
 	defer db.Close()
 
 	// Setup
-	_, err = db.Exec("CREATE TABLE write_latency_test (id INTEGER, value VARCHAR, ts TIMESTAMP)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE write_latency_test (id INTEGER, value VARCHAR, ts TIMESTAMP)")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func BenchmarkWriteLatency(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		start := time.Now()
-		_, err := db.Exec("INSERT INTO write_latency_test VALUES (?, ?, ?)", i, fmt.Sprintf("value_%d", i), time.Now())
+		_, err := db.Exec(context.Background(), "INSERT INTO write_latency_test VALUES (?, ?, ?)", i, fmt.Sprintf("value_%d", i), time.Now())
 		latency := time.Since(start).Seconds() * 1000 // convert to ms
 
 		mu.Lock()
@@ -246,12 +246,12 @@ func BenchmarkSemaphoreThroughput(b *testing.B) {
 	defer db.Close()
 
 	// Setup
-	_, err = db.Exec("CREATE TABLE semaphore_test (id INTEGER, value VARCHAR)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE semaphore_test (id INTEGER, value VARCHAR)")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for i := 0; i < 100; i++ {
-		_, err = db.Exec("INSERT INTO semaphore_test VALUES (?, ?)", i, fmt.Sprintf("value_%d", i))
+		_, err = db.Exec(context.Background(), "INSERT INTO semaphore_test VALUES (?, ?)", i, fmt.Sprintf("value_%d", i))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -284,12 +284,12 @@ func BenchmarkDirectDBAccess(b *testing.B) {
 	defer db.Close()
 
 	// Setup
-	_, err = db.Exec("CREATE TABLE direct_test (id INTEGER, value VARCHAR)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE direct_test (id INTEGER, value VARCHAR)")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for i := 0; i < 100; i++ {
-		_, err = db.Exec("INSERT INTO direct_test VALUES (?, ?)", i, fmt.Sprintf("value_%d", i))
+		_, err = db.Exec(context.Background(), "INSERT INTO direct_test VALUES (?, ?)", i, fmt.Sprintf("value_%d", i))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -323,12 +323,12 @@ func BenchmarkConcurrentReadsDirectDB(b *testing.B) {
 	defer db.Close()
 
 	// Setup
-	_, err = db.Exec("CREATE TABLE direct_concurrent (id INTEGER, value VARCHAR)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE direct_concurrent (id INTEGER, value VARCHAR)")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for i := 0; i < 1000; i++ {
-		_, err = db.Exec("INSERT INTO direct_concurrent VALUES (?, ?)", i, fmt.Sprintf("value_%d", i))
+		_, err = db.Exec(context.Background(), "INSERT INTO direct_concurrent VALUES (?, ?)", i, fmt.Sprintf("value_%d", i))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -363,7 +363,7 @@ func BenchmarkResourceExhaustion(b *testing.B) {
 	defer db.Close()
 
 	// Setup
-	_, err = db.Exec("CREATE TABLE exhaustion_test (id INTEGER)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE exhaustion_test (id INTEGER)")
 	if err != nil {
 		b.Fatal(err)
 	}

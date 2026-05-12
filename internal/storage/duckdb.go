@@ -121,11 +121,11 @@ func (d *DuckDB) QueryContext(ctx context.Context, query string, args ...interfa
 
 // Exec executes a write query. Serialized via writeMu to prevent concurrent writes.
 // Prefer ExecContext to avoid orphaned operations.
-func (d *DuckDB) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (d *DuckDB) Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	d.writeMu.Lock()
 	defer d.writeMu.Unlock()
 	start := time.Now()
-	res, err := d.db.ExecContext(context.TODO(), query, args...)
+	res, err := d.db.ExecContext(ctx, query, args...)
 	d.logSlowQuery("Exec", query, time.Since(start))
 	return res, err
 }

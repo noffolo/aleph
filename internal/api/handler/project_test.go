@@ -96,7 +96,7 @@ func TestProjectHandler_DeleteProject(t *testing.T) {
 func TestProjectHandler_EmergeOntology(t *testing.T) {
 	h, _ := setupProjectHandler(t)
 
-	_, err := h.db.Exec("CREATE TABLE sample_data (id INTEGER, name VARCHAR)")
+	_, err := h.db.Exec(context.Background(), "CREATE TABLE sample_data (id INTEGER, name VARCHAR)")
 	require.NoError(t, err)
 
 	resp, err := h.EmergeOntology(context.Background(), connect.NewRequest(&v1.EmergeOntologyRequest{}))

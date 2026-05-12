@@ -72,10 +72,10 @@ func NewContainerSandbox(l *slog.Logger, r *registry.DuckDBRegistry, meta *repos
 }
 
 func (s *ContainerSandbox) detectRunsc() {
-	// context.TODO: detectRunsc is called during NewContainerSandbox at init time,
+	// detectRunsc is called during NewContainerSandbox at init time,
 	// before any request context is available. The 5s timeout is sufficient for
 	// the docker info probe.
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "docker", "info", "--format", "{{.Runtimes}}")

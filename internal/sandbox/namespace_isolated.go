@@ -34,8 +34,8 @@ func ExecuteIsolated(ctx context.Context, tmpDir string, cmd *exec.Cmd) error {
 	return nil
 }
 
-func prepareSandboxedCmd(cmd *exec.Cmd, execID string) (cgCleanup func(), err error) {
-	if err := ExecuteIsolated(context.TODO(), "", cmd); err != nil {
+func prepareSandboxedCmd(ctx context.Context, cmd *exec.Cmd, execID string) (cgCleanup func(), err error) {
+	if err := ExecuteIsolated(ctx, "", cmd); err != nil {
 		return nil, fmt.Errorf("sandbox: namespace isolation failed: %w", err)
 	}
 

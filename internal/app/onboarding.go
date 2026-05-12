@@ -60,7 +60,7 @@ func (a *AlephApp) setupDemoData(projectsRoot string) {
 	si, err := storage.NewSchemaIdentity(projectID)
 	if err != nil {
 		a.logger.Warn("first-run: invalid projectID for schema — continuing without schema", "error", err)
-	} else if err := storage.EnsureProjectSchema(a.db, si); err != nil {
+	} else if err := storage.EnsureProjectSchema(a.ctx, a.db, si); err != nil {
 		a.logger.Warn("first-run: failed to create DuckDB schema — continuing without schema", "error", err)
 	}
 

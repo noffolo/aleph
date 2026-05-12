@@ -785,7 +785,7 @@ func (r *MetadataRepository) DeleteProjectCascade(projectID string) error {
 // If PostgreSQL succeeds but DuckDB fails, the project is enqueued for
 // deferred cleanup via ScheduleSchemaCleanup. The DuckDB drop is idempotent
 // — calling it again on a missing schema succeeds.
-func DeleteProjectCascadeWithDB(projectID string, d *storage.DuckDB, r *MetadataRepository) error {
+func DeleteProjectCascadeWithDB(ctx context.Context, projectID string, d *storage.DuckDB, r *MetadataRepository) error {
 	if r != nil {
 		if err := r.DeleteProjectCascade(projectID); err != nil {
 			return fmt.Errorf("deleteProjectCascade metadata: %w", err)
@@ -797,7 +797,7 @@ func DeleteProjectCascadeWithDB(projectID string, d *storage.DuckDB, r *Metadata
 		ScheduleSchemaCleanup(projectID)
 		return fmt.Errorf("deleteProjectCascade schema identity: %w (enqueued for cleanup)", err)
 	}
-	if err := storage.DropProjectSchema(d, si); err != nil {
+	if err := storage.DropProjectSchema(ctx, d, si); err != nil {
 		ScheduleSchemaCleanup(projectID)
 		return fmt.Errorf("deleteProjectCascade drop schema: %w (enqueued for cleanup)", err)
 	}

@@ -74,12 +74,10 @@ func SanitizeProjectID(projectID string) error {
 // EnsureProjectSchema creates a DuckDB schema for the given project if it doesn't exist.
 // Serialized via writeMu with other DDL operations.
 // Accepts a pre-validated SchemaIdentity.
-// Uses context.TODO() — DDL operations at this level are self-contained and
-// should be refactored to accept a caller-provided context.
-func EnsureProjectSchema(d *DuckDB, si SchemaIdentity) error {
+func EnsureProjectSchema(ctx context.Context, d *DuckDB, si SchemaIdentity) error {
 	d.writeMu.Lock()
 	defer d.writeMu.Unlock()
-	_, err := d.db.ExecContext(context.TODO(), fmt.Sprintf(`CREATE SCHEMA IF NOT EXISTS %s`, si.Quoted()))
+	_, err := d.db.ExecContext(ctx, fmt.Sprintf(`CREATE SCHEMA IF NOT EXISTS %s`, si.Quoted()))
 	if err != nil {
 		return fmt.Errorf("ensureProjectSchema: %w", err)
 	}
@@ -89,11 +87,10 @@ func EnsureProjectSchema(d *DuckDB, si SchemaIdentity) error {
 // DropProjectSchema drops the DuckDB schema for a project.
 // Serialized via writeMu with other DDL operations.
 // Accepts a pre-validated SchemaIdentity.
-// Uses context.TODO() — see EnsureProjectSchema note.
-func DropProjectSchema(d *DuckDB, si SchemaIdentity) error {
+func DropProjectSchema(ctx context.Context, d *DuckDB, si SchemaIdentity) error {
 	d.writeMu.Lock()
 	defer d.writeMu.Unlock()
-	_, err := d.db.ExecContext(context.TODO(), fmt.Sprintf(`DROP SCHEMA IF EXISTS %s CASCADE`, si.Quoted()))
+	_, err := d.db.ExecContext(ctx, fmt.Sprintf(`DROP SCHEMA IF EXISTS %s CASCADE`, si.Quoted()))
 	if err != nil {
 		return fmt.Errorf("dropProjectSchema: %w", err)
 	}

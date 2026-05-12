@@ -183,7 +183,7 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	fmt.Fprintf(f, "--- Success ---\n")
 
 	// Registrazione Viste in DuckDB per performance
-	if err := e.registerViews(projectID); err != nil {
+	if err := e.registerViews(taskCtx, projectID); err != nil {
 		fmt.Fprintf(f, "Warning: View registration failed: %v\n", err)
 	}
 
@@ -199,7 +199,7 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 		return fmt.Errorf("invalid table name after sanitization: %w", err)
 	}
 	timestampSQL := "ALTER TABLE " + safeident.QuoteIdentifier(tableNameForSQL) + " ADD COLUMN IF NOT EXISTS _aleph_ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" // safe: tableNameForSQL validated via safeident.ValidateStrictIdentifier
-	e.db.Exec(timestampSQL)
+	e.db.Exec(taskCtx, timestampSQL)
 
 	// Arricchimento Predittivo Vettoriale (Asincrono)
 	e.wg.Add(1)
@@ -280,7 +280,7 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 	// Table creation has been moved to migrations/000001_init_schema.up.sql
 	// The following query is kept for reference but commented out:
 	/*
-	e.db.Exec(`CREATE TABLE IF NOT EXISTS system_features (
+	e.db.Exec(ctx, `CREATE TABLE IF NOT EXISTS system_features (
 		project_id VARCHAR,
 		task_id VARCHAR,
 		entity_id VARCHAR,
@@ -343,7 +343,7 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 						log.Printf("[Engine] Sentiment analysis failed for %s.%s: %v", tableName, col, sErr)
 					}
 				}
-				e.db.Exec(`INSERT INTO system_features (project_id, task_id, entity_id, feature_type, feature_value) 
+				e.db.Exec(ctx, `INSERT INTO system_features (project_id, task_id, entity_id, feature_type, feature_value) 
 					VALUES (?, ?, ?, ?, ?)`, projectID, tableName, entityID, "sentiment_"+col, featureValue)
 			}
 		}
@@ -356,7 +356,7 @@ func (e *Engine) Close() error {
 	return nil
 }
 
-func (e *Engine) registerViews(projectID string) error {
+func (e *Engine) registerViews(ctx context.Context, projectID string) error {
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	ontPath := filepath.Join(projectPath, "ontologies", "core.aleph")
 	content, err := os.ReadFile(ontPath)
@@ -379,7 +379,7 @@ func (e *Engine) registerViews(projectID string) error {
 				continue
 			}
 			createViewSql := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(viewName) + " AS " + sql // safe: viewName validated via safeident.ValidateStrictIdentifier (via stripAndValidateName + ValidateIdentifier)
-			if _, err := e.db.Exec(createViewSql); err != nil {
+			if _, err := e.db.Exec(ctx, createViewSql); err != nil {
 				log.Printf("[Engine] Failed to create view %s: %v", viewName, err)
 			}
 		}
@@ -450,7 +450,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 			return fmt.Errorf("unsafe file path: %w", err)
 		}
 		createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(tmpFile) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
-		if _, err := e.db.Exec(createSQL); err != nil {
+		if _, err := e.db.Exec(ctx, createSQL); err != nil {
 			return fmt.Errorf("JSON view creation failed: %w", err)
 		}
 	} else if strings.Contains(contentType, "csv") || strings.Contains(contentType, "text/plain") {
@@ -460,7 +460,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 			return fmt.Errorf("unsafe file path: %w", err)
 		}
 		createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(tmpFile) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
-		if _, err := e.db.Exec(createSQL); err != nil {
+		if _, err := e.db.Exec(ctx, createSQL); err != nil {
 			return fmt.Errorf("CSV view creation failed: %w", err)
 		}
 	} else {
@@ -548,7 +548,7 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 			return fmt.Errorf("unsafe file path: %w", err)
 		}
 		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(rawPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
-		if _, err := e.db.Exec(createSQL); err != nil {
+		if _, err := e.db.Exec(ctx, createSQL); err != nil {
 			return fmt.Errorf("CSV table creation failed: %w", err)
 		}
 	} else {
@@ -561,7 +561,7 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 			return fmt.Errorf("unsafe file path: %w", err)
 		}
 		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(rawPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
-		if _, err := e.db.Exec(createSQL); err != nil {
+		if _, err := e.db.Exec(ctx, createSQL); err != nil {
 			return fmt.Errorf("JSON table creation failed: %w", err)
 		}
 	}
@@ -571,7 +571,7 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 	return nil
 }
 
-func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File) error {
+func (e *Engine) insertJSONArray(ctx context.Context, tableName string, arr []interface{}, w *os.File) error {
 	if err := safeident.ValidateIdentifier(tableName); err != nil {
 		return fmt.Errorf("invalid table name for JSON array insert: %w", err)
 	}
@@ -622,7 +622,7 @@ func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File
 	}
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " (" + strings.Join(escapedCols, ", ") + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; escapedCols via safeident.ValidateColumnName
-	if _, err := e.db.Exec(createSQL); err != nil {
+	if _, err := e.db.Exec(ctx, createSQL); err != nil {
 		return fmt.Errorf("table creation failed: %w", err)
 	}
 
@@ -633,7 +633,7 @@ func (e *Engine) insertJSONArray(tableName string, arr []interface{}, w *os.File
 			end = len(values)
 		}
 		insertSQL := "INSERT INTO " + safeident.QuoteIdentifier(tableName) + " (" + strings.Join(escapedCols, ", ") + ") VALUES " + strings.Join(values[i:end], ", ") // safe: tableName validated; escapedCols via safeident.ValidateColumnName; VALUES use ? parameterized
-		if _, err := e.db.Exec(insertSQL, params...); err != nil {
+		if _, err := e.db.Exec(ctx, insertSQL, params...); err != nil {
 			fmt.Fprintf(w, "Warning: insert batch failed: %v\n", err)
 		}
 	}
@@ -690,7 +690,7 @@ func (e *Engine) runCSVLoad(ctx context.Context, w *os.File, projectID string, t
 	if err := os.WriteFile(localPath, data, 0644); err != nil { return fmt.Errorf("local file write failed: %w", err) }
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM " + readerFunc + "(" + safeident.QuoteStringLiteral(localPath) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
-	if _, err := e.db.Exec(createSQL); err != nil {
+	if _, err := e.db.Exec(ctx, createSQL); err != nil {
 		return fmt.Errorf("file load failed: %w", err)
 	}
 
@@ -718,12 +718,12 @@ func (e *Engine) runPostgresLoad(ctx context.Context, w *os.File, projectID stri
 	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(postgres): %w", err) }
 	if err := validateSQLName(tableName); err != nil { return fmt.Errorf("validateTableName(postgres): %w", err) }
 
-	_, err := e.db.Exec("INSTALL postgres_scanner")
+	_, err := e.db.Exec(ctx, "INSTALL postgres_scanner")
 	if err != nil {
 		fmt.Fprintf(w, "Warning: postgres_scanner extension not available: %v\n", err)
 		return fmt.Errorf("postgres_scanner extension unavailable: %w", err)
 	}
-	_, err = e.db.Exec("LOAD postgres_scanner")
+	_, err = e.db.Exec(ctx, "LOAD postgres_scanner")
 	if err != nil {
 		return fmt.Errorf("postgres_scanner load failed: %w", err)
 	}
@@ -737,7 +737,7 @@ func (e *Engine) runPostgresLoad(ctx context.Context, w *os.File, projectID stri
 	}
 
 	createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS " + query // safe: tableName validated via safeident.ValidateStrictIdentifier; DSN and tableName in postgres_scan_pushdown use QuoteStringLiteral
-	if _, err := e.db.Exec(createSQL); err != nil {
+	if _, err := e.db.Exec(ctx, createSQL); err != nil {
 		return fmt.Errorf("PostgreSQL view creation failed: %w", err)
 	}
 
@@ -804,7 +804,7 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 		} else if ext == ".parquet" {
 			createSQL = "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_parquet(" + safeident.QuoteStringLiteral(filePath) + ")" // safe: tableName validated; filePath via safeident.SanitizeFilePath
 		} else { continue }
-		if _, err := e.db.Exec(createSQL); err != nil {
+		if _, err := e.db.Exec(ctx, createSQL); err != nil {
 			fmt.Fprintf(w, "Warning: view %s failed: %v\n", tableName, err)
 		}
 	}
@@ -1042,7 +1042,7 @@ if rows:
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(csvPath) + ", ignore_errors=true)"
 	fmt.Fprintf(w, "Creating table '%s' in DuckDB...\n", tableName)
-	if _, err := e.db.Exec(createSQL); err != nil {
+	if _, err := e.db.Exec(ctx, createSQL); err != nil {
 		return fmt.Errorf("duckdb create table failed: %v", err)
 	}
 
@@ -1170,7 +1170,7 @@ func (e *Engine) runGitHubSource(ctx context.Context, w *os.File, projectID stri
 		}
 
 		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
-		if _, err := e.db.Exec(createSQL); err != nil {
+		if _, err := e.db.Exec(ctx, createSQL); err != nil {
 			fmt.Fprintf(w, "Warning: table %s creation failed: %v\n", tableName, err)
 		} else {
 			fmt.Fprintf(w, "Table \"%s\" created (%d bytes)\n", tableName, len(data))
@@ -1255,7 +1255,7 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 	}
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
-	if _, err := e.db.Exec(createSQL); err != nil {
+	if _, err := e.db.Exec(ctx, createSQL); err != nil {
 		return fmt.Errorf("sitemap table creation failed: %w", err)
 	}
 
@@ -1370,7 +1370,7 @@ func (e *Engine) runJSONAPISource(ctx context.Context, w *os.File, projectID str
 	}
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
-	if _, err := e.db.Exec(createSQL); err != nil {
+	if _, err := e.db.Exec(ctx, createSQL); err != nil {
 		return fmt.Errorf("jsonapi table creation failed: %w", err)
 	}
 
@@ -1428,7 +1428,7 @@ func (e *Engine) runSheetsSource(ctx context.Context, w *os.File, projectID stri
 		}
 
 		createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
-		if _, err := e.db.Exec(createSQL); err != nil {
+		if _, err := e.db.Exec(ctx, createSQL); err != nil {
 			fmt.Fprintf(w, "Warning: table %s creation failed: %v\n", tableName, err)
 		} else {
 			fmt.Fprintf(w, "Table \"%s\" created from sheet %q\n", tableName, sheetName)

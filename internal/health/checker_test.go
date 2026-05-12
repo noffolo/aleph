@@ -1,6 +1,7 @@
 package health
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 	"time"
@@ -9,14 +10,14 @@ import (
 )
 
 func TestNewHealthChecker(t *testing.T) {
-	hc := NewHealthChecker(slog.Default(), nil)
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil)
 	assert.NotNil(t, hc)
 	assert.Equal(t, 5*time.Minute, hc.interval)
 	assert.Equal(t, 3, hc.alertCount)
 }
 
 func TestHealthCheckerWithOptions(t *testing.T) {
-	hc := NewHealthChecker(slog.Default(), nil,
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil,
 		WithInterval(time.Second),
 		WithHistoryLen(5),
 		WithAlertCount(2),
@@ -30,13 +31,13 @@ func TestHealthChecker_StartStop_PanicsWithoutDB(t *testing.T) {
 	// Start triggers run() goroutine which calls checkAll() → metaRepo.ListTools()
 	// which dereferences *sql.DB. The MetadataRepository requires a real DB connection,
 	// so this is expected to panic. We just verify the pattern works.
-	hc := NewHealthChecker(slog.Default(), nil)
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil)
 	hc.Stop() // safe: cancel is nil
 	assert.NotNil(t, hc.logger)
 }
 
 func TestHealthChecker_GetHistory(t *testing.T) {
-	hc := NewHealthChecker(slog.Default(), nil)
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil)
 	hc.history.Add("tool_a", HealthRecord{Status: StatusHealthy})
 	hc.history.Add("tool_a", HealthRecord{Status: StatusDown})
 
@@ -45,7 +46,7 @@ func TestHealthChecker_GetHistory(t *testing.T) {
 }
 
 func TestHealthChecker_GetAllHistory(t *testing.T) {
-	hc := NewHealthChecker(slog.Default(), nil)
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil)
 	hc.history.Add("tool_a", HealthRecord{Status: StatusHealthy})
 	hc.history.Add("tool_b", HealthRecord{Status: StatusDown})
 
@@ -56,20 +57,20 @@ func TestHealthChecker_GetAllHistory(t *testing.T) {
 }
 
 func TestHealthChecker_GetAllHistory_Empty(t *testing.T) {
-	hc := NewHealthChecker(slog.Default(), nil)
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil)
 	all := hc.GetAllHistory()
 	assert.Empty(t, all)
 }
 
 func TestHealthChecker_ConsecutiveFailures(t *testing.T) {
-	hc := NewHealthChecker(slog.Default(), nil)
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil)
 	hc.history.Add("tool_a", HealthRecord{Status: StatusDown})
 	hc.history.Add("tool_a", HealthRecord{Status: StatusDown})
 	assert.Equal(t, 2, hc.ConsecutiveFailures("tool_a"))
 }
 
 func TestHealthChecker_GetLatestStatus(t *testing.T) {
-	hc := NewHealthChecker(slog.Default(), nil)
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil)
 
 	// No records = unknown
 	assert.Equal(t, StatusUnknown, hc.GetLatestStatus("nonexistent"))
@@ -88,7 +89,7 @@ func TestBuiltinChecker_New(t *testing.T) {
 }
 
 func TestHealthCheckerWithOptions_OverrideSome(t *testing.T) {
-	hc := NewHealthChecker(slog.Default(), nil, WithAlertCount(5))
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil, WithAlertCount(5))
 	assert.Equal(t, 5*time.Minute, hc.interval)
 	assert.Equal(t, 5, hc.alertCount)
 	assert.Equal(t, 10, hc.history.maxLen)
@@ -96,7 +97,7 @@ func TestHealthCheckerWithOptions_OverrideSome(t *testing.T) {
 
 func TestCheckerOptionDefaults(t *testing.T) {
 	// Verify default config values are applied correctly
-	hc := NewHealthChecker(slog.Default(), nil,
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil,
 		WithInterval(30*time.Second),
 		WithHistoryLen(20),
 	)

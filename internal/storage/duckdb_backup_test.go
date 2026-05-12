@@ -19,19 +19,19 @@ func TestBackupRestore(t *testing.T) {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("CREATE TABLE items (id INTEGER, label VARCHAR)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE items (id INTEGER, label VARCHAR)")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("INSERT INTO items VALUES (1, 'alpha'), (2, 'beta')")
+	_, err = db.Exec(context.Background(), "INSERT INTO items VALUES (1, 'alpha'), (2, 'beta')")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Backup(bakPath); err != nil {
+	if err := db.Backup(context.Background(), bakPath); err != nil {
 		t.Fatal("Backup failed:", err)
 	}
 
-	_, err = db.Exec("INSERT INTO items VALUES (3, 'gamma')")
+	_, err = db.Exec(context.Background(), "INSERT INTO items VALUES (3, 'gamma')")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestBackup_InMemoryFails(t *testing.T) {
 	}
 	defer db.Close()
 
-	if err := db.Backup("/tmp/nope.duckdb"); err == nil {
+	if err := db.Backup(context.Background(), "/tmp/nope.duckdb"); err == nil {
 		t.Fatal("expected error backing up in-memory database")
 	}
 	if err := db.Restore("/tmp/nope.duckdb"); err == nil {
@@ -105,11 +105,11 @@ func TestAutoBackup(t *testing.T) {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("CREATE TABLE t (x INTEGER)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE t (x INTEGER)")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("INSERT INTO t VALUES (42)")
+	_, err = db.Exec(context.Background(), "INSERT INTO t VALUES (42)")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -218,14 +218,14 @@ func TestExecute(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		r := NewToolRegistry()
 		_ = r.Register(okTool("greet", "test"))
-		result, err := r.Execute("test", "greet", map[string]any{"name": "world"})
+		result, err := r.Execute(context.Background(), "test", "greet", map[string]any{"name": "world"})
 		require.NoError(t, err)
 		assert.Equal(t, "ok", result)
 	})
 
 	t.Run("tool not found", func(t *testing.T) {
 		r := NewToolRegistry()
-		_, err := r.Execute("cat", "missing", nil)
+		_, err := r.Execute(context.Background(), "cat", "missing", nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "tool not found")
 	})
@@ -240,7 +240,7 @@ func TestExecute(t *testing.T) {
 				return nil, errors.New("execution failed")
 			},
 		})
-		_, err := r.Execute("test", "fail", nil)
+		_, err := r.Execute(context.Background(), "test", "fail", nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "execution failed")
 	})
@@ -468,7 +468,7 @@ func TestConcurrentAccess(t *testing.T) {
 			r.List("")
 			r.Get("finance", "tool-a")
 			r.Categories()
-			r.Execute("finance", "tool-a", nil)
+			r.Execute(context.Background(), "finance", "tool-a", nil)
 			done <- struct{}{}
 		}()
 	}

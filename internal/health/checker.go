@@ -45,7 +45,9 @@ type HealthChecker struct {
 }
 
 // NewHealthChecker creates a new periodic health checker.
-func NewHealthChecker(logger *slog.Logger, metaRepo *repository.MetadataRepository, opts ...HealthCheckerOption) *HealthChecker {
+// The parentCtx is used as the initial context for health check operations
+// until Start(parentCtx) replaces it with the actual loop context.
+func NewHealthChecker(parentCtx context.Context, logger *slog.Logger, metaRepo *repository.MetadataRepository, opts ...HealthCheckerOption) *HealthChecker {
 	cfg := HealthCheckerConfig{
 		Interval:   5 * time.Minute,
 		HistoryLen: 10,
@@ -55,10 +57,9 @@ func NewHealthChecker(logger *slog.Logger, metaRepo *repository.MetadataReposito
 		opt(&cfg)
 	}
 
-	// context.TODO: NewHealthChecker creates a placeholder context that is
-	// replaced by Start(parentCtx) when the checker is actually launched.
 	// The initial ctx/cancel pair ensures the struct is always valid.
-	ctx, cancel := context.WithCancel(context.TODO())
+	// Start(parentCtx) replaces this context when the checker is launched.
+	ctx, cancel := context.WithCancel(parentCtx)
 	history := NewHistoryStore(cfg.HistoryLen)
 
 	builtinChecker := NewBuiltinChecker(metaRepo)
