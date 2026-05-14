@@ -71,7 +71,6 @@ describe('useDataSourceActions', () => {
       await result.current.onAddSource({ name: 'Bad', sourceType: 'broken', configJson: '{}' });
     });
 
-    expect(mockStore.setLastError).toHaveBeenCalledWith('Network error');
     expect(mockStore.addToast).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'error', context: 'createTask' }),
     );
@@ -113,7 +112,9 @@ describe('useDataSourceActions', () => {
       result.current.onRunTask('task-1');
     });
 
-    expect(mockStore.setLastError).toHaveBeenCalledWith('Run failed');
+    expect(mockStore.addToast).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error', context: 'runTask' }),
+    );
   });
 
   it('onViewLogs fetches and stores task logs', async () => {

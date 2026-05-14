@@ -63,6 +63,11 @@ func NewDefaultReflector() *DefaultReflector {
 // It iterates ALL observations (not just the last one), classifies each
 // as expected/unexpected/critical, and produces a structured reflection
 // with actionable insights.
+//
+// On failures, Reflect generates CorrectionSteps and sets ReplanType:
+//   - ReplanPartial: individual failed steps get fallback-based correction steps
+//   - ReplanFull: the entire plan must be recreated (critical or cascading failure)
+//   - ReplanNone: everything succeeded
 func (r *DefaultReflector) Reflect(ctx context.Context, plan *PlanResult, observations []Observation) (*PlanResult, error) {
 	if plan == nil {
 		return nil, ErrPlanNil
@@ -115,38 +120,80 @@ func (r *DefaultReflector) Reflect(ctx context.Context, plan *PlanResult, observ
 
 	// Determine whether we can proceed
 	if criticalCount > 0 {
-		// Any critical failure blocks progress
+		// Any critical failure triggers a FULL replan
 		lastCritical := ""
 		for _, a := range analyses {
 			if a.GapType == GapCritical {
 				lastCritical = a.Details
 			}
 		}
+		corrections := buildCorrectionSteps(observations, plan)
 		return &PlanResult{
-			Intent:     plan.Intent,
-			Steps:      newSteps,
-			CanProceed: false,
-			Reason:     fmt.Sprintf("critical failure detected: %s; %s", lastCritical, summary),
+			Intent:          plan.Intent,
+			Steps:           newSteps,
+			CanProceed:      false,
+			Reason:          fmt.Sprintf("critical failure detected: %s; %s", lastCritical, summary),
+			CorrectionSteps: corrections,
+			ReplanType:      ReplanFull,
 		}, nil
 	}
 
-	// All succeeded or only unexpected (recoverable) failures
+	// Only unexpected (recoverable) failures — PARTIAL replan
 	if unexpectedCount > 0 {
+		corrections := buildCorrectionSteps(observations, plan)
 		return &PlanResult{
-			Intent:     plan.Intent,
-			Steps:      newSteps,
-			CanProceed: true,
-			Reason:     fmt.Sprintf("completed with %d recoverable issue(s); %s", unexpectedCount, summary),
+			Intent:          plan.Intent,
+			Steps:           newSteps,
+			CanProceed:      true,
+			Reason:          fmt.Sprintf("completed with %d recoverable issue(s); %s", unexpectedCount, summary),
+			CorrectionSteps: corrections,
+			ReplanType:      ReplanPartial,
 		}, nil
 	}
 
 	// All expected — everything went according to plan
 	return &PlanResult{
-		Intent:     plan.Intent,
-		Steps:      newSteps,
-		CanProceed: true,
-		Reason:     summary,
+		Intent:          plan.Intent,
+		Steps:           newSteps,
+		CanProceed:      true,
+		Reason:          summary,
+		CorrectionSteps: nil,
+		ReplanType:      ReplanNone,
 	}, nil
+}
+
+// buildCorrectionSteps generates alternate PlannedSteps for failed observations.
+// For each failed step, it uses the step's Fallback field if populated,
+// otherwise constructs a diagnostic fallback (query_dispatch with error details).
+// This provides the Run() loop with actionable corrections for partial replanning.
+func buildCorrectionSteps(observations []Observation, plan *PlanResult) []PlannedStep {
+	var corrections []PlannedStep
+	for _, obs := range observations {
+		if obs.Success {
+			continue
+		}
+		step := obs.Step
+
+		// Use explicit fallback if the step defined one
+		if step.Fallback != "" {
+			corrections = append(corrections, PlannedStep{
+				ToolName:  step.Fallback,
+				Arguments: map[string]interface{}{"original_tool": step.ToolName, "error": strings.Join(obs.Issues, "; ")},
+				Rationale: fmt.Sprintf("fallback for %s after failure: %s", step.ToolName, strings.Join(obs.Issues, "; ")),
+			})
+			continue
+		}
+
+		// No fallback — inject a diagnostic query_dispatch as a safe default
+		corrections = append(corrections, PlannedStep{
+			ToolName: "query_dispatch",
+			Arguments: map[string]interface{}{
+				"query": fmt.Sprintf("diagnose failure of %s: %s", step.ToolName, strings.Join(obs.Issues, "; ")),
+			},
+			Rationale: fmt.Sprintf("diagnostic fallback for failed tool %s", step.ToolName),
+		})
+	}
+	return corrections
 }
 
 // classifyObservation assigns a GapType to a single observation based on

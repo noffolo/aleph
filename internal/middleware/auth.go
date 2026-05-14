@@ -84,9 +84,20 @@ func roleFromEnv(apiKey string) Role {
 	return roleFromEnvFn(apiKey)
 }
 
-// bootstrapRole checks if the key matches the ALEPH_API_KEY_SECRET_BACKEND env var.
+// bootstrapRole checks if the key is a known bootstrap key (env var or prefix).
+// Returns "" for regular API keys that must go through DB validation.
 func bootstrapRole(apiKey string) Role {
-	return roleFromEnvImpl(apiKey)
+	backendKey := os.Getenv("ALEPH_API_KEY_SECRET_BACKEND")
+	if backendKey != "" && apiKey == backendKey {
+		return RoleAdmin
+	}
+	if strings.HasPrefix(apiKey, "user_") {
+		return RoleUser
+	}
+	if strings.HasPrefix(apiKey, "ro_") {
+		return RoleReadOnly
+	}
+	return ""
 }
 
 func roleFromEnvImpl(apiKey string) Role {

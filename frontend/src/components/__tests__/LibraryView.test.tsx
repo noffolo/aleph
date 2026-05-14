@@ -1,5 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { LibraryView } from '../LibraryView'
 
@@ -99,9 +100,7 @@ describe('LibraryView', () => {
     render(<LibraryView {...buildProps()} />)
     const deleteBtn = screen.getByLabelText(/Elimina Report Q3/)
     fireEvent.click(deleteBtn)
-    // onDeleteAsset should NOT be called yet — only after confirming in the SlideOver
     expect(mockOnDeleteAsset).not.toHaveBeenCalled()
-    // setSlideOverContent should have been called with the confirm dialog config
     expect(mockSetSlideOverContent).toHaveBeenCalledWith({
       type: 'confirm',
       title: 'Conferma eliminazione',
@@ -131,5 +130,59 @@ describe('LibraryView', () => {
   it('renders drag and drop area', () => {
     render(<LibraryView {...buildProps({ assets: [] })} />)
     expect(screen.getByText(/Trascina qui/)).toBeInTheDocument()
+  })
+
+  it('handles download using selectedAssetContent', () => {
+    const createObjectURL = vi.fn().mockReturnValue('blob:test')
+    const revokeObjectURL = vi.fn()
+    const createElement = document.createElement.bind(document)
+    const mockAnchor = { href: '', download: '', click: vi.fn() } as unknown as HTMLAnchorElement
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(createObjectURL)
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(revokeObjectURL)
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      if (tag === 'a') return mockAnchor
+      return createElement(tag)
+    })
+    render(<LibraryView {...buildProps({ selectedAssetContent: 'file content here' })} />)
+    const downloadBtn = screen.getByLabelText(/Scarica Report Q3/)
+    fireEvent.click(downloadBtn)
+    expect(createObjectURL).toHaveBeenCalled()
+    expect(mockAnchor.click).toHaveBeenCalled()
+    expect(revokeObjectURL).toHaveBeenCalled()
+  })
+
+  it('handles download by fetching content when not cached', async () => {
+    mockOnGetAssetContent.mockResolvedValue('fetched content')
+    render(<LibraryView {...buildProps({ selectedAssetContent: null })} />)
+    const downloadBtn = screen.getByLabelText(/Scarica Report Q3/)
+    await userEvent.click(downloadBtn)
+    expect(mockOnGetAssetContent).toHaveBeenCalledWith('a1')
+  })
+
+  it('opens asset detail SlideOver on Leggi Report click', () => {
+    render(<LibraryView {...buildProps()} />)
+    fireEvent.click(screen.getAllByText('Leggi Report')[0])
+    expect(mockSetSlideOverContent).toHaveBeenCalledWith({
+      type: 'asset',
+      title: 'Dettaglio Asset',
+      data: { assetId: 'a1' },
+    })
+  })
+
+  it('renders dragOver state when dragging over the drop zone', () => {
+    render(<LibraryView {...buildProps({ assets: [] })} />)
+    const dropZone = screen.getByText(/Trascina qui/).closest('div')!.parentElement!
+    fireEvent.dragOver(dropZone)
+    expect(screen.getByText('Rilascia per caricare')).toBeInTheDocument()
+  })
+
+  it('renders inline mode', () => {
+    render(<LibraryView {...buildProps({ inline: true })} />)
+    expect(screen.getByText('Libreria')).toBeInTheDocument()
+  })
+
+  it('shows uploading state on upload button', () => {
+    render(<LibraryView {...buildProps()} />)
+    expect(screen.getByText('Carica')).toBeInTheDocument()
   })
 })

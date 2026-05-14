@@ -79,7 +79,6 @@ describe('useOntologyActions', () => {
       await result.current.onEmerge();
     });
 
-    expect(mockStore.setLastError).toHaveBeenCalledWith('Network failure');
     expect(mockStore.addToast).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'error', context: 'emergeOntology' }),
     );
@@ -110,7 +109,9 @@ describe('useOntologyActions', () => {
       await result.current.onSave();
     });
 
-    expect(mockStore.setLastError).toHaveBeenCalledWith('Save failed');
+    expect(mockStore.addToast).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error', context: 'saveOntology' }),
+    );
   });
 
   describe('fetchVersions', () => {
@@ -144,7 +145,9 @@ describe('useOntologyActions', () => {
         await result.current.fetchVersions();
       });
 
-      expect(mockStore.setLastError).toHaveBeenCalledWith('Failed to fetch ontology versions');
+      expect(mockStore.addToast).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error', context: 'fetchVersions' }),
+      );
     });
   });
 
@@ -181,7 +184,9 @@ describe('useOntologyActions', () => {
         await result.current.acceptVersion('bad-version');
       });
 
-      expect(mockStore.setLastError).toHaveBeenCalledWith('Failed to accept ontology version');
+      expect(mockStore.addToast).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error', context: 'acceptVersion' }),
+      );
     });
   });
 

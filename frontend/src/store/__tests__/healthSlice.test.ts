@@ -22,7 +22,6 @@ describe('healthSlice', () => {
     expect(slice.ollamaHealthy).toBe(false);
     expect(slice.nlpHealthy).toBe(false);
     expect(slice.dataHealthStats).toEqual([]);
-    expect(slice.lastError).toBeNull();
     expect(slice.ollamaModels).toEqual([]);
   });
 
@@ -58,13 +57,11 @@ describe('healthSlice', () => {
       ollamaHealthy: false,
       nlpHealthy: false,
       dataHealthStats: [],
-      lastError: null,
       ollamaModels: [],
     })).toMatchObject({
       ollamaHealthy: false,
       nlpHealthy: false,
       dataHealthStats: [],
-      lastError: null,
       ollamaModels: [],
     });
   });

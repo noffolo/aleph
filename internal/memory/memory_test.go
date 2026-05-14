@@ -2,28 +2,15 @@ package memory
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"testing"
 
 	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/require"
-)
 
-// openDuckDB opens a DuckDB database at the given path (use ":memory:" for in-memory).
-func openDuckDB(dbPath string) (*sql.DB, error) {
-	db, err := sql.Open("duckdb", dbPath)
-	if err != nil {
-		return nil, err
-	}
-	// In-memory DuckDB databases are per-connection; limit to single connection
-	if dbPath == "" || dbPath == ":memory:" {
-		db.SetMaxOpenConns(1)
-		db.SetMaxIdleConns(1)
-	}
-	return db, nil
-}
+	"github.com/ff3300/aleph-v2/internal/storage"
+)
 
 // inMemoryDB opens an in-memory DuckDB connection suitable for testing.
 // Uses the same driver as the rest of the project (go-duckdb).
@@ -42,14 +29,8 @@ func inMemoryDBDim(t *testing.T, dim int) *MemoryStore {
 	return ms
 }
 
-func newTestStore(schema string, dim int) (interface{ Close() error }, *MemoryStore, error) {
-	// Use database/sql directly with the duckdb driver name.
-	// We open the driver by its registered name.
-	return newTestStoreSQL(schema, dim)
-}
-
-func newTestStoreSQL(schema string, dim int) (interface{ Close() error }, *MemoryStore, error) {
-	db, err := openDuckDB(":memory:")
+func newTestStore(schema string, dim int) (*storage.DuckDB, *MemoryStore, error) {
+	db, err := storage.NewDuckDB(":memory:")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -63,7 +44,7 @@ func newTestStoreSQL(schema string, dim int) (interface{ Close() error }, *Memor
 
 func TestMemoryExistingSQLGuard(t *testing.T) {
 	t.Run("constructor rejects SQL injection in schema", func(t *testing.T) {
-		db, err := openDuckDB(":memory:")
+		db, err := storage.NewDuckDB(":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,7 +55,7 @@ func TestMemoryExistingSQLGuard(t *testing.T) {
 		require.Contains(t, err.Error(), "invalid")
 	})
 	t.Run("constructor accepts valid schema", func(t *testing.T) {
-		db, err := openDuckDB(":memory:")
+		db, err := storage.NewDuckDB(":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -285,7 +266,7 @@ func TestNewMemoryStore_NilDB(t *testing.T) {
 }
 
 func TestNewMemoryStore_ZeroDim(t *testing.T) {
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +328,7 @@ func TestSQLInjection_ConstructorRejectsMaliciousSchema(t *testing.T) {
 
 	for _, tt := range malicious {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := openDuckDB(":memory:")
+			db, err := storage.NewDuckDB(":memory:")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -387,7 +368,7 @@ func TestSQLInjection_ConstructorRejectsSpecialChars(t *testing.T) {
 
 	for _, tt := range invalid {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := openDuckDB(":memory:")
+			db, err := storage.NewDuckDB(":memory:")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -426,7 +407,7 @@ func TestSQLInjection_ConstructorRejectsSQLKeywords(t *testing.T) {
 
 	for _, kw := range keywords {
 		t.Run(kw, func(t *testing.T) {
-			db, err := openDuckDB(":memory:")
+			db, err := storage.NewDuckDB(":memory:")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -458,7 +439,7 @@ func TestSQLInjection_ConstructorAcceptsValidSchema(t *testing.T) {
 
 	for _, tt := range valid {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := openDuckDB(":memory:")
+			db, err := storage.NewDuckDB(":memory:")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -476,7 +457,7 @@ func TestSQLInjection_ConstructorAcceptsValidSchema(t *testing.T) {
 func TestSQLInjection_QuoteIdentifierTableName(t *testing.T) {
 	// We can't use QuoteIdentifier with injectable schemas (they're blocked
 	// at the constructor), but we can test the mechanism via valid schemas.
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -554,12 +535,12 @@ func TestSQLInjection_FullChainNewMemoryStore(t *testing.T) {
 	ctx := context.Background()
 
 	// Positive case: valid schema roundtrip
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 
 	// DuckDB requires the schema to exist before it can be used.
-	_, err = db.Exec("CREATE SCHEMA trusted_schema")
+	_, err = db.Exec(context.Background(), "CREATE SCHEMA trusted_schema")
 	require.NoError(t, err)
 
 	store, err := NewMemoryStore(db, "trusted_schema", 4)
@@ -578,7 +559,7 @@ func TestSQLInjection_FullChainNewMemoryStore(t *testing.T) {
 	require.Len(t, results, 1)
 
 	// Negative case: injection payload fails at constructor, never reaches DB
-	db2, err := openDuckDB(":memory:")
+	db2, err := storage.NewDuckDB(":memory:")
 	require.NoError(t, err)
 	defer db2.Close()
 
@@ -591,7 +572,7 @@ func TestSQLInjection_FullChainNewMemoryStore(t *testing.T) {
 // valid and that the unqualified table name "memory_store" is used safely.
 // (Empty schema skips validation in NewMemoryStore, which is intentional.)
 func TestSQLInjection_NoBypassViaEmptySchema(t *testing.T) {
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -652,7 +633,7 @@ func truncateForTestName(s string) string {
 // This is the primary defense layer — no MemoryStore can be created with a
 // malicious identifier.
 func TestSQLInjection_MaliciousSchemaPayloads(t *testing.T) {
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -707,7 +688,7 @@ func TestSQLInjection_MaliciousSchemaPayloads(t *testing.T) {
 // TestSQLInjection_RejectsSQLKeywords verifies every keyword in the safeident
 // blacklist is rejected as a schema name (case-insensitive).
 func TestSQLInjection_RejectsSQLKeywords(t *testing.T) {
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -760,7 +741,7 @@ func TestSQLInjection_RejectsSQLKeywords(t *testing.T) {
 // TestSQLInjection_AcceptsValidSchemas verifies that normal, well-formed
 // schema names are accepted by the constructor.
 func TestSQLInjection_AcceptsValidSchemas(t *testing.T) {
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -854,9 +835,8 @@ func TestMemoryStore_DefenseInDepth(t *testing.T) {
 //  2. Invalid schema → constructor returns error (no store created)
 func TestFullChain_SchemaValidation(t *testing.T) {
 	t.Run("valid_schema_all_operations_succeed", func(t *testing.T) {
-		dbIntf, ms, err := newTestStore("", 4)
+		db, ms, err := newTestStore("", 4)
 		require.NoError(t, err)
-		db := dbIntf.(*sql.DB)
 		defer db.Close()
 
 		ctx := context.Background()
@@ -894,7 +874,7 @@ func TestFullChain_SchemaValidation(t *testing.T) {
 	})
 
 	t.Run("invalid_schema_blocked_at_construction", func(t *testing.T) {
-		db, err := openDuckDB(":memory:")
+		db, err := storage.NewDuckDB(":memory:")
 		require.NoError(t, err)
 		defer db.Close()
 
@@ -907,7 +887,7 @@ func TestFullChain_SchemaValidation(t *testing.T) {
 // TestFullChain_NoSchemaUsesBareTableName verifies that empty schema produces
 // a bare "memory_store" table name (no schema prefix, no quoting).
 func TestFullChain_NoSchemaUsesBareTableName(t *testing.T) {
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -931,7 +911,7 @@ func TestFullChain_NoSchemaUsesBareTableName(t *testing.T) {
 // limitation — DuckDB supports quoted unicode identifiers, but ValidateIdentifier
 // does not (yet) allow them.
 func TestSQLInjection_UnicodeAndInternational(t *testing.T) {
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -962,7 +942,7 @@ func TestSQLInjection_UnicodeAndInternational(t *testing.T) {
 
 // TestSQLInjection_BoundaryConditions tests identifiers at length boundaries.
 func TestSQLInjection_BoundaryConditions(t *testing.T) {
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -1003,7 +983,7 @@ func TestSQLInjection_BoundaryConditions(t *testing.T) {
 // TestSQLInjection_CaseInsensitiveKeywords verifies that SQL keywords are
 // rejected regardless of case (SELECT, select, Select, sElEcT, etc.)
 func TestSQLInjection_CaseInsensitiveKeywords(t *testing.T) {
-	db, err := openDuckDB(":memory:")
+	db, err := storage.NewDuckDB(":memory:")
 	require.NoError(t, err)
 	defer db.Close()
 

@@ -53,6 +53,9 @@ export function useSSE(handlers: SSEHandlers = {}) {
   const abortRef = useRef<AbortController | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reconnectDelayRef = useRef(RECONNECT_BASE_DELAY)
+  const reconnectingRef = useRef(false)
+  /** Guards against concurrent connect() calls while a connection or reconnection is in progress. */
+  const connectingRef = useRef(false)
   const handlersRef = useRef(handlers)
   const mountedRef = useRef(true)
   const lastEventIdRef = useRef<string | null>(null)
@@ -61,12 +64,11 @@ export function useSSE(handlers: SSEHandlers = {}) {
 
   handlersRef.current = handlers
 
-
-  useEffect(() => {
-  }, [])
-
   const connect = useCallback(async () => {
-    if (abortRef.current) return // already connected/connecting
+    // Prevent concurrent connection attempts (W4-05 reconnection race fix)
+    if (abortRef.current || connectingRef.current) return
+    
+    connectingRef.current = true
     
     const baseUrl = window.location.origin
     const url = new URL('/api/v1/events', baseUrl)
@@ -96,6 +98,7 @@ export function useSSE(handlers: SSEHandlers = {}) {
       if (!response.ok) {
         // Non-200: trigger error reconnection
         abortRef.current = null
+        connectingRef.current = false
         setStatus('reconnecting')
         handlersRef.current.onError?.(new Event('error'))
         scheduleReconnect()
@@ -108,6 +111,8 @@ export function useSSE(handlers: SSEHandlers = {}) {
 
       const reader = response.body?.getReader()
       if (!reader) {
+        abortRef.current = null
+        connectingRef.current = false
         handlersRef.current.onError?.(new Event('error'))
         scheduleReconnect()
         return
@@ -133,16 +138,23 @@ export function useSSE(handlers: SSEHandlers = {}) {
       } catch (err: unknown) {
         // AbortError = intentional disconnect, don't reconnect
         if (err instanceof DOMException && err.name === 'AbortError') {
+          connectingRef.current = false
           return
         }
+        // W4-02: log unexpected stream errors
+        console.error('useSSE: stream read error:', err)
+        handlersRef.current.onError?.(new Event('error'))
       }
-    } catch {
-      // Network error: reconnect
+    } catch (err: unknown) {
+      // W4-02: log network-level errors instead of silent swallowing
+      console.error('useSSE: connection failed:', err)
+      connectingRef.current = false
       setStatus('reconnecting')
+      handlersRef.current.onError?.(new Event('error'))
     }
     
     abortRef.current = null
-
+    connectingRef.current = false
 
     // Stream ended (server closed or network error): reconnect
     if (mountedRef.current) {
@@ -151,6 +163,8 @@ export function useSSE(handlers: SSEHandlers = {}) {
   }, [])
 
   function scheduleReconnect() {
+    if (reconnectingRef.current) return
+    reconnectingRef.current = true
     setStatus('reconnecting')
     setReconnectCount(prev => prev + 1)
     const delay = Math.min(reconnectDelayRef.current, RECONNECT_MAX_DELAY)
@@ -159,11 +173,13 @@ export function useSSE(handlers: SSEHandlers = {}) {
       RECONNECT_MAX_DELAY,
     )
     reconnectTimerRef.current = setTimeout(() => {
+      reconnectingRef.current = false
       if (mountedRef.current) connect()
     }, delay)
   }
 
   const disconnect = useCallback(() => {
+    reconnectingRef.current = false
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current)
       reconnectTimerRef.current = null
@@ -314,7 +330,10 @@ function handleSSEEvent(handlers: SSEHandlers, evt: ParsedSSEEvent) {
       // Unknown event type, skip
     }
   } catch {
-    // JSON parse error, skip
+    // JSON parse error: log and skip malformed event
+    if (import.meta.env.DEV) {
+      console.warn('useSSE: failed to parse event data:', evt.data)
+    }
   }
 }
 

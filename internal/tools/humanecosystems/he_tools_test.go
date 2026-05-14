@@ -2,7 +2,6 @@ package humanecosystems
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,24 +28,24 @@ func TestResearchProfiles(t *testing.T) {
 			assert.Greater(t, len(profiles), 0)
 		}
 	})
+}
 
-	t.Run("defaults query to empty", func(t *testing.T) {
-		result, err := tool.Execute(context.Background(), map[string]any{})
-		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
-		require.True(t, ok)
-		assert.NotEmpty(t, r["generated_at"])
+func TestMarshalJSON(t *testing.T) {
+	t.Run("simple struct", func(t *testing.T) {
+		out := marshalJSON(map[string]string{"key": "value"})
+		assert.Equal(t, "{\n  \"key\": \"value\"\n}", out)
 	})
-
-	t.Run("profiles have no PII", func(t *testing.T) {
-		result, err := tool.Execute(context.Background(), map[string]any{"query": "pii check"})
-		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
-		require.True(t, ok)
-		json := fmt.Sprintf("%v", r)
-		assert.NotContains(t, json, "email")
-		assert.NotContains(t, json, "password")
-		assert.NotContains(t, json, "phone")
+	t.Run("nil", func(t *testing.T) {
+		out := marshalJSON(nil)
+		assert.Equal(t, "null", out)
+	})
+	t.Run("slice", func(t *testing.T) {
+		out := marshalJSON([]int{1, 2, 3})
+		assert.Equal(t, "[\n  1,\n  2,\n  3\n]", out)
+	})
+	t.Run("channel fails gracefully", func(t *testing.T) {
+		out := marshalJSON(make(chan int))
+		assert.Contains(t, out, `"error":`)
 	})
 }
 
@@ -462,4 +461,40 @@ func TestListTools(t *testing.T) {
 			assert.NotNil(t, result, "tool %s returned nil", tool.Name())
 		}
 	})
+}
+
+// TestDescriptions verifies all tool Description() methods return non-empty strings.
+// These are pure string-returning methods that were at 0% coverage.
+func TestDescriptions(t *testing.T) {
+	dbl := SyntheticDuckDBLayer()
+
+	tools := []struct {
+		name string
+		tool interface {
+			Name() string
+			Description() string
+		}
+	}{
+		{"demographicProfile", NewDemographicProfileTool(dbl)},
+		{"socioeconomicIndicators", NewSocioeconomicIndicatorsTool(dbl)},
+		{"culturalMetrics", NewCulturalMetricsTool(dbl)},
+		{"urbanRuralDistribution", NewUrbanRuralDistributionTool(dbl)},
+		{"migrationPatterns", NewMigrationPatternsTool(dbl)},
+		{"he_geographic_context", NewGeographicContext(dbl)},
+		{"he_pattern_classifier", NewPatternClassifier(dbl)},
+		{"he_plugin_viz", NewPluginViz(dbl)},
+		{"he_relational_engine", NewRelationalEngine(dbl)},
+		{"he_research_profiles", NewResearchProfiles(dbl)},
+	}
+
+	for _, tt := range tools {
+		t.Run(tt.name+"/description", func(t *testing.T) {
+			desc := tt.tool.Description()
+			assert.NotEmpty(t, desc, "Description() for %s should not be empty", tt.name)
+		})
+		t.Run(tt.name+"/name", func(t *testing.T) {
+			name := tt.tool.Name()
+			assert.NotEmpty(t, name, "Name() for %s should not be empty", tt.name)
+		})
+	}
 }

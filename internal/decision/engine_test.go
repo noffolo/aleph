@@ -688,6 +688,96 @@ func TestEngine_MultiStepPlan_FailedDependencySkips(t *testing.T) {
 	}
 }
 
+func TestEngine_isKnownTool(t *testing.T) {
+	// Engine with nil registry — only built-in tools are known
+	engineNoReg := NewEngine(EngineConfig{})
+	ctx := context.Background()
+
+	tests := []struct {
+		name     string
+		engine   *Engine
+		toolName string
+		want     bool
+	}{
+		// Built-in tools always return true
+		{name: "builtin search_data", engine: engineNoReg, toolName: "search_data", want: true},
+		{name: "builtin analyze_sentiment", engine: engineNoReg, toolName: "analyze_sentiment", want: true},
+		{name: "builtin get_trust_score", engine: engineNoReg, toolName: "get_trust_score", want: true},
+		// Unknown with nil registry → false
+		{name: "unknown tool nil registry", engine: engineNoReg, toolName: "unknown_tool", want: false},
+		{name: "empty string nil registry", engine: engineNoReg, toolName: "", want: false},
+	}
+
+	// Test with nil registry
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.engine.isKnownTool(ctx, tt.toolName)
+			if got != tt.want {
+				t.Errorf("isKnownTool(%q) = %v, want %v", tt.toolName, got, tt.want)
+			}
+		})
+	}
+
+	// Test with registry containing a registered tool
+	registeredTool := "my_registered_tool"
+	reg := &mockPluginRegistry{
+		components: map[string]*ComponentMetadata{
+			registeredTool: {ID: registeredTool, Name: "My Registered Tool"},
+		},
+	}
+	engineWithReg := NewEngine(EngineConfig{
+		Registry: reg,
+	})
+
+	t.Run("registered tool returns true", func(t *testing.T) {
+		got := engineWithReg.isKnownTool(ctx, registeredTool)
+		if !got {
+			t.Errorf("isKnownTool(%q) = false, want true (tool is registered)", registeredTool)
+		}
+	})
+
+	t.Run("unregistered tool returns false", func(t *testing.T) {
+		got := engineWithReg.isKnownTool(ctx, "unregistered_tool")
+		if got {
+			t.Error("isKnownTool(unregistered_tool) = true, want false")
+		}
+	})
+}
+
+func TestEngine_inferToolsFromMessage(t *testing.T) {
+	engine := NewEngine(EngineConfig{})
+
+	tests := []struct {
+		name    string
+		message string
+		want    []string
+	}{
+		{"search keywords", "search for data about users", []string{"search_data"}},
+		{"find keyword", "find the object", []string{"search_data"}},
+		{"sentiment keyword", "analyze sentiment of this text", []string{"analyze_sentiment"}},
+		{"trust keyword", "get trust score for prediction", []string{"get_trust_score"}},
+		{"multiple keywords", "search data and analyze sentiment and get trust score", []string{"search_data", "analyze_sentiment", "get_trust_score"}},
+		{"no matching keywords", "hello world", nil},
+		{"empty message", "", nil},
+		{"data keyword alone", "show me the data", []string{"search_data"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := engine.inferToolsFromMessage(context.Background(), tt.message, nil)
+			if len(got) != len(tt.want) {
+				t.Errorf("inferToolsFromMessage(%q) = %v, want %v", tt.message, got, tt.want)
+				return
+			}
+			for i, tool := range tt.want {
+				if i >= len(got) || got[i] != tool {
+					t.Errorf("inferToolsFromMessage(%q)[%d] = %q, want %q", tt.message, i, got[i], tool)
+				}
+			}
+		})
+	}
+}
+
 func TestEngine_BuildToolsMap(t *testing.T) {
 	repo := &mockToolRepository{
 		tools: []ToolDef{

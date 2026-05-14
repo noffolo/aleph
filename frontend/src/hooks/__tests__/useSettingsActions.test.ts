@@ -67,7 +67,6 @@ describe('useSettingsActions', () => {
         await result.current.onCreateApiKey('Too Many');
       });
 
-      expect(mockStore.setLastError).toHaveBeenCalledWith('Limit reached');
       expect(mockStore.addToast).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'error', context: 'createApiKey' }),
       );
@@ -101,7 +100,9 @@ describe('useSettingsActions', () => {
         await result.current.onDeleteApiKey('protected-key');
       });
 
-      expect(mockStore.setLastError).toHaveBeenCalledWith('Not authorized');
+      expect(mockStore.addToast).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error', context: 'deleteApiKey' }),
+      );
     });
   });
 
@@ -122,7 +123,6 @@ describe('useSettingsActions', () => {
         payloadJson: '{"data":1}',
         secret: 'secret123',
       });
-      expect(mockStore.setLastError).toHaveBeenCalledWith(null);
       expect(mockStore.addToast).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'success', context: 'sendWebhook' }),
       );
@@ -140,7 +140,9 @@ describe('useSettingsActions', () => {
         await result.current.onSendWebhook('bad-url', '{}', '');
       });
 
-      expect(mockStore.setLastError).toHaveBeenCalledWith('Invalid URL format');
+      expect(mockStore.addToast).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error', context: 'sendWebhook' }),
+      );
     });
 
     it('handles network error when sending webhook', async () => {
@@ -152,7 +154,9 @@ describe('useSettingsActions', () => {
         await result.current.onSendWebhook('https://example.com', '{}', 'secret');
       });
 
-      expect(mockStore.setLastError).toHaveBeenCalledWith('Network error');
+      expect(mockStore.addToast).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error', context: 'sendWebhook' }),
+      );
     });
   });
 });

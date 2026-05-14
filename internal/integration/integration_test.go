@@ -142,6 +142,12 @@ func newTestServer(t *testing.T) *testServer {
 
 	// Register routes
 	mux := http.NewServeMux()
+	authRL := middleware.NewAuthRateLimiter(nil, middleware.AuthRateLimitConfig{
+		SessionCreateWindow: time.Minute, SessionCreateLimit: 100,
+		ApiKeyCreateWindow:  time.Minute, ApiKeyCreateLimit: 100,
+		ApiKeyRevokeWindow:  time.Minute, ApiKeyRevokeLimit: 100,
+		ApiKeyListWindow:    time.Minute, ApiKeyListLimit: 100,
+	})
 	routes.RegisterRoutes(mux, routes.RegisterConfig{
 		MetaRepo:            metaRepo,
 		JWTSecret:           jwtSecret,
@@ -164,12 +170,11 @@ func newTestServer(t *testing.T) *testServer {
 		ToolExecHandler:     toolExecHandler,
 		CodeFlowHandler:     codeFlowHandler,
 		SuggestPipeline:     suggestPipeline,
-		Interceptors:        interceptors,
+		Interceptors:    interceptors,
+		AuthRateLimiter: authRL,
 	})
 
-	// Wrap with CORS and standard middleware
-	corsHandler := routes.CORSHandler(mux, []string{"http://localhost:5173"}, nil)
-	server := httptest.NewServer(corsHandler)
+	server := httptest.NewServer(mux)
 
 	ts := &testServer{
 		t:           t,

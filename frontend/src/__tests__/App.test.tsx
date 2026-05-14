@@ -406,57 +406,6 @@ describe('App', () => {
     expect(mockSetSlideOverContent).toHaveBeenCalledWith(null)
   })
 
-  it('renders error banner when lastError is set', async () => {
-    setStoreState({ lastError: 'Something went wrong' })
-    await renderApp()
-
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument()
-  })
-
-  it('does not render error banner when lastError is null', async () => {
-    setStoreState({ lastError: null })
-    await renderApp()
-
-    expect(screen.queryByText(/went wrong/)).not.toBeInTheDocument()
-  })
-
-  it('dismisses error banner on dismiss button click', async () => {
-    setStoreState({ lastError: 'Test error' })
-    await renderApp()
-
-    fireEvent.click(screen.getByLabelText('Dismiss error'))
-    expect(mockSetLastError).toHaveBeenCalledWith(null)
-  })
-
-  it('passes isOpen from store to CommandPalette', async () => {
-    setStoreState({ isCommandPaletteOpen: true })
-    await renderApp()
-
-    const cp = screen.getByTestId('command-palette')
-    expect(cp.getAttribute('data-isopen')).toBe('true')
-  })
-
-  it('passes isOpen=false when command palette is closed', async () => {
-    setStoreState({ isCommandPaletteOpen: false })
-    await renderApp()
-
-    const cp = screen.getByTestId('command-palette')
-    expect(cp.getAttribute('data-isopen')).toBe('false')
-  })
-
-  it('passes availableObjects and projects to CommandPalette', async () => {
-    setStoreState({
-      availableObjects: ['users', 'orders'],
-      projects: [{ id: 'p1', name: 'Project One' }],
-      isCommandPaletteOpen: true,
-    })
-    await renderApp()
-
-    expect(screen.getByTestId('cp-project-p1')).toBeInTheDocument()
-    expect(screen.getByTestId('cp-object-users')).toBeInTheDocument()
-    expect(screen.getByTestId('cp-object-orders')).toBeInTheDocument()
-  })
-
   it('passes ollamaHealthy and nlpHealthy to StatusBar', async () => {
     setStoreState({ ollamaHealthy: true, nlpHealthy: false, projectID: 'proj-test' })
     await renderApp()

@@ -3,7 +3,7 @@ package humanecosystems
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand" // #nosec G404 — safe: deterministic PRNG for synthetic relation data, not security-sensitive
 	"time"
 )
 

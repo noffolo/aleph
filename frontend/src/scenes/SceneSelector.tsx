@@ -1,6 +1,9 @@
 import { lazy, Suspense } from 'react'
 import { useStore } from '../store/useStore'
 import { TerminalView } from '../components/terminal/TerminalView'
+import { SkeletonLoader } from '../components/SkeletonLoader'
+
+const loadingFallback = <div className="flex items-center justify-center h-full"><SkeletonLoader rows={12} cols={1} /></div>
 
 const DashboardView = lazy(() => import('../components/DashboardView').then(m => ({ default: m.DashboardView })))
 const ExploreScene = lazy(() => import('./ExploreScene').then(m => ({ default: m.ExploreScene })))
@@ -13,25 +16,25 @@ export function SceneSelector() {
   switch (scene) {
     case 'terminal':
       return (
-        <Suspense fallback={null}>
+        <Suspense fallback={loadingFallback}>
           <TerminalSceneInner />
         </Suspense>
       )
     case 'explore':
       return (
-        <Suspense fallback={null}>
+        <Suspense fallback={loadingFallback}>
           <ExploreScene />
         </Suspense>
       )
     case 'agents':
       return (
-        <Suspense fallback={null}>
+        <Suspense fallback={loadingFallback}>
           <AgentsScene />
         </Suspense>
       )
     case 'system':
       return (
-        <Suspense fallback={null}>
+        <Suspense fallback={loadingFallback}>
           <SystemScene />
         </Suspense>
       )
@@ -46,7 +49,7 @@ function TerminalSceneInner() {
   if (isDashboard) {
     return (
       <div className="absolute inset-0 z-10 bg-background animate-fade-in">
-        <Suspense fallback={null}>
+        <Suspense fallback={loadingFallback}>
           <DashboardView />
         </Suspense>
       </div>

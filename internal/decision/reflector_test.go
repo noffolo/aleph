@@ -337,3 +337,161 @@ func TestClassifyObservation_UnknownTool(t *testing.T) {
 		t.Errorf("expected GapExpected for successful observation, got %s", analysis.GapType)
 	}
 }
+
+// ─── Re-plan Tests ──────────────────────────────────────────────────────
+
+func TestReflect_ReplanPartialOnRecoverableFailure(t *testing.T) {
+	r := NewDefaultReflector()
+	plan := &PlanResult{
+		Intent:     Intent{PrimaryGoal: "fetch and analyze"},
+		Steps:      []PlannedStep{{ToolName: "fetch_data"}, {ToolName: "analyze"}},
+		CanProceed: true,
+	}
+
+	observations := []Observation{
+		{
+			Step:       PlannedStep{ToolName: "fetch_data"},
+			Success:    false,
+			Issues:     []string{"timeout retrieving source"},
+			TrustDelta: -0.1,
+		},
+		{
+			Step:    PlannedStep{ToolName: "analyze"},
+			Success: true,
+		},
+	}
+
+	result, err := r.Reflect(context.Background(), plan, observations)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ReplanType != ReplanPartial {
+		t.Errorf("expected ReplanPartial, got %q", result.ReplanType)
+	}
+	if len(result.CorrectionSteps) == 0 {
+		t.Fatal("expected CorrectionSteps for partial replan")
+	}
+	if result.CorrectionSteps[0].ToolName != "query_dispatch" {
+		t.Errorf("expected query_dispatch fallback, got %q", result.CorrectionSteps[0].ToolName)
+	}
+	if !strings.Contains(result.CorrectionSteps[0].Rationale, "fetch_data") {
+		t.Errorf("expected correction rationale to mention fetch_data, got %q", result.CorrectionSteps[0].Rationale)
+	}
+	if !result.CanProceed {
+		t.Error("expected CanProceed=true with replan partial")
+	}
+}
+
+func TestReflect_ReplanFullOnCriticalFailure(t *testing.T) {
+	r := NewDefaultReflector()
+	plan := &PlanResult{
+		Intent:     Intent{PrimaryGoal: "fetch remote data"},
+		Steps:      []PlannedStep{{ToolName: "api_call"}},
+		CanProceed: true,
+	}
+
+	observations := []Observation{
+		{
+			Step:       PlannedStep{ToolName: "api_call"},
+			Success:    false,
+			Issues:     []string{"unauthorized: API key invalid"},
+			TrustDelta: -0.5,
+		},
+	}
+
+	result, err := r.Reflect(context.Background(), plan, observations)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ReplanType != ReplanFull {
+		t.Errorf("expected ReplanFull, got %q", result.ReplanType)
+	}
+	if len(result.CorrectionSteps) == 0 {
+		t.Fatal("expected CorrectionSteps for full replan")
+	}
+	if result.CanProceed {
+		t.Error("expected CanProceed=false with ReplanFull")
+	}
+}
+
+func TestReflect_UsesFallbackFieldInCorrectionSteps(t *testing.T) {
+	r := NewDefaultReflector()
+	plan := &PlanResult{
+		Intent:     Intent{PrimaryGoal: "analyze"},
+		Steps:      []PlannedStep{{ToolName: "api_call", Fallback: "cached_lookup"}},
+		CanProceed: true,
+	}
+
+	observations := []Observation{
+		{
+			Step:       PlannedStep{ToolName: "api_call", Fallback: "cached_lookup"},
+			Success:    false,
+			Issues:     []string{"connection refused"},
+			TrustDelta: -0.1,
+		},
+	}
+
+	result, err := r.Reflect(context.Background(), plan, observations)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.CorrectionSteps) == 0 {
+		t.Fatal("expected CorrectionSteps")
+	}
+	if result.CorrectionSteps[0].ToolName != "cached_lookup" {
+		t.Errorf("expected fallback tool 'cached_lookup', got %q", result.CorrectionSteps[0].ToolName)
+	}
+	if result.CorrectionSteps[0].Arguments["original_tool"] != "api_call" {
+		t.Errorf("expected original_tool=api_call in arguments, got %v", result.CorrectionSteps[0].Arguments["original_tool"])
+	}
+}
+
+func TestReflect_ReplanNoneOnAllSuccess(t *testing.T) {
+	r := NewDefaultReflector()
+	plan := &PlanResult{
+		Intent:     Intent{PrimaryGoal: "complete task"},
+		Steps:      []PlannedStep{{ToolName: "step_a"}, {ToolName: "step_b"}},
+		CanProceed: true,
+	}
+
+	observations := []Observation{
+		{Step: PlannedStep{ToolName: "step_a"}, Success: true},
+		{Step: PlannedStep{ToolName: "step_b"}, Success: true},
+	}
+
+	result, err := r.Reflect(context.Background(), plan, observations)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ReplanType != ReplanNone {
+		t.Errorf("expected ReplanNone, got %q", result.ReplanType)
+	}
+	if len(result.CorrectionSteps) != 0 {
+		t.Errorf("expected no CorrectionSteps on success, got %d", len(result.CorrectionSteps))
+	}
+}
+
+func TestBuildCorrectionSteps_MultipleFailures(t *testing.T) {
+	plan := &PlanResult{
+		Intent:     Intent{PrimaryGoal: "multi-tool"},
+		Steps:      []PlannedStep{{ToolName: "tool_a"}, {ToolName: "tool_b"}, {ToolName: "tool_c"}},
+		CanProceed: true,
+	}
+
+	observations := []Observation{
+		{Step: PlannedStep{ToolName: "tool_a"}, Success: false, Issues: []string{"error 1"}, TrustDelta: -0.05},
+		{Step: PlannedStep{ToolName: "tool_b"}, Success: true},
+		{Step: PlannedStep{ToolName: "tool_c", Fallback: "fallback_c"}, Success: false, Issues: []string{"error 3"}, TrustDelta: -0.05},
+	}
+
+	corrections := buildCorrectionSteps(observations, plan)
+	if len(corrections) != 2 {
+		t.Fatalf("expected 2 corrections (for tool_a and tool_c), got %d", len(corrections))
+	}
+	if corrections[0].ToolName != "query_dispatch" {
+		t.Errorf("expected query_dispatch for tool_a (no fallback), got %q", corrections[0].ToolName)
+	}
+	if corrections[1].ToolName != "fallback_c" {
+		t.Errorf("expected fallback_c for tool_c, got %q", corrections[1].ToolName)
+	}
+}

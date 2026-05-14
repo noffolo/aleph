@@ -31,6 +31,9 @@ export interface UISlice {
   removeToast: (id: string) => void
   inputMode: boolean
   setInputMode: (v: boolean) => void
+  /** Cross-slice error state: holds the last displayable error message. */
+  lastError: string | null
+  setLastError: (e: string | null) => void
   /** Progressive disclosure: expanded section keys */
   expandedSections: Record<string, boolean>
   toggleSection: (key: string) => void
@@ -71,6 +74,8 @@ export const createUISlice: StateCreator<UISlice> = (set) => ({
     })),
   inputMode: false,
   setInputMode: (v) => set({ inputMode: v }),
+  lastError: null,
+  setLastError: (e) => set({ lastError: e }),
   expandedSections: {},
   toggleSection: (key) =>
     set((state) => ({
@@ -88,5 +93,6 @@ export const createUISlice: StateCreator<UISlice> = (set) => ({
     enableScanline: true,
     enableGlow: false,
     enableFlicker: false,
+    lastError: null,
   }),
 })

@@ -36,7 +36,6 @@ function App() {
   const showOnboarding = useStore(s => s.showOnboarding)
   const isCommandPaletteOpen = useStore(s => s.isCommandPaletteOpen)
   const availableObjects = useStore(s => s.availableObjects)
-  const lastError = useStore(s => s.lastError)
   const slideOverContent = useStore(s => s.slideOverContent)
   const currentScene = useStore(s => s.currentScene)
   const ollamaHealthy = useStore(s => s.ollamaHealthy)
@@ -163,13 +162,6 @@ function App() {
          <Sidebar projectID={projectID} onShowOnboarding={() => useStore.getState().setShowOnboarding(true)} />
 
         <div className="flex-1 flex flex-col overflow-hidden relative">
-           {lastError && (
-             <div className="mx-4 mt-4 px-4 py-2 bg-danger/10 border border-danger/30 text-danger rounded text-sm font-mono flex items-center justify-between">
-               <span>{lastError}</span>
-               <button onClick={() => useStore.getState().setLastError(null)} className="text-danger/60 hover:text-danger ml-4 focus:ring-2 focus:ring-primary rounded" aria-label="Dismiss error">✕</button>
-             </div>
-           )}
-
           <main id="main-content" className="flex-1 overflow-hidden relative">
             <div className="h-full w-full relative">
               <Suspense fallback={<div className="absolute inset-0 z-10 bg-background animate-fade-in"><SkeletonLoader rows={15} cols={1} /></div>}>

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/rand" // #nosec G404 — safe: deterministic PRNG for synthetic flight tracking data, not security-sensitive
 	"time"
 
 	"github.com/ff3300/aleph-v2/internal/repository"

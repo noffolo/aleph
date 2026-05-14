@@ -16,12 +16,21 @@ type Intent struct {
 	Confidence    float64  // 0.0-1.0 how confident the engine is about this intent
 }
 
+// Replan constants define the type of replan suggested by the Reflect phase.
+const (
+	ReplanNone    = ""        // no replan needed
+	ReplanPartial = "partial" // only some steps need correction
+	ReplanFull    = "full"    // the entire plan must be redone
+)
+
 // PlanResult is the output of the Plan phase.
 type PlanResult struct {
-	Intent     Intent
-	Steps      []PlannedStep
-	CanProceed bool
-	Reason     string
+	Intent          Intent
+	Steps           []PlannedStep
+	CanProceed      bool
+	Reason          string
+	CorrectionSteps []PlannedStep // alternative steps suggested by Reflect for failed steps
+	ReplanType      string        // ReplanNone, ReplanPartial, or ReplanFull
 }
 
 // PlannedStep is a single atomic action in the plan.
@@ -31,6 +40,8 @@ type PlannedStep struct {
 	ExpectedOutcome       string
 	RequiresConfirmation  bool
 	Depends               []string // tool names that must succeed before this step executes
+	Rationale             string   // why this step was chosen (runtime-only, not in proto)
+	Fallback              string   // fallback action if this step fails (runtime-only, not in proto)
 }
 
 // ActResult is the output of executing a single step.

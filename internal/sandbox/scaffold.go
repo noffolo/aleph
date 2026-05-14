@@ -61,7 +61,7 @@ func TestHandle%s_GivenWhenThen(t *testing.T) {
 	inputJSON, _ := json.Marshal(given)
 
 	// When: the tool is invoked
-	result, err := Handle%s(context.Background(), string(inputJSON))
+	result, err := Handle%s(context.TODO(), string(inputJSON))
 	if err != nil {
 		t.Fatalf("Handle%s() error = %%v", err)
 	}

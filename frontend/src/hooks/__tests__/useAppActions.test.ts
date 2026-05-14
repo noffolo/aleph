@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useAppActions } from '../useAppActions';
+import { useAppActions, handleError as importedHandleError } from '../useAppActions';
 import { useStore } from '@/store/useStore';
-import { projectClient, agentClient, ingestionClient, libraryClient, skillClient, toolClient, nlpClient, authClient, notificationClient, registryClient, sandboxClient } from '@/api/factory';
+import { projectClient, agentClient, ingestionClient, libraryClient, skillClient, toolClient, nlpClient, authClient, notificationClient, registryClient, sandboxClient, queryClient } from '@/api/factory';
 
 vi.mock('@/store/useStore', () => ({
   useStore: Object.assign(vi.fn(), { getState: vi.fn() }),
@@ -51,6 +51,7 @@ describe('useAppActions', () => {
     setNotificationChannels: vi.fn(),
     setRegistryComponents: vi.fn(),
     setSlideOverContent: vi.fn(),
+    setCurrentScene: vi.fn(),
     clearMessages: vi.fn(),
     addChatMessage: vi.fn(),
     setIsStreaming: vi.fn(),
@@ -238,6 +239,177 @@ describe('useAppActions', () => {
 
       expect(mockStore.addToast).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'error', context: 'runSkill' }),
+      );
+    });
+  });
+
+  describe('handleCommandResult', () => {
+    it('returns false for unhandled result', () => {
+      const { result } = renderHook(() => useAppActions());
+      const handled = result.current.handleCommandResult({ handled: false, action: 'NOOP' } as any);
+      expect(handled).toBe(false);
+    });
+
+    it('returns true and sets slideover for SHOW_INLINE', () => {
+      const { result } = renderHook(() => useAppActions());
+      const handled = result.current.handleCommandResult({
+        handled: true,
+        action: 'SHOW_INLINE',
+        target: 'explore',
+        args: 'test-query',
+      } as any);
+      expect(handled).toBe(true);
+      expect(mockStore.setSlideOverContent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'explore', title: 'explore' }),
+      );
+    });
+
+    it('handles CLEAR_CHAT action', () => {
+      const { result } = renderHook(() => useAppActions());
+      const handled = result.current.handleCommandResult({
+        handled: true,
+        action: 'CLEAR_CHAT',
+      } as any);
+      expect(handled).toBe(true);
+      expect(mockStore.clearMessages).toHaveBeenCalled();
+    });
+
+    it('handles SWITCH_COPILOT action', () => {
+      const { result } = renderHook(() => useAppActions());
+      const handled = result.current.handleCommandResult({
+        handled: true,
+        action: 'SWITCH_COPILOT',
+        message: 'switched',
+      } as any);
+      expect(handled).toBe(true);
+      expect(mockStore.addChatMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'system', content: 'switched' }),
+      );
+    });
+
+    it('handles AGENT_COMMAND action', () => {
+      const { result } = renderHook(() => useAppActions());
+      const handled = result.current.handleCommandResult({
+        handled: true,
+        action: 'AGENT_COMMAND',
+        args: '/model ollama',
+      } as any);
+      expect(handled).toBe(true);
+      expect(mockStore.addChatMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'system' }),
+      );
+    });
+  });
+
+  describe('onConfirmAction', () => {
+    it('handles approved confirmation', async () => {
+      mockStore.messages = [{ role: 'user', content: 'hello', createdAt: 0 }];
+      (queryClient.confirmAction as any).mockResolvedValue({});
+
+      const { result } = renderHook(() => useAppActions());
+
+      await act(async () => {
+        await result.current.onConfirmAction(true);
+      });
+
+      expect(queryClient.confirmAction).toHaveBeenCalledWith(
+        expect.objectContaining({ approved: true }),
+      );
+    });
+
+    it('handles rejected confirmation', async () => {
+      mockStore.messages = [{ role: 'user', content: 'hello', createdAt: 0 }];
+      (queryClient.confirmAction as any).mockResolvedValue({});
+
+      const { result } = renderHook(() => useAppActions());
+
+      await act(async () => {
+        await result.current.onConfirmAction(false);
+      });
+
+      expect(queryClient.confirmAction).toHaveBeenCalledWith(
+        expect.objectContaining({ approved: false }),
+      );
+    });
+
+    it('handles confirm action error', async () => {
+      mockStore.messages = [{ role: 'user', content: 'hello', createdAt: 0 }];
+      (queryClient.confirmAction as any).mockRejectedValue(new Error('timeout'));
+
+      const { result } = renderHook(() => useAppActions());
+
+      await act(async () => {
+        await result.current.onConfirmAction(true);
+      });
+
+      expect(mockStore.addToast).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error', context: 'confirmAction' }),
+      );
+    });
+  });
+
+  describe('onCancelStream', () => {
+    it('sets isStreaming to false', () => {
+      const { result } = renderHook(() => useAppActions());
+
+      act(() => {
+        result.current.onCancelStream();
+      });
+
+      expect(mockStore.setIsStreaming).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe('getAssetContent', () => {
+    it('returns asset content string', async () => {
+      (libraryClient.getAssetContent as any).mockResolvedValue({ content: 'asset data' });
+
+      const { result } = renderHook(() => useAppActions());
+
+      let content = '';
+      await act(async () => {
+        content = await result.current.getAssetContent('asset-1');
+      });
+
+      expect(content).toBe('asset data');
+    });
+
+    it('returns empty string for missing content', async () => {
+      (libraryClient.getAssetContent as any).mockResolvedValue({});
+
+      const { result } = renderHook(() => useAppActions());
+
+      let content = '';
+      await act(async () => {
+        content = await result.current.getAssetContent('asset-2');
+      });
+
+      expect(content).toBe('');
+    });
+  });
+
+  describe('handleError', () => {
+    it('shows toast for Error instance', () => {
+      importedHandleError(new Error('network down'), 'testCtx');
+
+      expect(mockStore.addToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'network down',
+          type: 'error',
+          context: 'testCtx',
+        }),
+      );
+    });
+
+    it('shows generic message for non-Error', () => {
+      importedHandleError('string error', 'ctx');
+
+      expect(mockStore.addToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Errore in ctx',
+          type: 'error',
+          context: 'ctx',
+        }),
       );
     });
   });

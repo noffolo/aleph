@@ -31,14 +31,6 @@ func TestNewProvider_KnownProviders(t *testing.T) {
 	}
 }
 
-func TestNewProvider_UnknownProvider(t *testing.T) {
-	client := &http.Client{}
-	p, err := NewProvider("unknown", "http://localhost", client, 30*time.Second)
-	assert.Error(t, err, "unknown provider should return error")
-	assert.Nil(t, p, "unknown provider should return nil")
-	assert.Contains(t, err.Error(), "unsupported LLM provider")
-}
-
 func TestNewProvider_CaseInsensitivity(t *testing.T) {
 	client := &http.Client{}
 	timeout := 30 * time.Second

@@ -140,3 +140,69 @@ func TestLoadConfig_PostgresDSNFallback(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "postgres://fallback:5432/db", cfg.PostgresDSN)
 }
+
+func TestLoadConfig_Wrapper(t *testing.T) {
+	os.Setenv("GOSECRETS_ENV", "ci")
+	os.Setenv("JWT_SECRET", "test-jwt-secret")
+	os.Setenv("POSTGRES_DSN", "postgres://test:5432/db")
+	os.Setenv("KEY_ENCRYPTION_KEY", "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
+	os.Setenv("APP_ENV", "development")
+	defer func() {
+		os.Unsetenv("GOSECRETS_ENV")
+		os.Unsetenv("JWT_SECRET")
+		os.Unsetenv("POSTGRES_DSN")
+		os.Unsetenv("KEY_ENCRYPTION_KEY")
+		os.Unsetenv("APP_ENV")
+	}()
+	cfg, err := LoadConfig()
+	assert.NoError(t, err)
+	assert.NotNil(t, cfg)
+	assert.Equal(t, 8080, cfg.Port)
+	assert.True(t, cfg.DevMode)
+}
+
+func TestParseMCPServerURIs(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{"empty", "", nil},
+		{"single", "http://mcp1:8080", []string{"http://mcp1:8080"}},
+		{"multiple", "http://a,http://b,http://c", []string{"http://a", "http://b", "http://c"}},
+		{"with_spaces", " http://a , http://b , http://c ", []string{"http://a", "http://b", "http://c"}},
+		{"trailing_comma", "http://a,http://b,", []string{"http://a", "http://b"}},
+		{"leading_comma", ",http://a,http://b", []string{"http://a", "http://b"}},
+		{"double_comma", "http://a,,http://b", []string{"http://a", "http://b"}},
+		{"only_commas", ",,", []string{}},
+		{"whitespace_only", " , , ", []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseMCPServerURIs(tt.input)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestParseCORSOrigins(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{"empty_returns_default", "", []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:8081", "http://localhost:5174"}},
+		{"single", "http://app.example.com", []string{"http://app.example.com"}},
+		{"multiple", "http://a,http://b,http://c", []string{"http://a", "http://b", "http://c"}},
+		{"with_spaces", " http://a , http://b , http://c ", []string{"http://a", "http://b", "http://c"}},
+		{"trailing_comma", "http://a,http://b,", []string{"http://a", "http://b"}},
+		{"leading_comma", ",http://a,http://b", []string{"http://a", "http://b"}},
+		{"double_comma", "http://a,,http://b", []string{"http://a", "http://b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseCORSOrigins(tt.input)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}

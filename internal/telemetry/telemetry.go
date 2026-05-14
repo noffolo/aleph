@@ -19,8 +19,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const defaultEndpoint = "localhost:4317"
-
 // Config holds OpenTelemetry configuration.
 type Config struct {
 	// ServiceName is the name of the service.

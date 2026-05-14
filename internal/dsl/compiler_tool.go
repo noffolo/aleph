@@ -568,7 +568,7 @@ func TestHandle__NAME__(t *testing.T) {
 	input := __INPUT_JSON__
 	inputJSON, _ := json.Marshal(input)
 
-	output, err := Handle__NAME__(context.Background(), string(inputJSON))
+	output, err := Handle__NAME__(context.TODO(), string(inputJSON))
 	if err != nil {
 		t.Fatalf("Handle__NAME__() error = %v", err)
 	}

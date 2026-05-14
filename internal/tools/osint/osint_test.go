@@ -342,6 +342,52 @@ func TestThreatIntelCheckTool_EdgeCases(t *testing.T) {
 	})
 }
 
+func Test_extractTLD(t *testing.T) {
+	tests := []struct {
+		domain   string
+		expected string
+	}{
+		{"www.example.com", "com"},
+		{"example.com", "com"},
+		{"com", "com"},
+		{"", ""},
+		{"sub.domain.co.uk", "uk"},
+		{"localhost", "localhost"},
+		{"trailing.dot.", "dot"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.domain, func(t *testing.T) {
+			assert.Equal(t, tt.expected, extractTLD(tt.domain))
+		})
+	}
+}
+
+func Test_hashString(t *testing.T) {
+	assert.NotZero(t, hashString("hello"))
+	assert.NotZero(t, hashString("world"))
+	assert.Equal(t, hashString("hello"), hashString("hello"))
+	assert.NotEqual(t, hashString("hello"), hashString("world"))
+	assert.NotZero(t, hashString(""))
+}
+
+func Test_clampFloat(t *testing.T) {
+	assert.Equal(t, 0.5, clampFloat(0.5, 0.0, 1.0))
+	assert.Equal(t, 0.0, clampFloat(-0.5, 0.0, 1.0))
+	assert.Equal(t, 1.0, clampFloat(1.5, 0.0, 1.0))
+	assert.Equal(t, 5.0, clampFloat(3.0, 5.0, 10.0))
+	assert.Equal(t, 10.0, clampFloat(12.0, 5.0, 10.0))
+}
+
+func Test_sha256Hash(t *testing.T) {
+	h1 := sha256Hash("hello")
+	h2 := sha256Hash("world")
+	assert.Len(t, h1, 64)
+	assert.Len(t, h2, 64)
+	assert.Equal(t, h1, sha256Hash("hello"))
+	assert.NotEqual(t, h1, h2)
+	assert.Len(t, sha256Hash(""), 64)
+}
+
 func TestWhoisLookupTool_EdgeCases(t *testing.T) {
 	t.Run("extractTLD handles various domains", func(t *testing.T) {
 		tests := []struct {

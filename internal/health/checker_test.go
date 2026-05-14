@@ -27,6 +27,30 @@ func TestHealthCheckerWithOptions(t *testing.T) {
 	assert.Equal(t, 5, hc.history.maxLen)
 }
 
+func TestHealthChecker_WithMCPHealth(t *testing.T) {
+	hc := NewHealthChecker(context.Background(), slog.Default(), nil,
+		WithMCPHealth(nil),
+	)
+	assert.Nil(t, hc.mcpHealth)
+
+	mockProvider := &mockMCPHealthProvider{statuses: []MCPToolHealth{
+		{Name: "tool-1", Status: "up"},
+	}}
+	hc = NewHealthChecker(context.Background(), slog.Default(), nil,
+		WithMCPHealth(mockProvider),
+	)
+	assert.NotNil(t, hc.mcpHealth)
+	assert.Equal(t, 1, len(hc.mcpHealth.Status()))
+}
+
+type mockMCPHealthProvider struct {
+	statuses []MCPToolHealth
+}
+
+func (m *mockMCPHealthProvider) Status() []MCPToolHealth {
+	return m.statuses
+}
+
 func TestHealthChecker_StartStop_PanicsWithoutDB(t *testing.T) {
 	// Start triggers run() goroutine which calls checkAll() → metaRepo.ListTools()
 	// which dereferences *sql.DB. The MetadataRepository requires a real DB connection,

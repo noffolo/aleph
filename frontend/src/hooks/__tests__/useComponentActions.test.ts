@@ -66,7 +66,9 @@ describe('useComponentActions', () => {
       await result.current.onUpdateComponentStatus('missing', 'active');
     });
 
-    expect(mockStore.setLastError).toHaveBeenCalledWith('Component not found');
+    expect(mockStore.addToast).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error', context: 'updateComponentStatus' }),
+    );
   });
 
   it('onRegisterComponent registers and refreshes list', async () => {
@@ -160,7 +162,9 @@ describe('useComponentActions', () => {
     });
 
     expect(component).toBeNull();
-    expect(mockStore.setLastError).toHaveBeenCalledWith('Not found');
+    expect(mockStore.addToast).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error', context: 'getComponent' }),
+    );
   });
 
   it('onRegisterComponent handles error gracefully', async () => {
@@ -172,6 +176,8 @@ describe('useComponentActions', () => {
       await result.current.onRegisterComponent({ id: 'bad' } as any);
     });
 
-    expect(mockStore.setLastError).toHaveBeenCalledWith('Validation error');
+    expect(mockStore.addToast).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error', context: 'registerComponent' }),
+    );
   });
 });

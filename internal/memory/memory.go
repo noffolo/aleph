@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ff3300/aleph-v2/internal/safeident"
+	"github.com/ff3300/aleph-v2/internal/storage"
 )
 
 // SearchResult holds a single result from a vector similarity or text search.
@@ -28,24 +28,24 @@ type MemEntry struct {
 
 // MemoryStore provides embedding-augmented memory for the decision engine.
 // Backed by DuckDB's native FLOAT[] arrays and array_cosine_similarity for VSS.
+// Writes are routed through the DuckDB wrapper (serialized via writeMu);
+// reads use the connection pool directly via QueryContext.
 type MemoryStore struct {
-	db     *sql.DB
-	schema string
-	dim    int
-	init   sync.Once
+	db      *storage.DuckDB
+	schema  string
+	dim     int
+	init    sync.Once
 	initErr error
 }
 
 // expectedEmbedDim is the expected embedding dimension for nomic-embed-text.
 const expectedEmbedDim = 768
 
-// NewMemoryStore creates a new MemoryStore backed by the given DB.
-func NewMemoryStore(db *sql.DB, schema string, embeddingDim int) (*MemoryStore, error) {
+// NewMemoryStore creates a new MemoryStore backed by the given DuckDB wrapper.
+// Writes are serialized through the wrapper's writeMu; reads use the connection pool.
+func NewMemoryStore(db *storage.DuckDB, schema string, embeddingDim int) (*MemoryStore, error) {
 	if db == nil {
 		return nil, fmt.Errorf("memory: db is nil")
-	}
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("memory: db unreachable: %w", err)
 	}
 	if embeddingDim <= 0 {
 		return nil, fmt.Errorf("memory: embedding dimension must be positive, got %d", embeddingDim)

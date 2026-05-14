@@ -20,6 +20,8 @@ type Config struct {
 	EmbeddingModel    string
 	NLPAddr           string
 	OllamaBaseURL     string
+	OllamaPort        string
+	OtelEndpoint      string
 	MCPServerURIs     []string
 	KeyEncryptionKey  string
 	EncryptionKey     []byte
@@ -35,6 +37,7 @@ type Config struct {
 	CORSAllowedOrigins     []string
 	LLMTimeoutSeconds      int
 	SlowQueryThresholdMs   int
+	DevMode                bool // set from APP_ENV="development"
 }
 
 func LoadConfig() (*Config, error) {
@@ -49,6 +52,9 @@ func LoadConfigWithSecrets(secrets SecretsProvider) (*Config, error) {
 	viper.SetDefault("DUCKDB_PATH", filepath.Join(wd, "data", "aleph.duckdb"))
 	viper.SetDefault("DUCKDB_SCHEMA", "main")
 	viper.SetDefault("EMBEDDING_MODEL", "nomic-embed-text")
+	viper.SetDefault("NLP_ADDR", "http://localhost:8001")
+	viper.SetDefault("OTTEL_ENDPOINT", "localhost:4317")
+	viper.SetDefault("OLLAMA_PORT", "11434")
 	viper.SetDefault("BACKUP_INTERVAL", "24h")
 	viper.SetDefault("BACKUP_DIR", filepath.Join(wd, "data", "backups", "duckdb"))
 	viper.SetDefault("BACKUP_KEEP", 7)
@@ -93,6 +99,10 @@ func LoadConfigWithSecrets(secrets SecretsProvider) (*Config, error) {
 
 	ollamaBaseURL := secrets.String("ollama.base_url", viper.GetString("OLLAMA_BASE_URL"))
 	nlpAddr := secrets.String("nlp.sidecar_url", viper.GetString("NLP_ADDR"))
+	otelEndpoint := viper.GetString("OTTEL_ENDPOINT")
+	ollamaPort := viper.GetString("OLLAMA_PORT")
+
+	devMode := strings.EqualFold(viper.GetString("APP_ENV"), "development")
 
 	return &Config{
 		Port:              viper.GetInt("PORT"),
@@ -101,6 +111,8 @@ func LoadConfigWithSecrets(secrets SecretsProvider) (*Config, error) {
 		DuckDBPath:        viper.GetString("DUCKDB_PATH"),
 		NLPAddr:           nlpAddr,
 		OllamaBaseURL:     ollamaBaseURL,
+		OllamaPort:        ollamaPort,
+		OtelEndpoint:      otelEndpoint,
 		DuckDBSchema:      viper.GetString("DUCKDB_SCHEMA"),
 		EmbeddingModel:    viper.GetString("EMBEDDING_MODEL"),
 		MCPServerURIs:     parseMCPServerURIs(viper.GetString("MCP_SERVER_URIS")),
@@ -118,6 +130,7 @@ func LoadConfigWithSecrets(secrets SecretsProvider) (*Config, error) {
 		CORSAllowedOrigins:   parseCORSOrigins(viper.GetString("CORS_ALLOWED_ORIGINS")),
 		LLMTimeoutSeconds:    viper.GetInt("LLM_TIMEOUT_SECONDS"),
 		SlowQueryThresholdMs: viper.GetInt("SLOW_QUERY_THRESHOLD_MS"),
+		DevMode:             devMode,
 	}, nil
 }
 

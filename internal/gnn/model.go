@@ -2,7 +2,7 @@ package gnn
 
 import (
 	"math"
-	"math/rand"
+	"math/rand" // #nosec G404 — safe: Xavier-like weight initialization for ML model, not security-sensitive
 )
 
 // DefaultEmbeddingDim is the default embedding dimension (64).

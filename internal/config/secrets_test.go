@@ -55,3 +55,22 @@ func TestSecretToEnvKey(t *testing.T) {
 		})
 	}
 }
+
+func TestEnvName(t *testing.T) {
+	t.Run("default_development", func(t *testing.T) {
+		os.Unsetenv("GOSECRETS_ENV")
+		assert.Equal(t, "development", envName())
+	})
+
+	t.Run("custom_env", func(t *testing.T) {
+		os.Setenv("GOSECRETS_ENV", "production")
+		defer os.Unsetenv("GOSECRETS_ENV")
+		assert.Equal(t, "production", envName())
+	})
+
+	t.Run("ci_env", func(t *testing.T) {
+		os.Setenv("GOSECRETS_ENV", "ci")
+		defer os.Unsetenv("GOSECRETS_ENV")
+		assert.Equal(t, "ci", envName())
+	})
+}

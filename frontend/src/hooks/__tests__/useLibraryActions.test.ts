@@ -100,7 +100,6 @@ describe('useLibraryActions', () => {
       await result.current.onDeleteAsset('asset-1');
     });
 
-    expect(mockStore.setLastError).toHaveBeenCalledWith('Permission denied');
     expect(mockStore.addToast).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'error', context: 'deleteAsset' }),
     );

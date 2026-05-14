@@ -13,6 +13,9 @@ main
 handler.test
 integration.test
 coverage.out
+coverage/
+cov*.out
+cov*.out.txt
 aleph-v2
 *.test
 *.exe
@@ -21,6 +24,21 @@ aleph-v2
 test-results/
 frontend/test-results/
 frontend/coverage/
+
+# Coverage artifacts
+nlp/.coverage
+nlp/coverage.xml
+nlp/htmlcov/
+
+# Security scan artifacts
+security-scan
+.safety-policy.ini
+
+# AI knowledge graph cache
+graphify-out/
+
+# Command stubs
+cmd/
 
 # Python cache
 __pycache__/

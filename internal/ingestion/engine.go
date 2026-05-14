@@ -1,16 +1,24 @@
 package ingestion
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"crypto/sha256"
+	"encoding/base64"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"go/parser"
 	"go/token"
 	"io"
 	"log"
+	"mime"
+	"mime/multipart"
+	"mime/quotedprintable"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"os"
 	"os/exec"
@@ -28,6 +36,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/ingestion/sources"
 	"github.com/ff3300/aleph-v2/internal/repository"
 	"github.com/ff3300/aleph-v2/internal/safeident"
+	"github.com/ff3300/aleph-v2/internal/sandbox"
 	"github.com/ff3300/aleph-v2/internal/ssrf"
 	"github.com/ff3300/aleph-v2/internal/storage"
 )
@@ -291,7 +300,7 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 	*/
 
 	query := "SELECT * FROM " + safeident.QuoteIdentifier(tableName) + " WHERE _aleph_ingested_at > (CURRENT_TIMESTAMP - INTERVAL '1 MINUTE')" // safe: tableName validated via safeident.ValidateStrictIdentifier (via enrichPredictiveMetadata caller)
-	rows, err := e.db.Query(query)
+	rows, err := e.db.QueryContext(ctx, query)
 	if err != nil {
 		log.Printf("[Engine] Enrichment query failed for %s: %v", tableName, err)
 		return
@@ -937,106 +946,53 @@ func (e *Engine) runEmailFetch(ctx context.Context, w *os.File, projectID string
 	}
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 
-	script := `
+	_ = addr
+
+	// Defense-in-depth: verify sandbox still blocks the legacy Python+imaplib path.
+	legacyPythonScript := `
 import imaplib, email, json, sys, csv, io
 from email.header import decode_header
-
-def decode_str(s):
-    if s is None: return ""
-    parts = decode_header(s)
-    result = []
-    for part, enc in parts:
-        if isinstance(part, bytes):
-            result.append(part.decode(enc or 'utf-8', errors='replace'))
-        else:
-            result.append(part)
-    return ''.join(result)
-
 creds = json.loads(sys.stdin.read())
 mail = imaplib.IMAP4_SSL(creds["server"], int(creds["port"]))
 mail.login(creds["username"], creds["password"])
-folder = creds.get("folder", "INBOX")
-mail.select(folder, True)
-del creds
-
-_, msg_ids = mail.search(None, 'ALL')
-ids = msg_ids[0].split()
-rows = []
-for mid in ids[-200:]:
-    _, data = mail.fetch(mid, '(RFC822)')
-    if not data or not data[0]: continue
-    msg = email.message_from_bytes(data[0][1])
-    row = {'subject': decode_str(msg['Subject']), 'from': decode_str(msg['From']), 'date': decode_str(msg['Date']), 'message_id': decode_str(msg['Message-ID'])}
-    if msg.is_multipart():
-        for part in msg.walk():
-            ct = part.get_content_type()
-            if ct == 'text/plain':
-                body = part.get_payload(decode=True)
-                if body: row['body'] = body.decode('utf-8', errors='replace')[:2000]
-                break
-    else:
-        body = msg.get_payload(decode=True)
-        if body: row['body'] = body.decode('utf-8', errors='replace')[:2000]
-    rows.append(row)
-mail.logout()
-
-if rows:
-    fields = list(rows[0].keys())
-    out = io.StringIO()
-    writer = csv.DictWriter(out, fieldnames=fields)
-    writer.writeheader()
-    writer.writerows(rows)
-    print(out.getvalue())
 `
-
-	cmd := exec.CommandContext(ctx, "python3", "-c", script)
-	cmd.Env = []string{
-		"PATH=/usr/bin:/bin",
-		"LANG=en_US.UTF-8",
+	if err := sandbox.ValidatePythonCode(legacyPythonScript); err == nil {
+		return fmt.Errorf("security: sandbox failed to block legacy python imaplib script (blocklist bypass detected)")
 	}
 
-	stdinPipe, err := cmd.StdinPipe()
+	fmt.Fprintf(w, "Connecting via IMAP (Go-native, no subprocess)...\n")
+
+	rows, err := fetchIMAP(config.Host, config.User, config.Pass, config.Folder, 200)
 	if err != nil {
-		return fmt.Errorf("email stdin pipe: %w", err)
+		return fmt.Errorf("IMAP fetch failed: %w", err)
 	}
+	fmt.Fprintf(w, "Fetched %d emails from %s\n", len(rows), config.Folder)
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("email fetch start: %w", err)
-	}
-
-	creds := emailCredentials{
-		Server:   config.Host,
-		Port:     addr[strings.LastIndex(addr, ":")+1:],
-		Username: config.User,
-		Password: config.Pass,
-		Folder:   config.Folder,
-	}
-	credsJSON, _ := json.Marshal(creds)
-	if _, err := stdinPipe.Write(credsJSON); err != nil {
-		cmd.Process.Kill()
-		return fmt.Errorf("email credential write: %w", err)
-	}
-	stdinPipe.Close()
-
-	fmt.Fprintf(w, "Fetching emails from %s...\n", config.Folder)
-	if err := cmd.Wait(); err != nil {
-		fmt.Fprintf(w, "Email fetch error: %s\n%s\n", err, stderr.String())
-		return fmt.Errorf("email fetch failed: %v - %s", err, stderr.String())
-	}
-
-	csvData := stdout.String()
-	if csvData == "" {
+	if len(rows) == 0 {
 		fmt.Fprintf(w, "No emails found\n")
 		return nil
 	}
 
+	var csvBuf bytes.Buffer
+	csvWriter := csv.NewWriter(&csvBuf)
+	header := []string{"subject", "from", "date", "message_id", "body"}
+	if err := csvWriter.Write(header); err != nil {
+		return fmt.Errorf("csv header write: %w", err)
+	}
+	for _, row := range rows {
+		rec := []string{row.Subject, row.From, row.Date, row.MessageID, row.Body}
+		if err := csvWriter.Write(rec); err != nil {
+			return fmt.Errorf("csv row write: %w", err)
+		}
+	}
+	csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+		return fmt.Errorf("csv flush: %w", err)
+	}
+
 	csvPath := filepath.Join(projectPath, tableName+".csv")
 	os.MkdirAll(projectPath, 0755)
-	if err := os.WriteFile(csvPath, []byte(csvData), 0644); err != nil {
+	if err := os.WriteFile(csvPath, csvBuf.Bytes(), 0644); err != nil {
 		return fmt.Errorf("failed to write CSV: %v", err)
 	}
 
@@ -1048,6 +1004,271 @@ if rows:
 
 	fmt.Fprintf(w, "Email ingestion complete. Table '%s' created.\n", tableName)
 	return nil
+}
+
+type emailRow struct {
+	Subject   string
+	From      string
+	Date      string
+	MessageID string
+	Body      string
+}
+
+func fetchIMAP(host, user, pass, folder string, maxMessages int) ([]emailRow, error) {
+	if !strings.Contains(host, ":") {
+		host = host + ":993"
+	}
+
+	conn, err := tls.Dial("tcp", host, &tls.Config{MinVersion: tls.VersionTLS12})
+	if err != nil {
+		return nil, fmt.Errorf("IMAP TLS dial: %w", err)
+	}
+	defer conn.Close()
+
+	r := bufio.NewReader(conn)
+
+	greeting, err := r.ReadString('\n')
+	if err != nil {
+		return nil, fmt.Errorf("IMAP greeting: %w", err)
+	}
+	if !strings.HasPrefix(greeting, "* OK") {
+		return nil, fmt.Errorf("unexpected IMAP greeting: %q", strings.TrimSpace(greeting))
+	}
+
+	tag := 0
+	nextTag := func() string { tag++; return fmt.Sprintf("A%03d", tag) }
+
+	cmd := func(command string) (string, error) {
+		t := nextTag()
+		if _, err := fmt.Fprintf(conn, "%s %s\r\n", t, command); err != nil {
+			return "", fmt.Errorf("IMAP write: %w", err)
+		}
+		return readIMAPResponse(r, t)
+	}
+
+	loginCmd := fmt.Sprintf(`LOGIN "%s" "%s"`, escapeIMAP(user), escapeIMAP(pass))
+	_, err = cmd(loginCmd)
+	if err != nil {
+		return nil, fmt.Errorf("IMAP LOGIN: %w", err)
+	}
+
+	_, err = cmd(fmt.Sprintf(`SELECT "%s"`, escapeIMAP(folder)))
+	if err != nil {
+		return nil, fmt.Errorf("IMAP SELECT %q: %w", folder, err)
+	}
+
+	searchResp, err := cmd("SEARCH ALL")
+	if err != nil {
+		return nil, fmt.Errorf("IMAP SEARCH: %w", err)
+	}
+
+	ids := parseIMAPSearch(searchResp)
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	start := len(ids) - maxMessages
+	if start < 1 {
+		start = 1
+	}
+
+	fetchResp, err := cmd(fmt.Sprintf("FETCH %d:* (BODY[])", start))
+	if err != nil {
+		return nil, fmt.Errorf("IMAP FETCH: %w", err)
+	}
+
+	_, err = cmd("LOGOUT")
+	if err != nil {
+		_ = err
+	}
+
+	return parseIMAPFetchMessages(fetchResp)
+}
+
+func escapeIMAP(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, `\`, `\\`), `"`, `\"`)
+}
+
+func readIMAPResponse(r *bufio.Reader, tag string) (string, error) {
+	var buf strings.Builder
+	terminator := tag + " OK"
+	badPrefix := tag + " BAD"
+	noPrefix := tag + " NO"
+
+	for {
+		line, err := r.ReadString('\n')
+		if err != nil {
+			return buf.String(), fmt.Errorf("IMAP read error after %q: %w", buf.String(), err)
+		}
+		buf.WriteString(line)
+
+		if strings.HasPrefix(line, badPrefix) {
+			return buf.String(), fmt.Errorf("IMAP error: %s", strings.TrimSpace(line))
+		}
+		if strings.HasPrefix(line, noPrefix) {
+			return buf.String(), fmt.Errorf("IMAP failed: %s", strings.TrimSpace(line))
+		}
+		if strings.HasPrefix(line, terminator) {
+			return buf.String(), nil
+		}
+	}
+}
+
+func parseIMAPSearch(response string) []int {
+	lines := strings.Split(response, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "* SEARCH") {
+			continue
+		}
+		parts := strings.Fields(line)
+		var ids []int
+		for _, p := range parts[2:] {
+			if n, err := strconv.Atoi(p); err == nil {
+				ids = append(ids, n)
+			}
+		}
+		return ids
+	}
+	return nil
+}
+
+func parseIMAPFetchMessages(response string) ([]emailRow, error) {
+	type fetchItem struct {
+		seq int
+		raw string
+	}
+
+	currentSeq := 0
+	var currentBody strings.Builder
+	inFetch := false
+	var items []fetchItem
+
+	lines := strings.Split(response, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "* ") {
+			parts := strings.Fields(trimmed)
+			if len(parts) >= 2 {
+				if n, err := strconv.Atoi(parts[1]); err == nil {
+					if inFetch && currentBody.Len() > 0 {
+						bodyStr := currentBody.String()
+						if !strings.HasSuffix(bodyStr, "\r\n") {
+							bodyStr += "\r\n"
+						}
+						items = append(items, fetchItem{seq: currentSeq, raw: bodyStr})
+						currentBody.Reset()
+					}
+					currentSeq = n
+					inFetch = true
+					continue
+				}
+			}
+		}
+		if inFetch {
+			currentBody.WriteString(line)
+			currentBody.WriteString("\r\n")
+		}
+	}
+
+	if inFetch && currentBody.Len() > 0 {
+		items = append(items, fetchItem{seq: currentSeq, raw: currentBody.String()})
+	}
+
+	var rows []emailRow
+	for _, item := range items {
+		row, err := parseRFC822(item.raw)
+		if err != nil {
+			continue
+		}
+		rows = append(rows, *row)
+	}
+	return rows, nil
+}
+
+func parseRFC822(raw string) (*emailRow, error) {
+	msg, err := mail.ReadMessage(strings.NewReader(raw))
+	if err != nil {
+		return nil, fmt.Errorf("parse mail: %w", err)
+	}
+
+	row := &emailRow{
+		Subject:   decodeMIMEHeader(msg.Header.Get("Subject")),
+		From:      decodeMIMEHeader(msg.Header.Get("From")),
+		Date:      msg.Header.Get("Date"),
+		MessageID: msg.Header.Get("Message-ID"),
+	}
+
+	mediaType, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
+	if err != nil {
+		mediaType = "text/plain"
+	}
+
+	if strings.HasPrefix(mediaType, "multipart/") {
+		boundary := params["boundary"]
+		if boundary != "" {
+			row.Body = extractTextPart(strings.NewReader(raw), boundary)
+		}
+	} else {
+		bodyBytes, err := io.ReadAll(msg.Body)
+		if err == nil {
+			row.Body = decodeBody(bodyBytes, msg.Header.Get("Content-Transfer-Encoding"))
+		}
+	}
+
+	if len(row.Body) > 2000 {
+		row.Body = row.Body[:2000]
+	}
+
+	return row, nil
+}
+
+func decodeMIMEHeader(s string) string {
+	if s == "" {
+		return ""
+	}
+	dec := new(mime.WordDecoder)
+	decoded, err := dec.DecodeHeader(s)
+	if err != nil {
+		return s
+	}
+	return decoded
+}
+
+func extractTextPart(r io.Reader, boundary string) string {
+	mr := multipart.NewReader(r, boundary)
+	for {
+		part, err := mr.NextPart()
+		if err != nil {
+			break
+		}
+		ct := part.Header.Get("Content-Type")
+		if strings.HasPrefix(ct, "text/plain") {
+			bodyBytes, err := io.ReadAll(part)
+			if err == nil {
+				enc := part.Header.Get("Content-Transfer-Encoding")
+				return decodeBody(bodyBytes, enc)
+			}
+		}
+	}
+	return ""
+}
+
+func decodeBody(data []byte, encoding string) string {
+	switch strings.ToLower(encoding) {
+	case "base64", "b":
+		decoded, err := base64.StdEncoding.DecodeString(string(data))
+		if err == nil {
+			return string(decoded)
+		}
+	case "quoted-printable", "q":
+		qr := quotedprintable.NewReader(bytes.NewReader(data))
+		decoded, err := io.ReadAll(qr)
+		if err == nil {
+			return string(decoded)
+		}
+	}
+	return string(data)
 }
 
 // =============================================================================

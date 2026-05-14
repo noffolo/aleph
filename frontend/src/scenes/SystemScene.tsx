@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useQueryState } from 'nuqs'
 import { useStore } from '../store/useStore'
 import { SYSTEM_VIEWS, VIEW_LABELS } from '../store/sceneMapping'
+import { SkeletonLoader } from '../components/SkeletonLoader'
 import type { SlideOverContent } from '../store/useStore'
 
 export function SystemScene() {
@@ -17,5 +18,11 @@ export function SystemScene() {
     })
   }, [activeView])
 
-  return null
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4">
+      <div className="flex items-center justify-center">
+        <SkeletonLoader rows={12} cols={1} />
+      </div>
+    </div>
+  )
 }

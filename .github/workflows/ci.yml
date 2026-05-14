@@ -40,10 +40,15 @@ jobs:
           args: --timeout=5m
           working-directory: ./
 
-      - name: Run Go tests with race detector (no cache)
+      - name: Run Go tests with race detector and coverage
         run: |
           set -o pipefail
-          go test -race -count=1 ./... 2>&1 | tee test-output.txt
+          go test -race -count=1 -coverprofile=coverage.out ./... 2>&1 | tee test-output.txt
+          go tool cover -func=coverage.out | tail -1
+
+      - name: Check Go coverage threshold (excludes proto)
+        run: |
+          go tool cover -func=coverage.out | grep -v ".pb.go" | grep -v "connect.go" | awk '{print $NF}' | grep -E "^[0-9]" | sed 's/%//' | awk '{s+=$1; c++} END {avg=s/c; print "Go coverage:", avg "%"; if (avg < 60) { print "BELOW THRESHOLD (60%)"; exit 1 } else { print "ABOVE THRESHOLD" }}'
 
       - name: Run go vet
         run: go vet ./...
@@ -97,11 +102,22 @@ jobs:
         working-directory: frontend
         run: npx tsc --noEmit
 
-      - name: Run vitest
-        run: npx vitest run
+      - name: Run vitest with coverage
+        run: npx vitest run --pool=forks --coverage
         working-directory: frontend
         env:
           CI: true
+
+      - name: Check frontend coverage threshold
+        working-directory: frontend
+        run: |
+          COVERAGE=$(node -e "const r=require('./coverage/coverage-summary.json'); console.log(r.total.statements.pct)")
+          echo "Frontend coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 55" | bc -l) )); then
+            echo "BELOW THRESHOLD (55%)"
+            exit 1
+          fi
+          echo "ABOVE THRESHOLD"
 
       - name: Build frontend (quiet)
         run: npm run build -- --logLevel error
@@ -155,6 +171,57 @@ jobs:
       - name: Stop sidecar
         if: always()
         run: docker compose down aleph-python-sidecar
+
+  benchmarks:
+    name: Benchmarks (Performance Regression)
+    runs-on: ubuntu-latest
+    needs: [go-backend]
+    continue-on-error: true  # warning-only gate, does not block PR
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Set GOTOOLCHAIN
+        run: echo "GOTOOLCHAIN=local" >> $GITHUB_ENV
+
+      - name: Run Go benchmarks
+        run: |
+          go test -bench=. -benchmem -count=5 -benchtime=500ms ./... > ./bench-current.txt 2>&1
+          cat ./bench-current.txt
+
+      - name: Compare with baseline
+        run: |
+          if [ -f .github/benchmarks/baseline.txt ]; then
+            bash .github/scripts/bench-compare.sh ./bench-current.txt .github/benchmarks/baseline.txt
+          else
+            echo "No baseline found — storing current as baseline"
+            cp ./bench-current.txt .github/benchmarks/baseline.txt
+          fi
+
+      - name: Update baseline (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          cp ./bench-current.txt .github/benchmarks/baseline.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/benchmarks/baseline.txt
+          git commit -m "chore(ci): update benchmark baseline" || echo "No changes to commit"
+          git push || echo "No push needed"
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: bench-current.txt
 
   docker:
     name: Docker Build Verification
@@ -229,7 +296,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [go-backend, frontend, contract-tests, docker, docker-push]
+    needs: [go-backend, frontend, benchmarks, contract-tests, docker, docker-push]
     
     steps:
       - name: Check CI status
@@ -237,6 +304,7 @@ jobs:
           echo "CI Pipeline completed"
           echo "Go Backend: ${{ needs.go-backend.result }}"
           echo "Frontend: ${{ needs.frontend.result }}"
+          echo "Benchmarks: ${{ needs.benchmarks.result }}"
           echo "Contract Tests: ${{ needs.contract-tests.result }}"
           echo "Docker: ${{ needs.docker.result }}"
           

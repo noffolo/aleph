@@ -855,3 +855,152 @@ func (m *mockCompiler) CompileToolDefinition(ctx context.Context, def *dsl.ToolD
 		PythonCode: m.pythonCode,
 	}, nil
 }
+
+func TestFixImportPath(t *testing.T) {
+	e := &RepairEngine{}
+
+	t.Run("no_changes", func(t *testing.T) {
+		result := e.fixImportPath(`package main
+import "fmt"`)
+		assert.Equal(t, `package main
+import "fmt"`, result)
+	})
+
+	t.Run("replaces_ioioutil", func(t *testing.T) {
+		result := e.fixImportPath(`import "io/ioutil"`)
+		assert.Contains(t, result, `"io"`)
+		assert.NotContains(t, result, `"io/ioutil"`)
+	})
+
+	t.Run("preserves_other_imports", func(t *testing.T) {
+		result := e.fixImportPath(`import (
+	"context"
+	"io/ioutil"
+	"encoding/json"
+)`)
+		assert.Contains(t, result, `"context"`)
+		assert.Contains(t, result, `"io"`)
+		assert.Contains(t, result, `"encoding/json"`)
+		assert.NotContains(t, result, `"io/ioutil"`)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Supplement — 0% pure helpers
+// ---------------------------------------------------------------------------
+
+func TestFixDataPipeline(t *testing.T) {
+	eng := newTestEngine(newMockMetaRepo(), newMockMetaRepo())
+
+	t.Run("adds error wrapping to json.Unmarshal without Decode", func(t *testing.T) {
+		code := `func Handle(input string) (string, error) {
+	var inputJSON struct{ Name string }
+	if err := json.Unmarshal([]byte(inputJSON), &input); err != nil {
+		return "", err
+	}
+	return input.Name, nil
+}`
+		result := eng.fixDataPipeline(code)
+		assert.Contains(t, result, "unmarshal input: %w")
+	})
+
+	t.Run("no change if code lacks json.Unmarshal", func(t *testing.T) {
+		code := `func Handle(input string) (string, error) {
+	var inputJSON struct{ Name string }
+	if err := json.NewDecoder(strings.NewReader(input)).Decode(&input); err != nil {
+		return "", err
+	}
+	return input.Name, nil
+}`
+		result := eng.fixDataPipeline(code)
+		assert.Equal(t, code, result) // no json.Unmarshal → no change
+	})
+}
+
+func TestFixDataValidation(t *testing.T) {
+	eng := newTestEngine(newMockMetaRepo(), newMockMetaRepo())
+
+	t.Run("adds empty-input validation for placeholder pattern", func(t *testing.T) {
+		code := `func Handle(ctx context.Context, input __NAME__Input) (string, error) {
+	var input __NAME__Input
+	return fmt.Sprintf("got: %v", input), nil
+}`
+		result := eng.fixDataValidation(code)
+		assert.Contains(t, result, "empty input provided")
+	})
+
+	t.Run("no change if validation already exists", func(t *testing.T) {
+		code := `func Handle(ctx context.Context, input MyToolInput) (string, error) {
+	if input.Name == "" {
+		return "", fmt.Errorf("name required")
+	}
+	return input.Name, nil
+}`
+		result := eng.fixDataValidation(code)
+		assert.NotContains(t, result, "empty input provided")
+	})
+}
+
+func TestAddFileReadCaching(t *testing.T) {
+	t.Run("adds sync.Once comment", func(t *testing.T) {
+		code := `func Handle(ctx context.Context, input string) (string, error) {
+	data, _ := os.ReadFile("data.json")
+	more, _ := os.ReadFile("data.json")
+	return string(data) + string(more), nil
+}`
+		result := addFileReadCaching(code, "data.json")
+		assert.Contains(t, result, "sync.Once")
+		assert.Contains(t, result, "data.json")
+	})
+
+	t.Run("no change for no repeated reads", func(t *testing.T) {
+		code := `func Handle(ctx context.Context, input string) (string, error) {
+	data, _ := os.ReadFile("config.json")
+	return string(data), nil
+}`
+		result := addFileReadCaching(code, "nonexistent.json")
+		assert.Contains(t, result, "sync.Once") // comment always added
+	})
+}
+
+func TestAddConcurrentHTTPPattern(t *testing.T) {
+	code := `func Handle(ctx context.Context, input string) (string, error) {
+	resp1, _ := http.Get("https://a.example.com")
+	resp2, _ := http.Get("https://b.example.com")
+	defer resp1.Body.Close()
+	defer resp2.Body.Close()
+	return "done", nil
+}`
+	result := addConcurrentHTTPPattern(code)
+	assert.Contains(t, result, "PERFORMANCE FIX")
+	assert.Contains(t, result, "goroutine")
+	assert.Contains(t, result, "WaitGroup")
+}
+
+func TestDSLCompilerAdapter_CompileToolDefinition(t *testing.T) {
+	adapter := &DSLCompilerAdapter{}
+	ctx := context.Background()
+
+	t.Run("basic_tool", func(t *testing.T) {
+		def := &dsl.ToolDefinition{
+			Name: "basic",
+		}
+		result, err := adapter.CompileToolDefinition(ctx, def)
+		require.NoError(t, err)
+		assert.Equal(t, "basic", result.Name)
+		assert.NotEmpty(t, result.GoCode)
+		assert.NotEmpty(t, result.PythonCode)
+	})
+
+	t.Run("tool_with_params", func(t *testing.T) {
+		def := &dsl.ToolDefinition{
+			Name:   "processor",
+			Inputs: []*dsl.ToolParam{{Name: "data", Type: "string"}},
+		}
+		result, err := adapter.CompileToolDefinition(ctx, def)
+		require.NoError(t, err)
+		assert.Equal(t, "processor", result.Name)
+		assert.NotEmpty(t, result.GoCode)
+		assert.NotEmpty(t, result.PythonCode)
+	})
+}

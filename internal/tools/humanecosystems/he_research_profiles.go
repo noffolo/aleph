@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/rand" // #nosec G404 — safe: deterministic PRNG for synthetic profile data, not security-sensitive
 	"time"
 )
 

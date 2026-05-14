@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"math/rand"
+	"math/rand" // #nosec G404 — safe: deterministic PRNG for synthetic region dossier data, not security-sensitive
 	"time"
 
 	"github.com/ff3300/aleph-v2/internal/repository"

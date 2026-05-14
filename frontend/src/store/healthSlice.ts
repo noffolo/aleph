@@ -8,8 +8,6 @@ export interface HealthSlice {
   setNlpHealthy: (h: boolean) => void
   dataHealthStats: ColumnStats[]
   setDataHealthStats: (s: ColumnStats[]) => void
-  lastError: string | null
-  setLastError: (e: string | null) => void
   ollamaModels: string[]
   setOllamaModels: (m: string[]) => void
   resetHealth: () => void
@@ -22,15 +20,12 @@ export const createHealthSlice: StateCreator<HealthSlice> = (set) => ({
   setNlpHealthy: (h) => set({ nlpHealthy: h }),
   dataHealthStats: [],
   setDataHealthStats: (s) => set({ dataHealthStats: s }),
-  lastError: null,
-  setLastError: (e) => set({ lastError: e }),
   ollamaModels: [],
   setOllamaModels: (m) => set({ ollamaModels: m }),
   resetHealth: () => set({
     ollamaHealthy: false,
     nlpHealthy: false,
     dataHealthStats: [],
-    lastError: null,
     ollamaModels: [],
   }),
 })

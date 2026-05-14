@@ -163,6 +163,119 @@ func TestDiagnosticMonitor_ShouldAlert(t *testing.T) {
 	t.Error("expected alert after 5 auth failures")
 }
 
+func TestSeverityRank(t *testing.T) {
+	tests := []struct {
+		name string
+		s    string
+		want int
+	}{
+		{"critical", SeverityCritical, 4},
+		{"high", SeverityHigh, 3},
+		{"medium", SeverityMedium, 2},
+		{"low", SeverityLow, 1},
+		{"unknown", "", 0},
+		{"arbitrary", "unknown_severity", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := severityRank(tt.s)
+			if got != tt.want {
+				t.Errorf("severityRank(%q) = %d, want %d", tt.s, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDiagnosticMonitor_CorrelateWithSubsystem(t *testing.T) {
+	t.Run("empty_patterns", func(t *testing.T) {
+		dm := NewDiagnosticMonitor(3, nil)
+		result := dm.CorrelateWithSubsystem()
+		if len(result) != 0 {
+			t.Errorf("expected 0 summaries, got %d", len(result))
+		}
+	})
+
+	t.Run("single_subsystem", func(t *testing.T) {
+		dm := NewDiagnosticMonitor(3, nil)
+		// Record errors for a single component
+		dm.RecordError("ERR_UNAUTHORIZED", "auth failure", "auth", "low")
+		dm.RecordError("ERR_UNAUTHORIZED", "expired token", "auth", "low")
+		dm.RecordError("ERR_DEADLINE_EXCEEDED", "timeout", "auth", "low")
+
+		result := dm.CorrelateWithSubsystem()
+		if len(result) != 1 {
+			t.Fatalf("expected 1 summary, got %d", len(result))
+		}
+		if result[0].Subsystem != "auth" {
+			t.Errorf("expected subsystem 'auth', got %q", result[0].Subsystem)
+		}
+		if result[0].TotalErrors != 3 {
+			t.Errorf("expected TotalErrors=3, got %d", result[0].TotalErrors)
+		}
+		if result[0].Patterns != 2 {
+			t.Errorf("expected Patterns=2 (auth+timeout), got %d", result[0].Patterns)
+		}
+	})
+
+	t.Run("multiple_subsystems", func(t *testing.T) {
+		dm := NewDiagnosticMonitor(3, nil)
+		dm.RecordError("ERR_UNAUTHORIZED", "auth failure", "auth", "low")
+		dm.RecordError("ERR_DEADLINE_EXCEEDED", "timeout", "nlp", "low")
+		dm.RecordError("ERR_VALIDATION", "bad data", "api", "low")
+
+		result := dm.CorrelateWithSubsystem()
+		if len(result) != 3 {
+			t.Fatalf("expected 3 summaries, got %d", len(result))
+		}
+
+		// build a map for easy lookup
+		summaries := make(map[string]SubsystemSummary)
+		for _, s := range result {
+			summaries[s.Subsystem] = s
+		}
+
+		if s, ok := summaries["auth"]; !ok || s.TotalErrors != 1 || s.Patterns != 1 {
+			t.Errorf("auth summary: %+v", s)
+		}
+		if s, ok := summaries["nlp"]; !ok || s.TotalErrors != 1 || s.Patterns != 1 {
+			t.Errorf("nlp summary: %+v", s)
+		}
+		if s, ok := summaries["api"]; !ok || s.TotalErrors != 1 || s.Patterns != 1 {
+			t.Errorf("api summary: %+v", s)
+		}
+	})
+
+	t.Run("empty_component", func(t *testing.T) {
+		dm := NewDiagnosticMonitor(3, nil)
+		dm.RecordError("ERR_DEADLINE_EXCEEDED", "timeout", "", "low")
+
+		result := dm.CorrelateWithSubsystem()
+		if len(result) != 1 {
+			t.Fatalf("expected 1 summary, got %d", len(result))
+		}
+		if result[0].Subsystem != "unknown" {
+			t.Errorf("expected empty component → 'unknown', got %q", result[0].Subsystem)
+		}
+	})
+
+	t.Run("severity_escalation", func(t *testing.T) {
+		dm := NewDiagnosticMonitor(3, nil)
+		for i := 0; i < 3; i++ {
+			dm.RecordError("ERR_VALIDATION", "bad data", "api", "critical")
+		}
+		dm.RecordError("ERR_DEADLINE_EXCEEDED", "timeout", "api", "low")
+
+		result := dm.CorrelateWithSubsystem()
+		if len(result) != 1 {
+			t.Fatalf("expected 1 summary, got %d", len(result))
+		}
+		if result[0].HighestSeverity != SeverityCritical {
+			t.Errorf("expected SeverityCritical, got %q", result[0].HighestSeverity)
+		}
+	})
+}
+
 func TestDiagnosticMonitor_CorrelateWithHealth(t *testing.T) {
 	hi := &HealthIntegration{
 		GetConsecutiveFailures: func(toolID string) int { return 5 },

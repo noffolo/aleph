@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
+	"math/rand" // #nosec G404 — safe: time-seeded PRNG for mock market data fallback, not security-sensitive
 	"net/http"
 	"sort"
 	"strconv"

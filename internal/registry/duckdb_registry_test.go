@@ -88,6 +88,36 @@ func TestDuckDBRegistry_GetComponentByID_NotFound(t *testing.T) {
 	}
 }
 
+func TestParseToolIdsJSON(t *testing.T) {
+	tests := []struct {
+		name string
+		json string
+		want []string
+	}{
+		{"empty_string", "", nil},
+		{"empty_array", "[]", []string{}},
+		{"single_id", `["tool-1"]`, []string{"tool-1"}},
+		{"multiple_ids", `["tool-1","tool-2","tool-3"]`, []string{"tool-1", "tool-2", "tool-3"}},
+		{"invalid_json", "{malformed", nil},
+		{"not_array", `{"key":"value"}`, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseToolIdsJSON(tt.json)
+			if len(got) != len(tt.want) {
+				t.Errorf("ParseToolIdsJSON(%q) len=%d, want len=%d", tt.json, len(got), len(tt.want))
+				return
+			}
+			for i, v := range got {
+				if v != tt.want[i] {
+					t.Errorf("ParseToolIdsJSON(%q)[%d] = %q, want %q", tt.json, i, v, tt.want[i])
+				}
+			}
+		})
+	}
+}
+
 func TestDuckDBRegistry_UpdateComponentStatus(t *testing.T) {
 	r := setupRegistry(t)
 

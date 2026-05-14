@@ -2,7 +2,7 @@ package humanecosystems
 
 import (
 	"context"
-	"math/rand"
+	"math/rand" // #nosec G404 — safe: deterministic PRNG for synthetic geo coordinates, not security-sensitive
 	"time"
 )
 

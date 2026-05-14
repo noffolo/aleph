@@ -2,11 +2,18 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/ff3300/aleph-v2/internal/auth"
+	"github.com/ff3300/aleph-v2/internal/repository"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	_ "github.com/marcboeker/go-duckdb"
 )
 
 func TestNewAuthInterceptor(t *testing.T) {
@@ -247,4 +254,56 @@ func TestRequireRoleHTTP(t *testing.T) {
 			}
 		})
 	}
+}
+
+func setupMetaRepoForAuth(t *testing.T) (*sql.DB, *repository.MetadataRepository) {
+	t.Helper()
+	db, err := sql.Open("duckdb", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+
+	_, err = db.Exec(`CREATE TABLE system_api_keys (id TEXT PRIMARY KEY, project_id TEXT, label TEXT, key TEXT, role TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`)
+	require.NoError(t, err)
+
+	repo, err := repository.NewMetadataRepository(db)
+	require.NoError(t, err)
+	return db, repo
+}
+
+func TestValidateAPIKey(t *testing.T) {
+	db, repo := setupMetaRepoForAuth(t)
+
+	rawKey := "sk-test-api-key-1234567890"
+	hashedKey, err := auth.HashAPIKey(rawKey)
+	require.NoError(t, err)
+
+	keyID := rawKey[:8]
+
+	_, err = db.Exec(
+		"INSERT INTO system_api_keys (id, project_id, label, key, role) VALUES ($1, $2, $3, $4, $5)",
+		keyID, "project-1", "test-key", hashedKey, "admin",
+	)
+	require.NoError(t, err)
+
+	t.Run("valid_key_returns_project_and_role", func(t *testing.T) {
+		projectID, role, err := ValidateAPIKey(repo, rawKey)
+		assert.NoError(t, err)
+		assert.Equal(t, "project-1", projectID)
+		assert.Equal(t, RoleAdmin, role)
+	})
+
+	t.Run("key_too_short", func(t *testing.T) {
+		_, _, err := ValidateAPIKey(repo, "short")
+		assert.ErrorIs(t, err, ErrInvalidAPIKey)
+	})
+
+	t.Run("key_not_found_in_db", func(t *testing.T) {
+		_, _, err := ValidateAPIKey(repo, "sk-unknown-key-not-in-db")
+		assert.ErrorIs(t, err, ErrInvalidAPIKey)
+	})
+
+	t.Run("wrong_key_same_prefix", func(t *testing.T) {
+		_, _, err := ValidateAPIKey(repo, "sk-test-wrong-key-value")
+		assert.ErrorIs(t, err, ErrInvalidAPIKey)
+	})
 }

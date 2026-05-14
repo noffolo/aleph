@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -19,6 +20,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
@@ -102,7 +104,11 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open duckdb: %v", err)
 	}
-	db.Exec(context.Background(), "PRAGMA memory_limit='80%'")
+	func() {
+		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+		defer cancel()
+		db.Exec(ctx, "PRAGMA memory_limit='80%'")
+	}()
 	if cfg.SlowQueryThresholdMs > 0 {
 		db.SetSlowQueryThreshold(time.Duration(cfg.SlowQueryThresholdMs) * time.Millisecond)
 	}
@@ -128,15 +134,23 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 	}
 	metaRepo.SetEncryptionKey(cfg.EncryptionKey)
 
+	llm.OllamaPort = cfg.OllamaPort
+
 	wd, _ := os.Getwd()
 	projectsRoot := filepath.Join(wd, "data", "projects")
 	
 	nlpAddr := cfg.NLPAddr
-	if nlpAddr == "" { nlpAddr = "http://localhost:8001" }
-	if !strings.HasPrefix(nlpAddr, "http") { nlpAddr = "http://" + nlpAddr }
-	h2cClient := newH2CClient()
-	nlpClient := nlpconnect.NewNLPServiceClient(h2cClient, nlpAddr, connect.WithGRPC())
-	nlpHandler := handler.NewNLPHandler(logger, nlpClient, h2cClient)
+
+	var httpClient *http.Client
+	if cfg.DevMode {
+		if !strings.HasPrefix(nlpAddr, "http") { nlpAddr = "http://" + nlpAddr }
+		httpClient = newH2CClient()
+	} else {
+		if !strings.HasPrefix(nlpAddr, "http") { nlpAddr = "https://" + nlpAddr }
+		httpClient = newTLSClient()
+	}
+	nlpClient := nlpconnect.NewNLPServiceClient(httpClient, nlpAddr, connect.WithGRPC())
+	nlpHandler := handler.NewNLPHandler(logger, nlpClient, httpClient)
 	nlpAdapter := &nlp_adapter.Adapter{NLPHandler: nlpHandler}
 	
 	eng := ingestion.NewEngine(projectsRoot, metaRepo, db, nlpAdapter)
@@ -219,6 +233,9 @@ func (a *AlephApp) Serve(port int) error {
 	a.discoveryEngine = mcp.NewDiscoveryEngine(a.logger, a.metaRepo, discoveryConfig)
 	go a.discoveryEngine.Start(a.ctx)
 
+	// Security scanner — runs once at startup to audit tool code
+	go a.runSecurityScan()
+
 	// ── Handlers ─────────────────────────────────────────────────────────────
 	registryMgr, _ := registry.NewDuckDBRegistryFromDuckDB(a.db, a.logger)
 	queryHandler := handler.NewQueryHandler(a.db, projectsRoot, a.metaRepo, a.nlpHandler, registryMgr, time.Duration(a.cfg.LLMTimeoutSeconds)*time.Second)
@@ -251,7 +268,7 @@ func (a *AlephApp) Serve(port int) error {
 	codeFlowHandler := handler.NewCodeFlowHandler(codeFlow)
 
 	// ── Memory Subsystem (W4W6) ──────────────────────────────────────────────
-	memStore, mErr := memory.NewMemoryStore(a.db.DB(), a.cfg.DuckDBSchema, 768)
+	memStore, mErr := memory.NewMemoryStore(a.db, a.cfg.DuckDBSchema, 768)
 	if mErr != nil {
 		a.logger.Warn("memory store init failed (degraded)", "err", mErr)
 		memStore = nil
@@ -360,7 +377,7 @@ func (a *AlephApp) Serve(port int) error {
 	telemetryHandler := telemetry.Middleware(corsHandler)
 	recoveryHandler := middleware.Recovery(telemetryHandler)
 	csrfHandler := middleware.CSRFProtection(a.cfg.CORSAllowedOrigins)(recoveryHandler)
-	secureHandler := middleware.SecurityHeaders(csrfHandler)
+	secureHandler := middleware.SecurityHeaders(a.cfg.DevMode)(csrfHandler)
 	ridHandler := middleware.RequestID(secureHandler)
 
 	rateLimitCfg := middleware.RateLimitConfig{
@@ -395,6 +412,8 @@ func (a *AlephApp) Serve(port int) error {
 func (a *AlephApp) Close(ctx context.Context) error {
 	log.Println("[Aleph] Shutting down services...")
 
+	var errs []error
+
 	// Stop goroutine-backed services first (W2-01)
 	if a.healthChecker != nil {
 		a.healthChecker.Stop()
@@ -415,30 +434,74 @@ func (a *AlephApp) Close(ctx context.Context) error {
 		a.authRlCleanup()
 	}
 	if a.memStore != nil {
-		a.memStore.Close()
+		if err := a.memStore.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("memstore close: %w", err))
+		}
 	}
 
+	// Graceful server shutdown BEFORE cancel — allows in-flight requests to complete.
+	// W3-03: a.cancel() was previously here, prematurely canceling request contexts.
+	if a.server != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 30*time.Second)
+		if err := a.server.Shutdown(shutdownCtx); err != nil {
+			errs = append(errs, fmt.Errorf("server shutdown: %w", err))
+		}
+		shutdownCancel()
+	}
+
+	// Now that all servers are down, cancel the app context to stop background goroutines.
 	if a.cancel != nil {
 		a.cancel()
 	}
 
 	sentry.Flush(2 * time.Second)
 
-	if a.server != nil {
-		if err := a.server.Shutdown(ctx); err != nil {
-			log.Printf("[Aleph] server shutdown error: %v", err)
-		}
-	}
 	if a.nlpHandler != nil {
 		a.nlpHandler.Close()
 	}
 	if err := a.eng.Close(); err != nil {
-		log.Printf("[Aleph] engine close error: %v", err)
+		errs = append(errs, fmt.Errorf("engine close: %w", err))
 	}
 	if err := a.pg.Close(); err != nil {
-		log.Printf("[Aleph] postgres close error: %v", err)
+		errs = append(errs, fmt.Errorf("postgres close: %w", err))
 	}
-	return a.db.Close()
+	if err := a.db.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("duckdb close: %w", err))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (a *AlephApp) runSecurityScan() {
+	scanner := sandbox.NewSecurityScanner()
+	issues := scanner.Scan(a.cfg.DuckDBPath) // scan persisted tool definitions/code
+
+	critical := 0
+	high := 0
+	for _, issue := range issues {
+		switch issue.Severity {
+		case "critical":
+			critical++
+		case "high":
+			high++
+		}
+		a.logger.Warn("security scan finding",
+			"severity", issue.Severity,
+			"rule", issue.RuleName,
+			"line", issue.Line,
+			"description", issue.Description,
+		)
+	}
+
+	if critical > 0 || high > 0 {
+		a.logger.Warn("security scan complete",
+			"critical", critical,
+			"high", high,
+			"medium", len(issues)-critical-high,
+		)
+	} else {
+		a.logger.Info("security scan passed", "total_issues", len(issues))
+	}
 }
 
 func (a *AlephApp) makeSentimentHelper() func(ctx context.Context, text string) (string, error) {
@@ -504,7 +567,6 @@ func newH2CClient() *http.Client {
 		Transport: &http2.Transport{
 			AllowHTTP: true,
 			DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-				// Validate the gRPC dial address for SSRF before connecting
 				host, port, err := net.SplitHostPort(addr)
 				if err == nil {
 					if err := ssrf.ValidateHostname(host, port); err != nil {
@@ -513,6 +575,31 @@ func newH2CClient() *http.Client {
 				}
 				var d net.Dialer
 				return d.DialContext(ctx, network, addr)
+			},
+		},
+	}
+}
+
+func newTLSClient() *http.Client {
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http2.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
+				host, port, err := net.SplitHostPort(addr)
+				if err == nil {
+					if err := ssrf.ValidateHostname(host, port); err != nil {
+						return nil, fmt.Errorf("SSRF validation of gRPC target %s: %w", addr, err)
+					}
+				}
+				var d net.Dialer
+				conn, err := d.DialContext(ctx, network, addr)
+				if err != nil {
+					return nil, err
+				}
+				if tlsCfg == nil {
+					tlsCfg = &tls.Config{MinVersion: tls.VersionTLS13}
+				}
+				return tls.Client(conn, tlsCfg), nil
 			},
 		},
 	}
@@ -533,7 +620,13 @@ func (a *AlephApp) watchSidecar(nlpHandler *handler.NLPHandler) {
 	}
 
 	slog.Info("starting neural monitoring", "addr", addr)
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	var conn *grpc.ClientConn
+	var err error
+	if a.cfg.DevMode {
+		conn, err = grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		conn, err = grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS13})))
+	}
 	if err != nil {
 		slog.Error("connection to sidecar failed", "error", err)
 		return

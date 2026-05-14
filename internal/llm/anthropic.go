@@ -91,11 +91,12 @@ func (p *AnthropicProvider) Complete(ctx context.Context, req CompletionRequest)
 			}
 		case "tool_use":
 			var args map[string]interface{}
-			if len(item.Input) > 0 {
+			if len(item.Input) > 0 && string(item.Input) != "null" {
 				if err := json.Unmarshal(item.Input, &args); err != nil {
 					return nil, fmt.Errorf("failed to unmarshal tool input: %w", err)
 				}
-			} else {
+			}
+			if args == nil {
 				args = make(map[string]interface{})
 			}
 			toolCalls = append(toolCalls, ToolCall{

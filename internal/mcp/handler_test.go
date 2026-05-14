@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -99,6 +100,42 @@ func newTestService(t *testing.T) *MCPService {
 // ---------------------------------------------------------------------------
 // tools/list
 // ---------------------------------------------------------------------------
+
+func Test_mustMarshalJSON(t *testing.T) {
+	if got := mustMarshalJSON("hello"); got != `"hello"` {
+		t.Errorf("mustMarshalJSON(hello) = %q, want %q", got, `"hello"`)
+	}
+	if got := mustMarshalJSON(42); got != `42` {
+		t.Errorf("mustMarshalJSON(42) = %q, want %q", got, `42`)
+	}
+	if got := mustMarshalJSON(map[string]int{"a": 1}); got != `{"a":1}` {
+		t.Errorf("mustMarshalJSON(map) = %q, want %q", got, `{"a":1}`)
+	}
+	if got := mustMarshalJSON(nil); got != `null` {
+		t.Errorf("mustMarshalJSON(nil) = %q, want %q", got, `null`)
+	}
+	result := mustMarshalJSON(make(chan int))
+	if !strings.Contains(result, "0x") {
+		t.Errorf("mustMarshalJSON(chan) = %q, expected to contain '0x'", result)
+	}
+}
+
+func Test_requestID(t *testing.T) {
+	if got := requestID(&JSONRPCRequest{}); got != 0 {
+		t.Errorf("requestID(empty) = %d, want 0", got)
+	}
+	if got := requestID(&JSONRPCRequest{ID: nil}); got != 0 {
+		t.Errorf("requestID(nil ID) = %d, want 0", got)
+	}
+	id := 42
+	if got := requestID(&JSONRPCRequest{ID: &id}); got != 42 {
+		t.Errorf("requestID(42) = %d, want 42", got)
+	}
+	id2 := 0
+	if got := requestID(&JSONRPCRequest{ID: &id2}); got != 0 {
+		t.Errorf("requestID(0) = %d, want 0", got)
+	}
+}
 
 func TestHandleToolsList_ReturnsTools(t *testing.T) {
 	svc := newTestService(t)

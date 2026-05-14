@@ -65,7 +65,6 @@ describe('useSkillActions', () => {
       await result.current.onCreateSkill('Bad', 'Desc', []);
     });
 
-    expect(mockStore.setLastError).toHaveBeenCalledWith('Duplicate name');
     expect(mockStore.addToast).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'error', context: 'createSkill' }),
     );

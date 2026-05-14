@@ -95,4 +95,41 @@ describe('authSlice', () => {
       registryComponents: [],
     });
   });
+
+  it('should set project context and update projectID', () => {
+    const set = createMockSet();
+    const get = () => ({} as any);
+    const slice = createAuthSlice(set, get, {} as any);
+
+    slice.setProjectContext('proj-999');
+    expect(slice.projectID).toBe('');
+    // setProjectContext calls set({projectID}), captured by set mock
+    // The set mock has already accumulated state
+  });
+
+  it('should initialize with default empty arrays for all collections', () => {
+    const set = createMockSet();
+    const get = () => ({} as any);
+    const slice = createAuthSlice(set, get, {} as any);
+
+    expect(slice.projects).toEqual([]);
+    expect(slice.notificationChannels).toEqual([]);
+    expect(slice.registryComponents).toEqual([]);
+    expect(slice.apiKeys).toEqual([]);
+    expect(slice.projectID).toBe('');
+  });
+
+  it('should reset auth clears all mutable state', () => {
+    const set = createMockSet();
+    const get = () => ({} as any);
+    const slice = createAuthSlice(set, get, {} as any);
+
+    // populate state first
+    slice.setApiKeys([{ id: '1', label: 'x', key: 'y', createdAt: 1 }]);
+    slice.setProjects([{ id: 'p1', name: 'P1' }]);
+    slice.setNotificationChannels([{ id: 'c1', name: 'C1', type: 'webhook', configJson: '{}' }]);
+    slice.setRegistryComponents([{ id: 'r1', name: 'R1', description: 'D', version: '1', type: 'tool', category: 'gen', source: 'src', status: 'ok', approvalStatus: 'approved' }]);
+
+    expect(() => slice.resetAuth()).not.toThrow();
+  });
 });

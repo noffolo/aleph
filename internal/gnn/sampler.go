@@ -1,7 +1,7 @@
 package gnn
 
 import (
-	"math/rand"
+	"math/rand" // #nosec G404 — safe: negative sampling for GNN link prediction training, not security-sensitive
 )
 
 // NegSamplingStrategy controls how negative edges are generated.

@@ -2,7 +2,8 @@ package gnn
 
 import (
 	"math"
-	"math/rand"
+	"math/rand" // #nosec G404 — safe: batch shuffling for BPR/SGD training, not security-sensitive
+	"sync"
 )
 
 // TrainingResult captures the output of a training run.
@@ -21,6 +22,7 @@ type TrainingResult struct {
 //
 // where s(u,v) = dot(H[u], H[v]) is the link prediction score.
 type Trainer struct {
+	mu        sync.Mutex
 	Model     *GNNModel
 	LR        float64 // initial learning rate
 	MinLR     float64 // floor for learning rate decay
@@ -44,6 +46,9 @@ func NewTrainer(model *GNNModel, lr float64) *Trainer {
 // Train runs the full training loop for the given number of epochs.
 // It shuffles edges each epoch and processes them in mini-batches.
 func (t *Trainer) Train(posEdges, negEdges [][2]int, epochs int) TrainingResult {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	lossHistory := make([]float64, epochs)
 	numPos := len(posEdges)
 	numNeg := len(negEdges)

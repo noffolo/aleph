@@ -7,14 +7,14 @@ import (
 	"testing"
 )
 
-func TestSecurityHeaders(t *testing.T) {
+func TestSecurityHeaders_Production(t *testing.T) {
 	t.Parallel()
 
 	noopHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := SecurityHeaders(noopHandler)
+	handler := SecurityHeaders(false)(noopHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
@@ -24,11 +24,12 @@ func TestSecurityHeaders(t *testing.T) {
 	resp := rec.Result()
 	defer resp.Body.Close()
 
+	// Production mode: strict CSP, no localhost exceptions.
 	tests := []struct {
-		name     string
-		header   string
-		want     string
-		contains bool
+		name        string
+		header      string
+		want        string
+		contains    bool
 		notContains string
 	}{
 		{"Strict-Transport-Security", "Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload", false, ""},
@@ -74,5 +75,62 @@ func TestSecurityHeaders(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSecurityHeaders_DevMode(t *testing.T) {
+	t.Parallel()
+
+	noopHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := SecurityHeaders(true)(noopHandler)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+
+	csp := resp.Header.Get("Content-Security-Policy")
+	if csp == "" {
+		t.Fatal("CSP header not set in dev mode")
+	}
+
+	// Dev mode must allow Vite HMR WebSocket connections on localhost.
+	if !strings.Contains(csp, "ws://localhost:*") {
+		t.Errorf("dev CSP missing ws://localhost:*, got %q", csp)
+	}
+	if !strings.Contains(csp, "http://localhost:*") {
+		t.Errorf("dev CSP missing http://localhost:*, got %q", csp)
+	}
+
+	// Dev mode must NOT have upgrade-insecure-requests (Vite dev runs over HTTP).
+	if strings.Contains(csp, "upgrade-insecure-requests") {
+		t.Errorf("dev CSP must NOT contain upgrade-insecure-requests, got %q", csp)
+	}
+
+	// No unsafe-inline or unsafe-eval in dev mode either.
+	if strings.Contains(csp, "unsafe-inline") {
+		t.Errorf("dev CSP must NOT contain unsafe-inline, got %q", csp)
+	}
+	if strings.Contains(csp, "unsafe-eval") {
+		t.Errorf("dev CSP must NOT contain unsafe-eval, got %q", csp)
+	}
+
+	// Core security headers must still be present in dev mode.
+	headersToCheck := map[string]string{
+		"Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+		"X-Content-Type-Options":    "nosniff",
+		"X-Frame-Options":           "DENY",
+	}
+	for hdr, want := range headersToCheck {
+		got := resp.Header.Get(hdr)
+		if got != want {
+			t.Errorf("dev mode header %s = %q, want %q", hdr, got, want)
+		}
 	}
 }

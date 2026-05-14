@@ -41,15 +41,10 @@ interface StreamChunk {
   requiresConfirmation?: boolean
 }
 
-let errorTimer: ReturnType<typeof setTimeout> | null = null
-
 export const handleError = (err: unknown, context: string) => {
   const store = useStore.getState()
   const msg = err instanceof Error ? err.message : `Errore in ${context}`
-  store.setLastError(msg)
   store.addToast({ message: msg, type: 'error', context })
-  if (errorTimer) clearTimeout(errorTimer)
-  errorTimer = setTimeout(() => useStore.getState().setLastError(null), 5000)
 }
 
 export function useAppActions() {
@@ -100,7 +95,8 @@ export function useAppActions() {
       const current = useStore.getState()
       current.setOllamaHealthy(true)
       current.setOllamaModels(res.models || [])
-    }).catch(() => {
+    }).catch((e: unknown) => {
+      console.error('useAppActions: listModels failed:', e)
       const current = useStore.getState()
       current.setOllamaHealthy(false)
       current.setOllamaModels([])
@@ -108,7 +104,8 @@ export function useAppActions() {
 
     nlpClient.analyzeSentiment({ text: 'ping' }, opts).then(() => {
       useStore.getState().setNlpHealthy(true)
-    }).catch(() => {
+    }).catch((e: unknown) => {
+      console.error('useAppActions: analyzeSentiment failed:', e)
       useStore.getState().setNlpHealthy(false)
     })
 
@@ -253,7 +250,9 @@ export function useAppActions() {
   const onRunSkill = useCallback(async (skillId: string) => {
     const store = useStore.getState()
     let inputParams = {}
-    try { inputParams = JSON.parse(useStore.getState().sandboxInput) } catch {}
+    try { inputParams = JSON.parse(useStore.getState().sandboxInput) } catch (e: unknown) {
+      console.warn('useAppActions: invalid sandboxInput for runSkill, using empty object:', e)
+    }
     try {
       const res = await sandboxClient.runSkill({ skillId, inputParams, context: { projectId: store.projectID } })
       const r = (res as unknown as { result: { exitCode?: number; stdout?: string; stderr?: string } }).result
@@ -268,7 +267,9 @@ export function useAppActions() {
   const onExecuteTool = useCallback(async (toolId: string) => {
     const store = useStore.getState()
     let inputParams = {}
-    try { inputParams = JSON.parse(useStore.getState().sandboxInput) } catch {}
+    try { inputParams = JSON.parse(useStore.getState().sandboxInput) } catch (e: unknown) {
+      console.warn('useAppActions: invalid sandboxInput for executeTool, using empty object:', e)
+    }
     try {
       const res = await sandboxClient.executeTool({ toolId, inputParams })
       const r2 = (res as unknown as { result: { exitCode?: number; stdout?: string; stderr?: string } }).result
