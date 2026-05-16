@@ -58,6 +58,15 @@ import (
 	"github.com/getsentry/sentry-go"
 )
 
+// sidecar health-check constants — extracted for testability.
+var (
+	sidecarMaxRestarts   = 3
+	sidecarRestartWindow = 5 * time.Minute
+	sidecarBackoffSteps  = []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
+	sidecarCheckInterval = 5 * time.Second
+	sidecarCheckTimeout  = 3 * time.Second
+)
+
 type AlephApp struct {
 	db           *storage.DuckDB
 	pg           *storage.Postgres
@@ -634,16 +643,13 @@ func (a *AlephApp) watchSidecar(nlpHandler *handler.NLPHandler) {
 	defer conn.Close()
 	client := grpc_health_v1.NewHealthClient(conn)
 
-	const maxRestarts = 3
-	const restartWindow = 5 * time.Minute
-	backoffSteps := []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
 	var (
 		restartCount   int
 		restartStart   time.Time
 		consecutiveErr bool
 	)
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(sidecarCheckInterval)
 	defer ticker.Stop()
 
 	for {
@@ -652,42 +658,68 @@ func (a *AlephApp) watchSidecar(nlpHandler *handler.NLPHandler) {
 			slog.Info("sidecar monitor stopped")
 			return
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(a.ctx, 3*time.Second)
-			resp, err := client.Check(ctx, &grpc_health_v1.HealthCheckRequest{Service: "aleph.nlp.v1.NLPService"})
-			cancel()
-			if err != nil {
-				slog.Warn("sidecar non risponde", "error", err)
-				nlpHandler.MarkUnhealthy()
-
-				if !consecutiveErr {
-					consecutiveErr = true
-					restartCount = 0
-					restartStart = time.Now()
-				}
-
-				restartCount++
-				if restartCount > maxRestarts && time.Since(restartStart) < restartWindow {
-					slog.Error("sidecar watchdog: too many failures in window, giving up",
-						"restarts", restartCount, "window", restartWindow)
-					return
-				}
-
-				step := restartCount - 1
-				if step >= len(backoffSteps) {
-					step = len(backoffSteps) - 1
-				}
-				slog.Info("sidecar watchdog: will retry", "attempt", restartCount, "backoff", backoffSteps[step])
-				time.Sleep(backoffSteps[step])
-			} else {
-				consecutiveErr = false
-				restartCount = 0
-				if resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
-					nlpHandler.MarkHealthy()
-					slog.Info("sidecar neurale operativo")
-				} else {
-					slog.Warn("sidecar non SERVING", "status", resp.GetStatus())
-				}
+			if !a.checkSidecarOnce(client, nlpHandler, &consecutiveErr, &restartCount, &restartStart) {
+				return
 			}
 		}
 	}
+}
+
+// checkSidecarOnce performs a single health-check iteration.
+// Returns true if the loop should continue, false to stop.
+func (a *AlephApp) checkSidecarOnce(
+	client grpc_health_v1.HealthClient,
+	nlpHandler *handler.NLPHandler,
+	consecutiveErr *bool,
+	restartCount *int,
+	restartStart *time.Time,
+) bool {
+	if nlpHandler == nil {
+		if consecutiveErr != nil {
+			*consecutiveErr = false
+		}
+		if restartCount != nil {
+			*restartCount = 0
+		}
+		return true
+	}
+
+	ctx, cancel := context.WithTimeout(a.ctx, sidecarCheckTimeout)
+	resp, err := client.Check(ctx, &grpc_health_v1.HealthCheckRequest{Service: "aleph.nlp.v1.NLPService"})
+	cancel()
+	if err != nil {
+		slog.Warn("sidecar non risponde", "error", err)
+		nlpHandler.MarkUnhealthy()
+
+		if !*consecutiveErr {
+			*consecutiveErr = true
+			*restartCount = 0
+			*restartStart = time.Now()
+		}
+
+		*restartCount++
+		if *restartCount > sidecarMaxRestarts && time.Since(*restartStart) < sidecarRestartWindow {
+			slog.Error("sidecar watchdog: too many failures in window, giving up",
+				"restarts", *restartCount, "window", sidecarRestartWindow)
+			return false
+		}
+
+		step := *restartCount - 1
+		if step >= len(sidecarBackoffSteps) {
+			step = len(sidecarBackoffSteps) - 1
+		}
+		slog.Info("sidecar watchdog: will retry", "attempt", *restartCount, "backoff", sidecarBackoffSteps[step])
+		time.Sleep(sidecarBackoffSteps[step])
+	} else {
+		*consecutiveErr = false
+		*restartCount = 0
+		if resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
+			nlpHandler.MarkHealthy()
+			slog.Info("sidecar neurale operativo")
+		} else {
+			slog.Warn("sidecar non SERVING", "status", resp.GetStatus())
+		}
+	}
+
+	return true
 }
