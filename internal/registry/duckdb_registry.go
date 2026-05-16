@@ -150,6 +150,75 @@ func (r *DuckDBRegistry) ListComponents(filter map[string]string) ([]ComponentMe
 	return comps, nil
 }
 
+func (r *DuckDBRegistry) DeleteComponent(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	result, err := r.db.ExecContext(ctx, `DELETE FROM components WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("deleteComponent: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("deleteComponent: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("deleteComponent: component %s not found", id)
+	}
+	return nil
+}
+
+func (r *DuckDBRegistry) UpdateComponent(ctx context.Context, meta ComponentMetadata) error {
+	if meta.ID == "" {
+		return fmt.Errorf("updateComponent: id must not be empty")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := time.Now()
+	result, err := r.db.ExecContext(ctx, `UPDATE components SET
+		name = ?, description = ?, version = ?, type = ?, category = ?,
+		source = ?, status = ?, approval_status = ?,
+		config_schema_json = ?, execution_command = ?, dependencies_json = ?,
+		input_schema_json = ?, output_schema_json = ?, prompt_template = ?,
+		tool_ids_json = ?,
+		avg_cpu_usage = ?, avg_memory_mb = ?, avg_exec_time_ms = ?,
+		avg_brier_score = ?, avg_latency_ms = ?, trust_score = ?,
+		created_by_agent_id = ?, last_updated_timestamp = ?
+		WHERE id = ?`,
+		meta.Name, meta.Description, meta.Version, meta.Type, meta.Category,
+		meta.Source, meta.Status, meta.ApprovalStatus,
+		meta.ConfigSchemaJSON, meta.ExecutionCommand, meta.DependenciesJSON,
+		meta.InputSchemaJSON, meta.OutputSchemaJSON, meta.PromptTemplate,
+		meta.ToolIdsJSON,
+		meta.AvgCpuUsage, meta.AvgMemoryMb, meta.AvgExecTimeMs,
+		meta.AvgBrierScore, meta.AvgLatencyMs, meta.TrustScore,
+		meta.CreatedByAgentId, now,
+		meta.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("updateComponent: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("updateComponent: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("updateComponent: component %s not found", meta.ID)
+	}
+	return nil
+}
+
+type Registry interface {
+	RegisterComponent(meta ComponentMetadata) (string, error)
+	GetComponentByID(ctx context.Context, id string) (*ComponentMetadata, error)
+	UpdateComponentStatus(id string, status string) error
+	ListComponents(filter map[string]string) ([]ComponentMetadata, error)
+	DeleteComponent(ctx context.Context, id string) error
+	UpdateComponent(ctx context.Context, meta ComponentMetadata) error
+}
+
 func ParseToolIdsJSON(jsonStr string) []string {
 	if jsonStr == "" { return nil }
 	var ids []string
