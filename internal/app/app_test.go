@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -14,6 +16,10 @@ import (
 	nlpv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
 	"github.com/ff3300/aleph-v2/internal/decision"
 	"github.com/ff3300/aleph-v2/internal/registry"
+	"github.com/ff3300/aleph-v2/internal/repository"
+	"github.com/ff3300/aleph-v2/internal/storage"
+
+	_ "github.com/marcboeker/go-duckdb"
 )
 
 // ── newH2CClient ──────────────────────────────────────────────────────────
@@ -112,8 +118,126 @@ func TestStructInitialization(t *testing.T) {
 	require.NotNil(t, a)
 }
 
-// Prevent unused import errors from registry/decision types referenced
-// in production code signatures.
+// ── setupDemoData test helpers ────────────────────────────────────────────
+
+// newInMemoryMetaRepo creates a MetadataRepository backed by an in-memory
+// DuckDB with the system_projects table created.
+func newInMemoryMetaRepo(t *testing.T) *repository.MetadataRepository {
+	t.Helper()
+	db, err := sql.Open("duckdb", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS system_projects (
+		id TEXT PRIMARY KEY,
+		project_id TEXT,
+		name TEXT,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)`)
+	require.NoError(t, err)
+
+	repo, err := repository.NewMetadataRepository(db)
+	require.NoError(t, err)
+	return repo
+}
+
+// newInMemoryMetaRepoNoTable creates a MetadataRepository backed by an
+// in-memory DuckDB WITHOUT the system_projects table.
+func newInMemoryMetaRepoNoTable(t *testing.T) *repository.MetadataRepository {
+	t.Helper()
+	db, err := sql.Open("duckdb", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+
+	repo, err := repository.NewMetadataRepository(db)
+	require.NoError(t, err)
+	return repo
+}
+
+// ── setupDemoData ─────────────────────────────────────────────────────────
+
+func TestSetupDemoData_NilMetaRepo(t *testing.T) {
+	a := &AlephApp{logger: slog.Default()}
+	// Should not panic — nil metaRepo triggers early return.
+	a.setupDemoData("/tmp/test-nonexistent")
+}
+
+func TestSetupDemoData_CountProjectsError(t *testing.T) {
+	repo := newInMemoryMetaRepoNoTable(t)
+	// CountProjects queries system_projects which doesn't exist → error
+	count, err := repo.CountProjects()
+	assert.Error(t, err, "CountProjects should fail without system_projects table")
+	assert.Equal(t, 0, count)
+
+	a := &AlephApp{
+		logger:   slog.Default(),
+		metaRepo: repo,
+	}
+	// Should not panic — error from CountProjects triggers early return.
+	a.setupDemoData("/tmp/test-nonexistent")
+}
+
+func TestSetupDemoData_ExistingProjects(t *testing.T) {
+	repo := newInMemoryMetaRepo(t)
+
+	// Insert a project so count > 0
+	err := repo.CreateProjectRecord("demo", "Demo Project")
+	require.NoError(t, err)
+
+	count, err := repo.CountProjects()
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+
+	a := &AlephApp{
+		logger:   slog.Default(),
+		metaRepo: repo,
+	}
+	// Should not panic — count > 0 triggers early return.
+	a.setupDemoData("/tmp/test-nonexistent")
+}
+
+// ── Close ─────────────────────────────────────────────────────────────────
+
+// TestClose_PanicsOnNilEngine documents that Close() panics when a.eng is nil.
+// The Close method at app.go:471 calls a.eng.Close() without a nil guard.
+func TestClose_PanicsOnNilEngine(t *testing.T) {
+	a := &AlephApp{
+		db: &storage.DuckDB{}, // safe — DuckDB.Close has nil-guard on d.db
+	}
+	assert.Panics(t, func() {
+		_ = a.Close(context.Background())
+	}, "Close should panic when eng is nil (missing nil guard at app.go:471)")
+}
+
+// TestClose_AllNilFields documents that Close() panics with a completely
+// nil AlephApp. The first unprotected field access is a.eng.Close() (line 471).
+func TestClose_AllNilFields(t *testing.T) {
+	a := &AlephApp{}
+	assert.Panics(t, func() {
+		_ = a.Close(context.Background())
+	}, "Close panics on all-nil app (eng is nil, no nil guard at app.go:471)")
+}
+
+// TestClose_NilSafetyAudit documents which AlephApp fields have nil guards
+// in Close() and which don't. It does NOT actually call Close.
+func TestClose_NilSafetyAudit(t *testing.T) {
+	// Close() guards (with nil checks):
+	//   healthChecker, discoveryEngine, notificationSvc, sseBroker,
+	//   rlCleanup, authRlCleanup, memStore, server, cancel, nlpHandler
+	//
+	// Close() DOES NOT guard:
+	//   eng (line 471), pg (line 474), db (line 477)
+	//
+	// Any of eng/pg/db being nil causes a panic in Close().
+
+	a := &AlephApp{}
+	require.NotNil(t, a, "zero-value AlephApp should be constructable")
+	require.Nil(t, a.eng, "eng should be nil — Close will panic on this")
+	require.Nil(t, a.pg, "pg should be nil")
+	require.Nil(t, a.db, "db should be nil")
+}
+
+// Prevent unused import errors from types referenced in production code.
 var _ = &registry.DuckDBRegistry{}
 var _ = &decision.ComponentMetadata{}
 var _ = connect.NewRequest(&nlpv1.AnalyzeSentimentRequest{})
