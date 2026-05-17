@@ -24,6 +24,7 @@
 - **Docker:** `docker compose config` ✅ with Ollama, PostgreSQL, NLP sidecar
 - **GitNexus:** 23,032+ nodes, 56,758+ edges, 797+ clusters, 300 flows
 - **Remaining (macOS-untestable):** seccomp/namespace Linux-only (~20% sandbox), VerifyTool integration path (~9% requires Docker), NewAlephApp/Serve integration tests (require Postgres), GOOS=linux go vet block by go-duckdb CGO dependency
+- **Linux seccomp:** ✅ call chain verified (prepareSandboxedCmd → LoadSeccompFilter + ExecuteIsolated)
 
 ### Honest Assessment (17 May 2026)
 
@@ -149,7 +150,7 @@ ls docs/skills/ .config/opencode/skills/ 2>/dev/null | sort -u
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **aleph** (23032 symbols, 56758 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **aleph** (23030 symbols, 56747 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

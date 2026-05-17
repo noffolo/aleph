@@ -13,15 +13,19 @@ func TestGNNLinkPredictor_EdgeWeightImportance(t *testing.T) {
 	graphA.AddNode(&gnn.WorkflowNode{ID: "alice"})
 	graphA.AddNode(&gnn.WorkflowNode{ID: "bob"})
 	graphA.AddNode(&gnn.WorkflowNode{ID: "charlie"})
+	graphA.AddNode(&gnn.WorkflowNode{ID: "dave"})
 	graphA.AddEdge(gnn.Edge{Source: "alice", Target: "bob", Weight: 1.0})
 	graphA.AddEdge(gnn.Edge{Source: "alice", Target: "charlie", Weight: 1.0})
+	graphA.AddEdge(gnn.Edge{Source: "bob", Target: "charlie", Weight: 1.0})
 
 	graphB := gnn.NewGraph()
 	graphB.AddNode(&gnn.WorkflowNode{ID: "alice"})
 	graphB.AddNode(&gnn.WorkflowNode{ID: "bob"})
 	graphB.AddNode(&gnn.WorkflowNode{ID: "charlie"})
+	graphB.AddNode(&gnn.WorkflowNode{ID: "dave"})
 	graphB.AddEdge(gnn.Edge{Source: "alice", Target: "bob", Weight: 5.0})
 	graphB.AddEdge(gnn.Edge{Source: "alice", Target: "charlie", Weight: 1.0})
+	graphB.AddEdge(gnn.Edge{Source: "bob", Target: "charlie", Weight: 1.0})
 
 	predA := NewGNNLinkPredictor(3, 64, 0.01)
 	if err := predA.TrainFromGraph(t.Context(), graphA, 10); err != nil {
