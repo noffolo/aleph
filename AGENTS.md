@@ -3,8 +3,9 @@
 ## Current Status (17 May 2026)
 
 - **All TDD cycles v1-v9: Complete** — Full TDD session across 9 plan iterations
-- **Bugfix cycles 1-3: Complete** — app.go nil guards (eng/pg/db.Close), duckdb.go rollback error logs, NotificationService sync.Once double-close fix, engine.go fetchIMAP SSRF bypass fix, migration v9 broken index fix
-- **Test coverage:** Go ~82.7% mean (all 43 packages with _test.go), Frontend 81%/75%/80%/82%
+- **Bugfix cycles 1-3: Complete** — app.go nil guards (eng/pg/db.Close), duckdb.go rollback error logs, NotificationService sync.Once double-close fix, engine.go fetchIMAP SSRF bypass fix, migration v9 broken index fix, Pre-commit hook `go vet` paths (Go 1.26), CLONE_NEWNET flag mismatch in namespace_isolated.go
+- **Linux-phase tests:** namespace_isolation_error_test.go (//go:build linux) — correct function signatures for ExecuteIsolated (ctx, tmpDir string, cmd *exec.Cmd) and prepareSandboxedCmd (ctx, cmd *exec.Cmd, execID string)
+- **Test coverage:** Go ~82.7% mean (all 46 packages with _test.go), Frontend 81%/75%/80%/82%
 - **Dead code removed:** `adapters.ts` — all 6 `fromProto*` functions imported 0 times
 - **Key bugs found & fixed:**
   - `ListComponents` filter in `duckdb_registry.go` is a silent no-op (SQL ignores WHERE clause)
@@ -16,12 +17,13 @@
   - `_ = tx.Rollback()` swallowed errors in 3 DuckDB transaction rollback sites
   - Pre-commit hook `go vet` paths missing `./` prefix (Go 1.26 compatibility)
   - Postgres migration v9: broken index `idx_agents_project_status` referencing nonexistent `system_agents.status` column
+  - `namespace_isolated.go` CLONE_NEWNET flag missing — test expected it, source didn't set it (broken linux namespace isolation)
 - **E2E:** Playwright tests consolidated from orphaned `frontend/e2e/` → `frontend/tests/e2e/` (12 files)
-- **Build:** `go build ./...` ✅ | `go test -race -count=1 ./...` ✅ | `go vet ./...` ✅ | `npx tsc --noEmit` ✅ | `npx vitest run` ✅ (1358 tests, 81% stmts)
-- **CI:** GitHub Actions (Go + Frontend + Docker + NLP) | Security (gitleaks) | Deploy (tag-triggered)
+- **Build:** `go build ./...` ✅ | `go test -race -count=1 ./...` ✅ | `go vet ./...` ✅ | `npx tsc --noEmit` ✅ (0 errors, was 19 before A2 fix) | `npx vitest run` ✅ (1358 tests, 81% stmts)
+- **CI:** GitHub Actions (Go + Frontend + Docker + NLP) | Security (gitleaks) | Deploy (tag-triggered) | Pre-commit hooks: go-vet, tsc, vitest
 - **Docker:** `docker compose config` ✅ with Ollama, PostgreSQL, NLP sidecar
-- **GitNexus:** 22,974+ nodes, 56,666+ edges, 797+ clusters, 300 flows
-- **Remaining (macOS-untestable):** seccomp/namespace Linux-only (~20% sandbox), VerifyTool integration path (~9%), NewAlephApp/Serve integration tests (require Postgres)
+- **GitNexus:** 23,032+ nodes, 56,758+ edges, 797+ clusters, 300 flows
+- **Remaining (macOS-untestable):** seccomp/namespace Linux-only (~20% sandbox), VerifyTool integration path (~9% requires Docker), NewAlephApp/Serve integration tests (require Postgres), GOOS=linux go vet block by go-duckdb CGO dependency
 
 ---
 
@@ -137,7 +139,7 @@ ls docs/skills/ .config/opencode/skills/ 2>/dev/null | sort -u
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **aleph** (22991 symbols, 56693 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **aleph** (23032 symbols, 56758 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

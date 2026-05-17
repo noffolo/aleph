@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **aleph** (22991 symbols, 56693 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **aleph** (23032 symbols, 56758 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -52,8 +52,8 @@ This project has a persistent knowledge graph built by Graphify. Load the cognit
 **ALWAYS do this first in any new session:**
 
 1. **Read the graph report**: `graphify-out/GRAPH_REPORT.md` — god nodes, community map, surprising connections, suggested questions (69KB, ~500 lines)
-2. **For structured queries**: `graphify-out/graph.json` — 6,341 nodes, 10,988 edges, 45 labeled communities
-3. **For visual navigation**: `graphify-out/graph.html` — interactive graph (aggregated community view, 471 nodes)
+2. **For structured queries**: `graphify-out/graph.json` — 13,210 nodes, 21,640 edges, 814 labeled communities
+3. **For visual navigation**: graph.html not generated (graph too large for HTML viz — use graph.json queries instead)
 
 ## How to Use
 
@@ -62,7 +62,7 @@ This project has a persistent knowledge graph built by Graphify. Load the cognit
 | "Where is X in the architecture?" | Read GRAPH_REPORT.md → find the community → navigate to source files |
 | "What connects Y to Z?" | Read GRAPH_REPORT.md "Surprising Connections" section |
 | "What's the most central component?" | Check GRAPH_REPORT.md "God Nodes" section |
-| Trace a cross-community path | Open graph.html and navigate visually |
+| Trace a cross-community path | Use `graphify query "X and Y"` or query graph.json directly |
 
 ## Key Communities (Top 12 by size)
 
@@ -87,6 +87,8 @@ This project has a persistent knowledge graph built by Graphify. Load the cognit
 
 To rebuild the graph after significant code changes:
 ```bash
-npx graphify /Users/ff3300/Desktop/aleph-v2 --update --no-viz
+graphify update /path/to/aleph-v2 --no-viz
+```
+Use `--no-viz` flag for large projects (>5000 nodes) to skip HTML generation.
 ```
 <!-- graphify:end -->

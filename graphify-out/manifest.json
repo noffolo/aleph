@@ -28,8 +28,8 @@
     "hash": "e6505a482550430a1884444d67aff017"
   },
   "/Users/ff3300/Desktop/aleph-v2/migrations/postgres/000009_add_constraints.up.sql": {
-    "mtime": 1777743898.194024,
-    "hash": "1171d4424ec31bbd768c1310142fb2a7"
+    "mtime": 1779014160.5787067,
+    "hash": "f2d507cb724ed5459837382b580b098e"
   },
   "/Users/ff3300/Desktop/aleph-v2/migrations/postgres/000004_tool_metadata.down.sql": {
     "mtime": 1776978018.5148978,
@@ -144,8 +144,8 @@
     "hash": "22453bf2eae4033c2ce618d3b897ded7"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/playwright.config.ts": {
-    "mtime": 1778666054.7253332,
-    "hash": "3ee2e25ae09685eacf805d8397050a86"
+    "mtime": 1779019732.2209995,
+    "hash": "4ffc66e2ac17482b642ca582eaeb358c"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/eslint.config.js": {
     "mtime": 1777630024.8063178,
@@ -156,60 +156,80 @@
     "hash": "c8bd451f9fd519df08a2026be414e677"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/vitest.config.ts": {
-    "mtime": 1778759784.6662657,
+    "mtime": 1779005505.9462938,
     "hash": "f81fb9d20332dfa5c46c1be3d734dcb7"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/smoke.spec.ts": {
     "mtime": 1778620720.0108514,
     "hash": "12d41c76a654c8aef96dda9ab61d8fa1"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/playwright.config.ts": {
-    "mtime": 1778620760.1344159,
-    "hash": "53278726a9418a1a862e6a1c969df438"
-  },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/ontology-flow.spec.ts": {
-    "mtime": 1777676358.0542445,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/ontology-flow.spec.ts": {
+    "mtime": 1779019732.222357,
     "hash": "8aaa0c2373e6ba1e91b52fc02473cce3"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/commands.spec.ts": {
-    "mtime": 1777117047.9510758,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/commands.spec.ts": {
+    "mtime": 1779019732.2216947,
     "hash": "659445dc0b3d102c1a7c7265c98cb2bb"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/error-states.spec.ts": {
-    "mtime": 1777676358.05728,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/error-states.spec.ts": {
+    "mtime": 1779019732.2219644,
     "hash": "bb1b52b1236c9079a8d0c32b08ba9aa0"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/sanitization.spec.ts": {
-    "mtime": 1777116929.3528883,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/sanitization.spec.ts": {
+    "mtime": 1779019732.2225816,
     "hash": "d0f0541ed0e64f2d00134c8e1fed9683"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/slideover.spec.ts": {
-    "mtime": 1778591877.8846228,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/slideover.spec.ts": {
+    "mtime": 1779019732.2228534,
     "hash": "aab71e556c04e0e0c944dff25e1d79dc"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/auth-flow.spec.ts": {
-    "mtime": 1777676190.932887,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/auth-flow.spec.ts": {
+    "mtime": 1779019732.221558,
     "hash": "6981c261b18498bc57abf07cb004639b"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/connect-mock-helper.ts": {
-    "mtime": 1777630024.8060484,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/connect-mock-helper.ts": {
+    "mtime": 1779019732.2218382,
     "hash": "7f724d4a2c6fbca5debc2572b70f445b"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/tool-lifecycle.spec.ts": {
-    "mtime": 1778591877.8848956,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/tool-lifecycle.spec.ts": {
+    "mtime": 1779019732.2229886,
     "hash": "fde6c14efc4e0cecb1ce6b81d1ba4400"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/onboarding.spec.ts": {
-    "mtime": 1777117993.2334719,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/onboarding.spec.ts": {
+    "mtime": 1779019732.2222147,
     "hash": "6164bcc25c44400565ae770b93bb0cc1"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/settings-flow.spec.ts": {
-    "mtime": 1778591877.8839545,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/settings-flow.spec.ts": {
+    "mtime": 1779019732.2227135,
     "hash": "9811cb5151be7f1797e482a9ec8c759b"
   },
-  "/Users/ff3300/Desktop/aleph-v2/frontend/e2e/journey.spec.ts": {
-    "mtime": 1778591877.8836691,
+  "/Users/ff3300/Desktop/aleph-v2/frontend/tests/e2e/journey.spec.ts": {
+    "mtime": 1779019732.222076,
     "hash": "d3abb1d383362091634c524447112fa6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/block-navigation.js": {
+    "mtime": 1779019752.7975233,
+    "hash": "13c8dd65c9b9571b0b4960aeaf3fab0a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/prettify.js": {
+    "mtime": 1779019752.79801,
+    "hash": "6051903a2f7363ee232a01bd32f60b6a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/sorter.js": {
+    "mtime": 1779019752.7978077,
+    "hash": "e2f5129270684bf835820ca4433b4abb"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/block-navigation.js": {
+    "mtime": 1779019752.7276506,
+    "hash": "13c8dd65c9b9571b0b4960aeaf3fab0a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/prettify.js": {
+    "mtime": 1779019752.7290018,
+    "hash": "6051903a2f7363ee232a01bd32f60b6a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/sorter.js": {
+    "mtime": 1779019752.7283907,
+    "hash": "e2f5129270684bf835820ca4433b4abb"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/App.tsx": {
     "mtime": 1778666054.7255216,
@@ -264,7 +284,7 @@
     "hash": "d062dadf91980f4468a8ffd74305788d"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/scenes/__tests__/TerminalScene.test.tsx": {
-    "mtime": 1778781489.5759013,
+    "mtime": 1779005505.9460597,
     "hash": "94717ecec8dd4c91139b23a480904ed1"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/scenes/__tests__/SceneSelector.test.tsx": {
@@ -520,7 +540,7 @@
     "hash": "14ae8f22d3272f23193f21c4b9a4f1fd"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/ui/__tests__/select.test.tsx": {
-    "mtime": 1778782273.5642154,
+    "mtime": 1779005505.9453187,
     "hash": "7df7f7a087bde1614a1e2db2d4878eef"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/ui/__tests__/ToastError.test.tsx": {
@@ -688,7 +708,7 @@
     "hash": "4d927555cd3918f0434825673b23cf23"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/AgentsView.test.tsx": {
-    "mtime": 1778779772.3511124,
+    "mtime": 1779005505.9412608,
     "hash": "d592e0b383a8ddc131d209ccbee4bdcf"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/SettingsView.test.tsx": {
@@ -704,27 +724,27 @@
     "hash": "bef27f726edc5f54f84c1d6157f3d4cf"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/DataSourceForm.test.tsx": {
-    "mtime": 1778768991.4030714,
-    "hash": "084045ad80e445ff57e48ab2aed269ef"
+    "mtime": 1779005476.083992,
+    "hash": "0d9ded42fe0ebf133659c0e40edac03b"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/ComponentsView.test.tsx": {
-    "mtime": 1778779397.1970682,
+    "mtime": 1779005505.9415135,
     "hash": "5c8a367620a3b0dc49b4e185150ecc97"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/SkillForm.test.tsx": {
-    "mtime": 1778766451.9626708,
-    "hash": "2f35f0355718f58f828baf507095b934"
+    "mtime": 1779005476.084377,
+    "hash": "9e1409459d87406710873d203345037a"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/TerminalView.test.tsx": {
     "mtime": 1778760309.6474316,
     "hash": "8094fdb4655b0fbbc343a96ed50b18df"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/FuzzySelect.test.tsx": {
-    "mtime": 1778767360.5703485,
+    "mtime": 1779005505.9423983,
     "hash": "b13bcc932e1c6f4869b0912eda9d7630"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/ExplorerView.test.tsx": {
-    "mtime": 1778768438.0983047,
+    "mtime": 1779005505.9422042,
     "hash": "18d430d28a1808c2ab7a71ff3f157332"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/SkeletonLoader.test.tsx": {
@@ -732,7 +752,7 @@
     "hash": "f0616197a160e1ae597e953613f58ea7"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/WorkspaceOnboarding.test.tsx": {
-    "mtime": 1778767822.6101127,
+    "mtime": 1779005505.944867,
     "hash": "905dfb5cd37f546c10e6a0f16c02d5d1"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/DataSourcesView.test.tsx": {
@@ -756,7 +776,7 @@
     "hash": "778bdcec7fdf2ecd5f894a2479189b4d"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/Toast.test.tsx": {
-    "mtime": 1778767964.9325423,
+    "mtime": 1779005505.944303,
     "hash": "250196f8edc89447efbc9aee1f139cdb"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/ToolConfigPanel.test.tsx": {
@@ -776,23 +796,23 @@
     "hash": "6932178042cd86e5dfa5c4d460af37e1"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/GuideTour.test.tsx": {
-    "mtime": 1778780040.2937605,
+    "mtime": 1779005505.9425995,
     "hash": "81a7b9e5523671fbd142805cde782316"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/SetupWizard.test.tsx": {
-    "mtime": 1778768411.229862,
+    "mtime": 1779005505.9435027,
     "hash": "6800377bd010f6b15149538b35de0b38"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/TerminalOutput.test.tsx": {
-    "mtime": 1778767979.4674933,
+    "mtime": 1779005505.9440455,
     "hash": "a78026d4419565297bc9e0477161e321"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/ToolsView.test.tsx": {
-    "mtime": 1778779660.1257815,
-    "hash": "d45f2024b4c567e5e62b1451940d8e24"
+    "mtime": 1779005476.084674,
+    "hash": "35ae1c4f9f82c4e2c211c326651a5c2d"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/SkillsView.test.tsx": {
-    "mtime": 1778779450.4563897,
+    "mtime": 1779005505.9437726,
     "hash": "aba8b296f15de98c3dea3ca0ed69934a"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/AlephErrorBoundary.test.tsx": {
@@ -808,7 +828,7 @@
     "hash": "d0cd6ff0aa94cca71bc14714678a54e8"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/AgentForm.test.tsx": {
-    "mtime": 1778766337.035899,
+    "mtime": 1779005505.9409523,
     "hash": "e305551aa54c22f6a96d4f5a38063d57"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/ChatSearchBar.test.tsx": {
@@ -820,15 +840,15 @@
     "hash": "f2998d10a2072a7d81d7f92ae134cc96"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/CopilotChat.test.tsx": {
-    "mtime": 1778779285.8366053,
-    "hash": "cbfbe3ee94dbfcd51b0c6f35419f664a"
+    "mtime": 1779005476.083755,
+    "hash": "a3e359139b32b483dff2a8b507475667"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/ToolHealthIndicator.test.tsx": {
     "mtime": 1778762109.0346763,
     "hash": "8af460f3bf9a311e69617c346791cc19"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/LibraryView.test.tsx": {
-    "mtime": 1778767080.7955322,
+    "mtime": 1779005505.9428895,
     "hash": "626ea38fa87ac1472d930b4e0c3f2553"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/SlideOverPanel.test.tsx": {
@@ -836,11 +856,11 @@
     "hash": "b736bbeb107e43e724038ecf82bf9335"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/DashboardView.test.tsx": {
-    "mtime": 1778781054.9821188,
+    "mtime": 1779005505.9418309,
     "hash": "4a523be9bd42062de4030d69ac9e869e"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/ToolForm.test.tsx": {
-    "mtime": 1778767550.6415637,
+    "mtime": 1779005505.944577,
     "hash": "1000668135a95f3cbaca96b7e4107541"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/ToolManagementView.test.tsx": {
@@ -860,7 +880,7 @@
     "hash": "a23e14285cf1b0dac9cc784d1bf7defd"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/OracleView.test.tsx": {
-    "mtime": 1778778707.411831,
+    "mtime": 1779005505.9431777,
     "hash": "7479819ce6d62b6fdc6a91086f067d78"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/components/__tests__/EmptyState.test.tsx": {
@@ -912,8 +932,8 @@
     "hash": "3ac445da13cbdad9fde7f93cad7fd4f6"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/hooks/__tests__/useSSE.test.ts": {
-    "mtime": 1778666054.7270622,
-    "hash": "a39ba7c9b2e659254872583d9dc64319"
+    "mtime": 1779005476.085083,
+    "hash": "b90d46626e7fe3da70d4656cb3493602"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/hooks/__tests__/useInfiniteQueries.test.ts": {
     "mtime": 1778716565.656931,
@@ -960,7 +980,7 @@
     "hash": "4123e0d9ece86470b48002d8ba29520c"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/hooks/__tests__/useCursorPagination.test.ts": {
-    "mtime": 1778780720.9459205,
+    "mtime": 1779005505.9455104,
     "hash": "e417f8f134a8d513f4742a6cfba91dc4"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/hooks/__tests__/minimal-cursor-test.test.ts": {
@@ -1040,7 +1060,7 @@
     "hash": "36b880cb8e9c6969481cc7755fd084e5"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/lib/__tests__/errorReporter.test.ts": {
-    "mtime": 1778781842.5220134,
+    "mtime": 1779005505.9457762,
     "hash": "549ffe87cd83ceeff071ae26024e8aa2"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/api/utils.ts": {
@@ -1100,7 +1120,7 @@
     "hash": "bdb73a9412dc21a09765d7fe94737fa2"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/api/__tests__/factory.test.ts": {
-    "mtime": 1778958834.0526907,
+    "mtime": 1779005505.940616,
     "hash": "d3df8f38f62e20e553b4bfcfd0bfe9ae"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/api/coverage/block-navigation.js": {
@@ -1220,8 +1240,8 @@
     "hash": "72ab97b37089821f8116567b1df4c205"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/store/__tests__/navigationSlice.test.ts": {
-    "mtime": 1778712690.6973505,
-    "hash": "b925ffd1f2c244c184547ac42f175b8c"
+    "mtime": 1779005476.085364,
+    "hash": "3ce3cde26f70d63a16a1d4b76c5a72f2"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/store/__tests__/uiSlice.test.ts": {
     "mtime": 1778666054.7293248,
@@ -1379,6 +1399,10 @@
     "mtime": 1777274709.6634386,
     "hash": "15658dc9dfdbea6b9692dc17041d5c27"
   },
+  "/Users/ff3300/Desktop/aleph-v2/internal/middleware/bench_test.go": {
+    "mtime": 1779005625.3535254,
+    "hash": "f89f18a07c4845e7427e1581f18e6d3c"
+  },
   "/Users/ff3300/Desktop/aleph-v2/internal/middleware/error_handler_test.go": {
     "mtime": 1778677514.4225297,
     "hash": "f55b897cc423fc54d8d8d1886be73911"
@@ -1412,8 +1436,8 @@
     "hash": "dd506d95399feece71373c7d8f6288af"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/repository/metadata.go": {
-    "mtime": 1778591891.9749196,
-    "hash": "fe5ad1640e99a0607eeab9eecc11ed9a"
+    "mtime": 1779005824.1050918,
+    "hash": "9b8b663ed230eb6ac43e9ffad76bd615"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/repository/audit.go": {
     "mtime": 1777750806.871266,
@@ -1468,8 +1492,8 @@
     "hash": "12c7484d8de0b8863c7706f5eb4df6c1"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/ingestion/engine_test.go": {
-    "mtime": 1777567341.0170343,
-    "hash": "1755fdd5f5e79f7b3b0557fef030485a"
+    "mtime": 1779017336.2518132,
+    "hash": "2c4f54fbe013eecc347f755a8d97e187"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/ingestion/ssrf_test.go": {
     "mtime": 1777492091.32768,
@@ -1488,8 +1512,8 @@
     "hash": "38d5eeedb752a09be6184cbcbf34cd7b"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/ingestion/engine.go": {
-    "mtime": 1778757541.719588,
-    "hash": "c3162a14ab7e127db0269e6fdc3a577f"
+    "mtime": 1779017336.2515929,
+    "hash": "0cba909be23cd26706a126c46c3101d2"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/ingestion/coverage_boost_test.go": {
     "mtime": 1778779542.5608888,
@@ -1748,8 +1772,8 @@
     "hash": "8f79136fcd5bb6a794418ac7469db3f9"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/tools/finance/openbb_market_data.go": {
-    "mtime": 1778666054.73499,
-    "hash": "f15840b3f25962bda736d2464da70254"
+    "mtime": 1779005820.4761508,
+    "hash": "9a854f6741808c462d22334d5cc085ef"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/llm/provider.go": {
     "mtime": 1778666054.7333288,
@@ -1792,24 +1816,24 @@
     "hash": "708bc62c341f6217252d7de0785f3519"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/app/app_test.go": {
-    "mtime": 1778969221.3246455,
-    "hash": "0f24be71dc2236ea9e86c21400d5fd34"
+    "mtime": 1779021275.7553542,
+    "hash": "2b62f563f5562e346335886354afbe5c"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/app/onboarding.go": {
     "mtime": 1778591891.9733717,
     "hash": "3bf956ad0d94a7b658d8e59c991fa9b9"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/app/watch_sidecar_test.go": {
-    "mtime": 1778968501.2406535,
+    "mtime": 1779005505.967262,
     "hash": "b96437580dcab0647c76b0cfafb13b44"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/app/app.go": {
-    "mtime": 1778967502.278894,
-    "hash": "1e920f8d40b2b5ead75cab8305ace55e"
+    "mtime": 1779014160.5770395,
+    "hash": "5f8271238850b9f58b8edc9d653ccd9f"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/app/app_integration_test.go": {
-    "mtime": 1778972640.0511339,
-    "hash": "6b1afca659a0f81c8dc84db45174ee8d"
+    "mtime": 1779012613.648939,
+    "hash": "07c09f003eaaa4f945d23b3bdacde411"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/memory/memory.go": {
     "mtime": 1778666054.7335467,
@@ -1872,8 +1896,8 @@
     "hash": "3610744d81ecc43e9fb157776e3d8967"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/config/config.go": {
-    "mtime": 1778666054.7306788,
-    "hash": "9759dfbbd5b2cd3ed9656a945e992cd2"
+    "mtime": 1779005913.540882,
+    "hash": "d47c957a7f6b5acce27ba672b3376e75"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/config/secrets_test.go": {
     "mtime": 1778695608.2624228,
@@ -1924,7 +1948,7 @@
     "hash": "0576e805058549b02f2503aa77c3d603"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/health/checker_test.go": {
-    "mtime": 1778767363.3990166,
+    "mtime": 1779005505.9679275,
     "hash": "9099de6615ec9ec0a9e2db27085210ea"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/health/history_test.go": {
@@ -2036,16 +2060,16 @@
     "hash": "8a305921faa5c65ef106998229450c16"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/storage/duckdb_bench_test.go": {
-    "mtime": 1778591891.9782767,
-    "hash": "b643f7920af743928a65b8e55134ff41"
+    "mtime": 1779005954.9520178,
+    "hash": "ef073d9bc197d2e5f59b59940beb7ad0"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/storage/context_test.go": {
     "mtime": 1777711827.3211775,
     "hash": "d0839dfa64fa27fd1434953b79f608b4"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/storage/postgres.go": {
-    "mtime": 1776605397.12997,
-    "hash": "9d5821238a6d820cba6d3e8e71332e02"
+    "mtime": 1779005920.026823,
+    "hash": "292b6031670d3e61906a3d518aa306c5"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/storage/context.go": {
     "mtime": 1778591891.97713,
@@ -2064,8 +2088,8 @@
     "hash": "d02f85aab9d5e095615498184341bd92"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/storage/duckdb.go": {
-    "mtime": 1778591891.9774425,
-    "hash": "824098161caf7a0665d35795ed28d981"
+    "mtime": 1779014160.5781708,
+    "hash": "9e3db169a294a74ab37586f2122611ad"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/storage/duckdb_backup_test.go": {
     "mtime": 1778591891.9779692,
@@ -2120,7 +2144,7 @@
     "hash": "0e33779ddf98e53c8789b336a3df0796"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/migrate/migrate_test.go": {
-    "mtime": 1778766940.9376743,
+    "mtime": 1779005505.9686918,
     "hash": "bb3df4d4bb3f5ea3f999f090dce7a0a2"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/migrate/sprint_final_test.go": {
@@ -2142,6 +2166,10 @@
   "/Users/ff3300/Desktop/aleph-v2/internal/ethics/bias_test.go": {
     "mtime": 1777105474.681025,
     "hash": "03a686e59184da7b9c690fdb19649eca"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/internal/sandbox/verify_tool_test.go": {
+    "mtime": 1779000435.1795769,
+    "hash": "7d9bf429392dc56e4762de5cec8671a2"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/sandbox/security_test.go": {
     "mtime": 1777066855.7054157,
@@ -2180,8 +2208,8 @@
     "hash": "1bd8460bacc98a83a876100492e41cb6"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/sandbox/namespace_isolated.go": {
-    "mtime": 1778591891.9757435,
-    "hash": "f91066709ffe299ca32c9d4a788696ee"
+    "mtime": 1779023342.785494,
+    "hash": "5f62310a7fcf72a9fc39ce8a7f778434"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/sandbox/cgroups.go": {
     "mtime": 1777741976.2659132,
@@ -2190,6 +2218,10 @@
   "/Users/ff3300/Desktop/aleph-v2/internal/sandbox/scaffold.go": {
     "mtime": 1778666054.7345328,
     "hash": "bde483f27fc6d90aacb0739821ae833e"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/internal/sandbox/seccomp_policy_test.go": {
+    "mtime": 1779023342.7858326,
+    "hash": "5aa587d5f8beb1731c1bb6fe2d257397"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/sandbox/sandbox_supplement_test.go": {
     "mtime": 1778770116.6966226,
@@ -2202,6 +2234,10 @@
   "/Users/ff3300/Desktop/aleph-v2/internal/sandbox/container_sandbox.go": {
     "mtime": 1778591891.9752195,
     "hash": "4efd7f5ae1f00e8ca94ecdc45d27fa4d"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/internal/sandbox/namespace_isolation_error_test.go": {
+    "mtime": 1779023739.8888729,
+    "hash": "86a5ebbdc99be944010278fb6d411570"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/sandbox/exec_sandbox_test.go": {
     "mtime": 1777066779.0028625,
@@ -2252,16 +2288,16 @@
     "hash": "5134ba85d5e5b4152a57a8e92d74a383"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/registry/duckdb_registry.go": {
-    "mtime": 1778955430.4496093,
+    "mtime": 1779005505.969051,
     "hash": "5cd893e3502fea4af18ada6481ed4527"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/registry/duckdb_registry_test.go": {
-    "mtime": 1778955703.2027495,
+    "mtime": 1779005505.96952,
     "hash": "70a7d632036247228fddbab390f986c6"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/query.go": {
-    "mtime": 1778662857.9465861,
-    "hash": "378cd192697d8f3211771bc4552ffb00"
+    "mtime": 1779005835.4573333,
+    "hash": "147b938a047112bbd2a1f8373e518ec2"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/tool_executor_test.go": {
     "mtime": 1778670767.9541624,
@@ -2280,7 +2316,7 @@
     "hash": "1ec976a8b0b1d2b92d55396c7d73abd9"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/nlp_test.go": {
-    "mtime": 1778779243.1364465,
+    "mtime": 1779005505.9664505,
     "hash": "ac5247a6a755f002c31221c274e46193"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/codeflow_handler_test.go": {
@@ -2360,7 +2396,7 @@
     "hash": "5acd89bb5c110ba64a4bcf3494defde9"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/chat_session_test.go": {
-    "mtime": 1778779364.106327,
+    "mtime": 1779005505.9662282,
     "hash": "2cdf351046bfad4f551b9165962eac06"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/handler_coverage_test.go": {
@@ -2420,7 +2456,7 @@
     "hash": "53236ad34f0af3467d6046168da2cf85"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/tool_suggest_test.go": {
-    "mtime": 1778770959.59871,
+    "mtime": 1779005505.967014,
     "hash": "0daa1fd120c635f4787863b3d29a0b7d"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/session_test.go": {
@@ -2460,15 +2496,15 @@
     "hash": "78f20bb2e770f460052917c06e7e1f13"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/tool_executor.go": {
-    "mtime": 1777630024.817824,
-    "hash": "dbb2ecc7262d6c6ad732b6c98bad1271"
+    "mtime": 1779005958.7774236,
+    "hash": "783ee2ecd98f5d49a5127f3820641803"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/sse_handler_test.go": {
     "mtime": 1778675768.4808865,
     "hash": "c2049da48d9b3d8decb2587b5e1f3587"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/project_test.go": {
-    "mtime": 1778771769.3509908,
+    "mtime": 1779005505.966737,
     "hash": "2e500e1edf49675e75341525075aad5a"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/api/handler/pagination.go": {
@@ -2612,7 +2648,7 @@
     "hash": "c24138be2c18b1f34650c1e3c7b31e3f"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/telemetry/telemetry_test.go": {
-    "mtime": 1778766675.0520072,
+    "mtime": 1779005505.969961,
     "hash": "1948871c79889aaaab239ec90732aea1"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/telemetry/metrics.go": {
@@ -2660,11 +2696,11 @@
     "hash": "57cfcb7f6857607df734472be1108953"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/service/notification/notification.go": {
-    "mtime": 1777630024.8198678,
-    "hash": "135284b794cfa614087a14e261dedb02"
+    "mtime": 1779012613.6493375,
+    "hash": "cda50389ae3950ab29493690721c93ee"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/service/notification/notification_test.go": {
-    "mtime": 1778767193.115909,
+    "mtime": 1779005505.9697359,
     "hash": "962cae172d69e84e78335e0207895b21"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/service/tracker/duckdb_tracker.go": {
@@ -2691,6 +2727,10 @@
     "mtime": 1777621882.963643,
     "hash": "9ca68d3c8aee44a115a4b0f94233b461"
   },
+  "/Users/ff3300/Desktop/aleph-v2/internal/routes/health_contract_test.go": {
+    "mtime": 1779005649.2905662,
+    "hash": "a81a8d3827baafce9e8110ca2864ca0f"
+  },
   "/Users/ff3300/Desktop/aleph-v2/internal/routes/routes.go": {
     "mtime": 1777750806.872326,
     "hash": "268f65fd48c74c33fe932c2e884d2c96"
@@ -2708,7 +2748,7 @@
     "hash": "142ea877a7165c879fe9f1e84da6da30"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/genesis/suggester.go": {
-    "mtime": 1778768174.8538244,
+    "mtime": 1779005505.9675024,
     "hash": "1fa15a62510397a14812b03ae12c92d0"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/genesis/genesis_supplement_test.go": {
@@ -2720,7 +2760,7 @@
     "hash": "4379c49d71b6a12d7ba2e6e6a143cb03"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/genesis/veto.go": {
-    "mtime": 1778768176.1107192,
+    "mtime": 1779005505.9676855,
     "hash": "30c21bfcc88595c0cdfb5c54a0baa264"
   },
   "/Users/ff3300/Desktop/aleph-v2/internal/genesis/sandbox.go": {
@@ -2876,8 +2916,8 @@
     "hash": "dfb05162592e3d3da62a63830bb1862f"
   },
   "/Users/ff3300/Desktop/aleph-v2/CONTEXT.md": {
-    "mtime": 1778954603.1769776,
-    "hash": "e9221ff0975f98f576b849d8e02b4d0c"
+    "mtime": 1779026186.7388723,
+    "hash": "50861c6e0318294a4e2aa1123b7ec103"
   },
   "/Users/ff3300/Desktop/aleph-v2/CHANGELOG.md": {
     "mtime": 1777756142.3202467,
@@ -2904,12 +2944,12 @@
     "hash": "5884147efbc01e2040bd8c5bfc083bfd"
   },
   "/Users/ff3300/Desktop/aleph-v2/AGENTS.md": {
-    "mtime": 1778974488.9476836,
-    "hash": "da123dd6aecf00683f714af618542767"
+    "mtime": 1779026155.249751,
+    "hash": "cc738760c9e6a576b0163da071102334"
   },
   "/Users/ff3300/Desktop/aleph-v2/CLAUDE.md": {
-    "mtime": 1778974488.9479532,
-    "hash": "aa68e265a68fd7400d7e1a207091ed5d"
+    "mtime": 1779026194.0554864,
+    "hash": "fb088aa275a37bf125b32962ce741f8a"
   },
   "/Users/ff3300/Desktop/aleph-v2/SECURITY.md": {
     "mtime": 1777750806.8449833,
@@ -2974,6 +3014,998 @@
   "/Users/ff3300/Desktop/aleph-v2/frontend/test-results/sanitization-TerminalOutpu-38c49-red-as-text-not-interpreted-chromium/error-context.md": {
     "mtime": 1778576526.6517134,
     "hash": "4b96291110d1bdcae6cb02e1b38eacc5"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/index.html": {
+    "mtime": 1779019752.79824,
+    "hash": "55bba683bed30a2b55c58e8db1640992"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/index.html": {
+    "mtime": 1779019752.7297604,
+    "hash": "e4989640dc391d5d0449894cd611ff19"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/index.html": {
+    "mtime": 1779019752.7300253,
+    "hash": "c398e16ac7efa1d7a4f37d97b6c99fef"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/App.tsx.html": {
+    "mtime": 1779019752.7325284,
+    "hash": "5ee113b9075f726dded2a0cc641a1e70"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/scenes/index.html": {
+    "mtime": 1779019752.7912521,
+    "hash": "4602fe9a24d9ceb4d50145aac9011fc2"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/scenes/AgentsScene.tsx.html": {
+    "mtime": 1779019752.7914822,
+    "hash": "9dee106200c7155a4eb4e2b2b8795921"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/scenes/TerminalScene.tsx.html": {
+    "mtime": 1779019752.7924426,
+    "hash": "50e635deb61a85a28d2803d635b2259f"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/scenes/ExploreScene.tsx.html": {
+    "mtime": 1779019752.7917209,
+    "hash": "52c943d6c1a003660a5e14cae9ee6c19"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/scenes/SystemScene.tsx.html": {
+    "mtime": 1779019752.7922344,
+    "hash": "51e8c7e2345faf9c6cdec931bb27859a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/scenes/SceneSelector.tsx.html": {
+    "mtime": 1779019752.7920053,
+    "hash": "4a2e4f227192595743ed6b383b7b2362"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/schemas/validate.ts.html": {
+    "mtime": 1779019752.7934952,
+    "hash": "a6a9359424a2c8cbd9b091512bb22028"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/schemas/index.html": {
+    "mtime": 1779019752.792618,
+    "hash": "7bd4eccd939bf9f8b9a519f48214ce64"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/schemas/index.ts.html": {
+    "mtime": 1779019752.793188,
+    "hash": "1d068aad6a7f55bbd80475ec6781f777"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/SkeletonLoader.tsx.html": {
+    "mtime": 1779019752.7577956,
+    "hash": "e7d6d5c1845e8fb8b7dfef05685317fb"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ExplorerView.tsx.html": {
+    "mtime": 1779019752.7487326,
+    "hash": "07f39f4ca58becc84fbb15533725d9f7"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/FuzzySelect.tsx.html": {
+    "mtime": 1779019752.749621,
+    "hash": "7ea3ff19ab3e150c30aa1aaf9b895bc5"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ComponentsView.tsx.html": {
+    "mtime": 1779019752.7429612,
+    "hash": "eb7fb4b5ffee7bd57fa817869b3b9ee1"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/DataSourceForm.tsx.html": {
+    "mtime": 1779019752.7472477,
+    "hash": "bf6a268326b370ab66582f6f070a0cab"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/SkillForm.tsx.html": {
+    "mtime": 1779019752.758514,
+    "hash": "d7cbc7ceb8e2a3386a78a57f4242f121"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ToolIntelligenceView.tsx.html": {
+    "mtime": 1779019752.7617722,
+    "hash": "51c1a9d7d1fc5e23e800379fa9f60b06"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/Sidebar.tsx.html": {
+    "mtime": 1779019752.7573757,
+    "hash": "6fdb15c7b6f66b16de26e633c1818099"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/index.html": {
+    "mtime": 1779019752.7373533,
+    "hash": "4b9565c538a405a2520c98078d9e6f2e"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/SettingsView.tsx.html": {
+    "mtime": 1779019752.753866,
+    "hash": "8f5e035bf2aedbf347df001f3c49a70d"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/AgentsView.tsx.html": {
+    "mtime": 1779019752.7392294,
+    "hash": "acce292e4a3b8153af22cacfeea66cb9"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/GuideTour.tsx.html": {
+    "mtime": 1779019752.750262,
+    "hash": "db90c358a285509d6fe3b43a668a5495"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/Toast.tsx.html": {
+    "mtime": 1779019752.759584,
+    "hash": "043e2f13eb5d0cd70647a4a6fa224b1f"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ComponentForm.tsx.html": {
+    "mtime": 1779019752.7421627,
+    "hash": "11d5319b956580ea05d42aa96584bea5"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ToolConfigPanel.tsx.html": {
+    "mtime": 1779019752.75998,
+    "hash": "44fdfae4fe2cfbebd071457409c89aa3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/CopilotView.tsx.html": {
+    "mtime": 1779019752.7446637,
+    "hash": "f885db288d6ee067256de26f2b7e892c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/CopilotSettings.tsx.html": {
+    "mtime": 1779019752.7438571,
+    "hash": "8c3bcef40a9be87f9e2dff71ca0e1fb7"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ToolResultDisplay.tsx.html": {
+    "mtime": 1779019752.7628548,
+    "hash": "cad6bcd4bc0342f6f7f5949e662219ff"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/DataSourcesView.tsx.html": {
+    "mtime": 1779019752.7478588,
+    "hash": "a1c68f18a3f3fa0405a46eccd8001808"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/WorkspaceOnboarding.tsx.html": {
+    "mtime": 1779019752.7656987,
+    "hash": "7cfa83c56b79105ec89f12721bab4372"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/LibraryView.tsx.html": {
+    "mtime": 1779019752.7512143,
+    "hash": "e59ce1a3ca0aaa59b0805b178550e0fa"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ToolHealthIndicator.tsx.html": {
+    "mtime": 1779019752.7610404,
+    "hash": "ccd619096f47807c8ca4f3cfc41ef6ed"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/CopilotChat.tsx.html": {
+    "mtime": 1779019752.7435865,
+    "hash": "fd257a5b9c08b61f040f0552aab2bc53"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/InlineErrorBoundary.tsx.html": {
+    "mtime": 1779019752.7505229,
+    "hash": "85d4186f8d6f53b657d5f851a26c931c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ChatSearchBar.tsx.html": {
+    "mtime": 1779019752.740016,
+    "hash": "f0de358f9eb74fb26cd5aeb86cae94f3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/AgentForm.tsx.html": {
+    "mtime": 1779019752.7383156,
+    "hash": "c5ad5a8df4594eb5c3ed9f37dbf77118"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/OntologyView.tsx.html": {
+    "mtime": 1779019752.7519047,
+    "hash": "d1a65cd96b31f10822b062491ea25ae3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/DataPanel.tsx.html": {
+    "mtime": 1779019752.746318,
+    "hash": "e158850d42d6b160006fe6ce7f8b7ef3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/AlephErrorBoundary.tsx.html": {
+    "mtime": 1779019752.7395627,
+    "hash": "dedfe230fbd2a9849016169141fd8c61"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/SkillsView.tsx.html": {
+    "mtime": 1779019752.7590065,
+    "hash": "6364e37a2472e6fcdd8c610da4f14f58"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ToolsView.tsx.html": {
+    "mtime": 1779019752.7638102,
+    "hash": "c77d97e687232f6d841ece0b8f491c22"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/SetupWizard.tsx.html": {
+    "mtime": 1779019752.7560952,
+    "hash": "bc309b2cc63914870fda123f112d36a6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/OracleView.tsx.html": {
+    "mtime": 1779019752.7530036,
+    "hash": "01e9d4f29885b7cb461ea654df20a147"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/DetailPanel.tsx.html": {
+    "mtime": 1779019752.7482562,
+    "hash": "cd80dac7e0370c66cfe264cac97cad57"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/CommandPalette.tsx.html": {
+    "mtime": 1779019752.7412734,
+    "hash": "1e32881a5db4fa88c4371d9dda9cda55"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/DataHealthView.tsx.html": {
+    "mtime": 1779019752.7459185,
+    "hash": "f6fe2892c966d114922d4a747e86f67a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ToolManagementView.tsx.html": {
+    "mtime": 1779019752.7624156,
+    "hash": "871da1e92f8360048024aae8dd3d578b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ToolForm.tsx.html": {
+    "mtime": 1779019752.7606862,
+    "hash": "538c0dc941c18a6bdd6260fa7173f471"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/DashboardView.tsx.html": {
+    "mtime": 1779019752.7454247,
+    "hash": "e7b990e01eb8213ca9d0e46a5e22b5a3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/dialog.tsx.html": {
+    "mtime": 1779019752.7810702,
+    "hash": "341ac6547da9276c34e9e1a5a74c415b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/index.html": {
+    "mtime": 1779019752.7786512,
+    "hash": "f04e5a35b822691d8acc5012e3c77d02"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/switch.tsx.html": {
+    "mtime": 1779019752.7821434,
+    "hash": "98b3132b6d94c55bca696fd874350ff4"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/button.tsx.html": {
+    "mtime": 1779019752.78058,
+    "hash": "1bf960d316c3b5f695d90f5bd79ca8cc"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/input.tsx.html": {
+    "mtime": 1779019752.7814062,
+    "hash": "2f7281955ee60d27a65159432442e75a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/InlineError.tsx.html": {
+    "mtime": 1779019752.7797947,
+    "hash": "09caced4eae8990af978921b67e21850"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/ToastError.tsx.html": {
+    "mtime": 1779019752.7801983,
+    "hash": "87c6ec9d32735b15a0b66ec6abd0e5fe"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/select.tsx.html": {
+    "mtime": 1779019752.7819092,
+    "hash": "a664d4f2cdd949a5aed4a8ef0018c792"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/tooltip.tsx.html": {
+    "mtime": 1779019752.7824056,
+    "hash": "ed1e020da9972bf701a66024763884d0"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/GlassPanel.tsx.html": {
+    "mtime": 1779019752.7794127,
+    "hash": "6f643d6cff382b1fec583b74dfe72a8f"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/ui/EmptyState.tsx.html": {
+    "mtime": 1779019752.7789564,
+    "hash": "fef47725e5c06baa262b1e03ecb9279c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/ComponentDetailSlideOver.tsx.html": {
+    "mtime": 1779019752.767343,
+    "hash": "d1b383a74dd69273edca65c3984351fa"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/SkillExecuteSlideOver.tsx.html": {
+    "mtime": 1779019752.7701745,
+    "hash": "9973e1b056d68391d5fb3ce342b3daa6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/DataSourceFormSlideOver.tsx.html": {
+    "mtime": 1779019752.7693782,
+    "hash": "7ee470564cc009c6fb324f4e0a26fc2a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/index.html": {
+    "mtime": 1779019752.7660127,
+    "hash": "2d7c42fa405f7e523b9d088a9ace9c12"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/SandboxResultSlideOver.tsx.html": {
+    "mtime": 1779019752.7698476,
+    "hash": "1837599a0ce3c1164684236edb1d30d3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/AgentFormSlideOver.tsx.html": {
+    "mtime": 1779019752.7667842,
+    "hash": "16197773f9a3ac31b081fb97db26686e"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/ToolExecuteSlideOver.tsx.html": {
+    "mtime": 1779019752.771058,
+    "hash": "dd17f68b614a707e7f7c6ca4b377aebd"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/DetailSlideOver.tsx.html": {
+    "mtime": 1779019752.7695997,
+    "hash": "85bfdffeae1c7eec912007098860697c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/SkillFormSlideOver.tsx.html": {
+    "mtime": 1779019752.7707415,
+    "hash": "728740f8129a8be337b6f0818e65f29d"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/AssetDetailSlideOver.tsx.html": {
+    "mtime": 1779019752.7670546,
+    "hash": "b1a649a6a8cac6ad8bf30548e8eedbf2"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/ToolFormSlideOver.tsx.html": {
+    "mtime": 1779019752.7717135,
+    "hash": "63f4165d0190b8ef742029bf8d56249d"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/forms/ComponentFormSlideOver.tsx.html": {
+    "mtime": 1779019752.768283,
+    "hash": "1e84b0e7a21b21e7a07399e66c1ab0f9"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/terminal/SlideOverContent.tsx.html": {
+    "mtime": 1779019752.7735019,
+    "hash": "2ebc504a30bf05995574cfe71fbdcb6c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/terminal/TerminalView.tsx.html": {
+    "mtime": 1779019752.7780664,
+    "hash": "ed1857b72b14598e3c7b24c56c89445f"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/terminal/slashCommands.ts.html": {
+    "mtime": 1779019752.7783952,
+    "hash": "2d810d6e51d7c3dd63b0e55f50b8043a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/terminal/index.html": {
+    "mtime": 1779019752.7720208,
+    "hash": "1c8dee91537d3c176dfcd371b1b59dcc"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/terminal/TerminalProgressBar.tsx.html": {
+    "mtime": 1779019752.7770612,
+    "hash": "a287968b5c934c0fdb07901d94e6bd3c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/terminal/TerminalPrompt.tsx.html": {
+    "mtime": 1779019752.7775793,
+    "hash": "01f4572783d2ebc156ffc4ec2e807702"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/terminal/SlideOverPanel.tsx.html": {
+    "mtime": 1779019752.7742548,
+    "hash": "4df34484b2d3bdd8fa2d2d92034ff580"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/terminal/TerminalOutput.tsx.html": {
+    "mtime": 1779019752.77581,
+    "hash": "6d1d760d862a0a63b453e1c767bc8305"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/terminal/TerminalEffects.tsx.html": {
+    "mtime": 1779019752.7753491,
+    "hash": "4ea691a6b6d619ed2fdda832d9da195b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/components/terminal/StatusBar.tsx.html": {
+    "mtime": 1779019752.7748039,
+    "hash": "be9361aeb020a93dc88b49f33e06a671"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/useSSE.ts.html": {
+    "mtime": 1779019752.7858722,
+    "hash": "dc3b532edeea7a276e2bf20f00e8335b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/useAppActions.ts.html": {
+    "mtime": 1779019752.7839792,
+    "hash": "7ad71c3849c00180918536239a2a85c8"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/useInfiniteQueries.ts.html": {
+    "mtime": 1779019752.7849329,
+    "hash": "f29fc2e7ad46989dc6813fe7b057493c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/index.html": {
+    "mtime": 1779019752.7826395,
+    "hash": "beb4cd15f8c5df58d16bf84c4f004ed9"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/useDebounce.ts.html": {
+    "mtime": 1779019752.7844844,
+    "hash": "892051f87d9047e625811946040db952"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/useCursorPagination.ts.html": {
+    "mtime": 1779019752.784253,
+    "hash": "c75e1057181636a9206f8e1ffd96facd"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/domain/useAgentActions.ts.html": {
+    "mtime": 1779019752.7865548,
+    "hash": "dddfc976ed600cb14c6d40ddee8a558d"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/domain/useExplorerActions.ts.html": {
+    "mtime": 1779019752.7874866,
+    "hash": "aa0dc68cd4fc4d2d22912b77dfa5ce89"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/domain/index.html": {
+    "mtime": 1779019752.7861373,
+    "hash": "6a5548b77987f5c98bbb6f6ab54d3fb7"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/domain/useSkillActions.ts.html": {
+    "mtime": 1779019752.7889438,
+    "hash": "738d5da9046f6c8e3237f44be43a1188"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/domain/useToolActions.ts.html": {
+    "mtime": 1779019752.7893233,
+    "hash": "5fff5268db4f0dd291853c8f8e579205"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/domain/useDataSourceActions.ts.html": {
+    "mtime": 1779019752.7872565,
+    "hash": "ec938ec5ed1a1dd0b12e30cd874c0bd1"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/domain/useSettingsActions.ts.html": {
+    "mtime": 1779019752.7886195,
+    "hash": "741218831bc1f71f412c2bc3eac3aae7"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/domain/useLibraryActions.ts.html": {
+    "mtime": 1779019752.787919,
+    "hash": "2f142017ab4a5b096c873cf440f8bd07"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/domain/useOntologyActions.ts.html": {
+    "mtime": 1779019752.7883005,
+    "hash": "090359cce6d659bd4dcb9e29b411cf25"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/hooks/domain/useComponentActions.ts.html": {
+    "mtime": 1779019752.7868364,
+    "hash": "afd936c64e43523b68448816ad845358"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/lib/index.html": {
+    "mtime": 1779019752.7905786,
+    "hash": "dcc6e6fed014efebd8be835a795c80f5"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/lib/utils.ts.html": {
+    "mtime": 1779019752.7910717,
+    "hash": "3453412b8767bd21433f67adc6a9a0a6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/lib/errorReporter.ts.html": {
+    "mtime": 1779019752.7907655,
+    "hash": "9f5877db7e6b1b2ca4c49754e07ed036"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/api/index.html": {
+    "mtime": 1779019752.732785,
+    "hash": "ed946acc38de4a70a9114ea1a9f94d80"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/api/client.ts.html": {
+    "mtime": 1779019752.7333503,
+    "hash": "d9d7de619152bac4480f78aeb50c3cf1"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/api/factory.ts.html": {
+    "mtime": 1779019752.733785,
+    "hash": "8e8b4c39b2d4f2ed712dc11ab106a4ae"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/commands/index.html": {
+    "mtime": 1779019752.7340214,
+    "hash": "04a4b1ac595796900ee462057a15f489"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/commands/index.ts.html": {
+    "mtime": 1779019752.7352328,
+    "hash": "3eb16a1f7b45ce2e2b78a27eb9094949"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/commands/CommandRegistry.ts.html": {
+    "mtime": 1779019752.7348437,
+    "hash": "41a245a62f414509990d0b7702f422f4"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/i18n/index.html": {
+    "mtime": 1779019752.7896369,
+    "hash": "65928904d766045ade23cd5848c1cb66"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/i18n/locale.json.html": {
+    "mtime": 1779019752.7903912,
+    "hash": "7a571696e07cd5d9d6b0e124a3830976"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/i18n/index.ts.html": {
+    "mtime": 1779019752.7899618,
+    "hash": "b553f2d6944577799df88505d742d5cf"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/views/index.html": {
+    "mtime": 1779019752.7964582,
+    "hash": "4840b16d990a9ce43cfd58c4a926a091"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/views/ScenarioComparisonView.tsx.html": {
+    "mtime": 1779019752.7971308,
+    "hash": "09542bf1f35acff5619f5aa674158531"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/store/index.html": {
+    "mtime": 1779019752.7937202,
+    "hash": "02bc19744360f42515c4bf9f4b4d3cdb"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/store/sceneMapping.ts.html": {
+    "mtime": 1779019752.7952988,
+    "hash": "e8d9adc7be4aca337bb0ffd4d4f92de3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/store/explorerSlice.ts.html": {
+    "mtime": 1779019752.7944343,
+    "hash": "022116a69eb29cd4db154bc65ebdcfdb"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/store/navigationSlice.ts.html": {
+    "mtime": 1779019752.7949631,
+    "hash": "663a2fe0bc915af77aa7bc289e15c421"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/store/uiSlice.ts.html": {
+    "mtime": 1779019752.7956445,
+    "hash": "1f5f42e67e98d68c21b41f758d9b0262"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/store/useStore.ts.html": {
+    "mtime": 1779019752.795957,
+    "hash": "a1586ba1b3dfd46280c9897bb3d08151"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/store/workspaceSlice.ts.html": {
+    "mtime": 1779019752.7962754,
+    "hash": "5fe129add6d41352ca3356964e9a98eb"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/store/copilotSlice.ts.html": {
+    "mtime": 1779019752.7941906,
+    "hash": "1773aac4b767c9bcc4dc246397f138b2"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/store/healthSlice.ts.html": {
+    "mtime": 1779019752.7946384,
+    "hash": "5043c3c64a4fe7bb699e59de05425332"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/src/store/authSlice.ts.html": {
+    "mtime": 1779019752.7939572,
+    "hash": "62d0184d03630ec18a277b794c28380b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/index.html": {
+    "mtime": 1779019752.7984266,
+    "hash": "ac9e9af6281b82955bac4d4ad94f00d9"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/App.tsx.html": {
+    "mtime": 1779019752.7988038,
+    "hash": "8fa9b02d04167710219340c8132a98b1"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/scenes/index.html": {
+    "mtime": 1779019752.827262,
+    "hash": "626c5ed893eed9003d141846253fa181"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/scenes/AgentsScene.tsx.html": {
+    "mtime": 1779019752.8274107,
+    "hash": "3db261ddf44a285c1039be4e427adc29"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/scenes/TerminalScene.tsx.html": {
+    "mtime": 1779019752.8280706,
+    "hash": "d6bcd2b46135e0881765676e5bd70ae2"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/scenes/ExploreScene.tsx.html": {
+    "mtime": 1779019752.8275688,
+    "hash": "2f92c86de924c9c76a72e95a85dd2a9f"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/scenes/SystemScene.tsx.html": {
+    "mtime": 1779019752.827917,
+    "hash": "4e86105ea2820ea6eb06f209a63b0345"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/scenes/SceneSelector.tsx.html": {
+    "mtime": 1779019752.82775,
+    "hash": "e89bfe41bb0322e07dec541dde9136b6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/schemas/validate.ts.html": {
+    "mtime": 1779019752.8287394,
+    "hash": "28a3794ef81d8ec0cbc226e8af94aa94"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/schemas/index.html": {
+    "mtime": 1779019752.8282363,
+    "hash": "a9ce1a91c0c76595826064dab1f7e62b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/schemas/index.ts.html": {
+    "mtime": 1779019752.8285987,
+    "hash": "f3c7c1e50a787da7fb725393252e48b5"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/SkeletonLoader.tsx.html": {
+    "mtime": 1779019752.808352,
+    "hash": "d908d34089109df3b5b73eb66636fea6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ExplorerView.tsx.html": {
+    "mtime": 1779019752.804993,
+    "hash": "6415da7a3c0b49b41e32dac018116efa"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/FuzzySelect.tsx.html": {
+    "mtime": 1779019752.8053687,
+    "hash": "2ef71ebd477f2b39eb03ee0f57a664c7"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ComponentsView.tsx.html": {
+    "mtime": 1779019752.8024611,
+    "hash": "dd3b86e7833d621d74a102510fe7299f"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/DataSourceForm.tsx.html": {
+    "mtime": 1779019752.8043244,
+    "hash": "c3f92c02f6c9b297efde13174a7bc911"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/SkillForm.tsx.html": {
+    "mtime": 1779019752.8086333,
+    "hash": "7b66fb8fc9aa004a0b8279e3049f7c16"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ToolIntelligenceView.tsx.html": {
+    "mtime": 1779019752.810179,
+    "hash": "4429af373db46817d49fd5eeb0fe64ea"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/Sidebar.tsx.html": {
+    "mtime": 1779019752.8080611,
+    "hash": "24aff3033f70026b03e65ac02da32bd5"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/index.html": {
+    "mtime": 1779019752.8004084,
+    "hash": "62a93532557007763dc442b4d055a716"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/SettingsView.tsx.html": {
+    "mtime": 1779019752.8074098,
+    "hash": "cce2b68ddddc1455fa7ae99daa87360b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/AgentsView.tsx.html": {
+    "mtime": 1779019752.8010278,
+    "hash": "2abb1196d2fed5def409b9d3b5d1e03a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/GuideTour.tsx.html": {
+    "mtime": 1779019752.805698,
+    "hash": "3fc9f9411dcbc702ba86ee5827c9ac92"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/Toast.tsx.html": {
+    "mtime": 1779019752.8091233,
+    "hash": "f7a4970382151599a847ec5382cda7f6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ComponentForm.tsx.html": {
+    "mtime": 1779019752.802148,
+    "hash": "25d70fa8b4173db761a1979cc4d145f6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ToolConfigPanel.tsx.html": {
+    "mtime": 1779019752.809355,
+    "hash": "dea65af1ab7e11c87da648fce3e51341"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/CopilotView.tsx.html": {
+    "mtime": 1779019752.8031864,
+    "hash": "1918dccb71aabcaf0fe256bd0bd86d1a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/CopilotSettings.tsx.html": {
+    "mtime": 1779019752.8028367,
+    "hash": "55914d7a333cb2d639c3482138fd079b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ToolResultDisplay.tsx.html": {
+    "mtime": 1779019752.8110166,
+    "hash": "f767207b5afacc2471d2c15affb811c9"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/DataSourcesView.tsx.html": {
+    "mtime": 1779019752.8045604,
+    "hash": "12ff1c2c8541032903f5e3f8da067652"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/WorkspaceOnboarding.tsx.html": {
+    "mtime": 1779019752.8117976,
+    "hash": "4bf74d08e5f66a35184ffc4da2480df3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/LibraryView.tsx.html": {
+    "mtime": 1779019752.8061976,
+    "hash": "0fd018dae5675a5537211183d18c3b65"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ToolHealthIndicator.tsx.html": {
+    "mtime": 1779019752.8098116,
+    "hash": "71b06d7ec08e4a8e9149bcc1b8ab6405"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/CopilotChat.tsx.html": {
+    "mtime": 1779019752.8026576,
+    "hash": "9f2a39f8a7725be93877d683fd52ecb0"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/InlineErrorBoundary.tsx.html": {
+    "mtime": 1779019752.8058887,
+    "hash": "ac9af601d7a402416185556c59525ce4"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ChatSearchBar.tsx.html": {
+    "mtime": 1779019752.8013988,
+    "hash": "598bb17efb97e1639ae5f0588edcc98b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/AgentForm.tsx.html": {
+    "mtime": 1779019752.8006833,
+    "hash": "ae16564e27b1c14c2007ab9ab2cc7b2b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/OntologyView.tsx.html": {
+    "mtime": 1779019752.806521,
+    "hash": "a87f45676e8ee80ab2326fa0a61dfcc2"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/DataPanel.tsx.html": {
+    "mtime": 1779019752.8039453,
+    "hash": "746efc3263c97f91fdbed048770f4109"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/AlephErrorBoundary.tsx.html": {
+    "mtime": 1779019752.8012145,
+    "hash": "5e02635dd683d4c421449cea5e5110da"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/SkillsView.tsx.html": {
+    "mtime": 1779019752.8088944,
+    "hash": "8da6fcf4e70ae411aa8292b56d9804d7"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ToolsView.tsx.html": {
+    "mtime": 1779019752.811495,
+    "hash": "efc710b95de10a0defa6defa86249ab4"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/SetupWizard.tsx.html": {
+    "mtime": 1779019752.8078349,
+    "hash": "b5548b3d47940f9daf9b9a785acde707"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/OracleView.tsx.html": {
+    "mtime": 1779019752.8069556,
+    "hash": "f5b9d866a4c3a5aae1dd07e9733e175d"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/DetailPanel.tsx.html": {
+    "mtime": 1779019752.8047214,
+    "hash": "76f0d656fbd939988c668780802cd89d"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/CommandPalette.tsx.html": {
+    "mtime": 1779019752.801789,
+    "hash": "8537da811c28e9a001585dfe3c4f87d2"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/DataHealthView.tsx.html": {
+    "mtime": 1779019752.803714,
+    "hash": "a43bffdd2eeaf3c88f2e3f54cc7d235c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ToolManagementView.tsx.html": {
+    "mtime": 1779019752.8107336,
+    "hash": "b6a8d4a032a05dcdcda5103f95c25bb4"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ToolForm.tsx.html": {
+    "mtime": 1779019752.809649,
+    "hash": "cafb911836a9d3c73842f242725c180d"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/DashboardView.tsx.html": {
+    "mtime": 1779019752.8034904,
+    "hash": "d69108a79a8a5eed0c0aedb57c5eb23c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/dialog.tsx.html": {
+    "mtime": 1779019752.8199563,
+    "hash": "fc65fd570fa195a54fb49861840a9d4a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/index.html": {
+    "mtime": 1779019752.8185017,
+    "hash": "2d373e4e4a6991f7e7966b8482796b95"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/switch.tsx.html": {
+    "mtime": 1779019752.8206146,
+    "hash": "18ce0dc9d8833ed11724b58edd616c15"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/button.tsx.html": {
+    "mtime": 1779019752.819673,
+    "hash": "3d78371652a71d2997719f041211d3a6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/input.tsx.html": {
+    "mtime": 1779019752.8201344,
+    "hash": "8d1ff97088299da56a9981c451d57964"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/InlineError.tsx.html": {
+    "mtime": 1779019752.8192532,
+    "hash": "73547df2e6ee55b1c964b97cb9790b69"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/ToastError.tsx.html": {
+    "mtime": 1779019752.8194613,
+    "hash": "858eaf6f53f67ddd98deb0472f71c8d9"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/select.tsx.html": {
+    "mtime": 1779019752.8204358,
+    "hash": "a66f318e9015180840224fa5890a04c5"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/tooltip.tsx.html": {
+    "mtime": 1779019752.8208213,
+    "hash": "463717e4aeb957662d26029efd8c31dd"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/GlassPanel.tsx.html": {
+    "mtime": 1779019752.8190172,
+    "hash": "ca90536fe6730104ce66fad66d6b5331"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/ui/EmptyState.tsx.html": {
+    "mtime": 1779019752.8187523,
+    "hash": "6d2fa508e46be0406bb2c84ea30be335"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/ComponentDetailSlideOver.tsx.html": {
+    "mtime": 1779019752.8127825,
+    "hash": "deeebab3303dc0a774d4abe56d1e3677"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/SkillExecuteSlideOver.tsx.html": {
+    "mtime": 1779019752.814253,
+    "hash": "ac1be9174e27dd5a7e2c1eeaccb1851e"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/DataSourceFormSlideOver.tsx.html": {
+    "mtime": 1779019752.8137228,
+    "hash": "3350562e56738e579019c7de670819e1"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/index.html": {
+    "mtime": 1779019752.812058,
+    "hash": "2fecac67bf9aa842acc34e5f29ea727e"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/SandboxResultSlideOver.tsx.html": {
+    "mtime": 1779019752.8140705,
+    "hash": "df9be37543f750b8fe88da1cd4bcda85"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/AgentFormSlideOver.tsx.html": {
+    "mtime": 1779019752.8123777,
+    "hash": "883c12e1a29736c77e16a6939909d5e8"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/ToolExecuteSlideOver.tsx.html": {
+    "mtime": 1779019752.8147154,
+    "hash": "e7e6ef6613de633652f3e07b1e60a315"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/DetailSlideOver.tsx.html": {
+    "mtime": 1779019752.813888,
+    "hash": "162119d6022ccaaf75e41319d19bad91"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/SkillFormSlideOver.tsx.html": {
+    "mtime": 1779019752.8145332,
+    "hash": "4a4771c2fb4caa97ffd6e189d60a4ce7"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/AssetDetailSlideOver.tsx.html": {
+    "mtime": 1779019752.8125596,
+    "hash": "66dc8362188612ec68ff20d032b3a349"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/ToolFormSlideOver.tsx.html": {
+    "mtime": 1779019752.8149984,
+    "hash": "18185a959878e337bc07f9eea7cb34a8"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/forms/ComponentFormSlideOver.tsx.html": {
+    "mtime": 1779019752.8132548,
+    "hash": "2245fa71d37472b8e2d63e7a266312e6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/terminal/SlideOverContent.tsx.html": {
+    "mtime": 1779019752.8157446,
+    "hash": "5c20410f47ab98468db6ea694b927895"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/terminal/TerminalView.tsx.html": {
+    "mtime": 1779019752.8179789,
+    "hash": "135e6e1a51323c7fcce4b50095f14d50"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/terminal/slashCommands.ts.html": {
+    "mtime": 1779019752.8182075,
+    "hash": "8a84420b7754365ab882e187779aa633"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/terminal/index.html": {
+    "mtime": 1779019752.815254,
+    "hash": "05b3c6e3fd601e397b5bee11c55a4d96"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/terminal/TerminalProgressBar.tsx.html": {
+    "mtime": 1779019752.817247,
+    "hash": "2df7f18c1b5b4fbeb44b61dc449671ec"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/terminal/TerminalPrompt.tsx.html": {
+    "mtime": 1779019752.8175533,
+    "hash": "d5262df1a4d417c858ed85588073df3a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/terminal/SlideOverPanel.tsx.html": {
+    "mtime": 1779019752.8160226,
+    "hash": "c2e98ba1bcc6e3f7c15af8ca32eb212e"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/terminal/TerminalOutput.tsx.html": {
+    "mtime": 1779019752.8167458,
+    "hash": "22610a1cdee0e6fae98a2d7c073354a8"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/terminal/TerminalEffects.tsx.html": {
+    "mtime": 1779019752.8164692,
+    "hash": "d182a803d6cc7792014a782bedbab0a6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/components/terminal/StatusBar.tsx.html": {
+    "mtime": 1779019752.8162076,
+    "hash": "c60d68d11aa5262553d3b7089a5be66a"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/useSSE.ts.html": {
+    "mtime": 1779019752.8237681,
+    "hash": "e35f6aaf2d7c25849b1408f4d17d8a7f"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/useAppActions.ts.html": {
+    "mtime": 1779019752.8227317,
+    "hash": "e4eaf95aee61efdc7428753dc0d14d44"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/useInfiniteQueries.ts.html": {
+    "mtime": 1779019752.8233218,
+    "hash": "8f4f0e5c6a7dffb2d64dbc28f23cfa68"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/index.html": {
+    "mtime": 1779019752.8211906,
+    "hash": "5693ae479dcd4ee9f84ff0690bbc3023"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/useDebounce.ts.html": {
+    "mtime": 1779019752.8231275,
+    "hash": "0bf69cb29c7b7629b74f590d183a2862"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/useCursorPagination.ts.html": {
+    "mtime": 1779019752.8229492,
+    "hash": "74510fb79ee42bbc2b689fbd6befa938"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/domain/useAgentActions.ts.html": {
+    "mtime": 1779019752.82422,
+    "hash": "d523317e1f6f074af8e5e0427eda129c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/domain/useExplorerActions.ts.html": {
+    "mtime": 1779019752.8248534,
+    "hash": "1dc5db8ada9a5dfe88a0fa7b4708e5c5"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/domain/index.html": {
+    "mtime": 1779019752.8240066,
+    "hash": "f734610a8b98d16b4c4fa08c056e5b5d"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/domain/useSkillActions.ts.html": {
+    "mtime": 1779019752.8257315,
+    "hash": "142c752d29d16a69177d047cd264fe82"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/domain/useToolActions.ts.html": {
+    "mtime": 1779019752.825965,
+    "hash": "29814578829ee2e49dedf6f68472bf19"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/domain/useDataSourceActions.ts.html": {
+    "mtime": 1779019752.824678,
+    "hash": "3173ed47da8ed293ab565c295417253d"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/domain/useSettingsActions.ts.html": {
+    "mtime": 1779019752.8255157,
+    "hash": "3f8cbc278a155bf740f4588050b2b6b3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/domain/useLibraryActions.ts.html": {
+    "mtime": 1779019752.8250551,
+    "hash": "70ea11e5e79cfd60e5b3a9da9658cb3c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/domain/useOntologyActions.ts.html": {
+    "mtime": 1779019752.8253162,
+    "hash": "297bed71e86608cf083e12857042b618"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/hooks/domain/useComponentActions.ts.html": {
+    "mtime": 1779019752.82443,
+    "hash": "24330a73a30ab0ba7a94a8ad006c2301"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/lib/index.html": {
+    "mtime": 1779019752.8268054,
+    "hash": "22c77bccce239b018bfd6d61b3d4cd6e"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/lib/utils.ts.html": {
+    "mtime": 1779019752.8270907,
+    "hash": "e1aef4300c4c8e9fab3d88662d92efdf"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/lib/errorReporter.ts.html": {
+    "mtime": 1779019752.8269596,
+    "hash": "a46ba0dc19ac64f9e320e7192d5fa030"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/api/index.html": {
+    "mtime": 1779019752.7989898,
+    "hash": "7eff480d376459b5951616002eeb9b04"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/api/client.ts.html": {
+    "mtime": 1779019752.799171,
+    "hash": "0c114d51cca065cfac0543a5a2aba8b6"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/api/factory.ts.html": {
+    "mtime": 1779019752.7993603,
+    "hash": "1fa9d35da301b17ec2e942996173cf09"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/commands/index.html": {
+    "mtime": 1779019752.799537,
+    "hash": "d8f1ea15f8fd0fa4ac1f51a6ddbb54a8"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/commands/index.ts.html": {
+    "mtime": 1779019752.7999637,
+    "hash": "7ccd89de927a286c76e882511e12c94c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/commands/CommandRegistry.ts.html": {
+    "mtime": 1779019752.7997832,
+    "hash": "c6a0c63cf1f4644e9741198fedf09ade"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/i18n/index.html": {
+    "mtime": 1779019752.8261662,
+    "hash": "b2c41fd30f0ed12a50fc3c266edf1bc5"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/i18n/locale.json.html": {
+    "mtime": 1779019752.8266337,
+    "hash": "f79a32d6a3c7210f0b4703cc8ba93f72"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/i18n/index.ts.html": {
+    "mtime": 1779019752.8263457,
+    "hash": "efa0f8e9f0b1d1b3856db2da1b816786"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/views/index.html": {
+    "mtime": 1779019752.8309832,
+    "hash": "75c1ba7e6f1f1032b318297ce4a6a9b1"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/views/ScenarioComparisonView.tsx.html": {
+    "mtime": 1779019752.831307,
+    "hash": "02037ada3d95c725cddba2cc86fa028c"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/store/index.html": {
+    "mtime": 1779019752.8289757,
+    "hash": "9166988a7583aa610f33cf39c534c2a7"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/store/sceneMapping.ts.html": {
+    "mtime": 1779019752.8301022,
+    "hash": "b4c6b4eba6cead6dcaea225b6a1189b3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/store/explorerSlice.ts.html": {
+    "mtime": 1779019752.8295453,
+    "hash": "540dc1bbb93839c3d2b378bd32bc9121"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/store/navigationSlice.ts.html": {
+    "mtime": 1779019752.8299,
+    "hash": "4175b75912eaf3ce3e4222c89bee06b2"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/store/uiSlice.ts.html": {
+    "mtime": 1779019752.8303382,
+    "hash": "03ec32183d43a8014f2aa1813f968de8"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/store/useStore.ts.html": {
+    "mtime": 1779019752.8305545,
+    "hash": "619ad30d6165a29236e363045793dce3"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/store/workspaceSlice.ts.html": {
+    "mtime": 1779019752.8307903,
+    "hash": "f2fb28df52fd6e2df388c79215b34962"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/store/copilotSlice.ts.html": {
+    "mtime": 1779019752.8293452,
+    "hash": "df0fb3e0f14907f8f194999d3da1878b"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/store/healthSlice.ts.html": {
+    "mtime": 1779019752.82971,
+    "hash": "2f6f1c6b06524becb2dc9ba1db32f729"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/src/store/authSlice.ts.html": {
+    "mtime": 1779019752.829165,
+    "hash": "11d999d389401dae7685acea9f04b531"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/api/coverage/index.html": {
     "mtime": 1778958846.1815026,
@@ -3311,6 +4343,10 @@
     "mtime": 1778620616.9009206,
     "hash": "2842ce341af48b4696fd7bbd0ce9bbb3"
   },
+  "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-17-linux-phase-plan-v2.md": {
+    "mtime": 1779023739.8857906,
+    "hash": "ef02ebb174e420d5c570e3ec75c1d006"
+  },
   "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-16-tdd-session-plan-v8.md": {
     "mtime": 1778973528.015694,
     "hash": "57e81f3e7776a235454e8056b329cfad"
@@ -3331,9 +4367,17 @@
     "mtime": 1778954764.0517707,
     "hash": "5bf73a8d160900cbdc7c07cfb958ac98"
   },
+  "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-17-tdd-session-plan-v9.md": {
+    "mtime": 1779004762.2540717,
+    "hash": "2794f2e8ab65e4c5bfe6f4efea50650c"
+  },
   "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-16-tdd-session-plan-v3.md": {
     "mtime": 1778959524.7358844,
     "hash": "b55bbd6ead92404b3ad45e43f8ba63fa"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-17-macos-final-cycle.md": {
+    "mtime": 1779023739.8866153,
+    "hash": "0098f95174e3240ca5e3435027818b7f"
   },
   "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-16-tdd-session-plan-v7.md": {
     "mtime": 1778972989.5943334,
@@ -3347,6 +4391,10 @@
     "mtime": 1778960082.2229788,
     "hash": "7405775c32f59c58d310fa59e86412d2"
   },
+  "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-17-macos-final-cycle-v2.md": {
+    "mtime": 1779023739.8864424,
+    "hash": "1e649d56e880438b32411078adc63026"
+  },
   "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-16-tdd-session-plan-v5.md": {
     "mtime": 1778966516.3750174,
     "hash": "d62249ba441d2f917d889d2d5750e637"
@@ -3354,6 +4402,18 @@
   "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-16-tdd-session-plan.md": {
     "mtime": 1778940393.1923478,
     "hash": "417816e2c80aed7254a18afed83f4b12"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-17-bugfix-cycle-3.md": {
+    "mtime": 1779019371.8360388,
+    "hash": "e50fc3213aa94c46e859e7929c7b9aae"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-17-bugfix-cycle-2.md": {
+    "mtime": 1779014160.5748193,
+    "hash": "15fa71f0fa0e81edeb9eb065472564cc"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/plans/2026-05-17-linux-phase-plan.md": {
+    "mtime": 1779023739.8861065,
+    "hash": "b70c4195395222564b87285a467f0444"
   },
   "/Users/ff3300/Desktop/aleph-v2/docs/superpowers/specs/w1-type-safety.md": {
     "mtime": 1778581012.3360915,
@@ -3490,6 +4550,22 @@
   "/Users/ff3300/Desktop/aleph-v2/frontend/test-results/sanitization-TerminalOutpu-38c49-red-as-text-not-interpreted-chromium/test-failed-1.png": {
     "mtime": 1778576526.638356,
     "hash": "749f5e09c3dc2ec00fe8bbe69260dbf5"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/favicon.png": {
+    "mtime": 1779019752.7976074,
+    "hash": "8c814a46f24208d0bc459bb2cf8b7b88"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/sort-arrow-sprite.png": {
+    "mtime": 1779019752.7977068,
+    "hash": "fd08a5625d21e34b1d6d9c026f2728a9"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/favicon.png": {
+    "mtime": 1779019752.7278714,
+    "hash": "8c814a46f24208d0bc459bb2cf8b7b88"
+  },
+  "/Users/ff3300/Desktop/aleph-v2/frontend/coverage/lcov-report/sort-arrow-sprite.png": {
+    "mtime": 1779019752.728069,
+    "hash": "fd08a5625d21e34b1d6d9c026f2728a9"
   },
   "/Users/ff3300/Desktop/aleph-v2/frontend/src/api/coverage/favicon.png": {
     "mtime": 1778958846.180933,

@@ -6,9 +6,9 @@
 
 | Layer | Language | LOC | Key Stack |
 |-------|----------|-----|-----------|
-| Backend | Go 1.26 | 79K prod + 27K test | ConnectRPC, DuckDB, PostgreSQL, 11 middleware layers |
+| Backend | Go 1.26 | 79K prod + 38K test | ConnectRPC, DuckDB, PostgreSQL, 11 middleware layers |
 | Frontend | TypeScript 5.5 | 24K | React 18, Vite 8, Zustand 4.5 (6 slices), TanStack Query, Tailwind 3.4 |
-| NLP | Python 3.12 | 1.2K | gRPC, ONNX, transformers |
+| NLP | Python 3.12 | 2.5K | gRPC, ONNX, transformers |
 | API | Protobuf | 28 files | 5 services (Query/Registry/Notification/Sandbox/NLP) |
 
 ## Key Architecture Decisions
@@ -21,14 +21,24 @@
 | **Dual DB migrations** | Separate `internal/migration/duckdb/` and `postgres/`. Different numbering. |
 | **11 middleware layers** | Recovery→CSRF→Security→RequestID→Auth→RateLimit→Bulkhead→Timeout→Audit→CircuitBreaker→Retry |
 
-## TDD Session Plan (May 2026)
+## TDD Session (May 2026 — 15+ hours across v2-v9)
 
-Active TDD plan at `docs/superpowers/plans/2026-05-16-tdd-session-plan-v2.md`.
+Active plans at `docs/superpowers/plans/2026-05-16-tdd-session-plan-v*.md`.
 
-**Key findings from pre-execution review (Metis + Oracle + Momus):**
-- `ListComponents` filter in `duckdb_registry.go` is a silent no-op (WHERE clause ignored in SQL)
-- `adapters.ts` (frontend/src/api/) is dead code — all 6 `fromProto*` functions imported 0 times
-- CI missing Python NLP test job — will be added
+**Key outcomes:**
+- `ListComponents` filter BUG: SQL ignored WHERE clause — fixed with dynamic WHERE builder
+- `adapters.ts` DEAD CODE: all 6 `fromProto*` functions imported 0 times — removed
+- CI: Python NLP `nlp-test` job added alongside Go/frontend
+- 19 pre-existing frontend tsc errors in 6 test files — fixed (CopilotChat, DataSourceForm, SkillForm, ToolsView, useSSE, navigationSlice)
+- Pre-commit hooks added (go-vet, tsc, vitest)
+- `watchSidecar()` extracted with nil guards — exposed nlpHandler nil panic bug
+- `NotificationService.Stop()` double-close — fixed with sync.Once
+- `fetchIMAP()` SSRF bypass — raw tls.Dial without validation — fixed
+- App nil guards: eng/pg/db.Close in `Close()` — added
+- DuckDB rollback errors: `_ = tx.Rollback()` → `slog.Warn` (3 sites)
+- Postgres migration v9: broken index on nonexistent column — removed
+- CLONE_NEWNET: source was missing the flag, test expected it — fixed
+- app_integration_test.go: integration test with real DuckDB + Postgres — created
 
 ## Quick Start
 
@@ -43,13 +53,13 @@ make build            # Go binary + frontend build
 
 ## Code Intelligence
 
-- **GitNexus** — 17,633 symbols, 42,173 relations, 300 flows. **MUST run `gitnexus_impact()` before editing any symbol.**
-- **Graphify** — 6,341 nodes, 10,988 edges, 471 communities. Interactive graph at `graphify-out/graph.html`.
-- **OpenCode skills** → `~/.config/opencode/skills/` (126 skills). Load via `skill(name="...")`.
+- **GitNexus** — 22,991+ symbols, 56,693+ relations, 300 flows. **MUST run `gitnexus_impact()` before editing any symbol.**
+- **Graphify** — 13,210 nodes, 21,640 edges, 814 communities. Rebuild: `graphify update /path/to/aleph-v2 --no-viz`. (graph.html skipped — too large for HTML viz)
+- **OpenCode skills** → `~/.config/opencode/skills/` (126+ skills). Load via `skill(name="...")`.
 
-## Wave Status (W0-W7 complete)
+## All GitNexus + Graphify references are now in CLAUDE.md
 
-All waves verified: `go build ./...` ✅, `go test -race -count=1 ./...` ✅, `npx tsc --noEmit` ✅, `npx vite build` ✅.
+CLAUDE.md has the complete GitNexus Always Do/Never Do rules and the Graphify cognitive map reference. AGENTS.md has the full agent map. This file is the lightweight context map.
 
 ## Session Rules
 
