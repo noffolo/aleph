@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { SkillForm } from '../SkillForm'
 
 const { safeParseMock } = vi.hoisted(() => ({
-  safeParseMock: vi.fn(() => ({ success: true, data: {} })),
+  safeParseMock: vi.fn(() => ({ success: true, data: {} })) as any,
 }))
 
 vi.mock('../../schemas', () => ({
@@ -118,5 +118,90 @@ describe('SkillForm', () => {
     render(<SkillForm tools={mockTools} onSave={vi.fn()} onCancel={vi.fn()} />)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Crea Skill' }))
     expect(await screen.findByText('Network error')).toBeInTheDocument()
+  })
+
+  it('shows Salvataggio... on submit button while saving', async () => {
+    const { apiPost } = await import('../../api/client');
+    (apiPost as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}))
+    render(<SkillForm tools={mockTools} onSave={vi.fn()} onCancel={vi.fn()} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Crea Skill' }))
+    expect(screen.getByText('Salvataggio...')).toBeInTheDocument()
+  })
+
+  it('disables inputs while saving', async () => {
+    const { apiPost } = await import('../../api/client');
+    (apiPost as ReturnType<typeof vi.fn>).mockImplementation(() => new Promise(() => {}))
+    render(<SkillForm tools={mockTools} onSave={vi.fn()} onCancel={vi.fn()} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Crea Skill' }))
+    const nameInput = screen.getByPlaceholderText('Es: Analista Finanze')
+    expect(nameInput).toBeDisabled()
+  })
+
+  it('calls onCancel after successful save', async () => {
+    const { apiPost } = await import('../../api/client');
+    (apiPost as ReturnType<typeof vi.fn>).mockResolvedValue({})
+    const onSave = vi.fn()
+    const onCancel = vi.fn()
+    render(<SkillForm tools={mockTools} onSave={onSave} onCancel={onCancel} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Crea Skill' }))
+    expect(onCancel).toHaveBeenCalled()
+  })
+
+  it('catches non-Error exceptions and displays message', async () => {
+    const { apiPost } = await import('../../api/client');
+    (apiPost as ReturnType<typeof vi.fn>).mockRejectedValue('String error')
+    render(<SkillForm tools={mockTools} onSave={vi.fn()} onCancel={vi.fn()} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Crea Skill' }))
+    expect(await screen.findByText('String error')).toBeInTheDocument()
+  })
+
+  it('clears save error on retry', async () => {
+    const { apiPost } = await import('../../api/client');
+    let callCount = 0;
+    (apiPost as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      callCount++
+      if (callCount === 1) throw new Error('First fail')
+      return Promise.resolve({})
+    })
+    render(<SkillForm tools={mockTools} onSave={vi.fn()} onCancel={vi.fn()} />)
+    const submitBtn = screen.getByRole('button', { name: 'Crea Skill' })
+    await userEvent.setup().click(submitBtn)
+    expect(await screen.findByText('First fail')).toBeInTheDocument()
+    await userEvent.setup().click(submitBtn)
+    expect(screen.queryByText('First fail')).not.toBeInTheDocument()
+  })
+
+  it('toggles tool checkbox on and off in create mode', async () => {
+    const user = userEvent.setup()
+    render(<SkillForm tools={mockTools} onSave={vi.fn()} onCancel={vi.fn()} />)
+    const checkbox = screen.getByLabelText('Data Fetcher')
+    expect((checkbox as HTMLInputElement).checked).toBe(false)
+    await user.click(checkbox)
+    expect((checkbox as HTMLInputElement).checked).toBe(true)
+    await user.click(checkbox)
+    expect((checkbox as HTMLInputElement).checked).toBe(false)
+  })
+
+  it('unchecks pre-checked tool in edit mode', async () => {
+    const user = userEvent.setup()
+    render(<SkillForm skill={mockSkill} tools={mockTools} onSave={vi.fn()} onCancel={vi.fn()} />)
+    const checkbox = screen.getByLabelText('Sentiment Analyzer')
+    expect((checkbox as HTMLInputElement).checked).toBe(true)
+    await user.click(checkbox)
+    expect((checkbox as HTMLInputElement).checked).toBe(false)
+  })
+
+  it('renders description placeholder', () => {
+    render(<SkillForm tools={mockTools} onSave={vi.fn()} onCancel={vi.fn()} />)
+    expect(screen.getByPlaceholderText('Descrivi la capacita di questa skill...')).toBeInTheDocument()
+  })
+
+  it('shows save error banner at top', async () => {
+    const { apiPost } = await import('../../api/client');
+    (apiPost as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Server error'))
+    render(<SkillForm tools={mockTools} onSave={vi.fn()} onCancel={vi.fn()} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Crea Skill' }))
+    const errorBanner = await screen.findByText('Server error')
+    expect(errorBanner.className).toContain('border-danger')
   })
 })

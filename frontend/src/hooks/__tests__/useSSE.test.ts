@@ -12,7 +12,7 @@ describe('useSSE', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     (useStore as any).mockReturnValue({});
-    global.EventSource = vi.fn() as any;
+    globalThis.EventSource = vi.fn() as any;
   });
 
   afterEach(() => {

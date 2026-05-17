@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DataSourceForm } from '../DataSourceForm'
 
 const { safeParseMock } = vi.hoisted(() => ({
-  safeParseMock: vi.fn(() => ({ success: true, data: {} })),
+  safeParseMock: vi.fn(() => ({ success: true, data: {} })) as any,
 }))
 
 vi.mock('../../schemas', () => ({
@@ -155,5 +155,85 @@ describe('DataSourceForm', () => {
     fireEvent.click(screen.getByText('Crea Sorgente'))
     expect(mockOnSave).toHaveBeenCalledTimes(1)
     expect(screen.queryByText('URL in config must start with http:// or https://')).not.toBeInTheDocument()
+  })
+
+  it('updates API URL endpoint input', () => {
+    render(<DataSourceForm onSave={mockOnSave} onCancel={mockOnCancel} />)
+    fireEvent.click(screen.getByText('API'))
+    const urlInput = screen.getByPlaceholderText('https://api.example.com/v1/data') as HTMLInputElement
+    fireEvent.change(urlInput, { target: { value: 'https://myapi.com/data' } })
+    expect(urlInput.value).toBe('https://myapi.com/data')
+  })
+
+  it('updates DB connection string input', () => {
+    render(<DataSourceForm onSave={mockOnSave} onCancel={mockOnCancel} />)
+    fireEvent.click(screen.getByText('DB'))
+    const connInput = screen.getByPlaceholderText('postgresql://user:pass@localhost:5432/dbname') as HTMLInputElement
+    fireEvent.change(connInput, { target: { value: 'postgresql://admin@localhost/db' } })
+    expect(connInput.value).toBe('postgresql://admin@localhost/db')
+  })
+
+  it('renders URL endpoint input in API mode', () => {
+    render(<DataSourceForm onSave={mockOnSave} onCancel={mockOnCancel} />)
+    fireEvent.click(screen.getByText('API'))
+    expect(screen.getByPlaceholderText('https://api.example.com/v1/data')).toBeInTheDocument()
+  })
+
+  it('renders DB connection string input in DB mode', () => {
+    render(<DataSourceForm onSave={mockOnSave} onCancel={mockOnCancel} />)
+    fireEvent.click(screen.getByText('DB'))
+    expect(screen.getByPlaceholderText('postgresql://user:pass@localhost:5432/dbname')).toBeInTheDocument()
+  })
+
+  it('shows name validation error border', () => {
+    safeParseMock.mockReturnValue({
+      success: false,
+      error: { issues: [{ path: ['name'], message: 'Required' }] },
+    })
+    render(<DataSourceForm onSave={mockOnSave} onCancel={mockOnCancel} />)
+    fireEvent.click(screen.getByText('Crea Sorgente'))
+    const nameInput = screen.getByLabelText('Nome')
+    expect(nameInput.className).toContain('border-danger')
+  })
+
+  it('renders editing configJson textarea with current value', () => {
+    render(<DataSourceForm onSave={mockOnSave} onCancel={mockOnCancel} />)
+    const textarea = screen.getByLabelText('Configurazione Avanzata (JSON)') as HTMLTextAreaElement
+    expect(textarea.value).toContain('hasHeader')
+  })
+
+  it('returns to file mode and shows format selector', () => {
+    render(<DataSourceForm onSave={mockOnSave} onCancel={mockOnCancel} />)
+    fireEvent.click(screen.getByText('API'))
+    fireEvent.click(screen.getByText('File'))
+    expect(screen.getByText('Formato File')).toBeInTheDocument()
+  })
+
+  it('configJson textarea shows error border on validation fail', () => {
+    safeParseMock.mockReturnValue({
+      success: false,
+      error: { issues: [] },
+    })
+    render(<DataSourceForm onSave={mockOnSave} onCancel={mockOnCancel} />)
+    fireEvent.click(screen.getByText('API'))
+    const urlInput = screen.getByPlaceholderText('https://api.example.com/v1/data')
+    fireEvent.change(urlInput, { target: { value: 'not-a-valid-url' } })
+    fireEvent.click(screen.getByText('Crea Sorgente'))
+    const textarea = screen.getByLabelText('Configurazione Avanzata (JSON)')
+    expect(textarea.className).toContain('border-danger')
+  })
+
+  it('switches file format to XML and updates configJson', () => {
+    render(<DataSourceForm onSave={mockOnSave} onCancel={mockOnCancel} />)
+    fireEvent.click(screen.getByText('XML'))
+    const textarea = screen.getByLabelText('Configurazione Avanzata (JSON)') as HTMLTextAreaElement
+    expect(textarea.value).toContain('recordPath')
+  })
+
+  it('disabled submit button does not call onSave', () => {
+    render(<DataSourceForm onSave={mockOnSave} onCancel={mockOnCancel} />)
+    fireEvent.click(screen.getByText('File'))
+    fireEvent.click(screen.getByText('CSV'))
+    expect(screen.getByText('CSV')).toBeInTheDocument()
   })
 })

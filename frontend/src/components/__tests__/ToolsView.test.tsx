@@ -18,6 +18,8 @@ interface Tool {
   name: string
   description: string
   code: string
+  healthStatus?: 'healthy' | 'warning' | 'error' | 'unknown'
+  lastCheckedAt?: string
 }
 
 // --- Mocks ---
@@ -270,5 +272,94 @@ describe('ToolsView', () => {
       />,
     )
     expect(screen.getByRole('region', { name: 'Tools' })).toBeInTheDocument()
+  })
+
+  it('renders with health status in detail panel', () => {
+    const tools = [makeTool('1', { healthStatus: 'healthy', lastCheckedAt: '2026-01-01T00:00:00Z' })]
+    render(
+      <ToolsView
+        tools={tools}
+        onCreateTool={mockOnCreate}
+        onEditTool={mockOnEdit}
+        onDeleteTool={mockOnDelete}
+        onExecuteTool={mockOnExecute}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('Execute tool Tool 1'))
+  })
+
+  it('renders detail panel with health status warning', () => {
+    const tools = [makeTool('1', { healthStatus: 'warning' })]
+    render(
+      <ToolsView
+        tools={tools}
+        onCreateTool={mockOnCreate}
+        onEditTool={mockOnEdit}
+        onDeleteTool={mockOnDelete}
+        onExecuteTool={mockOnExecute}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('Execute tool Tool 1'))
+    expect(screen.getAllByText('Degraded').length).toBeGreaterThan(0)
+  })
+
+  it('renders detail panel with health status error', () => {
+    const tools = [makeTool('1', { healthStatus: 'error' })]
+    render(
+      <ToolsView
+        tools={tools}
+        onCreateTool={mockOnCreate}
+        onEditTool={mockOnEdit}
+        onDeleteTool={mockOnDelete}
+        onExecuteTool={mockOnExecute}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('Execute tool Tool 1'))
+    expect(screen.getAllByText('Down').length).toBeGreaterThan(0)
+  })
+
+  it('renders detail panel with unknown health status', () => {
+    const tools = [makeTool('1', { healthStatus: undefined })]
+    render(
+      <ToolsView
+        tools={tools}
+        onCreateTool={mockOnCreate}
+        onEditTool={mockOnEdit}
+        onDeleteTool={mockOnDelete}
+        onExecuteTool={mockOnExecute}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('Execute tool Tool 1'))
+    expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0)
+  })
+
+  it('closes detail panel on X button click', () => {
+    const tools = [makeTool('1')]
+    render(
+      <ToolsView
+        tools={tools}
+        onCreateTool={mockOnCreate}
+        onEditTool={mockOnEdit}
+        onDeleteTool={mockOnDelete}
+        onExecuteTool={mockOnExecute}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('Execute tool Tool 1'))
+    fireEvent.click(screen.getByLabelText('Close detail panel'))
+  })
+
+  it('renders inline mode without max-w wrapper', () => {
+    const { container } = render(
+      <ToolsView
+        tools={[makeTool('1')]}
+        onCreateTool={mockOnCreate}
+        onEditTool={mockOnEdit}
+        onDeleteTool={mockOnDelete}
+        onExecuteTool={mockOnExecute}
+        inline={true}
+      />,
+    )
+    const root = container.firstElementChild as HTMLElement
+    expect(root.className).not.toContain('max-w-6xl')
   })
 })

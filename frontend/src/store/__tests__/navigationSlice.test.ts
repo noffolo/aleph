@@ -60,7 +60,7 @@ describe('navigationSlice', () => {
     const get = () => ({} as any);
     const slice = createNavigationSlice(set, get, {} as any);
 
-    slice.setInlineContent({ type: 'explore', payload: { id: '1' } });
+    slice.setInlineContent({ type: 'explore', payload: { id: '1' } } as any);
     expect(set).toHaveBeenCalledWith({ inlineContent: { type: 'explore', payload: { id: '1' } } });
   });
 
@@ -102,7 +102,7 @@ describe('navigationSlice', () => {
     const get = () => ({} as any);
     const slice = createNavigationSlice(set, get, {} as any);
 
-    slice.setInlineContent({ type: 'explore', payload: {} });
+    slice.setInlineContent({ type: 'explore', payload: {} } as any);
     slice.setInlineContent(null);
     expect(set).toHaveBeenCalledWith({ inlineContent: null });
   });
