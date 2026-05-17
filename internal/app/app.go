@@ -468,14 +468,20 @@ func (a *AlephApp) Close(ctx context.Context) error {
 	if a.nlpHandler != nil {
 		a.nlpHandler.Close()
 	}
-	if err := a.eng.Close(); err != nil {
-		errs = append(errs, fmt.Errorf("engine close: %w", err))
+	if a.eng != nil {
+		if err := a.eng.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("engine close: %w", err))
+		}
 	}
-	if err := a.pg.Close(); err != nil {
-		errs = append(errs, fmt.Errorf("postgres close: %w", err))
+	if a.pg != nil {
+		if err := a.pg.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("postgres close: %w", err))
+		}
 	}
-	if err := a.db.Close(); err != nil {
-		errs = append(errs, fmt.Errorf("duckdb close: %w", err))
+	if a.db != nil {
+		if err := a.db.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("duckdb close: %w", err))
+		}
 	}
 
 	return errors.Join(errs...)

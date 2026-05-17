@@ -225,7 +225,9 @@ func (d *DuckDB) BeginTX(ctx context.Context) (*TX, error) {
 	// Apply schema at transaction start if set.
 	if schema != "" {
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf("SET schema = %s", safeident.QuoteIdentifier(schema))); err != nil {
-			_ = tx.Rollback()
+			if rerr := tx.Rollback(); rerr != nil {
+				slog.Warn("rollback after set schema failed", "error", rerr)
+			}
 			d.writeMu.Unlock()
 			return nil, fmt.Errorf("set schema in tx: %w", err)
 		}
@@ -257,7 +259,9 @@ func (d *DuckDB) BeginReadTX(ctx context.Context) (*TX, error) {
 	// Apply schema at transaction start if set.
 	if schema != "" {
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf("SET schema = %s", safeident.QuoteIdentifier(schema))); err != nil {
-			_ = tx.Rollback()
+			if rerr := tx.Rollback(); rerr != nil {
+				slog.Warn("rollback after set schema in read tx failed", "error", rerr)
+			}
 			return nil, fmt.Errorf("set schema in read tx: %w", err)
 		}
 	}
@@ -322,7 +326,9 @@ func (d *DuckDB) ExecTx(ctx context.Context, fn func(*TX) error) error {
 
 		// Rollback on error, but only if not already committed.
 		// tx.Rollback is idempotent (done flag).
-		_ = tx.Rollback()
+		if rerr := tx.Rollback(); rerr != nil {
+			slog.Warn("rollback after exec error", "error", rerr)
+		}
 
 		if !isSerializationError(err) || i == maxRetries {
 			return err

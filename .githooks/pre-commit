@@ -19,7 +19,7 @@ fi
 # Go vet on changed packages
 changed_go=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
 if [ -n "$changed_go" ]; then
-  pkgs=$(echo "$changed_go" | xargs -I{} dirname {} | sort -u | tr '\n' ' ')
+  pkgs=$(echo "$changed_go" | xargs -I{} dirname {} | sort -u | sed 's/^/.\//' | tr '\n' ' ')
   echo "  -> go vet $pkgs"
   if ! go vet $pkgs 2>/dev/null; then
     echo "FAIL: go vet failed"

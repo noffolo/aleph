@@ -55,7 +55,7 @@ ALTER TABLE system_chat_sessions
 -- ---------------------------------------------------------------
 -- 4. Performance indexes
 -- ---------------------------------------------------------------
-CREATE INDEX IF NOT EXISTS idx_agents_project_status ON system_agents(project_id, status);
+-- idx_agents_project_status removed — system_agents has no status column
 CREATE INDEX IF NOT EXISTS idx_skills_project ON system_skills(project_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON system_tasks(project_id, status);
 CREATE INDEX IF NOT EXISTS idx_chat_history_agent_created ON system_chat_history(agent_id, created_at);
