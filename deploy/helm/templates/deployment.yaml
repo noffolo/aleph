@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aleph-v2.fullname" . }}-backend
+  labels:
+    {{- include "aleph-v2.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "aleph-v2.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      labels:
+        {{- include "aleph-v2.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+    spec:
+      serviceAccountName: {{ include "aleph-v2.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.service.port }}
+              protocol: TCP
+          env:
+            - name: ALE_DUCKDB_PATH
+              value: {{ .Values.backend.env.DUCKDB_PATH | quote }}
+            - name: ALE_NLP_ADDR
+              value: "{{ include "aleph-v2.fullname" . }}-nlp-sidecar:{{ .Values.nlp.service.port }}"
+            - name: ALE_OLLAMA_BASE_URL
+              value: "http://{{ include "aleph-v2.fullname" . }}-ollama:{{ .Values.ollama.service.port }}"
+            - name: ALE_CORS_ALLOWED_ORIGINS
+              value: {{ .Values.backend.env.CORS_ALLOWED_ORIGINS | default "*" | quote }}
+            - name: ALE_POSTGRES_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aleph-v2.postgres.secretName" . }}
+                  key: dsn
+            - name: ALE_KEY_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aleph-v2.fullname" . }}-backend
+                  key: encryption-key
+          livenessProbe:
+            {{- toYaml .Values.backend.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.backend.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            {{- range .Values.backend.volumeMounts }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+            {{- end }}
+      volumes:
+        - name: duckdb-data
+          persistentVolumeClaim:
+            claimName: {{ include "aleph-v2.duckdb.pvcName" . }}

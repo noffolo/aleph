@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aleph-v2.duckdb.pvcName" . }}
+  labels:
+    {{- include "aleph-v2.labels" . | nindent 4 }}
+    app.kubernetes.io/component: duckdb
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

@@ -126,6 +126,50 @@ jobs:
       - name: Run Playwright tests
         run: npx playwright test
         working-directory: frontend
+        env:
+          CI: true
+          E2E_TEST_API_KEY: "test-e2e-key-do-not-use-in-prod"
+
+  integration-tests:
+    name: Integration Tests (Postgres)
+    runs-on: ubuntu-latest
+    needs: [go-backend]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aleph
+          POSTGRES_PASSWORD: aleph-test
+          POSTGRES_DB: aleph
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Set GOTOOLCHAIN
+        run: echo "GOTOOLCHAIN=local" >> $GITHUB_ENV
+
+      - name: Run integration tests
+        run: go test -race -count=1 -tags=integration -v ./internal/app/...
+        env:
+          ALE_POSTGRES_DSN: "postgres://aleph:aleph-test@localhost:5432/aleph?sslmode=disable"
+          ALE_KEY_ENCRYPTION_KEY: "test-encryption-key-32bytes!!"
+          ALE_DUCKDB_PATH: ":memory:"
 
   nlp-test:
     name: NLP Python Tests
@@ -326,7 +370,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [go-backend, frontend, nlp-test, benchmarks, contract-tests, docker, docker-push]
+    needs: [go-backend, frontend, integration-tests, nlp-test, benchmarks, contract-tests, docker, docker-push]
     
     steps:
       - name: Check CI status
