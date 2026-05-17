@@ -1,17 +1,27 @@
 # AGENTS.md — Aleph-v2 Agent Map
 
-## Current Status (16 May 2026)
+## Current Status (17 May 2026)
 
-- **W0-W7: Complete** — All waves implemented and verified
-- **TDD Session Plan v2** — `docs/superpowers/plans/2026-05-16-tdd-session-plan-v2.md`
-  - Reviewed by Metis + Oracle + Momus before execution
-  - Key bug found: `ListComponents` filter in `duckdb_registry.go` is a silent no-op (SQL at line 129 ignores WHERE clause)
-  - Key dead code found: `adapters.ts` (frontend/src/api/adapters.ts) — all 6 `fromProto*` functions imported 0 times; 28 consumers import factory.ts directly
-  - Plan scope: 4 real tasks (CI/CD NLP, ListComponents bug fix, fromProto edge cases, factory.ts smoke test)
-- Build: `go build ./...` ✅ | `go test -race -count=1 ./...` ✅ | `go vet ./...` ✅
-- Frontend: `npx tsc --noEmit` ✅ | `npx vite build` ✅ | `npx vitest run` ✅
-- CI: GitHub Actions (Go + Frontend + Docker) | Security (gitleaks) | Deploy (tag-triggered)
-- Docker: `docker compose config` ✅ with Ollama, PostgreSQL, NLP sidecar
+- **All TDD cycles v1-v9: Complete** — Full TDD session across 9 plan iterations
+- **Bugfix cycles 1-3: Complete** — app.go nil guards (eng/pg/db.Close), duckdb.go rollback error logs, NotificationService sync.Once double-close fix, engine.go fetchIMAP SSRF bypass fix, migration v9 broken index fix
+- **Test coverage:** Go ~82.7% mean (all 43 packages with _test.go), Frontend 81%/75%/80%/82%
+- **Dead code removed:** `adapters.ts` — all 6 `fromProto*` functions imported 0 times
+- **Key bugs found & fixed:**
+  - `ListComponents` filter in `duckdb_registry.go` is a silent no-op (SQL ignores WHERE clause)
+  - `err != context.Canceled` — not using `errors.Is` (wrong comparison)
+  - `watchSidecar()` nil `nlpHandler` panic (no nil guard on MarkUnhealthy/MarkHealthy)
+  - `NotificationService.Stop()` double-close panic (close of closed channel)
+  - `Engine.Close()` nil guard missing (a.eng.Close() panics if engine not initialized)
+  - `fetchIMAP()` raw `tls.Dial(tcp, ...)` without SSRF validation
+  - `_ = tx.Rollback()` swallowed errors in 3 DuckDB transaction rollback sites
+  - Pre-commit hook `go vet` paths missing `./` prefix (Go 1.26 compatibility)
+  - Postgres migration v9: broken index `idx_agents_project_status` referencing nonexistent `system_agents.status` column
+- **E2E:** Playwright tests consolidated from orphaned `frontend/e2e/` → `frontend/tests/e2e/` (12 files)
+- **Build:** `go build ./...` ✅ | `go test -race -count=1 ./...` ✅ | `go vet ./...` ✅ | `npx tsc --noEmit` ✅ | `npx vitest run` ✅ (1358 tests, 81% stmts)
+- **CI:** GitHub Actions (Go + Frontend + Docker + NLP) | Security (gitleaks) | Deploy (tag-triggered)
+- **Docker:** `docker compose config` ✅ with Ollama, PostgreSQL, NLP sidecar
+- **GitNexus:** 22,974+ nodes, 56,666+ edges, 797+ clusters, 300 flows
+- **Remaining (macOS-untestable):** seccomp/namespace Linux-only (~20% sandbox), VerifyTool integration path (~9%), NewAlephApp/Serve integration tests (require Postgres)
 
 ---
 
@@ -127,7 +137,7 @@ ls docs/skills/ .config/opencode/skills/ 2>/dev/null | sort -u
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **aleph** (22974 symbols, 56666 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **aleph** (22965 symbols, 56666 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
