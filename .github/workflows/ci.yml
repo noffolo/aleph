@@ -50,6 +50,23 @@ jobs:
         run: |
           go tool cover -func=coverage.out | grep -v ".pb.go" | grep -v "connect.go" | awk '{print $NF}' | grep -E "^[0-9]" | sed 's/%//' | awk '{s+=$1; c++} END {avg=s/c; print "Go coverage:", avg "%"; if (avg < 60) { print "BELOW THRESHOLD (60%)"; exit 1 } else { print "ABOVE THRESHOLD" }}'
 
+      - name: Check per-package minimum coverage (no package below 30%)
+        run: |
+          FAILED=""
+          while IFS= read -r line; do
+            pkg=$(echo "$line" | awk '{print $1}')
+            cov=$(echo "$line" | awk '{print $NF}' | sed 's/%//')
+            if [ -n "$cov" ] && [ "$cov" != "total" ] && [ "$(echo "$cov < 30" | bc -l 2>/dev/null)" = "1" ]; then
+              echo "LOW COVERAGE: $pkg — $cov%"
+              FAILED="$FAILED $pkg($cov%)"
+            fi
+          done < <(go tool cover -func=coverage.out | grep -v ".pb.go" | grep -v "connect.go" | grep "^github.com")
+          if [ -n "$FAILED" ]; then
+            echo "FAILED packages below 30% threshold:$FAILED"
+            exit 1
+          fi
+          echo "All packages above 30% threshold"
+
       - name: Run go vet
         run: go vet ./...
 
