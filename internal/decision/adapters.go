@@ -7,9 +7,17 @@ import (
 	"github.com/ff3300/aleph-v2/internal/repository"
 )
 
-// MetaRepoAdapter adapts *repository.MetadataRepository to decision.ToolRepository.
+// metaRepoClient is the minimal interface needed by MetaRepoAdapter.
+// Using an interface instead of a concrete type enables test mocking.
+type metaRepoClient interface {
+	SaveChatMessage(ctx context.Context, projectID, agentID, role, content, toolCall string) error
+	GetChatMessages(ctx context.Context, projectID, agentID string) ([]repository.ChatMessage, error)
+	ListTools() ([]repository.ToolRecord, error)
+}
+
+// MetaRepoAdapter adapts a metadata repository to decision.ToolRepository.
 type MetaRepoAdapter struct {
-	Repo *repository.MetadataRepository
+	Repo metaRepoClient
 }
 
 func (a *MetaRepoAdapter) SaveChatMessage(ctx context.Context, projectID, agentID, role, content, toolCall string) error {
@@ -48,9 +56,14 @@ func (a *MetaRepoAdapter) ListTools(ctx context.Context) ([]ToolDef, error) {
 	return result, nil
 }
 
-// RegistryAdapter adapts *registry.DuckDBRegistry to decision.PluginRegistry.
+// registryClient is the minimal interface needed by RegistryAdapter.
+type registryClient interface {
+	GetComponentByID(ctx context.Context, id string) (*registry.ComponentMetadata, error)
+}
+
+// RegistryAdapter adapts a registry client to decision.PluginRegistry.
 type RegistryAdapter struct {
-	Reg *registry.DuckDBRegistry
+	Reg registryClient
 }
 
 func (a *RegistryAdapter) GetComponentByID(ctx context.Context, id string) (*ComponentMetadata, error) {
