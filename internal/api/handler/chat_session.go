@@ -221,7 +221,7 @@ func (s *ChatSession) Run() error {
 	// DECISION LOOP: Admit phase at loop end
 	if s.engine != nil && len(s.actResults) > 0 {
 		// Goal-achieved detection: all plan steps completed successfully
-		if s.plan != nil && len(s.actResults) >= len(s.plan.Steps) {
+		if s.plan != nil && len(s.plan.Steps) > 0 && len(s.actResults) >= len(s.plan.Steps) {
 			allSucceeded := true
 			for _, r := range s.actResults {
 				if r.Error != "" {
