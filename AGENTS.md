@@ -25,6 +25,16 @@
 - **GitNexus:** 23,032+ nodes, 56,758+ edges, 797+ clusters, 300 flows
 - **Remaining (macOS-untestable):** seccomp/namespace Linux-only (~20% sandbox), VerifyTool integration path (~9% requires Docker), NewAlephApp/Serve integration tests (require Postgres), GOOS=linux go vet block by go-duckdb CGO dependency
 
+### Honest Assessment (17 May 2026)
+
+**Solid:** Build clean (go/vet/tsc/vitest all green). Go coverage 82.7% mean (43/46 packages tested). Front-end 81% stmts, 0 tsc errors (fixed 19 inherited). Real bugs found & fixed: data corruption (ListComponents filter), SSRF bypass (IMAP), crash (nlpHandler nil panic, NotificationService double-close), broken migration v9 index, broken Linux namespace isolation (CLONE_NEWNET). Dead code removed (adapters.ts). CI with 7 jobs + pre-commit hooks. Code intelligence: GitNexus 23K nodes, Graphify 13K nodes.
+
+**Acceptable but improvable:** internal/app ~25% coverage (wiring/DI — integration-level, ~75% genuinely hard to unit-test). internal/sandbox ~59% (~20% Linux-only, ~9% Docker-only). ~80 front-end files without tests (mostly thin wrappers). No E2E in CI. 5 experimental packages (finance/osint/humanecosystems/gnn/dsl) are .opencode-ignore'd and not integrated.
+
+**Missing:** No production deployment manifests (K8s/Helm/Terraform). No coverage gates in CI. Benchmarks exist but don't block CI. Contract tests need Postgres service container in CI. GOOS=linux go vet blocked by go-duckdb CGO. Graphify HTML viz too large (13K nodes > 5K limit). Seccomp tests process-destructive on Linux (t.Skip guards needed).
+
+**Bottom line:** Project is solid for an actively-developed monolith. Most dangerous bugs have been found and fixed. Remaining coverage gaps are real platform limitations (macOS, no Postgres in CI) or deployment infrastructure. Next high-impact steps: Linux seccomp/namespace execution, E2E in CI, deploy infra.
+
 ---
 
 ## Build Agents
