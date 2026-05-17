@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
+	"io"
 	"log/slog"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"golang.org/x/net/http2"
 
 	nlpv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
+	"github.com/ff3300/aleph-v2/internal/config"
 	"github.com/ff3300/aleph-v2/internal/decision"
 	"github.com/ff3300/aleph-v2/internal/registry"
 	"github.com/ff3300/aleph-v2/internal/repository"
@@ -203,12 +205,35 @@ func TestClose_AllNilFields(t *testing.T) {
 	assert.NoError(t, err, "Close on all-nil AlephApp should succeed without panic")
 }
 
+func TestClose_PartialInit(t *testing.T) {
+	cancelCalled := false
+	a := &AlephApp{
+		ctx:    context.Background(),
+		cancel: func() { cancelCalled = true },
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	err := a.Close(context.Background())
+	assert.NoError(t, err)
+	assert.True(t, cancelCalled, "cancel should be called during Close")
+}
+
 func TestClose_NilSafetyAudit(t *testing.T) {
 	a := &AlephApp{}
 	require.NotNil(t, a, "zero-value AlephApp should be constructable")
 	require.Nil(t, a.eng, "eng should be nil")
 	require.Nil(t, a.pg, "pg should be nil")
 	require.Nil(t, a.db, "db should be nil")
+}
+
+// ── runSecurityScan ────────────────────────────────────────────────────────
+
+func TestRunSecurityScan_NoPanic(t *testing.T) {
+	a := &AlephApp{
+		cfg:    &config.Config{DuckDBPath: "/tmp/test-security-scan"},
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	// Should not panic — SecurityScanner.Scan treats input as code string.
+	require.NotPanics(t, func() { a.runSecurityScan() })
 }
 
 // Prevent unused import errors from types referenced in production code.
