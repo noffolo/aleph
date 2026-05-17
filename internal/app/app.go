@@ -129,7 +129,7 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 	}
 
 	// Usage Tracking (W1.5-04)
-	usageTracker := tracker.NewDuckDBTracker(db.DB())
+	usageTracker := tracker.NewDuckDBTracker(db)
 
 	// System DB (PostgreSQL) - System Records & Consistency
 	pg, err := storage.NewPostgres(cfg.PostgresDSN)

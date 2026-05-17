@@ -8,14 +8,20 @@ import (
 	"time"
 )
 
+// duckDBClient abstracts the database connection to avoid
+// direct *sql.DB dependency, enabling write-through serialization.
+type duckDBClient interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+}
+
 // DuckDBTracker implements the Tracker interface backed by DuckDB.
 type DuckDBTracker struct {
-	db *sql.DB
+	db duckDBClient
 }
 
 // NewDuckDBTracker creates a new DuckDB-backed tracker.
-// The provided *sql.DB must already be connected to a DuckDB database.
-func NewDuckDBTracker(db *sql.DB) *DuckDBTracker {
+func NewDuckDBTracker(db duckDBClient) *DuckDBTracker {
 	return &DuckDBTracker{db: db}
 }
 
