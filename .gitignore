@@ -85,3 +85,4 @@ secrets/*.txt
 
 # AI reading surface filter
 .opencode-ignore
+.opencode/

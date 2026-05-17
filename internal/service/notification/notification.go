@@ -17,10 +17,11 @@ type WebhookJob struct {
 }
 
 type NotificationService struct {
-	client *http.Client
-	jobs   chan WebhookJob
-	stop   chan struct{}
-	wg     sync.WaitGroup
+	client  *http.Client
+	jobs    chan WebhookJob
+	stop    chan struct{}
+	wg      sync.WaitGroup
+	closeMu sync.Once
 }
 
 func NewNotificationService() *NotificationService {
@@ -71,7 +72,9 @@ func (s *NotificationService) sendWebhook(job WebhookJob) {
 }
 
 func (s *NotificationService) Stop() {
-	close(s.stop)
+	s.closeMu.Do(func() {
+		close(s.stop)
+	})
 	s.wg.Wait()
 }
 

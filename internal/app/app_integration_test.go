@@ -23,6 +23,25 @@ import (
 	"github.com/ff3300/aleph-v2/internal/config"
 )
 
+func requireRootDir(t *testing.T) {
+	t.Helper()
+	dir, err := os.Getwd()
+	require.NoError(t, err)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			if err := os.Chdir(dir); err != nil {
+				t.Fatalf("Chdir(%s): %v", dir, err)
+			}
+			return
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("go.mod not found — are you inside the project tree?")
+		}
+		dir = parent
+	}
+}
+
 func requirePostgres(t *testing.T) string {
 	t.Helper()
 	dsn := os.Getenv("ALEPH_TEST_POSTGRES_DSN")
@@ -84,6 +103,7 @@ func freePort(t *testing.T) int {
 // TestNewAlephApp_Integration creates a full AlephApp with real DuckDB file
 // and real PostgreSQL, then verifies core subsystems.
 func TestNewAlephApp_Integration(t *testing.T) {
+	requireRootDir(t)
 	postgresDSN := requirePostgres(t)
 
 	tmpDir := t.TempDir()
@@ -93,7 +113,11 @@ func TestNewAlephApp_Integration(t *testing.T) {
 	app, err := NewAlephApp(cfg, embed.FS{})
 	require.NoError(t, err)
 	require.NotNil(t, app)
-	defer func() { _ = app.Close(context.Background()) }()
+	defer func() {
+		if err := app.Close(context.Background()); err != nil {
+			t.Logf("Close returned errors: %v", err)
+		}
+	}()
 
 	assert.NotNil(t, app.db, "DuckDB should be initialized")
 	assert.NotNil(t, app.pg, "Postgres should be initialized")
@@ -115,15 +139,12 @@ func TestNewAlephApp_Integration(t *testing.T) {
 	count, err := app.metaRepo.CountProjects()
 	assert.NoError(t, err)
 	assert.Equal(t, 0, count)
-
-	if err := app.Close(context.Background()); err != nil {
-		t.Logf("Close returned errors: %v", err)
-	}
 }
 
 // TestServe_Integration starts the full Aleph HTTP server on a real port and
 // verifies health-check endpoints.
 func TestServe_Integration(t *testing.T) {
+	requireRootDir(t)
 	postgresDSN := requirePostgres(t)
 
 	tmpDir := t.TempDir()
@@ -136,7 +157,6 @@ func TestServe_Integration(t *testing.T) {
 	app, err := NewAlephApp(cfg, embed.FS{})
 	require.NoError(t, err)
 	require.NotNil(t, app)
-	defer func() { _ = app.Close(context.Background()) }()
 
 	errCh := make(chan error, 1)
 	go func() {
