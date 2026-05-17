@@ -1,0 +1,36 @@
+#!/bin/sh
+set -euo pipefail
+
+echo "Running pre-commit checks..."
+
+# Stash unstaged changes to only check staged content
+git stash -q --keep-index 2>/dev/null || true
+
+# Restore on exit
+trap 'git stash pop -q 2>/dev/null || true' EXIT
+
+# Go build
+echo "  -> go build ./..."
+if ! go build ./... 2>/dev/null; then
+  echo "FAIL: go build failed"
+  exit 1
+fi
+
+# Go vet on changed packages
+changed_go=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+if [ -n "$changed_go" ]; then
+  pkgs=$(echo "$changed_go" | xargs -I{} dirname {} | sort -u | tr '\n' ' ')
+  echo "  -> go vet $pkgs"
+  if ! go vet $pkgs 2>/dev/null; then
+    echo "FAIL: go vet failed"
+    exit 1
+  fi
+fi
+
+# Vitest on changed TS/TSX
+if git diff --cached --name-only --diff-filter=ACM | grep -q '\.tsx\?$' 2>/dev/null; then
+  echo "  -> vitest run (frontend)"
+  cd frontend && npx vitest run --reporter=verbose 2>/dev/null && cd ..
+fi
+
+echo "OK: pre-commit checks passed"
