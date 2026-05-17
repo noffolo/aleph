@@ -1,5 +1,5 @@
 .PHONY: build run frontend-dev nlp-dev build-models proto-python clean
-.PHONY: test test-go test-frontend test-e2e test-nlp test-integration test-all
+.PHONY: test test-go test-frontend test-e2e test-nlp test-integration test-all test-linux-sandbox
 .PHONY: dev dev-backend dev-frontend dev-nlp
 .PHONY: docker-up docker-down docker-build docker-dev docker-devcontainer
 
@@ -54,6 +54,10 @@ test-contract:
 test: test-go test-frontend
 
 test-all: test-go test-frontend test-nlp test-e2e
+
+test-linux-sandbox:
+	docker run --rm -v $(PWD):/app -w /app golang:1.26 \
+		go test -count=1 ./internal/sandbox/...
 
 # ── Coverage ─────────────────────────────────────────────────────
 
