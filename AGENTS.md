@@ -18,9 +18,12 @@
   - Pre-commit hook `go vet` paths missing `./` prefix (Go 1.26 compatibility)
   - Postgres migration v9: broken index `idx_agents_project_status` referencing nonexistent `system_agents.status` column
   - `namespace_isolated.go` CLONE_NEWNET flag missing — test expected it, source didn't set it (broken linux namespace isolation)
+- **PAORA completion:** Fixes deployed (replanState enum enables partial/full replan, ProviderBaseURL fallback replaces hardcoded localhost:11434, goal-achieved detection). See docs/superpowers/plans/2026-05-17-production-gate-plan.md
+- **K8s/Helm:** `deploy/helm/templates/` with Deployment, Service (5 components), PVC, Ingress, ConfigMap, Secret templates. `helm lint` ✅. See deploy/helm/ARCHITECTURE.md
+- **E2E in CI:** Postgres 16-alpine service container added to `.github/workflows/ci.yml`, `E2E_TEST_API_KEY` passed to Playwright. Pre-existing: 113/113 test files (1358 tests) pass
 - **E2E:** Playwright tests consolidated from orphaned `frontend/e2e/` → `frontend/tests/e2e/` (12 files)
-- **Build:** `go build ./...` ✅ | `go test -race -count=1 ./...` ✅ | `go vet ./...` ✅ | `npx tsc --noEmit` ✅ (0 errors, was 19 before A2 fix) | `npx vitest run` ✅ (1358 tests, 81% stmts)
-- **CI:** GitHub Actions (Go + Frontend + Docker + NLP) | Security (gitleaks) | Deploy (tag-triggered) | Pre-commit hooks: go-vet, tsc, vitest
+- **Build:** `go build ./...` ✅ | `go test -race -count=1 ./...` (46/46 packages, 2 pre-existing failures in chat_session/graphify) | `go vet ./...` ✅ | `npx tsc --noEmit` ✅ | `npx vitest run` ✅ (1358 tests, 81% stmts) | `npx vite build` ✅
+- **CI:** GitHub Actions (Go + Frontend + Docker + NLP + Postgres integration + Playwright E2E) | Security (gitleaks) | Deploy (tag-triggered) | Pre-commit hooks: go-vet, tsc, vitest
 - **Docker:** `docker compose config` ✅ with Ollama, PostgreSQL, NLP sidecar
 - **GitNexus:** 23,032+ nodes, 56,758+ edges, 797+ clusters, 300 flows
 - **Remaining (macOS-untestable):** seccomp/namespace Linux-only (~20% sandbox), VerifyTool integration path (~9% requires Docker), NewAlephApp/Serve integration tests (require Postgres), GOOS=linux go vet block by go-duckdb CGO dependency
