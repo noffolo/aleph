@@ -28,6 +28,7 @@ func (h *toolExecutionHistory) total() int {
 // Engine is the concrete implementation of DecisionEngine.
 type Engine struct {
 	provider              llm.Provider
+	providerBaseURL       string
 	metaRepo              ToolRepository
 	executor              ToolExecutor
 	registry              PluginRegistry
@@ -66,6 +67,7 @@ func NewEngine(cfg EngineConfig) *Engine {
 	}
 	return &Engine{
 		provider:              cfg.Provider,
+		providerBaseURL:       cfg.ProviderBaseURL,
 		metaRepo:              cfg.MetaRepo,
 		executor:              cfg.Executor,
 		registry:              cfg.Registry,
@@ -107,7 +109,11 @@ func (e *Engine) PlanWithProvider(
 		model = "llama3"
 	}
 	if baseURL == "" {
-		baseURL = "http://localhost:11434"
+		if e.providerBaseURL != "" {
+			baseURL = e.providerBaseURL
+		} else {
+			baseURL = "http://localhost:11434"
+		}
 	}
 
 	req := llm.CompletionRequest{

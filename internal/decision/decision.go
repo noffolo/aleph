@@ -64,6 +64,7 @@ type Observation struct {
 // EngineConfig holds dependencies needed by the DecisionEngine.
 type EngineConfig struct {
 	Provider              llm.Provider
+	ProviderBaseURL       string           // base URL used to create the provider (fallback for PlanWithProvider)
 	MetaRepo              ToolRepository   // interface for tool/chat history operations
 	Executor              ToolExecutor     // interface for executing tools
 	Registry              PluginRegistry   // interface for registry validation

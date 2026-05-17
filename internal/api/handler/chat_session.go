@@ -36,6 +36,7 @@ type ChatSession struct {
 	observations  []decision.Observation
 	actResults    []*decision.ActResult
 	maxAttempts   int
+	replanState   string // "" = normal, "partial" = use correction steps, "full" = regenerate plan
 }
 
 // AgentInfo holds the resolved agent configuration for a session.
@@ -110,8 +111,27 @@ func (s *ChatSession) Run() error {
 		default:
 		}
 
-		// DECISION LOOP: Plan phase (first iteration only)
+		// DECISION LOOP: Plan phase (first iteration OR full replan only)
 		if s.engine != nil && s.needsPlanning {
+			s.needsPlanning = false
+
+			// Partial replan: use correction steps directly, skip PlanWithProvider
+			if s.replanState == "partial" && s.plan != nil && len(s.plan.CorrectionSteps) > 0 {
+				s.plan.Steps = s.plan.CorrectionSteps
+				s.plan.Reason = "replanning using correction steps from reflection"
+				s.replanState = ""
+				if err := s.executePlanSteps(i); err != nil {
+					return err
+				}
+				summary := s.buildMultiStepSummary()
+				if summary != "" {
+					if err := s.streamResponse(summary); err != nil {
+						return err
+					}
+				}
+				break
+			}
+
 			provider, err := llm.NewProvider(s.agent.Provider, s.baseURL, s.handler.httpClient, s.handler.llmTimeout)
 			if err != nil {
 				slog.Warn("decision engine: NewProvider failed", "error", err)
@@ -127,7 +147,6 @@ func (s *ChatSession) Run() error {
 					slog.Warn("decision engine: plan indicates cannot proceed", "reason", s.plan.Reason)
 				}
 			}
-			s.needsPlanning = false
 
 			// Multi-step execution: if the plan has multiple steps, execute them
 			// in dependency order before the first LLM call.
@@ -176,6 +195,21 @@ func (s *ChatSession) Run() error {
 			reflected, err := s.engine.Reflect(s.ctx, s.plan, s.observations)
 			if err == nil && reflected != nil {
 				s.plan = reflected
+				if reflected.ReplanType != "" && reflected.ReplanType != decision.ReplanNone {
+					if reflected.ReplanType == decision.ReplanFull {
+						slog.Info("decision engine: full replan requested", "reason", reflected.Reason)
+						s.replanState = "full"
+						s.needsPlanning = true
+						s.plan = nil
+						s.observations = nil
+						continue
+					} else {
+						slog.Info("decision engine: partial replan requested", "reason", reflected.Reason)
+						s.replanState = "partial"
+						s.needsPlanning = true
+						continue
+					}
+				}
 				if !reflected.CanProceed {
 					slog.Warn("decision engine: reflect says stop", "reason", reflected.Reason)
 					break
@@ -186,6 +220,20 @@ func (s *ChatSession) Run() error {
 
 	// DECISION LOOP: Admit phase at loop end
 	if s.engine != nil && len(s.actResults) > 0 {
+		// Goal-achieved detection: all plan steps completed successfully
+		if s.plan != nil && len(s.actResults) >= len(s.plan.Steps) {
+			allSucceeded := true
+			for _, r := range s.actResults {
+				if r.Error != "" {
+					allSucceeded = false
+					break
+				}
+			}
+			if allSucceeded && len(s.actResults) > 0 {
+				slog.Debug("decision engine: all plan steps completed, stopping")
+				return nil
+			}
+		}
 		s.engine.Admit(s.ctx, s.actResults, s.maxAttempts)
 	}
 

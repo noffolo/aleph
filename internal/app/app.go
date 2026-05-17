@@ -301,11 +301,12 @@ func (a *AlephApp) Serve(port int) error {
 	}
 
 	engineCfg := decision.EngineConfig{
-		Provider:    llmProvider,
-		MetaRepo:    metaRepoAdapter,
-		Executor:    helperExec,
-		Registry:    registryAdapter,
-		MaxAttempts: 5,
+		Provider:        llmProvider,
+		ProviderBaseURL: a.cfg.OllamaBaseURL,
+		MetaRepo:        metaRepoAdapter,
+		Executor:        helperExec,
+		Registry:        registryAdapter,
+		MaxAttempts:     5,
 	}
 
 	// ── GNN Link Predictor (optional, epistemic trust) ───────────────────
