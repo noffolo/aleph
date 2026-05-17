@@ -28,10 +28,19 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: 'npx vite --port 5173',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 30000,
-  },
+  webServer: [
+    {
+      command: 'go run ./cmd/aleph serve',
+      url: 'http://localhost:8080/api/v1/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30000,
+      cwd: __dirname + '/..',
+    },
+    {
+      command: 'npx vite --port 5173',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30000,
+    },
+  ],
 });
