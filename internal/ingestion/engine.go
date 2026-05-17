@@ -17,6 +17,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
+	"net"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -1026,6 +1027,14 @@ type emailRow struct {
 func fetchIMAP(host, user, pass, folder string, maxMessages int) ([]emailRow, error) {
 	if !strings.Contains(host, ":") {
 		host = host + ":993"
+	}
+
+	hostname, port, err := net.SplitHostPort(host)
+	if err != nil {
+		return nil, fmt.Errorf("IMAP host parse: %w", err)
+	}
+	if err := ssrf.ValidateHostname(hostname, port); err != nil {
+		return nil, fmt.Errorf("IMAP SSRF check: %w", err)
 	}
 
 	conn, err := tls.Dial("tcp", host, &tls.Config{MinVersion: tls.VersionTLS12})

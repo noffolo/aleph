@@ -171,6 +171,21 @@ func TestRunTask_InvalidID(t *testing.T) {
 }
 
 func TestEngine_Close(t *testing.T) {
-	eng, _ := setupTestEngine(t)
+	db, err := storage.NewDuckDB(":memory:")
+	require.NoError(t, err)
+	defer db.Close()
+	eng := NewEngine("", nil, db, nil)
+	require.NotNil(t, eng)
 	assert.NoError(t, eng.Close())
+	assert.NoError(t, eng.Close())
+}
+
+func TestFetchIMAP_SSRFBlocked(t *testing.T) {
+	_, err := fetchIMAP("127.0.0.1:1993", "dummy", "dummy", "INBOX", 1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "localhost")
+
+	_, err = fetchIMAP("127.0.0.1", "dummy", "dummy", "INBOX", 1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "localhost")
 }
