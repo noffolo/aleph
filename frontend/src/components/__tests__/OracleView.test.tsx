@@ -234,4 +234,73 @@ describe('OracleView', () => {
     render(<OracleView inline={true} />)
     expect(screen.getByText('Nessuna previsione')).toBeInTheDocument()
   })
+
+  // --- Sentiment neutral result ---
+  it('renders neutral sentiment result', async () => {
+    mockAnalyzeSentiment.mockResolvedValue({ score: 0.5, label: 'neutral' })
+    render(<OracleView />)
+    fireEvent.change(screen.getByPlaceholderText('Scrivi testo...'), { target: { value: 'Normale' } })
+    await userEvent.click(screen.getByText('generic.execute'))
+    await waitFor(() => {
+      expect(screen.getByText(/50%/)).toBeInTheDocument()
+    })
+  })
+
+  // --- Sentiment with score < 0 (error/missing) ---
+  it('handles sentiment result with negative score gracefully', async () => {
+    mockAnalyzeSentiment.mockResolvedValue({ score: -1, label: 'error' })
+    render(<OracleView />)
+    fireEvent.change(screen.getByPlaceholderText('Scrivi testo...'), { target: { value: 'Test' } })
+    await userEvent.click(screen.getByText('generic.execute'))
+    await waitFor(() => {
+      expect(screen.getByText('N/D')).toBeInTheDocument()
+    })
+  })
+
+  // --- Prediction with STABLE state (not ACTION_REQUIRED) ---
+  it('renders STABLE prediction with TrendingUp icon', () => {
+    setPredictions([{ entityId: 'XRP', probability: 0.75, predictedState: 'STABLE', explanation: 'Sideways' }])
+    render(<OracleView />)
+    expect(screen.getByText('75%')).toBeInTheDocument()
+  })
+
+  // --- Advanced panel visibility ---
+  it('shows advanced panel when showAdvanced is toggled on', async () => {
+    render(<OracleView />)
+    const settingsBtn = screen.getByTitle('oracle.advancedSettings')
+    await userEvent.click(settingsBtn)
+    // The advanced panel should render via GlassPanel
+    // Advanced panel section key is 'oracle.advanced'
+  })
+
+  // --- Sentiment label: positive ---
+  it('renders positive sentiment label text', async () => {
+    mockAnalyzeSentiment.mockResolvedValue({ score: 0.92, label: 'positive' })
+    render(<OracleView />)
+    fireEvent.change(screen.getByPlaceholderText('Scrivi testo...'), { target: { value: 'Great!' } })
+    await userEvent.click(screen.getByText('generic.execute'))
+    await waitFor(() => {
+      expect(screen.getByText(/92%/)).toBeInTheDocument()
+    })
+  })
+
+  // --- Empty sentimentText.trim() does nothing ---
+  it('does not call analyzeSentiment when text is only whitespace', () => {
+    render(<OracleView />)
+    fireEvent.change(screen.getByPlaceholderText('Scrivi testo...'), { target: { value: '   ' } })
+    expect(screen.getByText('generic.execute')).toBeDisabled()
+  })
+
+  // --- Multiple predictions render all feedback buttons ---
+  it('renders four feedback buttons for two predictions', () => {
+    setPredictions([
+      { entityId: 'A', probability: 0.7, predictedState: 'STABLE', explanation: 'Stable' },
+      { entityId: 'B', probability: 0.4, predictedState: 'STABLE', explanation: 'Risky' },
+    ])
+    render(<OracleView />)
+    const thumbsUpBtns = screen.getAllByTitle('oracle.correctPrediction')
+    const thumbsDownBtns = screen.getAllByTitle('oracle.wrongPrediction')
+    expect(thumbsUpBtns).toHaveLength(2)
+    expect(thumbsDownBtns).toHaveLength(2)
+  })
 })

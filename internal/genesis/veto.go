@@ -59,6 +59,9 @@ func (v *VetoRegistry) Register(s Suggestion) {
 	defer v.mu.Unlock()
 	s.CreatedAt = time.Now()
 	s.ExpiresAt = s.CreatedAt.Add(v.ttl)
+	if s.Status == "" {
+		s.Status = "pending"
+	}
 	v.suggestions[s.ID] = s
 }
 

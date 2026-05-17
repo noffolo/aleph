@@ -74,9 +74,9 @@ func (h *QueryHandler) resolveProject(projectID string) (string, *dsl.Program, e
 	if prog == nil {
 		ontPath := filepath.Join(projectPath, "ontologies", "core.aleph")
 		content, err := os.ReadFile(ontPath)
-		if err != nil { return "", nil, fmt.Errorf("failed to read ontology: %v", err) }
+		if err != nil { return "", nil, fmt.Errorf("failed to read ontology: %w", err) }
 		prog, err = dsl.Parse(string(content))
-		if err != nil { return "", nil, fmt.Errorf("failed to parse ontology: %v", err) }
+		if err != nil { return "", nil, fmt.Errorf("failed to parse ontology: %w", err) }
 		h.programs.Set(projectID, prog)
 	}
 	return projectPath, prog, nil

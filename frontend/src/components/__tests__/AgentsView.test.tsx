@@ -331,4 +331,30 @@ describe('AgentsView', () => {
     expect(screen.getByLabelText('Edit agent Agent 1')).toBeInTheDocument()
     expect(screen.getByLabelText('Delete agent Agent 1')).toBeInTheDocument()
   })
+
+  it('renders baseUrl badge when baseUrl is provided', () => {
+    const agents = [makeAgent('1', { baseUrl: 'https://api.example.com/v1' })]
+    render(
+      <AgentsView
+        agents={agents}
+        onCreateAgent={mockOnCreate}
+        onDeleteAgent={mockOnDelete}
+        onUpdateAgent={mockOnUpdate}
+      />,
+    )
+    expect(screen.getByText('https://api.example.com/v1')).toBeInTheDocument()
+  })
+
+  it('renders agent count in summary bar', () => {
+    const agents = [makeAgent('1'), makeAgent('2')]
+    render(
+      <AgentsView
+        agents={agents}
+        onCreateAgent={mockOnCreate}
+        onDeleteAgent={mockOnDelete}
+        onUpdateAgent={mockOnUpdate}
+      />,
+    )
+    expect(screen.getByText('2')).toBeInTheDocument()
+  })
 })

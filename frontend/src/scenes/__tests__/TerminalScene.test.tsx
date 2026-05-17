@@ -20,7 +20,7 @@ vi.mock('../../components/SkeletonLoader', () => ({
 }))
 
 describe('TerminalScene', () => {
-  it('renders TerminalView by default', async () => {
+  it('renders TerminalView by default', () => {
     render(<TerminalScene />)
     expect(screen.getByTestId('terminal-view')).toBeDefined()
   })

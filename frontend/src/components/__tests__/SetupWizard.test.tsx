@@ -149,4 +149,135 @@ describe('SetupWizard', () => {
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText('4')).toBeInTheDocument()
   })
+
+  it('switches to English language', () => {
+    render(
+      <SetupWizard
+        onComplete={mockOnComplete}
+        onLogin={mockOnLogin}
+        onCreateProject={mockOnCreateProject}
+        onCreateApiKey={mockOnCreateApiKey}
+      />,
+    )
+    fireEvent.click(screen.getByText('EN'))
+    expect(screen.getByText('Connect to Aleph')).toBeInTheDocument()
+  })
+
+  it('submits login on Enter key', async () => {
+    mockOnLogin.mockResolvedValueOnce(undefined)
+    render(
+      <SetupWizard
+        onComplete={mockOnComplete}
+        onLogin={mockOnLogin}
+        onCreateProject={mockOnCreateProject}
+        onCreateApiKey={mockOnCreateApiKey}
+      />,
+    )
+    const input = screen.getByPlaceholderText('Inserisci la tua API Key')
+    fireEvent.change(input, { target: { value: 'enter-key' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => {
+      expect(mockOnLogin).toHaveBeenCalledWith('enter-key')
+    })
+  })
+
+  it('shows error when project creation fails', async () => {
+    mockOnLogin.mockResolvedValueOnce(undefined)
+    mockOnCreateProject.mockRejectedValueOnce(new Error('Name taken'))
+    render(
+      <SetupWizard
+        onComplete={mockOnComplete}
+        onLogin={mockOnLogin}
+        onCreateProject={mockOnCreateProject}
+        onCreateApiKey={mockOnCreateApiKey}
+      />,
+    )
+    fireEvent.change(screen.getByPlaceholderText('Inserisci la tua API Key'), {
+      target: { value: 'test-key' },
+    })
+    fireEvent.click(screen.getByText('Connettiti'))
+    await waitFor(() => {
+      expect(screen.getByText('Crea il tuo spazio di lavoro')).toBeInTheDocument()
+    })
+    const projectInput = screen.getByPlaceholderText('workspace-name')
+    fireEvent.change(projectInput, { target: { value: 'bad-project' } })
+    fireEvent.click(screen.getByText('Prosegui'))
+    await waitFor(() => {
+      expect(screen.getByText('Name taken')).toBeInTheDocument()
+    })
+  })
+
+  it('shows error when API key generation fails', async () => {
+    mockOnLogin.mockResolvedValueOnce(undefined)
+    mockOnCreateProject.mockResolvedValueOnce('proj-err')
+    mockOnCreateApiKey.mockRejectedValueOnce(new Error('Key generation failed'))
+    render(
+      <SetupWizard
+        onComplete={mockOnComplete}
+        onLogin={mockOnLogin}
+        onCreateProject={mockOnCreateProject}
+        onCreateApiKey={mockOnCreateApiKey}
+      />,
+    )
+    fireEvent.change(screen.getByPlaceholderText('Inserisci la tua API Key'), {
+      target: { value: 'test-key' },
+    })
+    fireEvent.click(screen.getByText('Connettiti'))
+    await waitFor(() => {
+      expect(screen.getByText('Crea il tuo spazio di lavoro')).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByPlaceholderText('workspace-name'), {
+      target: { value: 'err-project' },
+    })
+    fireEvent.click(screen.getByText('Prosegui'))
+    await waitFor(() => {
+      expect(screen.getByText('Genera API Key Protetta')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Genera API Key Protetta'))
+    await waitFor(() => {
+      expect(screen.getByText('Key generation failed')).toBeInTheDocument()
+    })
+  })
+
+  it('copies API key to clipboard in final step', async () => {
+    const writeTextSpy = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText: writeTextSpy } })
+    vi.spyOn(window, 'alert').mockImplementation(() => {})
+
+    mockOnLogin.mockResolvedValueOnce(undefined)
+    mockOnCreateProject.mockResolvedValueOnce('proj-c')
+    mockOnCreateApiKey.mockResolvedValueOnce('secret-copy-key')
+
+    render(
+      <SetupWizard
+        onComplete={mockOnComplete}
+        onLogin={mockOnLogin}
+        onCreateProject={mockOnCreateProject}
+        onCreateApiKey={mockOnCreateApiKey}
+      />,
+    )
+    fireEvent.change(screen.getByPlaceholderText('Inserisci la tua API Key'), {
+      target: { value: 'test-key' },
+    })
+    fireEvent.click(screen.getByText('Connettiti'))
+    await waitFor(() => {
+      expect(screen.getByText('Crea il tuo spazio di lavoro')).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByPlaceholderText('workspace-name'), {
+      target: { value: 'copy-project' },
+    })
+    fireEvent.click(screen.getByText('Prosegui'))
+    await waitFor(() => {
+      expect(screen.getByText('Genera API Key Protetta')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Genera API Key Protetta'))
+    await waitFor(() => {
+      expect(screen.getByText('Spazio di lavoro pronto')).toBeInTheDocument()
+    })
+    const copyBtn = screen.getByTitle('Copy')
+    fireEvent.click(copyBtn)
+    await waitFor(() => {
+      expect(writeTextSpy).toHaveBeenCalledWith('secret-copy-key')
+    })
+  })
 })

@@ -57,4 +57,15 @@ describe('reportError', () => {
       message: 'null',
     })
   })
+
+  it('does not log to console in non-DEV mode', () => {
+    const spy = vi.spyOn(import.meta, 'env', 'get').mockReturnValue({ DEV: false, MODE: 'production', PROD: true } as any)
+    reportError('Prod', new Error('prod error'))
+    expect(mockAddToast).toHaveBeenCalledWith({
+      type: 'error',
+      context: 'Prod',
+      message: 'prod error',
+    })
+    spy.mockRestore()
+  })
 })

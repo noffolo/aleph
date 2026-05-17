@@ -1,8 +1,13 @@
 # AGENTS.md — Aleph-v2 Agent Map
 
-## Current Status (30 Apr 2026)
+## Current Status (16 May 2026)
 
 - **W0-W7: Complete** — All waves implemented and verified
+- **TDD Session Plan v2** — `docs/superpowers/plans/2026-05-16-tdd-session-plan-v2.md`
+  - Reviewed by Metis + Oracle + Momus before execution
+  - Key bug found: `ListComponents` filter in `duckdb_registry.go` is a silent no-op (SQL at line 129 ignores WHERE clause)
+  - Key dead code found: `adapters.ts` (frontend/src/api/adapters.ts) — all 6 `fromProto*` functions imported 0 times; 28 consumers import factory.ts directly
+  - Plan scope: 4 real tasks (CI/CD NLP, ListComponents bug fix, fromProto edge cases, factory.ts smoke test)
 - Build: `go build ./...` ✅ | `go test -race -count=1 ./...` ✅ | `go vet ./...` ✅
 - Frontend: `npx tsc --noEmit` ✅ | `npx vite build` ✅ | `npx vitest run` ✅
 - CI: GitHub Actions (Go + Frontend + Docker) | Security (gitleaks) | Deploy (tag-triggered)
@@ -116,12 +121,13 @@ ls docs/skills/ .config/opencode/skills/ 2>/dev/null | sort -u
 ## State Files
 
 - `.sisyphus/plans/` — Execution plans and wave definitions
+- `docs/superpowers/plans/` — TDD session plans and feature plans
 - `docs/` — Architecture, security, evaluation documents
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **aleph** (17633 symbols, 42173 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **aleph** (22872 symbols, 56479 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

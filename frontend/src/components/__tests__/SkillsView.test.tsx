@@ -279,4 +279,52 @@ describe('SkillsView', () => {
     )
     expect(screen.getByRole('region', { name: 'Skills' })).toBeInTheDocument()
   })
+
+  it('renders inline mode without max-w wrapper class', () => {
+    const { container } = render(
+      <SkillsView
+        skills={[makeSkill('1')]}
+        tools={tools}
+        onCreateSkill={mockOnCreate}
+        onViewSkillDetail={mockOnView}
+        onDeleteSkill={mockOnDelete}
+        onRunSkill={mockOnRun}
+        inline={true}
+      />,
+    )
+    const root = container.firstElementChild as HTMLElement
+    expect(root.className).not.toContain('max-w-6xl')
+  })
+
+  it('does not render tool badges when toolIds is empty array', () => {
+    const skills = [makeSkill('1', { toolIds: [] })]
+    const { container } = render(
+      <SkillsView
+        skills={skills}
+        tools={tools}
+        onCreateSkill={mockOnCreate}
+        onViewSkillDetail={mockOnView}
+        onDeleteSkill={mockOnDelete}
+        onRunSkill={mockOnRun}
+      />,
+    )
+    expect(screen.getByText('Skill 1')).toBeInTheDocument()
+    const badges = container.querySelectorAll('.bg-primary\\/10')
+    expect(badges.length).toBe(0)
+  })
+
+  it('does not render tool badges when toolIds is undefined', () => {
+    const skills = [makeSkill('1', { toolIds: undefined })]
+    render(
+      <SkillsView
+        skills={skills}
+        tools={tools}
+        onCreateSkill={mockOnCreate}
+        onViewSkillDetail={mockOnView}
+        onDeleteSkill={mockOnDelete}
+        onRunSkill={mockOnRun}
+      />,
+    )
+    expect(screen.getByText('Skill 1')).toBeInTheDocument()
+  })
 })

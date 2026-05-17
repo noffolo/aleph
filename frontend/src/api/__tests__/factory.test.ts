@@ -33,22 +33,30 @@ describe('API client factory', () => {
   });
 
   it('each client exposes PromiseClient methods', () => {
-    const clients = [
+    const clients: Record<string, object>[] = [
       registryClient, sandboxClient, queryClient, projectClient,
       agentClient, ingestionClient, libraryClient, authClient,
       skillClient, toolClient, nlpClient, notificationClient,
     ];
-    clients.forEach((client) => {
+    clients.forEach((client, i) => {
       const methodCount = Object.keys(client).length;
       expect(methodCount).toBeGreaterThan(0);
     });
   });
 
-  it('all clients share the same transport configuration', () => {
-    // Type-level verification — transport is in client.ts
-    // All clients are created with the same transport, so any client
-    // should have the expected method structure
-    const clientKeys = Object.keys(registryClient);
-    expect(clientKeys.length).toBeGreaterThan(0);
+  it('distinct services produce distinct method signatures', () => {
+    const pairs: [Record<string, object>, Record<string, object>][] = [
+      [registryClient, sandboxClient],
+      [queryClient, projectClient],
+      [agentClient, ingestionClient],
+      [libraryClient, authClient],
+      [skillClient, toolClient],
+      [nlpClient, notificationClient],
+    ];
+    pairs.forEach(([a, b]) => {
+      const keysA = Object.keys(a).sort();
+      const keysB = Object.keys(b).sort();
+      expect(keysA).not.toEqual(keysB);
+    });
   });
 });

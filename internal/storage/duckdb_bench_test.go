@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -399,4 +400,81 @@ func BenchmarkResourceExhaustion(b *testing.B) {
 	}
 
 	b.Logf("resource exhaustion errors: %d", exhaustionCount)
+}
+
+// BenchmarkDuckDB_VSSQuery measures vector similarity search performance
+// against 1000 embeddings of 384 dimensions using DuckDB's VSS extension.
+func BenchmarkDuckDB_VSSQuery(b *testing.B) {
+	dbPath := b.TempDir() + "/bench_vss.duckdb"
+	db, err := NewDuckDB(dbPath)
+	if err != nil {
+		b.Fatalf("NewDuckDB: %v", err)
+	}
+	defer db.Close()
+
+	if !db.HasVSS {
+		b.Skip("VSS extension not available")
+	}
+
+	ctx := context.Background()
+	const numEmbeddings = 1000
+	const dim = 384
+
+	_, err = db.Exec(ctx, fmt.Sprintf(`CREATE TABLE bench_embeddings (
+		id INTEGER PRIMARY KEY,
+		vec FLOAT[%d]
+	)`, dim))
+	if err != nil {
+		b.Fatalf("create table: %v", err)
+	}
+
+	rng := rand.New(rand.NewSource(42))
+	for i := 0; i < numEmbeddings; i++ {
+		vec := make([]float32, dim)
+		for j := range vec {
+			vec[j] = rng.Float32()
+		}
+		lit := float32ArrayLiteral(vec)
+		_, err = db.Exec(ctx, fmt.Sprintf(`INSERT INTO bench_embeddings VALUES (%d, %s)`, i, lit))
+		if err != nil {
+			b.Fatalf("insert embedding %d: %v", i, err)
+		}
+	}
+
+	_, err = db.Exec(ctx, `CREATE INDEX bench_vec_idx ON bench_embeddings USING HNSW (vec) WITH (metric = 'cosine')`)
+	if err != nil {
+		b.Fatalf("create index: %v", err)
+	}
+
+	queryVec := make([]float32, dim)
+	for j := range queryVec {
+		queryVec[j] = rng.Float32()
+	}
+	queryLit := float32ArrayLiteral(queryVec)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		rows, err := db.Query(
+			fmt.Sprintf(`SELECT id, array_cosine_similarity(vec, %s) AS score
+				FROM bench_embeddings
+				ORDER BY score DESC
+				LIMIT 10`, queryLit),
+		)
+		if err != nil {
+			b.Fatalf("search query: %v", err)
+		}
+		rows.Close()
+	}
+}
+
+// float32ArrayLiteral formats a []float32 as a DuckDB array literal,
+// e.g. [0.1,0.2,0.3]::FLOAT[384].
+func float32ArrayLiteral(vec []float32) string {
+	parts := make([]string, len(vec))
+	for i, v := range vec {
+		parts[i] = fmt.Sprintf("%g", v)
+	}
+	return fmt.Sprintf("[%s]::FLOAT[%d]", strings.Join(parts, ","), len(vec))
 }

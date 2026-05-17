@@ -131,4 +131,39 @@ describe('DashboardView', () => {
       expect(screen.getByText('SELECT COUNT(*) FROM events')).toBeInTheDocument()
     })
   })
+
+  it('renders health items with error status when backend is not ok', async () => {
+    mockApiGet.mockResolvedValueOnce({
+      json: async () => ({ backend: 'error', nlp: 'ok', duckdb: 'ok', mcp: 'ok' }),
+    })
+    mockApiGet.mockResolvedValueOnce({
+      json: async () => ({ used: 0 }),
+    })
+    mockApiGet.mockResolvedValueOnce({
+      json: async () => ({ queries: [] }),
+    })
+
+    render(<DashboardView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('System Health')).toBeInTheDocument()
+    })
+  })
+
+  it('uses fallback budget when budget endpoint fails', async () => {
+    mockApiGet.mockResolvedValueOnce({
+      json: async () => ({ backend: 'ok', nlp: 'ok', duckdb: 'ok', mcp: 'ok' }),
+    })
+    mockApiGet.mockRejectedValueOnce(new Error('Budget fetch failed'))
+    mockApiGet.mockResolvedValueOnce({
+      json: async () => ({ queries: [] }),
+    })
+
+    render(<DashboardView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('LLM Budget Usage')).toBeInTheDocument()
+      expect(screen.getByText(/420/)).toBeInTheDocument()
+    })
+  })
 })

@@ -15,7 +15,7 @@ type Postgres struct {
 func NewPostgres(dsn string) (*Postgres, error) {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open postgres: %v", err)
+		return nil, fmt.Errorf("failed to open postgres: %w", err)
 	}
 
 	// Hardened settings from Senior DevOps
@@ -24,7 +24,7 @@ func NewPostgres(dsn string) (*Postgres, error) {
 	db.SetConnMaxLifetime(5 * time.Minute)
 
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping postgres: %v", err)
+		return nil, fmt.Errorf("failed to ping postgres: %w", err)
 	}
 
 	return &Postgres{db: db}, nil

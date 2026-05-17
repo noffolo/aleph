@@ -185,4 +185,74 @@ describe('LibraryView', () => {
     render(<LibraryView {...buildProps()} />)
     expect(screen.getByText('Carica')).toBeInTheDocument()
   })
+
+  it('renders file input hidden element', () => {
+    render(<LibraryView {...buildProps()} />)
+    const fileInput = document.querySelector('input[type="file"]')
+    expect(fileInput).toBeInTheDocument()
+    expect(fileInput).toHaveAttribute('multiple')
+    expect(fileInput!.className).toContain('hidden')
+  })
+
+  it('processes files on file input change', async () => {
+    const file = new File(['hello world'], 'test.txt', { type: 'text/plain' })
+    render(<LibraryView {...buildProps()} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    Object.defineProperty(fileInput, 'files', { value: [file], writable: false })
+    fireEvent.change(fileInput)
+    await vi.waitFor(() => {
+      expect(mockOnUploadAsset).toHaveBeenCalledWith('test.txt', expect.any(Uint8Array))
+    })
+  })
+
+  it('processes files on drop', async () => {
+    const file = new File(['drop content'], 'dropped.txt', { type: 'text/plain' })
+    const dataTransfer = {
+      files: [file],
+      items: [],
+      types: ['Files'],
+      getData: vi.fn(),
+      setData: vi.fn(),
+      clearData: vi.fn(),
+    } as unknown as DataTransfer
+    render(<LibraryView {...buildProps({ assets: [] })} />)
+    const dropZone = screen.getByText(/Trascina qui/).closest('div')!.parentElement!
+    fireEvent.drop(dropZone, { dataTransfer })
+    await vi.waitFor(() => {
+      expect(mockOnUploadAsset).toHaveBeenCalledWith('dropped.txt', expect.any(Uint8Array))
+    })
+  })
+
+  it('clears dragOver on dragLeave', () => {
+    render(<LibraryView {...buildProps({ assets: [] })} />)
+    const dropZone = screen.getByText(/Trascina qui/).closest('div')!.parentElement!
+    fireEvent.dragOver(dropZone)
+    expect(screen.getByText('Rilascia per caricare')).toBeInTheDocument()
+    fireEvent.dragLeave(dropZone)
+    expect(screen.queryByText('Rilascia per caricare')).not.toBeInTheDocument()
+  })
+
+  it('shows upload button disabled during upload', async () => {
+    const file = new File(['test'], 'file.txt', { type: 'text/plain' })
+    // Make upload slow so we can observe the disabled state
+    mockOnUploadAsset.mockImplementation(() => new Promise(() => {}))
+    render(<LibraryView {...buildProps()} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    Object.defineProperty(fileInput, 'files', { value: [file], writable: false })
+    fireEvent.change(fileInput)
+    await vi.waitFor(() => {
+      expect(screen.getByText('Caricamento...')).toBeInTheDocument()
+    })
+    // Reset mock so subsequent tests aren't affected
+    mockOnUploadAsset.mockImplementation(() => Promise.resolve())
+  })
+
+  it('renders asset date and type badges', () => {
+    render(<LibraryView {...buildProps()} />)
+    const dateStr = new Date(1700000000 * 1000).toLocaleDateString()
+    const dateElements = screen.getAllByText(dateStr)
+    expect(dateElements.length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('pdf')).toBeInTheDocument()
+    expect(screen.getByText('csv')).toBeInTheDocument()
+  })
 })

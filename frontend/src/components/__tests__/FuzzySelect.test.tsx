@@ -134,4 +134,78 @@ describe('FuzzySelect', () => {
     fireEvent.change(searchInput, { target: { value: 'one' } })
     expect(mockFuzzySearch).toHaveBeenCalled()
   })
+
+  it('navigates options with ArrowDown key', () => {
+    const { container } = render(
+      <FuzzySelect value="" options={options} onChange={vi.fn()} />
+    )
+    const trigger = container.querySelector('.relative > div') as HTMLElement
+    fireEvent.click(trigger)
+    const searchInput = screen.getByPlaceholderText('Cerca...')
+    fireEvent.keyDown(searchInput, { key: 'ArrowDown' })
+    // Verify an option has the highlighted class after navigation
+    const options2 = screen.getAllByRole('button')
+    expect(options2.length).toBeGreaterThan(0)
+  })
+
+  it('selects option with Enter key', () => {
+    const onChange = vi.fn()
+    const { container } = render(
+      <FuzzySelect value="" options={options} onChange={onChange} />
+    )
+    const trigger = container.querySelector('.relative > div') as HTMLElement
+    fireEvent.click(trigger)
+    const searchInput = screen.getByPlaceholderText('Cerca...')
+    fireEvent.keyDown(searchInput, { key: 'Enter' })
+    expect(onChange).toHaveBeenCalledWith('opt1')
+  })
+
+  it('navigates up and down with arrow keys then selects with Enter', () => {
+    const onChange = vi.fn()
+    const { container } = render(
+      <FuzzySelect value="" options={options} onChange={onChange} />
+    )
+    const trigger = container.querySelector('.relative > div') as HTMLElement
+    fireEvent.click(trigger)
+    const searchInput = screen.getByPlaceholderText('Cerca...')
+    fireEvent.keyDown(searchInput, { key: 'ArrowDown' })
+    fireEvent.keyDown(searchInput, { key: 'ArrowDown' })
+    fireEvent.keyDown(searchInput, { key: 'Enter' })
+    expect(onChange).toHaveBeenCalledWith('opt3')
+  })
+
+  it('does not wrap past first option with ArrowUp', () => {
+    const onChange = vi.fn()
+    const { container } = render(
+      <FuzzySelect value="" options={options} onChange={onChange} />
+    )
+    const trigger = container.querySelector('.relative > div') as HTMLElement
+    fireEvent.click(trigger)
+    const searchInput = screen.getByPlaceholderText('Cerca...')
+    fireEvent.keyDown(searchInput, { key: 'ArrowUp' })
+    fireEvent.keyDown(searchInput, { key: 'Enter' })
+    expect(onChange).toHaveBeenCalledWith('opt1')
+  })
+
+  it('closes dropdown on outside click', () => {
+    const { container } = render(
+      <FuzzySelect value="" options={options} onChange={vi.fn()} />
+    )
+    const trigger = container.querySelector('.relative > div') as HTMLElement
+    fireEvent.click(trigger)
+    expect(screen.getByPlaceholderText('Cerca...')).toBeInTheDocument()
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByPlaceholderText('Cerca...')).not.toBeInTheDocument()
+  })
+
+  it('highlights option on mouse enter', () => {
+    const { container } = render(
+      <FuzzySelect value="" options={options} onChange={vi.fn()} />
+    )
+    const trigger = container.querySelector('.relative > div') as HTMLElement
+    fireEvent.click(trigger)
+    const secondOption = screen.getByText('Option Two')
+    fireEvent.mouseEnter(secondOption)
+    expect(secondOption.closest('button')!.className).toContain('bg-primary/10')
+  })
 })

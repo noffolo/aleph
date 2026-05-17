@@ -13,6 +13,7 @@ export default defineConfig({
     coverage: {
       reporter: ['text', 'lcov', 'html'],
       enabled: true,
+      exclude: ['api/proto/**', '**/*.pb.*', '**/_grpc.*'],
       thresholds: {
         statements: 48,
         branches: 40,

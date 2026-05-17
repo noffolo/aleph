@@ -216,4 +216,106 @@ describe('ComponentsView', () => {
     fireEvent.click(screen.getByText('Pausa'))
     expect(mockOnUpdateComponentStatus).toHaveBeenCalledWith('c1', 'paused')
   })
+
+  it('renders execution command when present on component', () => {
+    const comps = [{ ...components[0], executionCommand: 'npm run analyze' }]
+    render(
+      <ComponentsView
+        components={comps}
+        onUpdateComponentStatus={mockOnUpdateComponentStatus}
+        onRegisterComponent={mockOnRegisterComponent}
+        onGetComponent={mockOnGetComponent}
+      />,
+    )
+    expect(screen.getByText(/\$ npm run analyze/)).toBeInTheDocument()
+  })
+
+  it('renders component detail slide over on Dettagli click', () => {
+    render(
+      <ComponentsView
+        components={components}
+        onUpdateComponentStatus={mockOnUpdateComponentStatus}
+        onRegisterComponent={mockOnRegisterComponent}
+        onGetComponent={mockOnGetComponent}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('View component Analyzer details'))
+    expect(mockSetSlideOverContent).toHaveBeenCalledWith({
+      type: 'component-detail',
+      title: 'Analyzer',
+      data: { componentId: 'c1' },
+    })
+  })
+
+  it('renders approval status badge when not approved', () => {
+    const comps = [{ ...components[0], approvalStatus: 'pending' }]
+    render(
+      <ComponentsView
+        components={comps}
+        onUpdateComponentStatus={mockOnUpdateComponentStatus}
+        onRegisterComponent={mockOnRegisterComponent}
+        onGetComponent={mockOnGetComponent}
+      />,
+    )
+    expect(screen.getByText('pending')).toBeInTheDocument()
+  })
+
+  it('renders status badges for different health states', () => {
+    const comps = [
+      { ...components[0], status: 'running' },
+      { ...components[0], id: 'c3', name: 'Watcher', status: 'failed' },
+    ]
+    render(
+      <ComponentsView
+        components={comps}
+        onUpdateComponentStatus={mockOnUpdateComponentStatus}
+        onRegisterComponent={mockOnRegisterComponent}
+        onGetComponent={mockOnGetComponent}
+      />,
+    )
+    expect(screen.getByText('running')).toBeInTheDocument()
+    expect(screen.getByText('failed')).toBeInTheDocument()
+  })
+
+  it('renders latency, trust, brier, cpu, memory metadata when present', () => {
+    const comps = [
+      {
+        ...components[0],
+        avgLatencyMs: 42,
+        avgExecTimeMs: 150,
+        trustScore: 0.85,
+        avgBrierScore: 0.123,
+        avgCpuUsage: 12.5,
+        avgMemoryMb: 256,
+      },
+    ]
+    render(
+      <ComponentsView
+        components={comps}
+        onUpdateComponentStatus={mockOnUpdateComponentStatus}
+        onRegisterComponent={mockOnRegisterComponent}
+        onGetComponent={mockOnGetComponent}
+      />,
+    )
+    expect(screen.getByText(/42ms/)).toBeInTheDocument()
+    expect(screen.getByText(/Esecuzione 150ms/)).toBeInTheDocument()
+    expect(screen.getByText(/Trust \(beta\) 0.85/)).toBeInTheDocument()
+    expect(screen.getByText(/Brier \(beta\) 0.123/)).toBeInTheDocument()
+    expect(screen.getByText(/CPU 12.5%/)).toBeInTheDocument()
+    expect(screen.getByText(/256MB/)).toBeInTheDocument()
+  })
+
+  it('renders inline mode without max-w wrapper', () => {
+    const { container } = render(
+      <ComponentsView
+        components={components}
+        onUpdateComponentStatus={mockOnUpdateComponentStatus}
+        onRegisterComponent={mockOnRegisterComponent}
+        onGetComponent={mockOnGetComponent}
+        inline={true}
+      />,
+    )
+    const root = container.firstElementChild as HTMLElement
+    expect(root.className).not.toContain('max-w-6xl')
+  })
 })

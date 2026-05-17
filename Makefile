@@ -55,6 +55,20 @@ test: test-go test-frontend
 
 test-all: test-go test-frontend test-nlp test-e2e
 
+# ── Coverage ─────────────────────────────────────────────────────
+
+.PHONY: test-go-cover
+test-go-cover:
+	go test -race -count=1 -coverprofile=coverage.out ./internal/...
+	@echo "── Go Coverage (excluding proto) ──"
+	@go tool cover -func=coverage.out | grep -v '.pb.go' | grep -v '_grpc.pb.go' | tail -1
+	@echo "── Per-package ──"
+	@go tool cover -func=coverage.out | grep -v '.pb.go' | grep -v '_grpc.pb.go' | grep -v 'total:' | awk '{file=$$1; sub(/:[0-9]+:/, "", file); cov=$$NF; print cov, file}' | sort -rn | head -20
+
+.PHONY: test-fe-cover
+test-fe-cover:
+	cd frontend && npx vitest run --coverage
+
 # ── Docker ──────────────────────────────────────────────────────
 
 docker-up:

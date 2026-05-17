@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -240,7 +241,7 @@ func (r *MetadataRepository) ConfirmAgentInProject(agentID, projectID string) (b
 	var id string
 	err := r.db.QueryRow("SELECT id FROM system_agents WHERE id = $1 AND project_id = $2", agentID, projectID).Scan(&id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
 		return false, err

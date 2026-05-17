@@ -111,7 +111,7 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 	// Data DB (DuckDB) - Analytic Engine
 	db, err := storage.NewDuckDB(cfg.DuckDBPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open duckdb: %v", err)
+		return nil, fmt.Errorf("failed to open duckdb: %w", err)
 	}
 	func() {
 		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
@@ -134,12 +134,12 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 	// System DB (PostgreSQL) - System Records & Consistency
 	pg, err := storage.NewPostgres(cfg.PostgresDSN)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to postgres: %v", err)
+		return nil, fmt.Errorf("failed to connect to postgres: %w", err)
 	}
 
 	metaRepo, err := repository.NewMetadataRepository(pg.DB())
 	if err != nil {
-		return nil, fmt.Errorf("failed to init metadata repo: %v", err)
+		return nil, fmt.Errorf("failed to init metadata repo: %w", err)
 	}
 	metaRepo.SetEncryptionKey(cfg.EncryptionKey)
 
@@ -522,7 +522,7 @@ func (a *AlephApp) makeSentimentHelper() func(ctx context.Context, text string) 
 		resp, err := a.nlpHandler.AnalyzeSentiment(ctx, connect.NewRequest(&nlpv1.AnalyzeSentimentRequest{Text: text}))
 		if err != nil {
 			slog.Warn("sentiment analysis failed", "err", err)
-			return "", fmt.Errorf("Errore analisi sentiment: %v", err)
+			return "", fmt.Errorf("Errore analisi sentiment: %w", err)
 		}
 		result := map[string]interface{}{
 			"score": resp.Msg.Score,

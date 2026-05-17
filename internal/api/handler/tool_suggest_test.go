@@ -100,6 +100,15 @@ func TestToolSuggestHandler_HandleSuggest_DiscoveryNoURLs(t *testing.T) {
 	assert.Contains(t, resp.Error, "tool discovery failed")
 }
 
+func TestHandleSuggest_NoServersConfigured(t *testing.T) {
+	h := NewToolSuggestHandler(nil, nil, nil)
+	body, _ := json.Marshal(suggestRequestBody{Name: "tool_x"})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tools/suggest", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	h.HandleSuggest(w, req)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestToolSuggestHandler_HandleApprove_EmptyBody(t *testing.T) {
 	engine := setupDiscoveryEngine(t)
 	h := NewToolSuggestHandler(engine, nil, nil)
@@ -127,6 +136,18 @@ func TestToolSuggestHandler_HandleApprove_NotFound(t *testing.T) {
 	assert.Contains(t, resp.Error, "suggestion not found")
 }
 
+func TestHandleApprove_NameMismatch(t *testing.T) {
+	h := NewToolSuggestHandler(nil, nil, nil)
+	h.pending["sug-2"] = &pendingSuggestion{
+		ToolDef: mcp.ToolDefinition{Name: "real_name"},
+	}
+	body, _ := json.Marshal(approveRequestBody{Name: "wrong_name", SuggestionID: "sug-2"})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tools/suggest/approve", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	h.HandleApprove(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestStorePending_NonNil(t *testing.T) {
 	engine := setupDiscoveryEngine(t)
 	h := NewToolSuggestHandler(engine, nil, nil)
@@ -150,4 +171,22 @@ func TestToolSuggestHandler_DiscoverMCPTool_MCPScheme(t *testing.T) {
 	h := NewToolSuggestHandler(engine, nil, []string{"mcp://myserver:3000/tools"})
 	_, err := h.discoverMCPTool(context.Background(), "test", "")
 	assert.Error(t, err)
+}
+
+func TestToStageResultJSON_WithData(t *testing.T) {
+	stages := []adaptation.StageResult{
+		{Name: "verify", Passed: true, Message: "ok"},
+		{Name: "adapt", Passed: false, Message: "failed"},
+	}
+	result := toStageResultJSON(stages)
+	require.Len(t, result, 2)
+	assert.Equal(t, "verify", result[0].Name)
+	assert.True(t, result[0].Passed)
+	assert.Equal(t, "adapt", result[1].Name)
+	assert.False(t, result[1].Passed)
+}
+
+func TestServeHTTP_ImplementsHandler(t *testing.T) {
+	var h http.Handler = (*ToolSuggestHandler)(nil)
+	assert.Nil(t, h)
 }

@@ -75,8 +75,14 @@ func (s *Suggester) Analyze(ctx context.Context, input SuggesterInput) ([]Sugges
 	// PASS 2 — Tool Usage Analysis
 	results = append(results, s.analyzeToolUsage(input.ToolUsage, input.ChatHistory, existingSet)...)
 
-	// PASS 3 — Query Pattern Analysis
-	results = append(results, s.analyzeQueryPatterns(input.ChatHistory)...)
+	// PASS 3 — Query Pattern Analysis (with existing tool filtering)
+	for _, qp := range s.analyzeQueryPatterns(input.ChatHistory) {
+		if existingSet[strings.ToLower(qp.Name)] {
+			slog.Debug("genesis: skipping existing tool in query patterns", "name", qp.Name)
+			continue
+		}
+		results = append(results, qp)
+	}
 
 	// Deduplicate by Description
 	seen := make(map[string]bool, len(results))

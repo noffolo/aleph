@@ -87,4 +87,20 @@ describe('GuideTour', () => {
     expect(screen.getByText('Suggerimenti')).toBeInTheDocument()
     expect(screen.getByText('Tip 1')).toBeInTheDocument()
   })
+
+  it('navigates to previous step', () => {
+    render(<GuideTour onClose={mockOnClose} />)
+    fireEvent.click(screen.getByText('Prossimo'))
+    expect(screen.getByText('Guide 1')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Precedente'))
+    expect(screen.getByText('Guide 0')).toBeInTheDocument()
+  })
+
+  it('navigates via indicator dots', () => {
+    render(<GuideTour onClose={mockOnClose} />)
+    const dots = screen.getAllByLabelText(/Go to guide/)
+    expect(dots.length).toBe(11)
+    fireEvent.click(dots[5])
+    expect(screen.getByText('Guide 5')).toBeInTheDocument()
+  })
 })

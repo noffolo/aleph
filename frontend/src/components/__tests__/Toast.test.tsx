@@ -135,5 +135,21 @@ describe('Toast', () => {
       render(<ToastContainer />)
       expect(screen.getByRole('status')).toBeInTheDocument()
     })
+
+    it('auto-dismisses toast after timeout using fake timers', () => {
+      vi.useFakeTimers()
+      const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        return setTimeout(cb, 16) as unknown as number
+      })
+      mockStore.toastMessages = [
+        { id: 'auto', message: 'Auto dismiss', type: 'info' },
+      ]
+      render(<ToastContainer />)
+      expect(screen.getByText('Auto dismiss')).toBeInTheDocument()
+      vi.advanceTimersByTime(15100)
+      expect(mockRemoveToast).toHaveBeenCalledWith('auto')
+      rafSpy.mockRestore()
+      vi.useRealTimers()
+    })
   })
 })

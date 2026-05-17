@@ -146,4 +146,67 @@ describe('WorkspaceOnboarding', () => {
     const trashButtons = screen.getAllByRole('button')
     expect(trashButtons.length).toBeGreaterThan(0)
   })
+
+  it('shows delete modal with project name when trash clicked', () => {
+    render(
+      <WorkspaceOnboarding
+        projects={projects}
+        onSelectProject={mockOnSelectProject}
+        onDeleteProject={mockOnDeleteProject}
+        onCreateProject={mockOnCreateProject}
+      />,
+    )
+    const trashBtn = screen.getAllByRole('button')[0]
+    fireEvent.click(trashBtn)
+    expect(screen.getByText(/Elimina Project Alpha/)).toBeInTheDocument()
+    expect(screen.getByText('Elimina definitivamente')).toBeInTheDocument()
+  })
+
+  it('can cancel delete modal', () => {
+    render(
+      <WorkspaceOnboarding
+        projects={projects}
+        onSelectProject={mockOnSelectProject}
+        onDeleteProject={mockOnDeleteProject}
+        onCreateProject={mockOnCreateProject}
+      />,
+    )
+    const trashBtn = screen.getAllByRole('button')[0]
+    fireEvent.click(trashBtn)
+    fireEvent.click(screen.getByLabelText('Cancel onboarding'))
+    expect(screen.queryByText('Elimina definitivamente')).not.toBeInTheDocument()
+  })
+
+  it('calls onDeleteProject with key in delete modal', () => {
+    render(
+      <WorkspaceOnboarding
+        projects={projects}
+        onSelectProject={mockOnSelectProject}
+        onDeleteProject={mockOnDeleteProject}
+        onCreateProject={mockOnCreateProject}
+      />,
+    )
+    const trashBtn = screen.getAllByRole('button')[0]
+    fireEvent.click(trashBtn)
+    const keyInput = screen.getByPlaceholderText('API Key')
+    fireEvent.change(keyInput, { target: { value: 'delete-key' } })
+    fireEvent.click(screen.getByText('Elimina definitivamente'))
+    expect(mockOnDeleteProject).toHaveBeenCalledWith('proj-1', 'delete-key')
+  })
+
+  it('submits unlock on Enter key', () => {
+    render(
+      <WorkspaceOnboarding
+        projects={projects}
+        onSelectProject={mockOnSelectProject}
+        onDeleteProject={mockOnDeleteProject}
+        onCreateProject={mockOnCreateProject}
+      />,
+    )
+    fireEvent.click(screen.getByText('Project Alpha'))
+    const keyInput = screen.getByPlaceholderText('Inserisci la tua API Key')
+    fireEvent.change(keyInput, { target: { value: 'enter-key' } })
+    fireEvent.keyDown(keyInput, { key: 'Enter' })
+    expect(mockOnSelectProject).toHaveBeenCalledWith('proj-1', 'enter-key')
+  })
 })

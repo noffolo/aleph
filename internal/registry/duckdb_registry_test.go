@@ -333,3 +333,131 @@ func TestDuckDBRegistry_UpdateComponent_EmptyID(t *testing.T) {
 func TestRegistryInterface(t *testing.T) {
 	var _ Registry = (*DuckDBRegistry)(nil)
 }
+
+// ---------- ListComponents filter tests (TDD: red phase) ----------
+
+func TestListComponents_FilterByType(t *testing.T) {
+	r := setupRegistry(t)
+
+	// Register 3 components with different types
+	_, err := r.RegisterComponent(ComponentMetadata{Name: "tool-1", Type: "tool", Description: "A tool"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.RegisterComponent(ComponentMetadata{Name: "skill-1", Type: "skill", Description: "A skill"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.RegisterComponent(ComponentMetadata{Name: "ds-1", Type: "datasource", Description: "A datasource"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := r.ListComponents(map[string]string{"type": "tool"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 component for type=tool, got %d", len(results))
+	}
+	if results[0].Name != "tool-1" {
+		t.Errorf("expected tool-1, got %s", results[0].Name)
+	}
+}
+
+func TestListComponents_FilterMultiple(t *testing.T) {
+	r := setupRegistry(t)
+
+	_, err := r.RegisterComponent(ComponentMetadata{Name: "tool-fin", Type: "tool", Category: "finance"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.RegisterComponent(ComponentMetadata{Name: "tool-osint", Type: "tool", Category: "osint"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.RegisterComponent(ComponentMetadata{Name: "skill-fin", Type: "skill", Category: "finance"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := r.ListComponents(map[string]string{"type": "tool", "category": "finance"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 component for type=tool+category=finance, got %d", len(results))
+	}
+	if results[0].Name != "tool-fin" {
+		t.Errorf("expected tool-fin, got %s", results[0].Name)
+	}
+}
+
+func TestListComponents_FilterNoMatch(t *testing.T) {
+	r := setupRegistry(t)
+
+	_, err := r.RegisterComponent(ComponentMetadata{Name: "tool-1", Type: "tool"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := r.ListComponents(map[string]string{"type": "nonexistent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 components for nonexistent type filter, got %d", len(results))
+	}
+}
+
+func TestListComponents_FilterEmptyMap(t *testing.T) {
+	r := setupRegistry(t)
+
+	_, err := r.RegisterComponent(ComponentMetadata{Name: "a", Type: "tool"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.RegisterComponent(ComponentMetadata{Name: "b", Type: "skill"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.RegisterComponent(ComponentMetadata{Name: "c", Type: "datasource"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := r.ListComponents(map[string]string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 components for empty filter, got %d", len(results))
+	}
+}
+
+func TestListComponents_FilterNil(t *testing.T) {
+	r := setupRegistry(t)
+
+	_, err := r.RegisterComponent(ComponentMetadata{Name: "a", Type: "tool"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.RegisterComponent(ComponentMetadata{Name: "b", Type: "skill"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.RegisterComponent(ComponentMetadata{Name: "c", Type: "datasource"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := r.ListComponents(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 components for nil filter, got %d", len(results))
+	}
+}
+
+

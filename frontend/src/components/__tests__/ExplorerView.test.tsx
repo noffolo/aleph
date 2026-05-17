@@ -132,4 +132,16 @@ describe('ExplorerView', () => {
     render(<ExplorerView {...defaultProps} availableObjects={[]} selectedObject="" />)
     expect(screen.getByPlaceholderText(/Cerca in/)).toBeInTheDocument()
   })
+
+  it('calls setActiveView on timeline button click', () => {
+    render(<ExplorerView {...defaultProps} />)
+    fireEvent.click(screen.getByLabelText('explorer.view.timeline'))
+    expect(mockSetActiveView).toHaveBeenCalledWith('timeline')
+  })
+
+  it('calls setActiveView on graph button click', () => {
+    render(<ExplorerView {...defaultProps} />)
+    fireEvent.click(screen.getByLabelText('explorer.view.graph'))
+    expect(mockSetActiveView).toHaveBeenCalledWith('graph')
+  })
 })

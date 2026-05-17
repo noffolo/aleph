@@ -21,6 +21,15 @@
 | **Dual DB migrations** | Separate `internal/migration/duckdb/` and `postgres/`. Different numbering. |
 | **11 middleware layers** | Recovery→CSRF→Security→RequestID→Auth→RateLimit→Bulkhead→Timeout→Audit→CircuitBreaker→Retry |
 
+## TDD Session Plan (May 2026)
+
+Active TDD plan at `docs/superpowers/plans/2026-05-16-tdd-session-plan-v2.md`.
+
+**Key findings from pre-execution review (Metis + Oracle + Momus):**
+- `ListComponents` filter in `duckdb_registry.go` is a silent no-op (WHERE clause ignored in SQL)
+- `adapters.ts` (frontend/src/api/) is dead code — all 6 `fromProto*` functions imported 0 times
+- CI missing Python NLP test job — will be added
+
 ## Quick Start
 
 ```sh

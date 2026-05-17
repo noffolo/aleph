@@ -89,7 +89,7 @@ describe('AgentForm', () => {
 
   it('toggles API key visibility', async () => {
     const user = userEvent.setup();
-    const { container } = render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
     const input = screen.getByPlaceholderText('Inserisci solo per sovrascrivere la chiave esistente (facoltativo)')
     expect(input).toHaveAttribute('type', 'password')
     const toggleBtn = input.parentElement!.querySelector('button')!
@@ -102,5 +102,166 @@ describe('AgentForm', () => {
       apiKey: '', baseUrl: 'https://custom.api.com', systemPrompt: '' }
     render(<AgentForm agent={agent} onSave={onSave} onCancel={onCancel} />)
     expect(screen.getByDisplayValue('https://custom.api.com')).toBeInTheDocument()
+  })
+
+  it('shows validation error for empty name', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    const submitBtn = screen.getByRole('button', { name: 'Nuovo Agente' });
+    await user.click(submitBtn);
+    expect(onSave).not.toHaveBeenCalled();
+  })
+
+  it('shows validation error for empty model', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    await user.type(screen.getByPlaceholderText('Es: Analista Finanze'), 'Test');
+    const modelInput = screen.getByPlaceholderText('Es: gpt-4o-mini o llama3.2');
+    await user.clear(modelInput);
+    await user.click(screen.getByRole('button', { name: 'Nuovo Agente' }));
+    expect(onSave).not.toHaveBeenCalled();
+  })
+
+  it('validates baseUrl format', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    await user.type(screen.getByPlaceholderText('Es: Analista Finanze'), 'Test');
+    const baseUrlInput = screen.getByPlaceholderText('Es: https://api.openai.com/v1');
+    await user.type(baseUrlInput, 'not-a-url');
+    await user.click(screen.getByRole('button', { name: 'Nuovo Agente' }));
+    expect(onSave).not.toHaveBeenCalled();
+  })
+
+  it('allows valid baseUrl', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    await user.type(screen.getByPlaceholderText('Es: Analista Finanze'), 'Test');
+    await user.type(screen.getByPlaceholderText('Es: https://api.openai.com/v1'), 'https://valid.url.com');
+    await user.click(screen.getByRole('button', { name: 'Nuovo Agente' }));
+    expect(onSave).toHaveBeenCalled();
+  })
+
+  it('changes provider select value', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    const providerSelect = screen.getByLabelText('Provider');
+    await user.selectOptions(providerSelect, 'anthropic');
+    expect((providerSelect as HTMLSelectElement).value).toBe('anthropic');
+  })
+
+  it('types in system prompt textarea', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    const textarea = screen.getByPlaceholderText("Definisci il ruolo dell'agente");
+    await user.type(textarea, 'You are a helpful assistant');
+    expect(textarea).toHaveDisplayValue('You are a helpful assistant');
+  })
+
+  it('renders AgentFormSchema validation label for name', () => {
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    expect(screen.getByLabelText('Nome')).toBeInTheDocument();
+  })
+
+  it('renders Aggiorna Agente in edit mode submit', () => {
+    const agent = { id: 'a1', name: 'X', model: 'gpt-4o', systemPrompt: '' };
+    render(<AgentForm agent={agent} onSave={onSave} onCancel={onCancel} />);
+    expect(screen.getByRole('button', { name: 'Aggiorna Agente' })).toBeInTheDocument();
+  })
+
+  it('submits with all fields filled', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    await user.type(screen.getByPlaceholderText('Es: Analista Finanze'), 'Full Agent');
+    await user.click(screen.getByRole('button', { name: 'Nuovo Agente' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Full Agent',
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+    }));
+  })
+
+  it('pre-fills systemPrompt in edit mode', () => {
+    const agent = { id: 'a1', name: 'A', model: 'gpt-4o', systemPrompt: 'Be precise' };
+    render(<AgentForm agent={agent} onSave={onSave} onCancel={onCancel} />);
+    expect(screen.getByDisplayValue('Be precise')).toBeInTheDocument();
+  })
+
+  it('renders model error border when validation fails', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    await user.type(screen.getByPlaceholderText('Es: Analista Finanze'), 'Test');
+    await user.clear(screen.getByPlaceholderText('Es: gpt-4o-mini o llama3.2'));
+    await user.click(screen.getByRole('button', { name: 'Nuovo Agente' }));
+    const modelInput = screen.getByPlaceholderText('Es: gpt-4o-mini o llama3.2');
+    expect(modelInput.className).toContain('border-danger');
+  })
+
+  it('renders baseUrl error border when validation fails', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    await user.type(screen.getByPlaceholderText('Es: Analista Finanze'), 'Test');
+    await user.type(screen.getByPlaceholderText('Es: https://api.openai.com/v1'), 'not-a-url');
+    await user.click(screen.getByRole('button', { name: 'Nuovo Agente' }));
+    const baseUrlInput = screen.getByPlaceholderText('Es: https://api.openai.com/v1');
+    expect(baseUrlInput.className).toContain('border-danger');
+  })
+
+  it('clears errors on successful re-submission', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    await user.click(screen.getByRole('button', { name: 'Nuovo Agente' }));
+    expect(onSave).not.toHaveBeenCalled();
+    await user.type(screen.getByPlaceholderText('Es: Analista Finanze'), 'Fixed');
+    await user.click(screen.getByRole('button', { name: 'Nuovo Agente' }));
+    expect(onSave).toHaveBeenCalled();
+  })
+
+  it('submits apiKey when filled', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    await user.type(screen.getByPlaceholderText('Es: Analista Finanze'), 'Agent');
+    const apiKeyInput = screen.getByPlaceholderText('Inserisci solo per sovrascrivere la chiave esistente (facoltativo)');
+    const toggleBtn = apiKeyInput.parentElement!.querySelector('button')!;
+    await user.click(toggleBtn);
+    await user.type(apiKeyInput, 'sk-test-key');
+    await user.click(screen.getByRole('button', { name: 'Nuovo Agente' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'sk-test-key' }));
+  })
+
+  it('submits systemPrompt when filled', async () => {
+    const user = userEvent.setup();
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    await user.type(screen.getByPlaceholderText('Es: Analista Finanze'), 'Bot');
+    await user.type(screen.getByPlaceholderText("Definisci il ruolo dell'agente"), 'Be concise');
+    await user.click(screen.getByRole('button', { name: 'Nuovo Agente' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ systemPrompt: 'Be concise' }));
+  })
+
+  it('submits all fields in edit mode', async () => {
+    const user = userEvent.setup();
+    const agent = { id: 'a1', name: 'Bot', model: 'gpt-4o', provider: 'anthropic',
+      apiKey: 'sk-old', baseUrl: 'https://x.com', systemPrompt: 'Old prompt' };
+    render(<AgentForm agent={agent} onSave={onSave} onCancel={onCancel} />);
+    await user.click(screen.getByRole('button', { name: 'Aggiorna Agente' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Bot', model: 'gpt-4o', provider: 'anthropic', systemPrompt: 'Old prompt',
+    }));
+  })
+
+  it('shows correct heading in create mode without title prop', () => {
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    expect(screen.getByRole('heading', { name: 'Nuovo Agente' })).toBeInTheDocument();
+  })
+
+  it('shows correct heading in edit mode without title prop', () => {
+    const agent = { id: 'a1', name: 'X', model: 'gpt-4o', systemPrompt: '' };
+    render(<AgentForm agent={agent} onSave={onSave} onCancel={onCancel} />);
+    expect(screen.getByRole('heading', { name: 'Modifica Agente' })).toBeInTheDocument();
+  })
+
+  it('renders API key as masked password by default', () => {
+    render(<AgentForm onSave={onSave} onCancel={onCancel} />);
+    const input = screen.getByPlaceholderText('Inserisci solo per sovrascrivere la chiave esistente (facoltativo)');
+    expect(input).toHaveAttribute('type', 'password');
   })
 });

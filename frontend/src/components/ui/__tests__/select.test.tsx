@@ -161,6 +161,18 @@ describe('SelectLabel', () => {
     )
     expect(screen.getByText('My Label')).toBeInTheDocument()
   })
+
+  it('applies custom className to label', () => {
+    render(
+      <SelectFixture>
+        <SelectGroup>
+          <SelectLabel className="my-label">Styled</SelectLabel>
+        </SelectGroup>
+      </SelectFixture>
+    )
+    const label = screen.getByText('Styled')
+    expect(label.className).toContain('my-label')
+  })
 })
 
 describe('SelectSeparator', () => {
@@ -172,5 +184,15 @@ describe('SelectSeparator', () => {
     )
     const sep = container.querySelector('[data-slot="select-separator"]')
     expect(sep).toBeInTheDocument()
+  })
+
+  it('applies custom className to separator', () => {
+    const { container } = render(
+      <SelectFixture>
+        <SelectSeparator className="my-sep" />
+      </SelectFixture>
+    )
+    const sep = container.querySelector('[data-slot="select-separator"]')
+    expect(sep).toHaveClass('my-sep')
   })
 })

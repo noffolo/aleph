@@ -83,7 +83,7 @@ type Engine struct {
 	nlpHandler   NLPAnalyzer
 	mu           sync.RWMutex
 	tasks        map[string]*v1.IngestionTask
-	safeClient   *http.Client
+	httpClient   *http.Client
 	wg           sync.WaitGroup
 
 	// Lazy-init source ingesters
@@ -118,6 +118,15 @@ func NewEngine(projectsRoot string, metaRepo *repository.MetadataRepository, db 
 		nlpHandler:   nlp,
 		tasks:        make(map[string]*v1.IngestionTask),
 	}
+}
+
+// client returns the Engine's injected httpClient, falling back to the
+// package-level safeHTTPClient when no custom client has been set.
+func (e *Engine) client() *http.Client {
+	if e.httpClient != nil {
+		return e.httpClient
+	}
+	return safeHTTPClient
 }
 
 func (e *Engine) updateProgress(id string, progress int32, status string) {
@@ -372,7 +381,7 @@ func (e *Engine) registerViews(ctx context.Context, projectID string) error {
 	if err != nil { return nil } // No ontology, skip
 
 	prog, err := dsl.Parse(string(content))
-	if err != nil { return fmt.Errorf("parsing ontology: %v", err) }
+	if err != nil { return fmt.Errorf("parsing ontology: %w", err) }
 
 	dataRoot := filepath.Join(projectPath, "raw")
 	compiler := dsl.NewCompiler(prog, dataRoot)
@@ -426,7 +435,7 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 		req.Header.Set("Authorization", "Bearer "+config.Token)
 	}
 
-	resp, err := safeHTTPClient.Do(req)
+	resp, err := e.client().Do(req)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
@@ -498,7 +507,7 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)
 	}
-	_ = parsedURL // URL validation done by safeHTTPClient's SSRF DialContext
+	_ = parsedURL // URL validated; SSRF protection via Engine.client().DialContext
 
 	fmt.Fprintf(w, "Fetching URL: %s\n", config.URL)
 	e.updateProgress(task.Id, 10, "running")
@@ -509,7 +518,7 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 	}
 	req.Header.Set("Accept", "application/json, text/csv, */*")
 
-	resp, err := safeHTTPClient.Do(req)
+	resp, err := e.client().Do(req)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
@@ -924,7 +933,7 @@ type emailCredentials struct {
 func (e *Engine) runEmailFetch(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
 	var config emailConfig
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
-		return fmt.Errorf("invalid email config: %v", err)
+		return fmt.Errorf("invalid email config: %w", err)
 	}
 	if config.Host == "" || config.User == "" || config.Pass == "" {
 		return fmt.Errorf("email config requires host, user, and pass")
@@ -993,13 +1002,13 @@ mail.login(creds["username"], creds["password"])
 	csvPath := filepath.Join(projectPath, tableName+".csv")
 	os.MkdirAll(projectPath, 0755)
 	if err := os.WriteFile(csvPath, csvBuf.Bytes(), 0644); err != nil {
-		return fmt.Errorf("failed to write CSV: %v", err)
+		return fmt.Errorf("failed to write CSV: %w", err)
 	}
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_csv_auto(" + safeident.QuoteStringLiteral(csvPath) + ", ignore_errors=true)"
 	fmt.Fprintf(w, "Creating table '%s' in DuckDB...\n", tableName)
 	if _, err := e.db.Exec(ctx, createSQL); err != nil {
-		return fmt.Errorf("duckdb create table failed: %v", err)
+		return fmt.Errorf("duckdb create table failed: %w", err)
 	}
 
 	fmt.Fprintf(w, "Email ingestion complete. Table '%s' created.\n", tableName)

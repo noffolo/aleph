@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 	_ "github.com/marcboeker/go-duckdb"
@@ -126,12 +127,26 @@ func (r *DuckDBRegistry) ListComponents(filter map[string]string) ([]ComponentMe
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	rows, err := r.db.Query(`SELECT id, name, description, version, type, category, source, status, approval_status,
+	var whereClauses []string
+	var args []any
+	for key, value := range filter {
+		if value != "" {
+			whereClauses = append(whereClauses, key+" = ?")
+			args = append(args, value)
+		}
+	}
+
+	query := `SELECT id, name, description, version, type, category, source, status, approval_status,
 		config_schema_json, execution_command, dependencies_json, input_schema_json, output_schema_json,
 		prompt_template, tool_ids_json,
 		avg_cpu_usage, avg_memory_mb, avg_exec_time_ms, avg_brier_score, avg_latency_ms,
 		trust_score, created_by_agent_id, creation_timestamp, last_updated_timestamp
-		FROM components`)
+		FROM components`
+	if len(whereClauses) > 0 {
+		query += " WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	rows, err := r.db.Query(query, args...)
 	if err != nil { return nil, err }
 	defer rows.Close()
 	var comps []ComponentMetadata

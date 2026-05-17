@@ -16,6 +16,11 @@ import (
 	"github.com/ff3300/aleph-v2/internal/api/handler"
 )
 
+// Override backoff steps to millisecond values to avoid real sleeps during testing.
+func init() {
+	sidecarBackoffSteps = []time.Duration{time.Millisecond, time.Millisecond, time.Millisecond}
+}
+
 type mockHealthClient struct {
 	grpc_health_v1.HealthClient
 	status grpc_health_v1.HealthCheckResponse_ServingStatus

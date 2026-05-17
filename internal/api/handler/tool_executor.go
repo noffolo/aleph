@@ -56,7 +56,7 @@ func (e *toolExecutor) executeSearchData(ctx context.Context, args map[string]in
 		Limit:      int32(limit),
 	}))
 	if err != nil {
-		return "", false, fmt.Errorf("Error: %v", err)
+		return "", false, fmt.Errorf("Error: %w", err)
 	}
 
 	jb, _ := json.Marshal(res.Msg.Rows)

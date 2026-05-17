@@ -94,7 +94,7 @@ func LoadConfigWithSecrets(secrets SecretsProvider) (*Config, error) {
 
 	decoded, err := crypto.LoadEncryptionKey(rawKey)
 	if err != nil {
-		return nil, fmt.Errorf("FATAL: key_encryption_key is invalid (%v)", err)
+		return nil, fmt.Errorf("FATAL: key_encryption_key is invalid (%w)", err)
 	}
 
 	ollamaBaseURL := secrets.String("ollama.base_url", viper.GetString("OLLAMA_BASE_URL"))

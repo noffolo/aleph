@@ -456,13 +456,16 @@ func TestChatSession_EmptyToolCalls(t *testing.T) {
 
 // Preserve existing stubs from original chat_test.go (duplicated for compatibility)
 func TestChatHandler_RequiresProjectID(t *testing.T) {
-	h, _ := setupQueryHandler(t)
+	h, projectsRoot := setupQueryHandler(t)
 	require.NotNil(t, h)
+	assert.NotEmpty(t, projectsRoot, "projects root must be set")
 }
 
 func TestChatHandler_HandlerNotNil(t *testing.T) {
-	h, _ := setupQueryHandler(t)
+	h, projectsRoot := setupQueryHandler(t)
 	require.NotNil(t, h)
+	assert.NotEmpty(t, projectsRoot)
+	assert.NotNil(t, h.programs)
 }
 
 func TestChatHandler_ContextCancellation(t *testing.T) {
@@ -470,4 +473,167 @@ func TestChatHandler_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	assert.Error(t, ctx.Err())
+	assert.Equal(t, context.Canceled, ctx.Err())
+}
+
+func TestBuildMinimalToolsMap_WithToolsAndParams(t *testing.T) {
+	repo := setupMetaRepoExtended(t)
+	repo.CreateTool(&repository.ToolRecord{
+		ID:          "t1",
+		Name:        "search_data",
+		Description: "Search for data",
+		Code:        `{"type":"object","properties":{"query":{"type":"string"}}}`,
+	})
+	repo.CreateTool(&repository.ToolRecord{
+		ID:          "t2",
+		Name:        "execute_code",
+		Description: "Execute code",
+		Code:        "",
+	})
+
+	result := buildMinimalToolsMap(context.Background(), repo)
+	require.Len(t, result, 2)
+
+	fn1, ok := result[0]["function"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "search_data", fn1["name"])
+	params1, _ := fn1["parameters"].(map[string]interface{})
+	assert.NotNil(t, params1)
+
+	fn2, ok := result[1]["function"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "execute_code", fn2["name"])
+}
+
+func TestBuildMinimalToolsMap_BadJSONCode(t *testing.T) {
+	repo := setupMetaRepoExtended(t)
+	repo.CreateTool(&repository.ToolRecord{
+		ID:   "t-bad",
+		Name: "bad_tool",
+		Code: "not valid json",
+	})
+	result := buildMinimalToolsMap(context.Background(), repo)
+	require.Len(t, result, 1)
+	fn := result[0]["function"].(map[string]interface{})
+	_, hasParams := fn["parameters"]
+	assert.False(t, hasParams)
+}
+
+func TestChatSession_LastUserMessage_Empty(t *testing.T) {
+	s := &ChatSession{chatMessages: nil}
+	assert.Equal(t, "", s.lastUserMessage())
+	s2 := &ChatSession{chatMessages: []map[string]interface{}{}}
+	assert.Equal(t, "", s2.lastUserMessage())
+}
+
+func TestChatSession_LastUserMessage_FindsLast(t *testing.T) {
+	s := &ChatSession{
+		chatMessages: []map[string]interface{}{
+			{"role": "system", "content": "prompt"},
+			{"role": "user", "content": "first"},
+			{"role": "assistant", "content": "response"},
+			{"role": "user", "content": "last"},
+		},
+	}
+	assert.Equal(t, "last", s.lastUserMessage())
+}
+
+func TestChatSession_LastUserMessage_OnlyAssistant(t *testing.T) {
+	s := &ChatSession{chatMessages: []map[string]interface{}{
+		{"role": "assistant", "content": "only"},
+	}}
+	assert.Equal(t, "", s.lastUserMessage())
+}
+
+func TestChatSession_AppendToolCallAndResult(t *testing.T) {
+	s := &ChatSession{
+		chatMessages: []map[string]interface{}{{"role": "user", "content": "go"}},
+	}
+	s.appendToolCallToMessages([]llm.ToolCall{
+		{Name: "search", Arguments: map[string]interface{}{"q": "x"}},
+	}, "calling", 0)
+	require.Len(t, s.chatMessages, 2)
+	assert.Equal(t, "assistant", s.chatMessages[1]["role"])
+
+	s.appendToolResult(0, "found it")
+	require.Len(t, s.chatMessages, 3)
+	assert.Equal(t, "tool", s.chatMessages[2]["role"])
+	assert.Equal(t, "found it", s.chatMessages[2]["content"])
+}
+
+func TestChatSession_AppendToolCallToMessages_EmptyCalls(t *testing.T) {
+	s := &ChatSession{
+		chatMessages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+	}
+	s.appendToolCallToMessages([]llm.ToolCall{}, "no tools", 0)
+	require.Len(t, s.chatMessages, 2)
+	msg := s.chatMessages[1]
+	toolCalls := msg["tool_calls"].([]map[string]interface{})
+	assert.Len(t, toolCalls, 0)
+}
+
+func TestChatSession_BuildMultiStepSummary_Empty(t *testing.T) {
+	s := &ChatSession{actResults: nil}
+	assert.Equal(t, "", s.buildMultiStepSummary())
+}
+
+func TestChatSession_BuildMultiStepSummary_Mixed(t *testing.T) {
+	errResult := &decision.ActResult{Error: "fail", Output: "bad"}
+	skipDep := &decision.ActResult{Output: "SKIPPED: dependency failed"}
+	skipConf := &decision.ActResult{Output: "SKIPPED: requires confirmation"}
+	okResult1 := &decision.ActResult{Error: "", Output: "good"}
+	okResult2 := &decision.ActResult{Error: "", Output: "also good"}
+
+	s := &ChatSession{actResults: []*decision.ActResult{okResult1, errResult, skipDep, okResult2, skipConf}}
+	summary := s.buildMultiStepSummary()
+	assert.Contains(t, summary, "5 steps")
+	assert.Contains(t, summary, "2 succeeded")
+	assert.Contains(t, summary, "1 failed")
+	assert.Contains(t, summary, "2 skipped")
+}
+
+func TestChatSession_AppendToolResult_Serialization(t *testing.T) {
+	s := &ChatSession{}
+	for i := 0; i < 5; i++ {
+		s.appendToolResult(i, "result")
+	}
+	assert.Len(t, s.chatMessages, 5)
+	data, err := json.Marshal(s.chatMessages)
+	require.NoError(t, err)
+	assert.NotEmpty(t, data)
+}
+
+func TestNewChatSession_NilEngine(t *testing.T) {
+	repo := setupMetaRepoExtended(t)
+	h := &QueryHandler{metaRepo: repo}
+	ctx := context.Background()
+	s := NewChatSession(ctx, nil, h, "proj", "agent", "test msg",
+		AgentInfo{Provider: "ollama", BaseURL: "http://localhost:11434/"}, nil, "system prompt")
+	require.NotNil(t, s)
+	assert.True(t, s.needsPlanning, "needsPlanning is always initialized to true")
+	assert.Equal(t, "http://localhost:11434", s.baseURL)
+	assert.Len(t, s.chatMessages, 2)
+}
+
+func TestNewChatSession_WithHistory(t *testing.T) {
+	repo := setupMetaRepoExtended(t)
+	repo.SaveChatMessage(context.Background(), "proj", "agent", "user", "prev user", "")
+	repo.SaveChatMessage(context.Background(), "proj", "agent", "assistant", "prev asst", "")
+
+	h := &QueryHandler{metaRepo: repo}
+	s := NewChatSession(context.Background(), nil, h, "proj", "agent", "current msg",
+		AgentInfo{Provider: "ollama", BaseURL: "http://localhost:11434/"}, nil, "system")
+	require.NotNil(t, s)
+	assert.GreaterOrEqual(t, len(s.chatMessages), 3)
+}
+
+func TestNewChatSession_WithEngine(t *testing.T) {
+	repo := setupMetaRepoExtended(t)
+	mockEng := &mockEngine{}
+	h := &QueryHandler{metaRepo: repo, engine: mockEng}
+	s := NewChatSession(context.Background(), nil, h, "proj", "agent", "msg",
+		AgentInfo{Provider: "ollama", BaseURL: "http://localhost:11434/"}, nil, "prompt")
+	require.NotNil(t, s)
+	assert.True(t, s.needsPlanning)
+	assert.Equal(t, mockEng, s.engine)
 }
