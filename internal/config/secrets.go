@@ -19,13 +19,19 @@ type SecretsProvider interface {
 	Has(key string) bool
 }
 
+// Compile-time assertions: realSecrets and envSecrets implement SecretsProvider.
+var _ SecretsProvider = (*realSecrets)(nil)
+var _ SecretsProvider = (*envSecrets)(nil)
+
 type realSecrets struct {
 	inner *gosecrets.Secrets
 }
 
-func (r *realSecrets) String(key string, fallback ...string) string { return r.inner.String(key, fallback...) }
-func (r *realSecrets) MustString(key string) string                  { return r.inner.MustString(key) }
-func (r *realSecrets) Has(key string) bool                           { return r.inner.Has(key) }
+func (r *realSecrets) String(key string, fallback ...string) string {
+	return r.inner.String(key, fallback...)
+}
+func (r *realSecrets) MustString(key string) string { return r.inner.MustString(key) }
+func (r *realSecrets) Has(key string) bool          { return r.inner.Has(key) }
 
 // envSecrets implements SecretsProvider using environment variables.
 // Keys use dot-notation (e.g. "database.url") and are mapped to env var names
@@ -61,14 +67,14 @@ func (e *envSecrets) Has(key string) bool {
 func secretToEnvKey(key string) string {
 	// Explicit mappings for keys that don't follow simple dot→underscore convention
 	mappings := map[string]string{
-		"jwt.secret":                    "JWT_SECRET",
-		"key_encryption_key":            "KEY_ENCRYPTION_KEY",
-		"aleph.api_key_secret_backend":  "ALEPH_API_KEY_SECRET_BACKEND",
-		"database.url":                   "POSTGRES_DSN",
-		"postgres.dsn":                   "POSTGRES_DSN",
-		"smtp.password":                 "SMTP_PASSWORD",
-		"ollama.base_url":               "OLLAMA_BASE_URL",
-		"nlp.sidecar_url":               "NLP_ADDR",
+		"jwt.secret":                   "JWT_SECRET",
+		"key_encryption_key":           "KEY_ENCRYPTION_KEY",
+		"aleph.api_key_secret_backend": "ALEPH_API_KEY_SECRET_BACKEND",
+		"database.url":                 "POSTGRES_DSN",
+		"postgres.dsn":                 "POSTGRES_DSN",
+		"smtp.password":                "SMTP_PASSWORD",
+		"ollama.base_url":              "OLLAMA_BASE_URL",
+		"nlp.sidecar_url":              "NLP_ADDR",
 	}
 	if mapped, ok := mappings[key]; ok {
 		return mapped

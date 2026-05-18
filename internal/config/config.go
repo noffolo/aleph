@@ -12,32 +12,33 @@ import (
 )
 
 type Config struct {
-	Port              int
-	DataRoot          string
-	PostgresDSN       string
-	DuckDBPath        string
-	DuckDBSchema      string
-	EmbeddingModel    string
-	NLPAddr           string
-	OllamaBaseURL     string
-	OllamaPort        string
-	OtelEndpoint      string
-	MCPServerURIs     []string
-	KeyEncryptionKey  string
-	EncryptionKey     []byte
-	JWTSecret         []byte
-	BackupInterval    string
-	BackupDir         string
-	BackupKeep        int
-	RateLimitChat          int
-	RateLimitHealth        int
-	RateLimitDefault       int
-	MaxProjects            int
-	MaxAgentsPerProject    int
-	CORSAllowedOrigins     []string
-	LLMTimeoutSeconds      int
-	SlowQueryThresholdMs   int
-	DevMode                bool // set from APP_ENV="development"
+	Port                 int
+	DataRoot             string
+	PostgresDSN          string
+	DuckDBPath           string
+	DuckDBSchema         string
+	EmbeddingModel       string
+	NLPAddr              string
+	OllamaBaseURL        string
+	OllamaPort           string
+	OtelEndpoint         string
+	MCPServerURIs        []string
+	KeyEncryptionKey     string
+	EncryptionKey        []byte
+	JWTSecret            []byte
+	BackupInterval       string
+	BackupDir            string
+	BackupKeep           int
+	RateLimitChat        int
+	RateLimitHealth      int
+	RateLimitDefault     int
+	MaxProjects          int
+	MaxAgentsPerProject  int
+	CORSAllowedOrigins   []string
+	LLMTimeoutSeconds    int
+	SlowQueryThresholdMs int
+	DevMode              bool   // set from APP_ENV="development"
+	LogLevel             string // one of: debug, info, warn, error (default: info)
 }
 
 func LoadConfig() (*Config, error) {
@@ -66,6 +67,7 @@ func LoadConfigWithSecrets(secrets SecretsProvider) (*Config, error) {
 	viper.SetDefault("MAX_PROJECTS", 50)
 	viper.SetDefault("MAX_AGENTS_PER_PROJECT", 20)
 	viper.SetDefault("SLOW_QUERY_THRESHOLD_MS", 500)
+	viper.SetDefault("LOG_LEVEL", "info")
 
 	viper.AutomaticEnv()
 
@@ -105,23 +107,23 @@ func LoadConfigWithSecrets(secrets SecretsProvider) (*Config, error) {
 	devMode := strings.EqualFold(viper.GetString("APP_ENV"), "development")
 
 	return &Config{
-		Port:              viper.GetInt("PORT"),
-		DataRoot:          viper.GetString("DATA_ROOT"),
-		PostgresDSN:       postgresDSN,
-		DuckDBPath:        viper.GetString("DUCKDB_PATH"),
-		NLPAddr:           nlpAddr,
-		OllamaBaseURL:     ollamaBaseURL,
-		OllamaPort:        ollamaPort,
-		OtelEndpoint:      otelEndpoint,
-		DuckDBSchema:      viper.GetString("DUCKDB_SCHEMA"),
-		EmbeddingModel:    viper.GetString("EMBEDDING_MODEL"),
-		MCPServerURIs:     parseMCPServerURIs(viper.GetString("MCP_SERVER_URIS")),
-		KeyEncryptionKey:  rawKey,
-		EncryptionKey:     decoded,
-		JWTSecret:         []byte(jwtSecret),
-		BackupInterval:    viper.GetString("BACKUP_INTERVAL"),
-		BackupDir:         viper.GetString("BACKUP_DIR"),
-		BackupKeep:        viper.GetInt("BACKUP_KEEP"),
+		Port:                 viper.GetInt("PORT"),
+		DataRoot:             viper.GetString("DATA_ROOT"),
+		PostgresDSN:          postgresDSN,
+		DuckDBPath:           viper.GetString("DUCKDB_PATH"),
+		NLPAddr:              nlpAddr,
+		OllamaBaseURL:        ollamaBaseURL,
+		OllamaPort:           ollamaPort,
+		OtelEndpoint:         otelEndpoint,
+		DuckDBSchema:         viper.GetString("DUCKDB_SCHEMA"),
+		EmbeddingModel:       viper.GetString("EMBEDDING_MODEL"),
+		MCPServerURIs:        parseMCPServerURIs(viper.GetString("MCP_SERVER_URIS")),
+		KeyEncryptionKey:     rawKey,
+		EncryptionKey:        decoded,
+		JWTSecret:            []byte(jwtSecret),
+		BackupInterval:       viper.GetString("BACKUP_INTERVAL"),
+		BackupDir:            viper.GetString("BACKUP_DIR"),
+		BackupKeep:           viper.GetInt("BACKUP_KEEP"),
 		RateLimitChat:        viper.GetInt("RATE_LIMIT_CHAT"),
 		RateLimitHealth:      viper.GetInt("RATE_LIMIT_HEALTH"),
 		RateLimitDefault:     viper.GetInt("RATE_LIMIT_DEFAULT"),
@@ -130,7 +132,8 @@ func LoadConfigWithSecrets(secrets SecretsProvider) (*Config, error) {
 		CORSAllowedOrigins:   parseCORSOrigins(viper.GetString("CORS_ALLOWED_ORIGINS")),
 		LLMTimeoutSeconds:    viper.GetInt("LLM_TIMEOUT_SECONDS"),
 		SlowQueryThresholdMs: viper.GetInt("SLOW_QUERY_THRESHOLD_MS"),
-		DevMode:             devMode,
+		DevMode:              devMode,
+		LogLevel:             viper.GetString("LOG_LEVEL"),
 	}, nil
 }
 

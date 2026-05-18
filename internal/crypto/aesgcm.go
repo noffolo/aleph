@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	ErrInvalidKey      = errors.New("KEY_ENCRYPTION_KEY must be 32 bytes (64 hex chars) for AES-256")
-	ErrInvalidCipher   = errors.New("ciphertext too short to contain nonce")
-	ErrDecryptFailed   = errors.New("decryption failed: authentication error or corrupted data")
-	ErrKeyNotSet       = errors.New("encryption key not configured")
+	ErrInvalidKey    = errors.New("KEY_ENCRYPTION_KEY must be 32 bytes (64 hex chars) for AES-256")
+	ErrInvalidCipher = errors.New("ciphertext too short to contain nonce")
+	ErrDecryptFailed = errors.New("decryption failed: authentication error or corrupted data")
+	ErrKeyNotSet     = errors.New("encryption key not configured")
 )
 
 const (

@@ -36,11 +36,11 @@ func (f *fakeSecrets) Has(key string) bool {
 
 func testSecrets() SecretsProvider {
 	return &fakeSecrets{data: map[string]string{
-		"jwt.secret":          "test-jwt-secret-key-for-unit-tests",
-		"key_encryption_key":  "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-		"database.url":        "postgres://user:pass@localhost:5432/test",
-		"ollama.base_url":     "http://localhost:11434",
-		"nlp.sidecar_url":     "localhost:8001",
+		"jwt.secret":         "test-jwt-secret-key-for-unit-tests",
+		"key_encryption_key": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+		"database.url":       "postgres://user:pass@localhost:5432/test",
+		"ollama.base_url":    "http://localhost:11434",
+		"nlp.sidecar_url":    "localhost:8001",
 	}}
 }
 
@@ -77,9 +77,9 @@ func TestLoadConfig_WithEnv(t *testing.T) {
 	sec := &fakeSecrets{data: map[string]string{
 		"jwt.secret":         "test-jwt-secret-key-for-unit-tests",
 		"key_encryption_key": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-		"database.url":        "postgres://user:pass@localhost:5432/test",
+		"database.url":       "postgres://user:pass@localhost:5432/test",
 		"nlp.sidecar_url":    "nlp:8002",
-		"ollama.base_url":     "http://ollama:11434",
+		"ollama.base_url":    "http://ollama:11434",
 	}}
 
 	cfg, err := LoadConfigWithSecrets(sec)
@@ -113,7 +113,7 @@ func TestLoadConfig_OllamaDefault(t *testing.T) {
 func TestLoadConfig_MissingJWTSecret(t *testing.T) {
 	sec := &fakeSecrets{data: map[string]string{
 		"key_encryption_key": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-		"database.url":        "postgres://user:pass@localhost:5432/test",
+		"database.url":       "postgres://user:pass@localhost:5432/test",
 	}}
 	_, err := LoadConfigWithSecrets(sec)
 	assert.Error(t, err)
@@ -134,7 +134,7 @@ func TestLoadConfig_PostgresDSNFallback(t *testing.T) {
 	sec := &fakeSecrets{data: map[string]string{
 		"jwt.secret":         "test-jwt-secret",
 		"key_encryption_key": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-		"postgres.dsn":        "postgres://fallback:5432/db",
+		"postgres.dsn":       "postgres://fallback:5432/db",
 	}}
 	cfg, err := LoadConfigWithSecrets(sec)
 	assert.NoError(t, err)
