@@ -50,14 +50,14 @@ type JSONRPCResponse struct {
 
 // JSONRPCError represents a JSON-RPC 2.0 error object.
 type JSONRPCError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // NewRequest creates a JSON-RPC 2.0 request with an auto-assigned ID of 1.
 // The params value is serialized to JSON. If params is nil, Params is left nil.
-func NewRequest(method string, params interface{}) (*JSONRPCRequest, error) {
+func NewRequest(method string, params any) (*JSONRPCRequest, error) {
 	if method == "" {
 		return nil, fmt.Errorf("method must not be empty")
 	}
@@ -82,7 +82,7 @@ func NewRequest(method string, params interface{}) (*JSONRPCRequest, error) {
 
 // NewResponse creates a JSON-RPC 2.0 success response. The result value is
 // serialized to JSON. The id is set from the id parameter.
-func NewResponse(id int, result interface{}) (*JSONRPCResponse, error) {
+func NewResponse(id int, result any) (*JSONRPCResponse, error) {
 	resp := &JSONRPCResponse{
 		Jsonrpc: JSONRPCVersion,
 		ID:      &id,
@@ -100,7 +100,7 @@ func NewResponse(id int, result interface{}) (*JSONRPCResponse, error) {
 }
 
 // NewError creates a JSON-RPC 2.0 error response with the given error details.
-func NewError(id int, code int, message string, data interface{}) *JSONRPCResponse {
+func NewError(id int, code int, message string, data any) *JSONRPCResponse {
 	resp := &JSONRPCResponse{
 		Jsonrpc: JSONRPCVersion,
 		ID:      &id,

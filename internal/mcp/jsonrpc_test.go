@@ -9,7 +9,7 @@ import (
 // to JSON and unmarshalled back with all fields preserved.
 func TestJSONRPCRequestRoundTrip(t *testing.T) {
 	id := 42
-	params := map[string]interface{}{
+	params := map[string]any{
 		"query": "test",
 		"limit": 10,
 	}
@@ -46,7 +46,7 @@ func TestJSONRPCRequestRoundTrip(t *testing.T) {
 	}
 
 	// Verify params round-trip
-	var gotParams map[string]interface{}
+	var gotParams map[string]any
 	if err := json.Unmarshal(decoded.Params, &gotParams); err != nil {
 		t.Fatalf("unmarshal decoded params: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestJSONRPCRequestRoundTrip(t *testing.T) {
 // TestJSONRPCResponseRoundTrip_Success verifies a successful response round-trip.
 func TestJSONRPCResponseRoundTrip_Success(t *testing.T) {
 	id := 7
-	result := map[string]interface{}{
+	result := map[string]any{
 		"status": "ok",
 		"count":  3,
 	}
@@ -97,7 +97,7 @@ func TestJSONRPCResponseRoundTrip_Success(t *testing.T) {
 	}
 
 	// Verify result round-trip
-	var gotResult map[string]interface{}
+	var gotResult map[string]any
 	if err := json.Unmarshal(decoded.Result, &gotResult); err != nil {
 		t.Fatalf("unmarshal decoded result: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestErrorSerialization(t *testing.T) {
 	}
 
 	// Verify JSON structure
-	var rawMap map[string]interface{}
+	var rawMap map[string]any
 	if err := json.Unmarshal(raw, &rawMap); err != nil {
 		t.Fatalf("unmarshal raw response: %v", err)
 	}
@@ -375,7 +375,7 @@ func TestErrorSerialization(t *testing.T) {
 	}
 
 	// Verify error object
-	errObj, ok := rawMap["error"].(map[string]interface{})
+	errObj, ok := rawMap["error"].(map[string]any)
 	if !ok {
 		t.Fatal("error field is not an object")
 	}
@@ -519,7 +519,7 @@ func TestNewRequestRoundTrip(t *testing.T) {
 
 // TestNewResponseRoundTrip verifies NewResponse → marshal → unmarshal preserves fields.
 func TestNewResponseRoundTrip(t *testing.T) {
-	result := map[string]interface{}{
+	result := map[string]any{
 		"price":  150.25,
 		"change": -2.5,
 	}
@@ -542,7 +542,7 @@ func TestNewResponseRoundTrip(t *testing.T) {
 		t.Errorf("ID = %v, want 42", decoded.ID)
 	}
 
-	var gotResult map[string]interface{}
+	var gotResult map[string]any
 	if err := json.Unmarshal(decoded.Result, &gotResult); err != nil {
 		t.Fatalf("unmarshal result: %v", err)
 	}
@@ -579,7 +579,7 @@ func TestNewErrorRoundTrip(t *testing.T) {
 		t.Errorf("message = %q, want %q", decoded.Error.Message, "invalid request")
 	}
 
-	gotData, ok := decoded.Error.Data.(map[string]interface{})
+	gotData, ok := decoded.Error.Data.(map[string]any)
 	if !ok {
 		t.Fatalf("data type = %T, want map[string]interface{}", decoded.Error.Data)
 	}

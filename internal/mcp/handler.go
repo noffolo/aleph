@@ -63,16 +63,16 @@ func (s *MCPService) HandleRequest(ctx context.Context, req *JSONRPCRequest) *JS
 
 // toolManifestEntry is a single entry in the tools/list response.
 type toolManifestEntry struct {
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
 	InputSchema inputSchema `json:"inputSchema"`
 }
 
 // inputSchema is a JSON Schema object describing tool parameters.
 type inputSchema struct {
-	Type       string                    `json:"type"`
-	Properties map[string]paramProperty  `json:"properties,omitempty"`
-	Required   []string                  `json:"required,omitempty"`
+	Type       string                   `json:"type"`
+	Properties map[string]paramProperty `json:"properties,omitempty"`
+	Required   []string                 `json:"required,omitempty"`
 }
 
 // paramProperty describes a single parameter property in JSON Schema.

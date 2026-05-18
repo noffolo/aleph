@@ -15,8 +15,8 @@ import (
 
 // MCPHealthChecker checks the availability and health of MCP servers.
 type MCPHealthChecker struct {
-	client          *http.Client
-	defaultTimeout  time.Duration
+	client         *http.Client
+	defaultTimeout time.Duration
 }
 
 // NewMCPHealthChecker creates a health checker for MCP servers.
@@ -24,8 +24,8 @@ func NewMCPHealthChecker() *MCPHealthChecker {
 	client := ssrf.NewClient()
 	client.Timeout = 10 * time.Second
 	return &MCPHealthChecker{
-		client:          client,
-		defaultTimeout:  10 * time.Second,
+		client:         client,
+		defaultTimeout: 10 * time.Second,
 	}
 }
 

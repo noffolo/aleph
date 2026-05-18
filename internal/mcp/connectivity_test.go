@@ -26,7 +26,7 @@ type mockResourceEntry struct {
 	MimeType    string `json:"mimeType,omitempty"`
 }
 
-func mockMCPServer(t *testing.T, handlers map[string]interface{}) *httptest.Server {
+func mockMCPServer(t *testing.T, handlers map[string]any) *httptest.Server {
 	t.Helper()
 
 	mux := http.NewServeMux()
@@ -45,11 +45,11 @@ func mockMCPServer(t *testing.T, handlers map[string]interface{}) *httptest.Serv
 		w.Header().Set("Content-Type", "application/json")
 
 		switch h := handler.(type) {
-		case func() interface{}:
+		case func() any:
 			json.NewEncoder(w).Encode(h())
-		case func(r *http.Request) interface{}:
+		case func(r *http.Request) any:
 			json.NewEncoder(w).Encode(h(r))
-		case interface{}:
+		case any:
 			json.NewEncoder(w).Encode(h)
 		}
 	})
@@ -57,8 +57,8 @@ func mockMCPServer(t *testing.T, handlers map[string]interface{}) *httptest.Serv
 	return httptest.NewServer(mux)
 }
 
-func openBBMockHandlers() map[string]interface{} {
-	return map[string]interface{}{
+func openBBMockHandlers() map[string]any {
+	return map[string]any{
 		"GET /": mockServerInfo{
 			Name:            "OpenBB MCP Server",
 			Version:         "1.2.0",
@@ -70,12 +70,12 @@ func openBBMockHandlers() map[string]interface{} {
 				{
 					Name:        "obr_market_data",
 					Description: "Fetch real-time and historical market data for financial instruments",
-					InputSchema: map[string]interface{}{
+					InputSchema: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"symbol":    map[string]interface{}{"type": "string", "description": "Stock ticker symbol"},
-							"interval":  map[string]interface{}{"type": "string", "enum": []string{"1m", "5m", "15m", "1h", "1d"}},
-							"data_type": map[string]interface{}{"type": "string", "enum": []string{"equity", "forex", "crypto", "options"}},
+						"properties": map[string]any{
+							"symbol":    map[string]any{"type": "string", "description": "Stock ticker symbol"},
+							"interval":  map[string]any{"type": "string", "enum": []string{"1m", "5m", "15m", "1h", "1d"}},
+							"data_type": map[string]any{"type": "string", "enum": []string{"equity", "forex", "crypto", "options"}},
 						},
 						"required": []string{"symbol"},
 					},
@@ -83,24 +83,24 @@ func openBBMockHandlers() map[string]interface{} {
 				{
 					Name:        "obr_economy_data",
 					Description: "Retrieve macroeconomic indicators and economic calendar data",
-					InputSchema: map[string]interface{}{
+					InputSchema: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"country":   map[string]interface{}{"type": "string", "description": "Country code (ISO 3166-1 alpha-2)"},
-							"indicator": map[string]interface{}{"type": "string", "enum": []string{"gdp", "cpi", "unemployment", "interest_rate"}},
-							"from_date": map[string]interface{}{"type": "string", "format": "date"},
+						"properties": map[string]any{
+							"country":   map[string]any{"type": "string", "description": "Country code (ISO 3166-1 alpha-2)"},
+							"indicator": map[string]any{"type": "string", "enum": []string{"gdp", "cpi", "unemployment", "interest_rate"}},
+							"from_date": map[string]any{"type": "string", "format": "date"},
 						},
 					},
 				},
 				{
 					Name:        "obr_regulatory_data",
 					Description: "Access SEC filings, regulatory reports, and compliance documents",
-					InputSchema: map[string]interface{}{
+					InputSchema: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"cik":       map[string]interface{}{"type": "string", "description": "SEC Central Index Key"},
-							"form_type": map[string]interface{}{"type": "string", "enum": []string{"10-K", "10-Q", "8-K", "S-1", "13F"}},
-							"date_from": map[string]interface{}{"type": "string", "format": "date"},
+						"properties": map[string]any{
+							"cik":       map[string]any{"type": "string", "description": "SEC Central Index Key"},
+							"form_type": map[string]any{"type": "string", "enum": []string{"10-K", "10-Q", "8-K", "S-1", "13F"}},
+							"date_from": map[string]any{"type": "string", "format": "date"},
 						},
 					},
 				},
@@ -118,8 +118,8 @@ func openBBMockHandlers() map[string]interface{} {
 	}
 }
 
-func greatExpectationsMockHandlers() map[string]interface{} {
-	return map[string]interface{}{
+func greatExpectationsMockHandlers() map[string]any {
+	return map[string]any{
 		"GET /": mockServerInfo{
 			Name:            "Great Expectations MCP Server",
 			Version:         "0.18.0",
@@ -131,12 +131,12 @@ func greatExpectationsMockHandlers() map[string]interface{} {
 				{
 					Name:        "gx_validate_data",
 					Description: "Run data validation against a set of expectations on a given batch",
-					InputSchema: map[string]interface{}{
+					InputSchema: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"datasource":        map[string]interface{}{"type": "string", "description": "Datasource name"},
-							"expectation_suite": map[string]interface{}{"type": "string", "description": "Expectation suite name"},
-							"batch_request":     map[string]interface{}{"type": "object", "description": "Batch request parameters"},
+						"properties": map[string]any{
+							"datasource":        map[string]any{"type": "string", "description": "Datasource name"},
+							"expectation_suite": map[string]any{"type": "string", "description": "Expectation suite name"},
+							"batch_request":     map[string]any{"type": "object", "description": "Batch request parameters"},
 						},
 						"required": []string{"datasource", "expectation_suite"},
 					},
@@ -144,16 +144,16 @@ func greatExpectationsMockHandlers() map[string]interface{} {
 				{
 					Name:        "gx_build_expectations",
 					Description: "Create and manage data quality expectation suites",
-					InputSchema: map[string]interface{}{
+					InputSchema: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"suite_name": map[string]interface{}{"type": "string", "description": "Name of the expectation suite"},
-							"expectations": map[string]interface{}{
+						"properties": map[string]any{
+							"suite_name": map[string]any{"type": "string", "description": "Name of the expectation suite"},
+							"expectations": map[string]any{
 								"type": "array",
-								"items": map[string]interface{}{
-									"properties": map[string]interface{}{
-										"expectation_type": map[string]interface{}{"type": "string"},
-										"kwargs":           map[string]interface{}{"type": "object"},
+								"items": map[string]any{
+									"properties": map[string]any{
+										"expectation_type": map[string]any{"type": "string"},
+										"kwargs":           map[string]any{"type": "object"},
 									},
 								},
 							},
@@ -163,11 +163,11 @@ func greatExpectationsMockHandlers() map[string]interface{} {
 				{
 					Name:        "gx_batch_expectations",
 					Description: "List and manage batch requests for expectation validation runs",
-					InputSchema: map[string]interface{}{
+					InputSchema: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"datasource": map[string]interface{}{"type": "string"},
-							"limit":      map[string]interface{}{"type": "integer", "minimum": 1, "maximum": 1000},
+						"properties": map[string]any{
+							"datasource": map[string]any{"type": "string"},
+							"limit":      map[string]any{"type": "integer", "minimum": 1, "maximum": 1000},
 						},
 					},
 				},
@@ -185,8 +185,8 @@ func greatExpectationsMockHandlers() map[string]interface{} {
 	}
 }
 
-func ghidraMockHandlers() map[string]interface{} {
-	return map[string]interface{}{
+func ghidraMockHandlers() map[string]any {
+	return map[string]any{
 		"GET /": mockServerInfo{
 			Name:            "Ghidra MCP Community Server",
 			Version:         "2.1.0",
@@ -198,12 +198,12 @@ func ghidraMockHandlers() map[string]interface{} {
 				{
 					Name:        "ghidra_decompile",
 					Description: "Decompile a function at the specified address into C-like pseudocode",
-					InputSchema: map[string]interface{}{
+					InputSchema: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"address":     map[string]interface{}{"type": "string", "description": "Function address in hex (e.g., 0x401000)"},
-							"language_id": map[string]interface{}{"type": "string", "description": "Ghidra language ID"},
-							"simplify":    map[string]interface{}{"type": "boolean", "default": true},
+						"properties": map[string]any{
+							"address":     map[string]any{"type": "string", "description": "Function address in hex (e.g., 0x401000)"},
+							"language_id": map[string]any{"type": "string", "description": "Ghidra language ID"},
+							"simplify":    map[string]any{"type": "boolean", "default": true},
 						},
 						"required": []string{"address"},
 					},
@@ -211,22 +211,22 @@ func ghidraMockHandlers() map[string]interface{} {
 				{
 					Name:        "ghidra_analyze",
 					Description: "Run Ghidra auto-analysis on the loaded program",
-					InputSchema: map[string]interface{}{
+					InputSchema: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"analyzers": map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
-							"readonly":  map[string]interface{}{"type": "boolean", "default": false},
+						"properties": map[string]any{
+							"analyzers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+							"readonly":  map[string]any{"type": "boolean", "default": false},
 						},
 					},
 				},
 				{
 					Name:        "ghidra_disassemble",
 					Description: "Disassemble a memory range into assembly instructions",
-					InputSchema: map[string]interface{}{
+					InputSchema: map[string]any{
 						"type": "object",
-						"properties": map[string]interface{}{
-							"start_address": map[string]interface{}{"type": "string", "description": "Start address in hex"},
-							"length":        map[string]interface{}{"type": "integer", "description": "Number of bytes to disassemble", "minimum": 1, "maximum": 65536},
+						"properties": map[string]any{
+							"start_address": map[string]any{"type": "string", "description": "Start address in hex"},
+							"length":        map[string]any{"type": "integer", "description": "Number of bytes to disassemble", "minimum": 1, "maximum": 65536},
 						},
 						"required": []string{"start_address", "length"},
 					},
@@ -528,7 +528,7 @@ func TestMCPConnectivity(t *testing.T) {
 				t.Errorf("expected 3 Ghidra resources, got %d", len(resources))
 			}
 			wantResources := map[string]bool{
-				"ghidra://program/tree":  false,
+				"ghidra://program/tree": false,
 				"ghidra://symbol/table": false,
 				"ghidra://listing/view": false,
 			}
@@ -602,7 +602,7 @@ func TestMCPConnectivityFormat(t *testing.T) {
 
 	servers := []struct {
 		name     string
-		handlers map[string]interface{}
+		handlers map[string]any
 		wantName string
 	}{
 		{"OpenBB", openBBMockHandlers(), "OpenBB MCP Server"},
@@ -740,7 +740,7 @@ func TestToolDefinitionConversion(t *testing.T) {
 		td := ToolDefinition{
 			Name:        "test_tool",
 			Description: "Test description",
-			InputSchema: map[string]interface{}{"type": "object"},
+			InputSchema: map[string]any{"type": "object"},
 			Version:     "2.0.0",
 			Category:    "analysis",
 		}

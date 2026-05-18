@@ -56,10 +56,10 @@ func (m *mockPingerFail) Close() error {
 
 // mockPingerFailN returns success N times, then fails.
 type mockPingerFailN struct {
-	mu          sync.Mutex
-	count       int
+	mu           sync.Mutex
+	count        int
 	successUntil int
-	closed      bool
+	closed       bool
 }
 
 func (m *mockPingerFailN) Ping(_ context.Context) error {
@@ -81,10 +81,10 @@ func (m *mockPingerFailN) Close() error {
 
 // mockPingerRestartFail always fails ping but supports restart (which also fails).
 type mockPingerRestartFail struct {
-	mu          sync.Mutex
-	pingCount   int
+	mu           sync.Mutex
+	pingCount    int
 	restartCount int
-	closed      bool
+	closed       bool
 }
 
 func (m *mockPingerRestartFail) Ping(_ context.Context) error {
@@ -111,11 +111,11 @@ func (m *mockPingerRestartFail) Restart(_ context.Context) error {
 
 // mockPingerRestartOK always fails ping but restart succeeds.
 type mockPingerRestartOK struct {
-	mu          sync.Mutex
-	pingCount   int
+	mu           sync.Mutex
+	pingCount    int
 	restartCount int
-	closed      bool
-	succeeded   bool
+	closed       bool
+	succeeded    bool
 }
 
 func (m *mockPingerRestartOK) Ping(_ context.Context) error {

@@ -274,12 +274,12 @@ func TestValidateSSRF_BlocksIPv6LoopbackAndLinkLocal(t *testing.T) {
 
 func TestParseMCPURI_Valid(t *testing.T) {
 	tests := []struct {
-		name      string
-		uri       string
-		scheme    string
-		host      string
-		port      string
-		path      string
+		name   string
+		uri    string
+		scheme string
+		host   string
+		port   string
+		path   string
 	}{
 		{
 			name:   "minimal",

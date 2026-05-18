@@ -21,7 +21,7 @@ var ErrToolNotFound = errors.New("tool not found")
 // DiscoveryConfig holds configuration for the MCP discovery engine.
 type DiscoveryConfig struct {
 	ServerURIs  []string      // MCP server URIs (mcp://host:port/path)
-	HealthCheck time.Duration  // Interval for health checking servers
+	HealthCheck time.Duration // Interval for health checking servers
 }
 
 // DiscoveryEngine discovers and registers tools from MCP servers.

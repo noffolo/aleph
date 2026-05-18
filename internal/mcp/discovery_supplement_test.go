@@ -15,10 +15,10 @@ import (
 )
 
 func TestToToolRecord_AllFields(t *testing.T) {
-	schema := map[string]interface{}{
+	schema := map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"query": map[string]interface{}{"type": "string"},
+		"properties": map[string]any{
+			"query": map[string]any{"type": "string"},
 		},
 	}
 
@@ -39,7 +39,7 @@ func TestToToolRecord_AllFields(t *testing.T) {
 	assert.Equal(t, "mcp", record.SourceType)
 	assert.NotEmpty(t, record.Code)
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal([]byte(record.Code), &parsed); err != nil {
 		t.Errorf("code should be valid JSON: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestToToolRecord_AllFields(t *testing.T) {
 func TestToToolRecord_InputSchemaMarshalError(t *testing.T) {
 	td := ToolDefinition{
 		Name:        "bad-schema-tool",
-		InputSchema: map[string]interface{}{"channel": make(chan int)},
+		InputSchema: map[string]any{"channel": make(chan int)},
 	}
 	record := td.ToToolRecord("mcp://s:8080/")
 	assert.Empty(t, record.Code)

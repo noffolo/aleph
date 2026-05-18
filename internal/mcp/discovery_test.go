@@ -397,11 +397,11 @@ func TestDiscoverSchemas_MalformedURL(t *testing.T) {
 
 func TestParseMCPURI_EdgeCases(t *testing.T) {
 	tests := []struct {
-		uri      string
-		host     string
-		port     string
-		path     string
-		wantErr  bool
+		uri     string
+		host    string
+		port    string
+		path    string
+		wantErr bool
 	}{
 		{"mcp://host:1234", "host", "1234", "/", false},
 		{"mcp://host:0/path", "host", "0", "/path", false},
@@ -476,4 +476,3 @@ func TestVerifyCertificate_InvalidURL(t *testing.T) {
 	err := checker.VerifyCertificate("not-a-url")
 	assert.Error(t, err)
 }
-

@@ -10,11 +10,11 @@ import (
 // ToolDefinition represents a tool discovered from an MCP server.
 // It maps from MCP JSON Schema to internal ToolRecord fields.
 type ToolDefinition struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	InputSchema map[string]interface{} `json:"inputSchema,omitempty"`
-	Version     string                 `json:"version,omitempty"`
-	Category    string                 `json:"category,omitempty"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	InputSchema map[string]any `json:"inputSchema,omitempty"`
+	Version     string         `json:"version,omitempty"`
+	Category    string         `json:"category,omitempty"`
 }
 
 // MCPListToolsResponse represents the response from an MCP server's list_tools method.
@@ -24,9 +24,9 @@ type MCPListToolsResponse struct {
 
 // MCPToolEntry represents a single tool in an MCP list_tools response.
 type MCPToolEntry struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	InputSchema map[string]interface{} `json:"inputSchema,omitempty"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	InputSchema map[string]any `json:"inputSchema,omitempty"`
 }
 
 // ToToolRecord converts an MCP ToolDefinition to a repository ToolRecord.
