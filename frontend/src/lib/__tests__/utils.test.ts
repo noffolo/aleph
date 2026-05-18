@@ -12,7 +12,7 @@ describe('cn (className utility)', () => {
   })
 
   it('handles conditional classes with falsy values', () => {
-    expect(cn('base', false && 'hidden', null, undefined)).toBe('base')
+    expect(cn('base', false as unknown as string, null, undefined)).toBe('base')
   })
 
   it('handles empty input', () => {

@@ -97,7 +97,7 @@ describe('TerminalProgressBar', () => {
     const { container } = render(
       <TerminalProgressBar label="Count" percent={50} variant="full" current={500} total={1000} />
     )
-    expect(container.textContent).toMatch(/500.*1000/)
+    expect(container.textContent).toMatch(/500.*1,?000/)
   })
 
   it('shows throughput in full variant', () => {
