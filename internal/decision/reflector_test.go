@@ -115,8 +115,8 @@ func TestReflectWithMixedResults(t *testing.T) {
 			TrustDelta: -0.1,
 		},
 		{
-			Step:       PlannedStep{ToolName: "summarize"},
-			Success:    true,
+			Step:    PlannedStep{ToolName: "summarize"},
+			Success: true,
 		},
 	}
 

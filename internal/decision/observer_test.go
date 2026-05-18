@@ -222,7 +222,7 @@ func TestDefaultObserver_Observe_PreservesStepAndActResult(t *testing.T) {
 	obs := NewDefaultObserver()
 	step := PlannedStep{
 		ToolName:  "my_tool",
-		Arguments: map[string]interface{}{"key": "val"},
+		Arguments: map[string]any{"key": "val"},
 	}
 	result := &ActResult{
 		Step:       step,

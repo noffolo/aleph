@@ -32,7 +32,7 @@ func TestEngine_Plan_WithProvider(t *testing.T) {
 		completeFunc: func(ctx context.Context, req llm.CompletionRequest) (*llm.CompletionResponse, error) {
 			return &llm.CompletionResponse{
 				ToolCalls: []llm.ToolCall{
-					{Name: "search_data", Arguments: map[string]interface{}{"object_name": "users"}},
+					{Name: "search_data", Arguments: map[string]any{"object_name": "users"}},
 				},
 			}, nil
 		},

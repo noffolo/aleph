@@ -118,7 +118,7 @@ func (e *Engine) PlanWithProvider(
 
 	req := llm.CompletionRequest{
 		Model:        model,
-		Messages:     []map[string]interface{}{{"role": "user", "content": msg}},
+		Messages:     []map[string]any{{"role": "user", "content": msg}},
 		Tools:        useTools,
 		SystemPrompt: systemPrompt,
 		ApiKey:       apiKey,
@@ -167,7 +167,7 @@ func (e *Engine) Plan(ctx context.Context, msg string, projectID string, agentID
 			},
 			Steps: []PlannedStep{{
 				ToolName:  "query_dispatch",
-				Arguments: map[string]interface{}{"query": msg},
+				Arguments: map[string]any{"query": msg},
 			}},
 			CanProceed: true,
 			Reason:     "degraded mode: heuristic planning (no LLM provider)",
@@ -213,7 +213,7 @@ func (e *Engine) Plan(ctx context.Context, msg string, projectID string, agentID
 		for _, toolName := range intent.NeededTools {
 			step := PlannedStep{
 				ToolName:             toolName,
-				Arguments:            map[string]interface{}{},
+				Arguments:            map[string]any{},
 				ExpectedOutcome:      fmt.Sprintf("execute %s to fulfill user request", toolName),
 				RequiresConfirmation: !e.isKnownTool(ctx, toolName),
 			}
@@ -638,18 +638,18 @@ func (e *Engine) buildToolDefinitions(ctx context.Context) []ToolDefinition {
 
 // BuildToolsMap converts typed ToolDefinitions to map format expected by llm.Provider.
 // This is used by the handler to pass tools to the LLM.
-func (e *Engine) BuildToolsMap(ctx context.Context) []map[string]interface{} {
+func (e *Engine) BuildToolsMap(ctx context.Context) []map[string]any {
 	defs := e.buildToolDefinitions(ctx)
-	result := make([]map[string]interface{}, 0, len(defs))
+	result := make([]map[string]any, 0, len(defs))
 	for _, d := range defs {
-		fnMap := map[string]interface{}{
+		fnMap := map[string]any{
 			"name":        d.Function.Name,
 			"description": d.Function.Description,
 		}
 		if d.Function.Parameters != nil {
-			props := make(map[string]interface{})
+			props := make(map[string]any)
 			for k, v := range d.Function.Parameters.Properties {
-				p := map[string]interface{}{"type": v.Type}
+				p := map[string]any{"type": v.Type}
 				if v.Description != "" {
 					p["description"] = v.Description
 				}
@@ -658,13 +658,13 @@ func (e *Engine) BuildToolsMap(ctx context.Context) []map[string]interface{} {
 				}
 				props[k] = p
 			}
-			fnMap["parameters"] = map[string]interface{}{
+			fnMap["parameters"] = map[string]any{
 				"type":       "object",
 				"properties": props,
 				"required":   d.Function.Parameters.Required,
 			}
 		}
-		result = append(result, map[string]interface{}{
+		result = append(result, map[string]any{
 			"type":     "function",
 			"function": fnMap,
 		})

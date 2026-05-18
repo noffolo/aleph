@@ -19,7 +19,7 @@ func TestDefaultAdmitter_Admit_TableDriven(t *testing.T) {
 			wantAdmit:   false,
 		},
 		{
-			name:        "maxAttempts is zero — treat as unlimited, continue",
+			name: "maxAttempts is zero — treat as unlimited, continue",
 			results: []*ActResult{
 				{Output: "ok"},
 			},
@@ -27,7 +27,7 @@ func TestDefaultAdmitter_Admit_TableDriven(t *testing.T) {
 			wantAdmit:   false,
 		},
 		{
-			name:        "maxAttempts is negative — continue",
+			name: "maxAttempts is negative — continue",
 			results: []*ActResult{
 				{Output: "ok"},
 			},
@@ -35,7 +35,7 @@ func TestDefaultAdmitter_Admit_TableDriven(t *testing.T) {
 			wantAdmit:   false,
 		},
 		{
-			name:        "exactly at maxAttempts — admit",
+			name: "exactly at maxAttempts — admit",
 			results: []*ActResult{
 				{Output: "r1"},
 				{Output: "r2"},
@@ -45,7 +45,7 @@ func TestDefaultAdmitter_Admit_TableDriven(t *testing.T) {
 			wantAdmit:   true,
 		},
 		{
-			name:        "over maxAttempts — admit",
+			name: "over maxAttempts — admit",
 			results: []*ActResult{
 				{Output: "r1"},
 				{Output: "r2"},
@@ -56,7 +56,7 @@ func TestDefaultAdmitter_Admit_TableDriven(t *testing.T) {
 			wantAdmit:   true,
 		},
 		{
-			name:        "one below maxAttempts — continue",
+			name: "one below maxAttempts — continue",
 			results: []*ActResult{
 				{Output: "r1"},
 				{Output: "r2"},

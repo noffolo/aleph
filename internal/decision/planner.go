@@ -31,20 +31,20 @@ func validateToolName(ctx context.Context, name string, registry PluginRegistry)
 // buildToolDefinitions delegates to engine.go's canonical buildToolDefinitions.
 // This function is kept as a package-level accessor for tests and callers
 // that don't have an Engine instance.
-func buildToolDefinitions(ctx context.Context, metaRepo ToolRepository) ([]ToolDefinition, []map[string]interface{}) {
+func buildToolDefinitions(ctx context.Context, metaRepo ToolRepository) ([]ToolDefinition, []map[string]any) {
 	// Create a temporary engine to get the canonical tool definitions
 	e := &Engine{metaRepo: metaRepo}
 	defs := e.buildToolDefinitions(ctx)
-	maps := make([]map[string]interface{}, 0, len(defs))
+	maps := make([]map[string]any, 0, len(defs))
 	for _, d := range defs {
-		fnMap := map[string]interface{}{
+		fnMap := map[string]any{
 			"name":        d.Function.Name,
 			"description": d.Function.Description,
 		}
 		if d.Function.Parameters != nil {
-			props := make(map[string]interface{})
+			props := make(map[string]any)
 			for k, v := range d.Function.Parameters.Properties {
-				p := map[string]interface{}{"type": v.Type}
+				p := map[string]any{"type": v.Type}
 				if v.Description != "" {
 					p["description"] = v.Description
 				}
@@ -53,13 +53,13 @@ func buildToolDefinitions(ctx context.Context, metaRepo ToolRepository) ([]ToolD
 				}
 				props[k] = p
 			}
-			fnMap["parameters"] = map[string]interface{}{
+			fnMap["parameters"] = map[string]any{
 				"type":       "object",
 				"properties": props,
 				"required":   d.Function.Parameters.Required,
 			}
 		}
-		maps = append(maps, map[string]interface{}{
+		maps = append(maps, map[string]any{
 			"type":     "function",
 			"function": fnMap,
 		})

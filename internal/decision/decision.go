@@ -35,13 +35,13 @@ type PlanResult struct {
 
 // PlannedStep is a single atomic action in the plan.
 type PlannedStep struct {
-	ToolName              string
-	Arguments             map[string]interface{}
-	ExpectedOutcome       string
-	RequiresConfirmation  bool
-	Depends               []string // tool names that must succeed before this step executes
-	Rationale             string   // why this step was chosen (runtime-only, not in proto)
-	Fallback              string   // fallback action if this step fails (runtime-only, not in proto)
+	ToolName             string
+	Arguments            map[string]any
+	ExpectedOutcome      string
+	RequiresConfirmation bool
+	Depends              []string // tool names that must succeed before this step executes
+	Rationale            string   // why this step was chosen (runtime-only, not in proto)
+	Fallback             string   // fallback action if this step fails (runtime-only, not in proto)
 }
 
 // ActResult is the output of executing a single step.
@@ -64,16 +64,16 @@ type Observation struct {
 // EngineConfig holds dependencies needed by the DecisionEngine.
 type EngineConfig struct {
 	Provider              llm.Provider
-	ProviderBaseURL       string           // base URL used to create the provider (fallback for PlanWithProvider)
-	MetaRepo              ToolRepository   // interface for tool/chat history operations
-	Executor              ToolExecutor     // interface for executing tools
-	Registry              PluginRegistry   // interface for registry validation
-	MaxAttempts           int              // max loop iterations (default 5)
-	LinkPredictor         LinkPredictor    // optional GNN link predictor for confidence blending
-	Graph                 *gnn.Graph       // optional workspace knowledge graph for link prediction
-	Reflector             Reflector        // optional custom reflector (default: DefaultReflector)
-	ConfirmationThreshold float64          // 0.0-1.0: if step requiresConfirmation and threshold > 0, auto-skip; 0 = no check
-	TruncationThreshold   int              // max output length before truncation signal (default 1900)
+	ProviderBaseURL       string         // base URL used to create the provider (fallback for PlanWithProvider)
+	MetaRepo              ToolRepository // interface for tool/chat history operations
+	Executor              ToolExecutor   // interface for executing tools
+	Registry              PluginRegistry // interface for registry validation
+	MaxAttempts           int            // max loop iterations (default 5)
+	LinkPredictor         LinkPredictor  // optional GNN link predictor for confidence blending
+	Graph                 *gnn.Graph     // optional workspace knowledge graph for link prediction
+	Reflector             Reflector      // optional custom reflector (default: DefaultReflector)
+	ConfirmationThreshold float64        // 0.0-1.0: if step requiresConfirmation and threshold > 0, auto-skip; 0 = no check
+	TruncationThreshold   int            // max output length before truncation signal (default 1900)
 }
 
 // DecisionEngine orchestrates the Plan→Act→Observe→Reflect→Admit loop.
@@ -85,7 +85,7 @@ type DecisionEngine interface {
 	Reflect(ctx context.Context, plan *PlanResult, observations []Observation) (*PlanResult, error)
 	Admit(ctx context.Context, results []*ActResult, maxAttempts int) (bool, error)
 	ShouldAutoSkip(step PlannedStep) bool
-	BuildToolsMap(ctx context.Context) []map[string]interface{}
+	BuildToolsMap(ctx context.Context) []map[string]any
 }
 
 // ToolRepository is the minimal interface decision engine needs from metadata repo.
@@ -97,7 +97,7 @@ type ToolRepository interface {
 
 // ToolExecutor executes tool calls (the dispatch switch).
 type ToolExecutor interface {
-	ExecuteTool(ctx context.Context, toolName string, args map[string]interface{}, projectID string, agentID string) (string, bool, error)
+	ExecuteTool(ctx context.Context, toolName string, args map[string]any, projectID string, agentID string) (string, bool, error)
 }
 
 // PluginRegistry validates tool names against available plugins.
@@ -129,29 +129,27 @@ type ComponentMetadata struct {
 
 // ToolDefinition is a typed tool definition for LLM function calling.
 type ToolDefinition struct {
-	Type       string           `json:"type"`
-	Function   FunctionDef      `json:"function"`
+	Type     string      `json:"type"`
+	Function FunctionDef `json:"function"`
 }
 
 // FunctionDef is the function descriptor inside a tool definition.
 type FunctionDef struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Parameters  *ParameterDef   `json:"parameters,omitempty"`
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	Parameters  *ParameterDef `json:"parameters,omitempty"`
 }
 
 // ParameterDef describes the JSON schema for tool parameters.
 type ParameterDef struct {
-	Type       string                    `json:"type"`
-	Properties map[string]PropertyDef    `json:"properties"`
-	Required   []string                  `json:"required"`
+	Type       string                 `json:"type"`
+	Properties map[string]PropertyDef `json:"properties"`
+	Required   []string               `json:"required"`
 }
 
 // PropertyDef describes a single property in a tool parameter.
 type PropertyDef struct {
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
-	Default     interface{} `json:"default,omitempty"`
+	Default     any    `json:"default,omitempty"`
 }
-
-

@@ -178,7 +178,7 @@ func buildCorrectionSteps(observations []Observation, plan *PlanResult) []Planne
 		if step.Fallback != "" {
 			corrections = append(corrections, PlannedStep{
 				ToolName:  step.Fallback,
-				Arguments: map[string]interface{}{"original_tool": step.ToolName, "error": strings.Join(obs.Issues, "; ")},
+				Arguments: map[string]any{"original_tool": step.ToolName, "error": strings.Join(obs.Issues, "; ")},
 				Rationale: fmt.Sprintf("fallback for %s after failure: %s", step.ToolName, strings.Join(obs.Issues, "; ")),
 			})
 			continue
@@ -187,7 +187,7 @@ func buildCorrectionSteps(observations []Observation, plan *PlanResult) []Planne
 		// No fallback — inject a diagnostic query_dispatch as a safe default
 		corrections = append(corrections, PlannedStep{
 			ToolName: "query_dispatch",
-			Arguments: map[string]interface{}{
+			Arguments: map[string]any{
 				"query": fmt.Sprintf("diagnose failure of %s: %s", step.ToolName, strings.Join(obs.Issues, "; ")),
 			},
 			Rationale: fmt.Sprintf("diagnostic fallback for failed tool %s", step.ToolName),

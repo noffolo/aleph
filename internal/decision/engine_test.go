@@ -43,7 +43,7 @@ type mockToolExecutor struct {
 	err    error
 }
 
-func (m *mockToolExecutor) ExecuteTool(ctx context.Context, toolName string, args map[string]interface{}, projectID string, agentID string) (string, bool, error) {
+func (m *mockToolExecutor) ExecuteTool(ctx context.Context, toolName string, args map[string]any, projectID string, agentID string) (string, bool, error) {
 	return m.result, false, m.err
 }
 
@@ -66,14 +66,14 @@ type mockLinkPredictor struct {
 	linkScores []float64
 }
 
-func (m *mockLinkPredictor) PredictLinks(ctx context.Context, graph interface{}, entityID string) ([]float64, error) {
+func (m *mockLinkPredictor) PredictLinks(ctx context.Context, graph any, entityID string) ([]float64, error) {
 	if m.predErr != nil {
 		return nil, m.predErr
 	}
 	return m.linkScores, nil
 }
 
-func (m *mockLinkPredictor) TrainFromGraph(ctx context.Context, graph interface{}, epochs int) error {
+func (m *mockLinkPredictor) TrainFromGraph(ctx context.Context, graph any, epochs int) error {
 	m.trained = true
 	return nil
 }
@@ -118,7 +118,7 @@ func TestEngine_PlanWithProvider_Success(t *testing.T) {
 		completeFunc: func(ctx context.Context, req llm.CompletionRequest) (*llm.CompletionResponse, error) {
 			return &llm.CompletionResponse{
 				ToolCalls: []llm.ToolCall{
-					{Name: "search_data", Arguments: map[string]interface{}{"query": "test"}},
+					{Name: "search_data", Arguments: map[string]any{"query": "test"}},
 				},
 			}, nil
 		},
@@ -157,7 +157,7 @@ func TestEngine_Act_DelegatesToExecutor(t *testing.T) {
 	ctx := context.Background()
 	step := PlannedStep{
 		ToolName:  "test_tool",
-		Arguments: map[string]interface{}{"key": "value"},
+		Arguments: map[string]any{"key": "value"},
 	}
 	result, err := engine.Act(ctx, step, "proj1")
 	if err != nil {
@@ -179,7 +179,7 @@ func TestEngine_Act_ExecutorError(t *testing.T) {
 	ctx := context.Background()
 	step := PlannedStep{
 		ToolName:  "failing_tool",
-		Arguments: map[string]interface{}{},
+		Arguments: map[string]any{},
 	}
 	result, err := engine.Act(ctx, step, "proj1")
 	if err != nil {
@@ -360,7 +360,7 @@ func TestEngine_SortStepsByDependencies(t *testing.T) {
 		check func(t *testing.T, sorted []PlannedStep)
 	}{
 		{
-			name: "empty steps",
+			name:  "empty steps",
 			steps: []PlannedStep{},
 			check: func(t *testing.T, sorted []PlannedStep) {
 				if len(sorted) != 0 {
@@ -795,7 +795,7 @@ func TestEngine_BuildToolsMap(t *testing.T) {
 	// Check that custom tool is included
 	var foundCustom bool
 	for _, tool := range tools {
-		if fn, ok := tool["function"].(map[string]interface{}); ok {
+		if fn, ok := tool["function"].(map[string]any); ok {
 			if fn["name"] == "custom_tool" {
 				foundCustom = true
 				break

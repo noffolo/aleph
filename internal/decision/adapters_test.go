@@ -12,8 +12,8 @@ import (
 )
 
 type mockMetaRepo struct {
-	saveMsgFn  func(ctx context.Context, projectID, agentID, role, content, toolCall string) error
-	getMsgsFn  func(ctx context.Context, projectID, agentID string) ([]repository.ChatMessage, error)
+	saveMsgFn   func(ctx context.Context, projectID, agentID, role, content, toolCall string) error
+	getMsgsFn   func(ctx context.Context, projectID, agentID string) ([]repository.ChatMessage, error)
 	listToolsFn func(ctx context.Context) ([]repository.ToolRecord, error)
 }
 
