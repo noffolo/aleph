@@ -113,17 +113,17 @@ func TestSanitizeProjectID_Valid(t *testing.T) {
 
 func TestSanitizeProjectID_Invalid(t *testing.T) {
 	invalidIDs := []string{
-		"",                // empty
-		"123starts",       // starts with digit
-		"has space",       // contains space
-		"has.dot",         // contains dot
-		"has/slash",       // contains slash
-		"has;semicolon",   // contains semicolon
-		"has'quote",       // contains quote
-		"has\"dblquote",   // contains double quote
-		"has`backtick",    // contains backtick
-		"@special",         // contains @
-		"#hash",            // contains #
+		"",              // empty
+		"123starts",     // starts with digit
+		"has space",     // contains space
+		"has.dot",       // contains dot
+		"has/slash",     // contains slash
+		"has;semicolon", // contains semicolon
+		"has'quote",     // contains quote
+		"has\"dblquote", // contains double quote
+		"has`backtick",  // contains backtick
+		"@special",      // contains @
+		"#hash",         // contains #
 	}
 	for _, id := range invalidIDs {
 		if err := SanitizeProjectID(id); err == nil {

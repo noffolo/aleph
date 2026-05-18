@@ -14,11 +14,11 @@ func TestCrossProjectIsolation(t *testing.T) {
 
 	// Create two project schemas
 	for _, schema := range []string{"project_alice", "project_bob"} {
-		_, err := db.Exec(context.Background(), "CREATE SCHEMA IF NOT EXISTS \"" + schema + "\"")
+		_, err := db.Exec(context.Background(), "CREATE SCHEMA IF NOT EXISTS \""+schema+"\"")
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = db.Exec(context.Background(), "CREATE TABLE IF NOT EXISTS \"" + schema + "\".secrets (key VARCHAR, value VARCHAR)")
+		_, err = db.Exec(context.Background(), "CREATE TABLE IF NOT EXISTS \""+schema+"\".secrets (key VARCHAR, value VARCHAR)")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -42,11 +42,11 @@ func TestCrossProjectIsolation(t *testing.T) {
 
 	// Verify data exists in each schema
 	tests := []struct {
-		name       string
-		schema     string
-		wantKey    string
-		wantValue  string
-		wantCount  int
+		name      string
+		schema    string
+		wantKey   string
+		wantValue string
+		wantCount int
 	}{
 		{
 			name:      "Alice reads her own data",

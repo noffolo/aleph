@@ -12,12 +12,15 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/marcboeker/go-duckdb"
 	"github.com/ff3300/aleph-v2/internal/safeident"
+	_ "github.com/marcboeker/go-duckdb"
 )
 
 // DefaultSlowQueryThreshold is the default threshold for slow query logging.
 const DefaultSlowQueryThreshold = 500 * time.Millisecond
+
+// Compile-time assertion: DuckDB implements DBExecutor.
+var _ DBExecutor = (*DuckDB)(nil)
 
 // DuckDB wraps a *sql.DB connection pool with serialized write access.
 // Reads use the connection pool directly (no mutex). Writes are serialized
@@ -103,7 +106,7 @@ func (d *DuckDB) logSlowQuery(operation, query string, dur time.Duration) {
 
 // Query executes a read query using the connection pool.
 // No mutex held — reads are fully concurrent.
-func (d *DuckDB) Query(query string, args ...interface{}) (*sql.Rows, error) {
+func (d *DuckDB) Query(query string, args ...any) (*sql.Rows, error) {
 	start := time.Now()
 	rows, err := d.db.Query(query, args...)
 	d.logSlowQuery("Query", query, time.Since(start))
@@ -112,7 +115,7 @@ func (d *DuckDB) Query(query string, args ...interface{}) (*sql.Rows, error) {
 
 // QueryContext executes a read query using the connection pool.
 // No mutex held — reads are fully concurrent.
-func (d *DuckDB) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+func (d *DuckDB) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	start := time.Now()
 	rows, err := d.db.QueryContext(ctx, scopeQuery(ctx, query), args...)
 	d.logSlowQuery("QueryContext", query, time.Since(start))
@@ -121,7 +124,7 @@ func (d *DuckDB) QueryContext(ctx context.Context, query string, args ...interfa
 
 // Exec executes a write query. Serialized via writeMu to prevent concurrent writes.
 // Prefer ExecContext to avoid orphaned operations.
-func (d *DuckDB) Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+func (d *DuckDB) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	d.writeMu.Lock()
 	defer d.writeMu.Unlock()
 	start := time.Now()
@@ -131,7 +134,7 @@ func (d *DuckDB) Exec(ctx context.Context, query string, args ...interface{}) (s
 }
 
 // ExecContext executes a write query. Serialized via writeMu to prevent concurrent writes.
-func (d *DuckDB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+func (d *DuckDB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	d.writeMu.Lock()
 	defer d.writeMu.Unlock()
 	start := time.Now()
@@ -156,7 +159,7 @@ func (d *DuckDB) Close() error {
 
 // QueryRowContext executes a query returning at most one row using the pool.
 // The returned *sql.Row will error on Scan if the query fails.
-func (d *DuckDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+func (d *DuckDB) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	start := time.Now()
 	row := d.db.QueryRowContext(ctx, scopeQuery(ctx, query), args...)
 	d.logSlowQuery("QueryRowContext", query, time.Since(start))
@@ -165,7 +168,7 @@ func (d *DuckDB) QueryRowContext(ctx context.Context, query string, args ...inte
 
 // QueryRowContextOrError is like QueryRowContext but returns (row, error) for callers
 // that need to detect context cancellation early. The returned row is never nil.
-func (d *DuckDB) QueryRowContextOrError(ctx context.Context, query string, args ...interface{}) (*sql.Row, error) {
+func (d *DuckDB) QueryRowContextOrError(ctx context.Context, query string, args ...any) (*sql.Row, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -176,7 +179,7 @@ func (d *DuckDB) QueryRowContextOrError(ctx context.Context, query string, args 
 }
 
 // QueryRow executes a query returning at most one row using the pool.
-func (d *DuckDB) QueryRow(query string, args ...interface{}) *sql.Row {
+func (d *DuckDB) QueryRow(query string, args ...any) *sql.Row {
 	start := time.Now()
 	row := d.db.QueryRow(query, args...)
 	d.logSlowQuery("QueryRow", query, time.Since(start))
@@ -197,11 +200,11 @@ func (d *DuckDB) DB() *sql.DB {
 // use on the same TX handle. Each TX should be used by one goroutine at a time.
 // Callers must call Commit or Rollback to release resources.
 type TX struct {
-	tx       *sql.Tx
-	mu       sync.RWMutex
-	writeMu  *sync.Mutex // non-nil for write transactions; released on Commit/Rollback
-	schema   string
-	done     bool
+	tx      *sql.Tx
+	mu      sync.RWMutex
+	writeMu *sync.Mutex // non-nil for write transactions; released on Commit/Rollback
+	schema  string
+	done    bool
 
 	slowQueryThreshold time.Duration
 }
@@ -234,9 +237,9 @@ func (d *DuckDB) BeginTX(ctx context.Context) (*TX, error) {
 	}
 
 	return &TX{
-		tx:       tx,
-		schema:   schema,
-		writeMu:  &d.writeMu,
+		tx:                 tx,
+		schema:             schema,
+		writeMu:            &d.writeMu,
 		slowQueryThreshold: d.slowQueryThreshold,
 	}, nil
 }
@@ -267,9 +270,9 @@ func (d *DuckDB) BeginReadTX(ctx context.Context) (*TX, error) {
 	}
 
 	return &TX{
-		tx:       tx,
-		schema:   schema,
-		writeMu:  nil,
+		tx:                 tx,
+		schema:             schema,
+		writeMu:            nil,
 		slowQueryThreshold: d.slowQueryThreshold,
 	}, nil
 }
@@ -387,7 +390,7 @@ func (t *TX) Rollback() error {
 }
 
 // Query executes a query on the transaction.
-func (t *TX) Query(query string, args ...interface{}) (*sql.Rows, error) {
+func (t *TX) Query(query string, args ...any) (*sql.Rows, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	start := time.Now()
@@ -397,7 +400,7 @@ func (t *TX) Query(query string, args ...interface{}) (*sql.Rows, error) {
 }
 
 // QueryContext executes a query on the transaction.
-func (t *TX) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+func (t *TX) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	start := time.Now()
@@ -407,7 +410,7 @@ func (t *TX) QueryContext(ctx context.Context, query string, args ...interface{}
 }
 
 // Exec executes a statement on the transaction.
-func (t *TX) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (t *TX) Exec(query string, args ...any) (sql.Result, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	start := time.Now()
@@ -417,7 +420,7 @@ func (t *TX) Exec(query string, args ...interface{}) (sql.Result, error) {
 }
 
 // ExecContext executes a statement on the transaction.
-func (t *TX) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+func (t *TX) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	start := time.Now()
@@ -427,7 +430,7 @@ func (t *TX) ExecContext(ctx context.Context, query string, args ...interface{})
 }
 
 // QueryRow executes a query that returns at most one row on the transaction.
-func (t *TX) QueryRow(query string, args ...interface{}) *sql.Row {
+func (t *TX) QueryRow(query string, args ...any) *sql.Row {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	start := time.Now()
@@ -437,7 +440,7 @@ func (t *TX) QueryRow(query string, args ...interface{}) *sql.Row {
 }
 
 // QueryRowContext executes a query that returns at most one row on the transaction.
-func (t *TX) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+func (t *TX) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	start := time.Now()
@@ -448,7 +451,7 @@ func (t *TX) QueryRowContext(ctx context.Context, query string, args ...interfac
 
 // QueryRowContextOrError is like QueryRowContext but returns (row, error)
 // for callers that need to handle nil gracefully.
-func (t *TX) QueryRowContextOrError(ctx context.Context, query string, args ...interface{}) (*sql.Row, error) {
+func (t *TX) QueryRowContextOrError(ctx context.Context, query string, args ...any) (*sql.Row, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

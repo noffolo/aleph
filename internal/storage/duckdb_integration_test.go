@@ -58,7 +58,7 @@ func TestIntegration_CreateSchema(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE SCHEMA IF NOT EXISTS test_schema")
+	_, err := db.Exec(context.Background(), "CREATE SCHEMA IF NOT EXISTS test_schema")
 	if err != nil {
 		t.Fatalf("create schema: %v", err)
 	}
@@ -92,12 +92,12 @@ func TestIntegration_CreateTableInSchema(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE SCHEMA IF NOT EXISTS myschema")
+	_, err := db.Exec(context.Background(), "CREATE SCHEMA IF NOT EXISTS myschema")
 	if err != nil {
 		t.Fatalf("create schema: %v", err)
 	}
 
-	_, err = db.Exec("CREATE TABLE myschema.people (id INTEGER, name VARCHAR)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE myschema.people (id INTEGER, name VARCHAR)")
 	if err != nil {
 		t.Fatalf("create table: %v", err)
 	}
@@ -126,12 +126,12 @@ func TestIntegration_InsertSelectRoundtrip(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE TABLE items (id INTEGER, label VARCHAR)")
+	_, err := db.Exec(context.Background(), "CREATE TABLE items (id INTEGER, label VARCHAR)")
 	if err != nil {
 		t.Fatalf("create table: %v", err)
 	}
 
-	_, err = db.Exec("INSERT INTO items VALUES (1, 'alpha'), (2, 'beta'), (3, 'gamma')")
+	_, err = db.Exec(context.Background(), "INSERT INTO items VALUES (1, 'alpha'), (2, 'beta'), (3, 'gamma')")
 	if err != nil {
 		t.Fatalf("insert: %v", err)
 	}
@@ -182,11 +182,11 @@ func TestIntegration_QueryWithParams(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE TABLE params_test (id INTEGER, name VARCHAR, score FLOAT)")
+	_, err := db.Exec(context.Background(), "CREATE TABLE params_test (id INTEGER, name VARCHAR, score FLOAT)")
 	if err != nil {
 		t.Fatalf("create table: %v", err)
 	}
-	_, err = db.Exec("INSERT INTO params_test VALUES (1, 'alice', 9.5), (2, 'bob', 7.2), (3, 'carol', 8.1)")
+	_, err = db.Exec(context.Background(), "INSERT INTO params_test VALUES (1, 'alice', 9.5), (2, 'bob', 7.2), (3, 'carol', 8.1)")
 	if err != nil {
 		t.Fatalf("insert: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestIntegration_ColumnTypes(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE TABLE type_test (" +
+	_, err := db.Exec(context.Background(), "CREATE TABLE type_test (" +
 		"txt TEXT, " +
 		"num INTEGER, " +
 		"val FLOAT, " +
@@ -269,7 +269,7 @@ func TestIntegration_ColumnTypes(t *testing.T) {
 	}
 
 	now := time.Date(2026, 5, 11, 12, 0, 0, 0, time.UTC)
-	_, err = db.Exec("INSERT INTO type_test VALUES (?, ?, ?, ?, ?)",
+	_, err = db.Exec(context.Background(), "INSERT INTO type_test VALUES (?, ?, ?, ?, ?)",
 		"hello world", 42, 3.14159, true, now,
 	)
 	if err != nil {
@@ -315,13 +315,13 @@ func TestIntegration_MultipleTablesInSchema(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE SCHEMA IF NOT EXISTS multi")
+	_, err := db.Exec(context.Background(), "CREATE SCHEMA IF NOT EXISTS multi")
 	if err != nil {
 		t.Fatalf("create schema: %v", err)
 	}
 
 	for _, tbl := range []string{"users", "orders", "products"} {
-		_, err = db.Exec(fmt.Sprintf(
+		_, err = db.Exec(context.Background(), fmt.Sprintf(
 			"CREATE TABLE multi.%s (id INTEGER PRIMARY KEY, name VARCHAR)", tbl,
 		))
 		if err != nil {
@@ -329,15 +329,15 @@ func TestIntegration_MultipleTablesInSchema(t *testing.T) {
 		}
 	}
 
-	_, err = db.Exec("INSERT INTO multi.users VALUES (1, 'alice')")
+	_, err = db.Exec(context.Background(), "INSERT INTO multi.users VALUES (1, 'alice')")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("INSERT INTO multi.orders VALUES (100, 'order-a')")
+	_, err = db.Exec(context.Background(), "INSERT INTO multi.orders VALUES (100, 'order-a')")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec("INSERT INTO multi.products VALUES (10, 'widget')")
+	_, err = db.Exec(context.Background(), "INSERT INTO multi.products VALUES (10, 'widget')")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +373,7 @@ func TestIntegration_TransactionCommit(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE TABLE txn_commit (id INTEGER PRIMARY KEY, value TEXT)")
+	_, err := db.Exec(context.Background(), "CREATE TABLE txn_commit (id INTEGER PRIMARY KEY, value TEXT)")
 	if err != nil {
 		t.Fatalf("create table: %v", err)
 	}
@@ -431,13 +431,13 @@ func TestIntegration_TransactionRollback(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE TABLE txn_rollback (id INTEGER PRIMARY KEY, value TEXT)")
+	_, err := db.Exec(context.Background(), "CREATE TABLE txn_rollback (id INTEGER PRIMARY KEY, value TEXT)")
 	if err != nil {
 		t.Fatalf("create table: %v", err)
 	}
 
 	// Insert a row outside a transaction as a baseline
-	_, err = db.Exec("INSERT INTO txn_rollback VALUES (1, 'baseline')")
+	_, err = db.Exec(context.Background(), "INSERT INTO txn_rollback VALUES (1, 'baseline')")
 	if err != nil {
 		t.Fatalf("insert baseline: %v", err)
 	}
@@ -484,28 +484,28 @@ func TestIntegration_Cleanup(t *testing.T) {
 	defer db.Close()
 
 	// Create schema + table
-	_, err := db.Exec("CREATE SCHEMA IF NOT EXISTS cleanup_schema")
+	_, err := db.Exec(context.Background(), "CREATE SCHEMA IF NOT EXISTS cleanup_schema")
 	if err != nil {
 		t.Fatalf("create schema: %v", err)
 	}
-	_, err = db.Exec("CREATE TABLE cleanup_schema.temp_data (id INTEGER)")
+	_, err = db.Exec(context.Background(), "CREATE TABLE cleanup_schema.temp_data (id INTEGER)")
 	if err != nil {
 		t.Fatalf("create table: %v", err)
 	}
-	_, err = db.Exec("INSERT INTO cleanup_schema.temp_data VALUES (1)")
+	_, err = db.Exec(context.Background(), "INSERT INTO cleanup_schema.temp_data VALUES (1)")
 	if err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
 	// Drop the table first
-	_, err = db.Exec("DROP TABLE IF EXISTS cleanup_schema.temp_data")
+	_, err = db.Exec(context.Background(), "DROP TABLE IF EXISTS cleanup_schema.temp_data")
 	if err != nil {
 		t.Fatalf("drop table: %v", err)
 	}
 
 	// Verify table is gone
 	rows, err := db.Query(
-		"SELECT table_name FROM information_schema.tables "+
+		"SELECT table_name FROM information_schema.tables " +
 			"WHERE table_schema = 'cleanup_schema' AND table_name = 'temp_data'",
 	)
 	if err != nil {
@@ -517,7 +517,7 @@ func TestIntegration_Cleanup(t *testing.T) {
 	rows.Close()
 
 	// Drop the schema
-	_, err = db.Exec("DROP SCHEMA IF EXISTS cleanup_schema")
+	_, err = db.Exec(context.Background(), "DROP SCHEMA IF EXISTS cleanup_schema")
 	if err != nil {
 		t.Fatalf("drop schema: %v", err)
 	}
@@ -545,7 +545,7 @@ func TestIntegration_ContextCancellation(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE TABLE ctx_cancel (id INTEGER)")
+	_, err := db.Exec(context.Background(), "CREATE TABLE ctx_cancel (id INTEGER)")
 	if err != nil {
 		t.Fatalf("create table: %v", err)
 	}
@@ -615,7 +615,7 @@ func TestIntegration_ThreadSafety(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE TABLE ts_test (id INTEGER PRIMARY KEY, goroutine_id INTEGER, value TEXT)")
+	_, err := db.Exec(context.Background(), "CREATE TABLE ts_test (id INTEGER PRIMARY KEY, goroutine_id INTEGER, value TEXT)")
 	if err != nil {
 		t.Fatalf("create table: %v", err)
 	}
@@ -632,7 +632,7 @@ func TestIntegration_ThreadSafety(t *testing.T) {
 			defer wg.Done()
 			for i := 0; i < insertsPerGoroutine; i++ {
 				id := gid*insertsPerGoroutine + i
-				_, err := db.Exec(
+				_, err := db.Exec(context.Background(),
 					"INSERT INTO ts_test VALUES (?, ?, ?)",
 					id, gid, fmt.Sprintf("g%d-i%d", gid, i),
 				)
@@ -688,12 +688,12 @@ func TestIntegration_ThreadSafetyReads(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	_, err := db.Exec("CREATE TABLE read_test (id INTEGER, val FLOAT)")
+	_, err := db.Exec(context.Background(), "CREATE TABLE read_test (id INTEGER, val FLOAT)")
 	if err != nil {
 		t.Fatalf("create table: %v", err)
 	}
 	for i := 0; i < 100; i++ {
-		_, err = db.Exec("INSERT INTO read_test VALUES (?, ?)", i, float64(i)*1.5)
+		_, err = db.Exec(context.Background(), "INSERT INTO read_test VALUES (?, ?)", i, float64(i)*1.5)
 		if err != nil {
 			t.Fatalf("insert: %v", err)
 		}

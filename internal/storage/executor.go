@@ -16,13 +16,13 @@ import (
 type DBExecutor interface {
 	// ExecContext executes a query that does not return rows (INSERT, UPDATE,
 	// DELETE, DDL). The arguments are for placeholder parameters in the query.
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 
 	// QueryContext executes a query that returns rows, typically a SELECT.
 	// The caller must close the returned *sql.Rows.
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 
 	// QueryRowContext executes a query that returns at most one row.
 	// Errors are deferred until Scan is called on the returned *sql.Row.
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
