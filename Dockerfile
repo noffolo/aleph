@@ -57,7 +57,7 @@ RUN groupadd -r aleph && useradd -r -g aleph -d /app aleph \
     && mkdir -p /app/data/projects /app/data/raw /app/data/ontologies /app/data/backups/duckdb
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD curl -f http://localhost:8080/healthz || exit 1
+  CMD curl -f http://localhost:8080/api/v1/healthz || exit 1
 
 EXPOSE 8080
 

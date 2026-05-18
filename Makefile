@@ -3,10 +3,18 @@
 .PHONY: dev dev-backend dev-frontend dev-nlp
 .PHONY: docker-up docker-down docker-build docker-dev docker-devcontainer
 
+# ── Frontend dist ──────────────────────────────────────────────
+
+.PHONY: dist
+dist:
+	cd frontend && npm run build
+	rm -rf ./dist ./internal/routes/dist
+	cp -r frontend/dist ./dist
+	cp -r frontend/dist ./internal/routes/dist
+
 # ── Build ───────────────────────────────────────────────────────
 
-build:
-	cd frontend && npm run build
+build: dist
 	go build -o aleph main.go
 
 run: build
@@ -30,7 +38,7 @@ nlp-dev: dev-nlp
 
 # ── Tests ───────────────────────────────────────────────────────
 
-test-go:
+test-go: dist
 	go test -count=1 -race ./...
 
 test-frontend:
@@ -102,6 +110,6 @@ proto-python:
 # ── Cleanup ─────────────────────────────────────────────────────
 
 clean:
-	rm -rf dist aleph
+	rm -rf dist internal/routes/dist aleph
 	cd frontend && rm -rf node_modules dist
 	cd nlp && rm -rf .venv
