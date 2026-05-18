@@ -56,6 +56,14 @@ func (r *MetadataRepository) SetEncryptionKey(key []byte) {
 	r.encryptionKey = key
 }
 
+// compile-time assertion that MetadataRepository implements MetadataStore.
+var _ MetadataStore = (*MetadataRepository)(nil)
+
+// Health returns nil if the database connection is alive.
+func (r *MetadataRepository) Health(ctx context.Context) error {
+	return r.db.PingContext(ctx)
+}
+
 // NewMetadataRepository creates a MetadataRepository backed by the given *sql.DB.
 func NewMetadataRepository(db *sql.DB) (*MetadataRepository, error) {
 	return &MetadataRepository{

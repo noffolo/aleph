@@ -64,7 +64,7 @@ func (r *AuditRepository) QueryAuditLog(ctx context.Context, filters AuditFilter
 	FROM audit_log
 	WHERE 1=1
 	`
-	args := []interface{}{}
+	args := []any{}
 	argIdx := 1
 
 	if filters.UserID != "" {

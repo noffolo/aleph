@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/marcboeker/go-duckdb"
 )
 
 func setupAuditRepo(t *testing.T) *AuditRepository {
@@ -160,7 +160,7 @@ func TestAuditRepository_QueryByTimeRange(t *testing.T) {
 
 	entries, err := repo.QueryAuditLog(ctx, AuditFilters{
 		StartTime: now.Add(30 * time.Minute),
-		EndTime:   now.Add(2 * time.Hour + 30 * time.Minute),
+		EndTime:   now.Add(2*time.Hour + 30*time.Minute),
 	})
 	require.NoError(t, err)
 	assert.Len(t, entries, 2)

@@ -18,17 +18,17 @@ func NewOntologyRepository(db *sql.DB) *OntologyRepository {
 }
 
 type OntologyVersionRecord struct {
-	VersionID          string
-	ProjectID          string
-	ParentVersionID    sql.NullString
-	DiffJSON           string
-	CoreAlephSnapshot  string
-	Status             string
-	SourceDescription  sql.NullString
-	Rationale          sql.NullString
-	Confidence         sql.NullFloat64
-	CreatedAt          time.Time
-	ModifiedAt         sql.NullTime
+	VersionID         string
+	ProjectID         string
+	ParentVersionID   sql.NullString
+	DiffJSON          string
+	CoreAlephSnapshot string
+	Status            string
+	SourceDescription sql.NullString
+	Rationale         sql.NullString
+	Confidence        sql.NullFloat64
+	CreatedAt         time.Time
+	ModifiedAt        sql.NullTime
 }
 
 func (r *OntologyRepository) ProposeOntologyDiff(ctx context.Context, projectID, parentVersionID, diffJSON, snapshot, sourceDesc, rationale string, confidence float64) (versionID string, err error) {

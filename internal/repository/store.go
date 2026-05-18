@@ -10,15 +10,15 @@ import (
 
 // DataSourceRecord represents a registered data source (CSV, RSS, GitHub, IMAP, etc.).
 type DataSourceRecord struct {
-	ID          string
-	ProjectID   string
-	Name        string
-	Type        string // csv, rss, github, imap, sitemap, etc.
-	ConfigJSON  string
-	Schedule    string
-	Status      string // active, paused, errored
-	LastRunAt   string
-	NextRunAt   string
+	ID         string
+	ProjectID  string
+	Name       string
+	Type       string // csv, rss, github, imap, sitemap, etc.
+	ConfigJSON string
+	Schedule   string
+	Status     string // active, paused, errored
+	LastRunAt  string
+	NextRunAt  string
 }
 
 // ─── MetadataStore Interface ────────────────────────────────────────────────
@@ -89,21 +89,4 @@ type MetadataStore interface {
 
 	// DeleteSkill removes the skill record identified by id and projectID.
 	DeleteSkill(id, projectID string) error
-
-	// ─── DataSource CRUD ─────────────────────────────────────────────────
-
-	// CreateDataSource inserts a new data source record.
-	CreateDataSource(ds *DataSourceRecord) error
-
-	// GetDataSource returns the data source record for the given id.
-	GetDataSource(id string) (*DataSourceRecord, error)
-
-	// ListDataSources returns all data source records for the given project.
-	ListDataSources(projectID string) ([]DataSourceRecord, error)
-
-	// UpdateDataSource replaces mutable fields for the given data source.
-	UpdateDataSource(ds *DataSourceRecord) error
-
-	// DeleteDataSource removes the data source record identified by id.
-	DeleteDataSource(id string) error
 }

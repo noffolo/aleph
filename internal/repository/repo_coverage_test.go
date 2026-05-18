@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"testing"
 
+	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/marcboeker/go-duckdb"
 )
 
 func setupRepoDB(t *testing.T) *sql.DB {
@@ -378,10 +378,6 @@ func TestConfirmAgentInProject(t *testing.T) {
 }
 
 // ─── AuditRepository ────────────────────────────────────────────────────────
-
-
-
-
 
 // ─── OntologyRepository ──────────────────────────────────────────────────────
 
