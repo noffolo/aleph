@@ -1,8 +1,8 @@
 package predict
 
 import (
-	"sync"
 	nlp "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
+	"sync"
 )
 
 type FactorManager struct {

@@ -63,4 +63,3 @@ func RecordPAORACycle(phase, outcome string) {
 func SetDBConnections(n float64) {
 	promDBConnections.Set(n)
 }
-

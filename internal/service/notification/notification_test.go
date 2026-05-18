@@ -73,7 +73,7 @@ func TestSendWebhook_QueueFull_NonBlocking(t *testing.T) {
 	defer svc.Stop()
 
 	for i := 0; i < 110; i++ {
-		err := svc.SendWebhook("https://httpbin.org/post", map[string]interface{}{"id": i})
+		err := svc.SendWebhook("https://httpbin.org/post", map[string]any{"id": i})
 		if err != nil {
 			t.Logf("SendWebhook #%d error: %v", i, err)
 		}

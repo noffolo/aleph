@@ -15,6 +15,9 @@ type duckDBClient interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 }
 
+// Compile-time assertion: DuckDBTracker implements Tracker.
+var _ Tracker = (*DuckDBTracker)(nil)
+
 // DuckDBTracker implements the Tracker interface backed by DuckDB.
 type DuckDBTracker struct {
 	db duckDBClient

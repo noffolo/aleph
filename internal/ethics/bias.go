@@ -28,9 +28,9 @@ const (
 
 // Default thresholds for bias checks.
 const (
-	DefaultDataBalanceThreshold     = 0.70 // minimum normalized entropy to pass
-	DefaultParityThreshold          = 0.10 // maximum group score difference to pass
-	DefaultDiversityThreshold       = 0.35 // maximum average Jaccard similarity to pass
+	DefaultDataBalanceThreshold = 0.70 // minimum normalized entropy to pass
+	DefaultParityThreshold      = 0.10 // maximum group score difference to pass
+	DefaultDiversityThreshold   = 0.35 // maximum average Jaccard similarity to pass
 )
 
 // BiasCheckResult captures the outcome of a single bias check.

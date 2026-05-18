@@ -428,9 +428,8 @@ func TestLogWithTrace_RecordingSpan(t *testing.T) {
 	ctx, span := InstrumentFunction(context.Background(), "test_span")
 	defer span.End()
 
-	LogWithTrace(ctx, 0, "test with trace",
-		// attrs are slog.Attr values, but we need to use the right interface
-	)
+	LogWithTrace(ctx, 0, "test with trace")// attrs are slog.Attr values, but we need to use the right interface
+
 }
 
 // ── HeaderCarrier edge cases ──────────────────────────────────────────────

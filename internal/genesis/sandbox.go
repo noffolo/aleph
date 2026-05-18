@@ -15,20 +15,20 @@ import (
 )
 
 var blockedGoImports = map[string]string{
-	"os":             "os: filesystem manipulation",
-	"os/exec":        "os/exec: arbitrary command execution",
-	"plugin":         "plugin: dynamic library loading",
-	"runtime":        "runtime: low-level runtime access",
-	"net":            "net: network access",
-	"net/http":       "net/http: HTTP client/server",
-	"net/url":        "net/url: SSRF vector",
-	"net/smtp":       "net/smtp: email sending",
-	"net/rpc":        "net/rpc: remote procedure calls",
-	"syscall":        "syscall: low-level system access",
-	"unsafe":         "unsafe: memory unsafety",
-	"reflect":        "reflect: runtime type manipulation",
-	"text/template":  "text/template: code injection via templates",
-	"html/template":  "html/template: code injection via templates",
+	"os":            "os: filesystem manipulation",
+	"os/exec":       "os/exec: arbitrary command execution",
+	"plugin":        "plugin: dynamic library loading",
+	"runtime":       "runtime: low-level runtime access",
+	"net":           "net: network access",
+	"net/http":      "net/http: HTTP client/server",
+	"net/url":       "net/url: SSRF vector",
+	"net/smtp":      "net/smtp: email sending",
+	"net/rpc":       "net/rpc: remote procedure calls",
+	"syscall":       "syscall: low-level system access",
+	"unsafe":        "unsafe: memory unsafety",
+	"reflect":       "reflect: runtime type manipulation",
+	"text/template": "text/template: code injection via templates",
+	"html/template": "html/template: code injection via templates",
 }
 
 // blockedGoImportPrefixes defines import path prefixes that are always
@@ -44,19 +44,19 @@ var blockedGoImportPrefixes = map[string]string{
 }
 
 var blockedGoCalls = map[string]string{
-	"os.Remove":    "file deletion",
-	"os.RemoveAll": "recursive directory deletion",
-	"os.Chmod":     "permission manipulation",
-	"os.Rename":    "file race condition",
-	"os.Symlink":   "symlink escape",
-	"os.Create":    "file creation",
-	"net.Listen":   "network listener",
-	"net.Dial":     "network dialer",
-	"plugin.Open":  "dynamic library loading",
+	"os.Remove":          "file deletion",
+	"os.RemoveAll":       "recursive directory deletion",
+	"os.Chmod":           "permission manipulation",
+	"os.Rename":          "file race condition",
+	"os.Symlink":         "symlink escape",
+	"os.Create":          "file creation",
+	"net.Listen":         "network listener",
+	"net.Dial":           "network dialer",
+	"plugin.Open":        "dynamic library loading",
 	"runtime.Goexit":     "goroutine termination",
-	"runtime.Stack":       "goroutine stack introspection",
-	"runtime.Callers":     "call stack introspection",
-	"runtime.Breakpoint":  "trigger debugger breakpoint",
+	"runtime.Stack":      "goroutine stack introspection",
+	"runtime.Callers":    "call stack introspection",
+	"runtime.Breakpoint": "trigger debugger breakpoint",
 	"os.Exit":            "hard process termination",
 }
 

@@ -75,7 +75,7 @@ func TestRunDuckDBMigrations_MultiStmt(t *testing.T) {
 	defer db.Close()
 	for _, tbl := range []string{"a", "b"} {
 		var count int
-		db.QueryRow("SELECT COUNT(*) FROM "+tbl).Scan(&count)
+		db.QueryRow("SELECT COUNT(*) FROM " + tbl).Scan(&count)
 	}
 }
 

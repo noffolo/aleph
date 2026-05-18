@@ -10,8 +10,8 @@ import (
 
 func TestEngine_RegisterAndExecute(t *testing.T) {
 	eng := NewEngine()
-	eng.RegisterStep("greet", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]interface{}{"message": "hello"}, nil
+	eng.RegisterStep("greet", func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"message": "hello"}, nil
 	})
 
 	w := &Workflow{
@@ -58,8 +58,8 @@ func TestEngine_GetStatus(t *testing.T) {
 		t.Fatal("expected error for nonexistent workflow")
 	}
 
-	eng.RegisterStep("ok", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]interface{}{}, nil
+	eng.RegisterStep("ok", func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{}, nil
 	})
 
 	w := &Workflow{ID: id, Steps: []Step{{Name: "ok"}}}
@@ -76,8 +76,8 @@ func TestEngine_GetStatus(t *testing.T) {
 
 func TestOrchestrator_MaxAgents(t *testing.T) {
 	eng := NewEngine()
-	eng.RegisterStep("simple", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]interface{}{"result": "ok"}, nil
+	eng.RegisterStep("simple", func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"result": "ok"}, nil
 	})
 
 	orch := NewOrchestrator(eng, 1)
@@ -93,12 +93,12 @@ func TestOrchestrator_MaxAgents(t *testing.T) {
 func TestEngine_MultiStepExecution(t *testing.T) {
 	eng := NewEngine()
 
-	eng.RegisterStep("parse", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]interface{}{"value": 42}, nil
+	eng.RegisterStep("parse", func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"value": 42}, nil
 	})
 
-	eng.RegisterStep("double", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-		parseResult, ok := input["parse"].(map[string]interface{})
+	eng.RegisterStep("double", func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		parseResult, ok := input["parse"].(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("missing parse result")
 		}
@@ -106,11 +106,11 @@ func TestEngine_MultiStepExecution(t *testing.T) {
 		if !ok {
 			return nil, fmt.Errorf("parse value is not int")
 		}
-		return map[string]interface{}{"value": v * 2}, nil
+		return map[string]any{"value": v * 2}, nil
 	})
 
-	eng.RegisterStep("triple", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-		doubleResult, ok := input["double"].(map[string]interface{})
+	eng.RegisterStep("triple", func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		doubleResult, ok := input["double"].(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("missing double result")
 		}
@@ -118,7 +118,7 @@ func TestEngine_MultiStepExecution(t *testing.T) {
 		if !ok {
 			return nil, fmt.Errorf("double value is not int")
 		}
-		return map[string]interface{}{"value": v * 3}, nil
+		return map[string]any{"value": v * 3}, nil
 	})
 
 	w := &Workflow{
@@ -179,7 +179,7 @@ func TestEngine_ContextCancellation(t *testing.T) {
 	stepStarted := make(chan struct{})
 	stepDone := make(chan struct{})
 
-	eng.RegisterStep("blocker", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
+	eng.RegisterStep("blocker", func(ctx context.Context, input map[string]any) (map[string]any, error) {
 		close(stepStarted)
 		select {
 		case <-ctx.Done():
@@ -187,11 +187,11 @@ func TestEngine_ContextCancellation(t *testing.T) {
 			return nil, ctx.Err()
 		case <-time.After(10 * time.Second):
 			close(stepDone)
-			return map[string]interface{}{"done": true}, nil
+			return map[string]any{"done": true}, nil
 		}
 	})
 
-	eng.RegisterStep("never", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
+	eng.RegisterStep("never", func(ctx context.Context, input map[string]any) (map[string]any, error) {
 		t.Error("second step should not have been executed after cancellation")
 		return nil, nil
 	})
@@ -234,12 +234,12 @@ func TestEngine_ContextCancellation(t *testing.T) {
 func TestEngine_StepErrorPropagation(t *testing.T) {
 	eng := NewEngine()
 
-	eng.RegisterStep("ok", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]interface{}{"first": "done"}, nil
+	eng.RegisterStep("ok", func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		return map[string]any{"first": "done"}, nil
 	})
 
-	eng.RegisterStep("bad", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-		okResult, ok := input["ok"].(map[string]interface{})
+	eng.RegisterStep("bad", func(ctx context.Context, input map[string]any) (map[string]any, error) {
+		okResult, ok := input["ok"].(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("missing ok result")
 		}
@@ -249,7 +249,7 @@ func TestEngine_StepErrorPropagation(t *testing.T) {
 		return nil, fmt.Errorf("intentional failure in step bad")
 	})
 
-	eng.RegisterStep("never", func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
+	eng.RegisterStep("never", func(ctx context.Context, input map[string]any) (map[string]any, error) {
 		t.Error("third step should not have been executed after step error")
 		return nil, nil
 	})
@@ -305,5 +305,3 @@ func TestEngine_StepErrorPropagation(t *testing.T) {
 		t.Fatalf("expected StatusFailed via GetStatus, got %s", status)
 	}
 }
-
-

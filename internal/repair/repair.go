@@ -1193,7 +1193,7 @@ func addCommentAfterFuncDecl(code, comment string) string {
 // map-based cache patterns, suggests sync.Pool or singleflight. Also detects
 // missing caching for repeated computations. May match inside comments/strings.
 var (
-	syncMapPattern    = regexp.MustCompile(`(?m)sync\.Map\b`)
+	syncMapPattern     = regexp.MustCompile(`(?m)sync\.Map\b`)
 	manualCachePattern = regexp.MustCompile(`(?m)(?:var|map\[)\w*_cache\b|\bcache\s*:=\s*make\(map\[`)
 )
 

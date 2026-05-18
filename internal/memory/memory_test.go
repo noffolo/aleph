@@ -361,8 +361,8 @@ func TestSQLInjection_ConstructorRejectsSpecialChars(t *testing.T) {
 		{"null_byte", "schema\x00name"},
 		{"newline", "schema\nname"},
 		{"tab", "schema\tname"},
-		{"unicode", "αlpha"},      // non-ASCII letters are rejected by ASCII regex
-		{"emoji", "sch😀ma"},      // emoji rejected
+		{"unicode", "αlpha"},                  // non-ASCII letters are rejected by ASCII regex
+		{"emoji", "sch😀ma"},                   // emoji rejected
 		{"overlong", strings.Repeat("a", 65)}, // too long for identifier rule
 	}
 
@@ -746,16 +746,16 @@ func TestSQLInjection_AcceptsValidSchemas(t *testing.T) {
 	defer db.Close()
 
 	validSchemas := []string{
-		"",                         // empty = no schema prefix, explicitly allowed
-		"my_schema",               // standard
-		"test",                    // short
-		"s",                       // single char
-		"my_schema_123",           // digits
-		"CamelCase",               // mixed case
-		"_leading_underscore",     // underscore prefix
-		"my_test_namespace",       // non-keyword compound name
-		"a123",                    // letter + digits
-		strings.Repeat("a", 64),  // exactly at max length
+		"",                      // empty = no schema prefix, explicitly allowed
+		"my_schema",             // standard
+		"test",                  // short
+		"s",                     // single char
+		"my_schema_123",         // digits
+		"CamelCase",             // mixed case
+		"_leading_underscore",   // underscore prefix
+		"my_test_namespace",     // non-keyword compound name
+		"a123",                  // letter + digits
+		strings.Repeat("a", 64), // exactly at max length
 	}
 
 	for _, schema := range validSchemas {
@@ -996,5 +996,3 @@ func TestSQLInjection_CaseInsensitiveKeywords(t *testing.T) {
 		})
 	}
 }
-
-

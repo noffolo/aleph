@@ -141,10 +141,10 @@ func TestSandbox_ObfuscationDetection(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name           string
-		code           string
-		expectWarning  bool
-		expectBlocked  bool
+		name          string
+		code          string
+		expectWarning bool
+		expectBlocked bool
 	}{
 		{
 			"base64 decode",

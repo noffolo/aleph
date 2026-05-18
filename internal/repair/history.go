@@ -30,10 +30,10 @@ type RepairRecord struct {
 
 // RepairHistory tracks repair attempts in memory.
 type RepairHistory struct {
-	mu       sync.RWMutex
-	records  []RepairRecord
-	nextID   atomic.Int64
-	logger   *slog.Logger
+	mu      sync.RWMutex
+	records []RepairRecord
+	nextID  atomic.Int64
+	logger  *slog.Logger
 }
 
 // NewRepairHistory creates a RepairHistory.

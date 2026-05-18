@@ -198,29 +198,29 @@ func TestDuckDBRegistry_UpdateComponent(t *testing.T) {
 
 	// Update ALL fields
 	updated := ComponentMetadata{
-		ID:                 id,
-		Name:               "updated-name",
-		Description:        "updated desc",
-		Version:            "2.0",
-		Type:               "skill",
-		Category:           "osint",
-		Source:             "external",
-		Status:             "deprecated",
-		ApprovalStatus:     "approved",
-		ConfigSchemaJSON:   `{"key":"val"}`,
-		ExecutionCommand:   "./run.sh",
-		DependenciesJSON:   `["dep1"]`,
-		InputSchemaJSON:    `{"input":true}`,
-		OutputSchemaJSON:   `{"output":true}`,
-		PromptTemplate:     "hello {{.name}}",
-		ToolIdsJSON:        `["t1","t2"]`,
-		AvgCpuUsage:        12.5,
-		AvgMemoryMb:        256.0,
-		AvgExecTimeMs:      150.0,
-		AvgBrierScore:      0.05,
-		AvgLatencyMs:       45.0,
-		TrustScore:         0.99,
-		CreatedByAgentId:   "agent-42",
+		ID:               id,
+		Name:             "updated-name",
+		Description:      "updated desc",
+		Version:          "2.0",
+		Type:             "skill",
+		Category:         "osint",
+		Source:           "external",
+		Status:           "deprecated",
+		ApprovalStatus:   "approved",
+		ConfigSchemaJSON: `{"key":"val"}`,
+		ExecutionCommand: "./run.sh",
+		DependenciesJSON: `["dep1"]`,
+		InputSchemaJSON:  `{"input":true}`,
+		OutputSchemaJSON: `{"output":true}`,
+		PromptTemplate:   "hello {{.name}}",
+		ToolIdsJSON:      `["t1","t2"]`,
+		AvgCpuUsage:      12.5,
+		AvgMemoryMb:      256.0,
+		AvgExecTimeMs:    150.0,
+		AvgBrierScore:    0.05,
+		AvgLatencyMs:     45.0,
+		TrustScore:       0.99,
+		CreatedByAgentId: "agent-42",
 	}
 
 	err = r.UpdateComponent(testCtx, updated)
@@ -459,5 +459,3 @@ func TestListComponents_FilterNil(t *testing.T) {
 		t.Fatalf("expected 3 components for nil filter, got %d", len(results))
 	}
 }
-
-

@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"connectrpc.com/connect"
-	nlpv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
 	"github.com/ff3300/aleph-v2/internal/api/handler"
+	nlpv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
 	"github.com/ff3300/aleph-v2/internal/ingestion"
 )
 

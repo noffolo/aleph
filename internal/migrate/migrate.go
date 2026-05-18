@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	_ "github.com/marcboeker/go-duckdb"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/marcboeker/go-duckdb"
 )
 
 // RunDuckDBMigrations runs database migrations for DuckDB.
@@ -17,7 +17,7 @@ import (
 // migrationsPath: path to migrations directory (e.g., "migrations")
 func RunDuckDBMigrations(dsn string, migrationsPath string) error {
 	log.Printf("Running DuckDB migrations on %s from %s", dsn, migrationsPath)
-	
+
 	db, err := sql.Open("duckdb", dsn)
 	if err != nil {
 		return fmt.Errorf("open duckdb: %w", err)
@@ -111,7 +111,7 @@ func RunDuckDBMigrations(dsn string, migrationsPath string) error {
 // migrationsPath: path to migrations directory (e.g., "migrations/postgres")
 func RunPostgresMigrations(dsn string, migrationsPath string) error {
 	log.Printf("Running PostgreSQL migrations on %s from %s", dsn, migrationsPath)
-	
+
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return fmt.Errorf("open postgres: %w", err)

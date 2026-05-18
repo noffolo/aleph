@@ -191,7 +191,7 @@ func (m *MemoryStore) List(ctx context.Context, limit, offset int) ([]MemEntry, 
 	var entries []MemEntry
 	for rows.Next() {
 		var e MemEntry
-		var rawEmbedding []interface{}
+		var rawEmbedding []any
 		if err := rows.Scan(&e.Key, &e.Value, &rawEmbedding); err != nil {
 			return nil, fmt.Errorf("memory List scan: %w", err)
 		}

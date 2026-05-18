@@ -88,8 +88,8 @@ func (e *engine) GetStatus(id WorkflowID) (Status, error) {
 	return status, nil
 }
 
-func (e *engine) collectInputs(results []StepResult) map[string]interface{} {
-	input := make(map[string]interface{})
+func (e *engine) collectInputs(results []StepResult) map[string]any {
+	input := make(map[string]any)
 	for _, r := range results {
 		if r.Output != nil {
 			input[r.Name] = r.Output

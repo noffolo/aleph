@@ -350,8 +350,8 @@ func TestIntegration_DemographicParityWithEmbeddings(t *testing.T) {
 		}
 	}
 	groups := map[string][]int{
-		"users":      {0, 1, 2, 3},
-		"tools":      {4, 5, 6, 7},
+		"users": {0, 1, 2, 3},
+		"tools": {4, 5, 6, 7},
 	}
 	result := ComputeDemographicParity(emb, groups, 0.10)
 	if !result.Passed {

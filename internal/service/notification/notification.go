@@ -13,7 +13,7 @@ import (
 
 type WebhookJob struct {
 	URL     string
-	Payload interface{}
+	Payload any
 }
 
 type NotificationService struct {
@@ -78,7 +78,7 @@ func (s *NotificationService) Stop() {
 	s.wg.Wait()
 }
 
-func (s *NotificationService) SendWebhook(rawURL string, payload interface{}) error {
+func (s *NotificationService) SendWebhook(rawURL string, payload any) error {
 	if err := ssrf.ValidateURL(rawURL); err != nil {
 		return fmt.Errorf("webhook URL invalid: %w", err)
 	}
@@ -90,4 +90,3 @@ func (s *NotificationService) SendWebhook(rawURL string, payload interface{}) er
 		return nil
 	}
 }
-

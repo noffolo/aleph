@@ -62,8 +62,8 @@ func Process(input string) string {
 			WantRepairPattern: PatternToolImport,
 			// "cannot find module" does not match any diagnostic keyword
 			// (not "not found", not "missing") so it falls to default: timeout
-			WantDiagType: diagnostic.PatternTimeout,
-			WantSeverity: diagnostic.SeverityLow,
+			WantDiagType:  diagnostic.PatternTimeout,
+			WantSeverity:  diagnostic.SeverityLow,
 			CheckRollback: true,
 		},
 		{

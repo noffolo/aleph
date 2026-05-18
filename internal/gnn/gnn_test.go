@@ -11,9 +11,9 @@ import (
 // smallGraph returns a minimal graph with 5 nodes and 6 edges.
 // Structure: A--B--C--D--E plus A--C (triangle-ish)
 //
-//	 A ─── B
-//	   ╲   │
-//	     C ─── D ─── E
+//	A ─── B
+//	  ╲   │
+//	    C ─── D ─── E
 func smallGraph() *Graph {
 	g := NewGraph()
 	for _, id := range []NodeID{"A", "B", "C", "D", "E"} {
@@ -83,9 +83,9 @@ func TestGraph_DeterministicIndex(t *testing.T) {
 
 func TestNegativeSampler_Ratio(t *testing.T) {
 	tests := []struct {
-		name     string
-		ratio    float64
-		seed     int64
+		name  string
+		ratio float64
+		seed  int64
 	}{
 		{"1:1 ratio seed=42", 1.0, 42},
 		{"2:1 ratio seed=42", 2.0, 42},

@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
+	"github.com/fsnotify/fsnotify"
 )
 
 // IngestionRunner abstracts the ingestion engine so the watcher

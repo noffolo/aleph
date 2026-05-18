@@ -202,12 +202,12 @@ func TestRecord_Error(t *testing.T) {
 	ctx := context.Background()
 
 	usage := ToolUsage{
-		ID:         "err-test",
-		UserID:     "user1",
-		ProjectID:  "proj1",
-		ToolName:   "error_tool",
-		Success:    false,
-		ErrorMsg:   "something went wrong",
+		ID:        "err-test",
+		UserID:    "user1",
+		ProjectID: "proj1",
+		ToolName:  "error_tool",
+		Success:   false,
+		ErrorMsg:  "something went wrong",
 	}
 	err := tr.Record(ctx, usage)
 	require.NoError(t, err)

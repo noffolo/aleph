@@ -22,10 +22,10 @@ const DefaultEmbeddingDim = 64
 //
 // Link prediction score: s(u,v) = dot(H[u], H[v])
 type GNNModel struct {
-	NumNodes    int
-	Dim         int
-	Embeddings  [][]float64 // learnable base embeddings [numNodes][dim]
-	adjNorm     [][]float64 // row-normalized adjacency [numNodes][numNodes]
+	NumNodes   int
+	Dim        int
+	Embeddings [][]float64 // learnable base embeddings [numNodes][dim]
+	adjNorm    [][]float64 // row-normalized adjacency [numNodes][numNodes]
 }
 
 // NewGNNModel creates a new GNN model with randomly initialized embeddings.

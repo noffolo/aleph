@@ -144,9 +144,9 @@ func newTestServer(t *testing.T) *testServer {
 	mux := http.NewServeMux()
 	authRL := middleware.NewAuthRateLimiter(nil, middleware.AuthRateLimitConfig{
 		SessionCreateWindow: time.Minute, SessionCreateLimit: 100,
-		ApiKeyCreateWindow:  time.Minute, ApiKeyCreateLimit: 100,
-		ApiKeyRevokeWindow:  time.Minute, ApiKeyRevokeLimit: 100,
-		ApiKeyListWindow:    time.Minute, ApiKeyListLimit: 100,
+		ApiKeyCreateWindow: time.Minute, ApiKeyCreateLimit: 100,
+		ApiKeyRevokeWindow: time.Minute, ApiKeyRevokeLimit: 100,
+		ApiKeyListWindow: time.Minute, ApiKeyListLimit: 100,
 	})
 	routes.RegisterRoutes(mux, routes.RegisterConfig{
 		MetaRepo:            metaRepo,
@@ -170,8 +170,8 @@ func newTestServer(t *testing.T) *testServer {
 		ToolExecHandler:     toolExecHandler,
 		CodeFlowHandler:     codeFlowHandler,
 		SuggestPipeline:     suggestPipeline,
-		Interceptors:    interceptors,
-		AuthRateLimiter: authRL,
+		Interceptors:        interceptors,
+		AuthRateLimiter:     authRL,
 	})
 
 	server := httptest.NewServer(mux)

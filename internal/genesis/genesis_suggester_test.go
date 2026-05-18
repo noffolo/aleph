@@ -248,8 +248,8 @@ func TestSuggester_analyzeToolUsage_Empty(t *testing.T) {
 func TestSuggester_analyzeToolUsage_UnderusedTool(t *testing.T) {
 	s := NewSuggester()
 	usage := []ToolUsageStat{
-		{ ToolName: "legacy_scraper", Count: 1 },
-		{ ToolName: "active_tool", Count: 100 },
+		{ToolName: "legacy_scraper", Count: 1},
+		{ToolName: "active_tool", Count: 100},
 	}
 	result := s.analyzeToolUsage(usage, nil, nil)
 
@@ -523,8 +523,8 @@ func TestSuggester_Analyze_FullPipeline(t *testing.T) {
 			{Role: "user", Content: "dashboard report"},
 		},
 		ToolUsage: []ToolUsageStat{
-			{ ToolName: "old_parser", Count: 0 }, // underused
-			{ ToolName: "frequent_tool", Count: 50 },
+			{ToolName: "old_parser", Count: 0}, // underused
+			{ToolName: "frequent_tool", Count: 50},
 		},
 		ExistingTools: []string{"existing_scraper"},
 	}

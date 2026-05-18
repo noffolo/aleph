@@ -83,17 +83,17 @@ func TestValidateIdentifierRejectsKeywords(t *testing.T) {
 
 func TestValidateIdentifierRejectsInvalidFormat(t *testing.T) {
 	invalid := []string{
-		"",                          // empty
-		"123abc",                    // starts with digit
-		"my-table",                  // hyphen
-		"my table",                  // space
-		"my.table",                  // dot
-		"my/table",                  // slash
-		strings.Repeat("a", 65),     // too long
-		"users\x00name",            // null byte
-		"users\nname",               // newline
-		"users\rname",               // carriage return
-		"users\tname",               // tab
+		"",                      // empty
+		"123abc",                // starts with digit
+		"my-table",              // hyphen
+		"my table",              // space
+		"my.table",              // dot
+		"my/table",              // slash
+		strings.Repeat("a", 65), // too long
+		"users\x00name",         // null byte
+		"users\nname",           // newline
+		"users\rname",           // carriage return
+		"users\tname",           // tab
 	}
 	for _, id := range invalid {
 		if err := ValidateIdentifier(id); err == nil {
@@ -248,19 +248,19 @@ func TestValidateStrictIdentifier_RejectsTooLong(t *testing.T) {
 
 func TestValidateStrictIdentifier_RejectsSpecialChars(t *testing.T) {
 	invalid := []string{
-		"",                          // empty
-		"123abc",                    // starts with digit
-		"my-table",                  // hyphen
-		"my table",                  // space
-		"my.table",                  // dot
-		"my/table",                  // slash
-		"users; DROP TABLE",         // semicolon injection
-		"users' OR '1'='1",          // single quote
-		`users" OR "1"="1`,          // double quote
-		"users-- DROP",              // SQL comment
-		"users/* DROP */",           // block comment
-		"users\x00name",            // null byte
-		"users\nname",               // newline
+		"",                  // empty
+		"123abc",            // starts with digit
+		"my-table",          // hyphen
+		"my table",          // space
+		"my.table",          // dot
+		"my/table",          // slash
+		"users; DROP TABLE", // semicolon injection
+		"users' OR '1'='1",  // single quote
+		`users" OR "1"="1`,  // double quote
+		"users-- DROP",      // SQL comment
+		"users/* DROP */",   // block comment
+		"users\x00name",     // null byte
+		"users\nname",       // newline
 	}
 	for _, id := range invalid {
 		if err := ValidateStrictIdentifier(id); err == nil {

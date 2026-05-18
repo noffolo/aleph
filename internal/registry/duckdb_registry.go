@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/ff3300/aleph-v2/internal/storage"
+	"github.com/google/uuid"
+	_ "github.com/marcboeker/go-duckdb"
 	"log/slog"
 	"strings"
 	"sync"
 	"time"
-	_ "github.com/marcboeker/go-duckdb"
-	"github.com/google/uuid"
-	"github.com/ff3300/aleph-v2/internal/storage"
 )
 
 type ComponentMetadata struct {
@@ -50,7 +50,9 @@ type DuckDBRegistry struct {
 
 func NewDuckDBRegistry(dbPath string, logger *slog.Logger) (*DuckDBRegistry, error) {
 	db, err := sql.Open("duckdb", dbPath)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	// Table managed by migrations/000001_init_schema.up.sql
 	// _, err = db.Exec(createTableSQL)
 	return &DuckDBRegistry{db: db, logger: logger}, err
@@ -67,10 +69,16 @@ func NewDuckDBRegistryFromDuckDB(d *storage.DuckDB, logger *slog.Logger) (*DuckD
 }
 
 func (r *DuckDBRegistry) RegisterComponent(meta ComponentMetadata) (string, error) {
-	if meta.ID == "" { meta.ID = uuid.New().String() }
+	if meta.ID == "" {
+		meta.ID = uuid.New().String()
+	}
 	now := time.Now()
-	if meta.CreationTimestamp.IsZero() { meta.CreationTimestamp = now }
-	if meta.LastUpdatedTimestamp.IsZero() { meta.LastUpdatedTimestamp = now }
+	if meta.CreationTimestamp.IsZero() {
+		meta.CreationTimestamp = now
+	}
+	if meta.LastUpdatedTimestamp.IsZero() {
+		meta.LastUpdatedTimestamp = now
+	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -147,7 +155,9 @@ func (r *DuckDBRegistry) ListComponents(filter map[string]string) ([]ComponentMe
 	}
 
 	rows, err := r.db.Query(query, args...)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 	var comps []ComponentMetadata
 	for rows.Next() {
@@ -235,7 +245,9 @@ type Registry interface {
 }
 
 func ParseToolIdsJSON(jsonStr string) []string {
-	if jsonStr == "" { return nil }
+	if jsonStr == "" {
+		return nil
+	}
 	var ids []string
 	if err := json.Unmarshal([]byte(jsonStr), &ids); err != nil {
 		slog.Warn("failed to parse tool IDs JSON", "error", err)

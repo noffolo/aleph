@@ -20,7 +20,7 @@ type WorkflowID string
 type StepResult struct {
 	Name   string
 	Error  error
-	Output map[string]interface{}
+	Output map[string]any
 }
 
 // Workflow represents a multi-step task execution.
@@ -38,7 +38,7 @@ type Step struct {
 }
 
 // StepFunc is the signature for a workflow step function.
-type StepFunc func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error)
+type StepFunc func(ctx context.Context, input map[string]any) (map[string]any, error)
 
 // Engine defines the workflow execution interface.
 type Engine interface {
