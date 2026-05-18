@@ -11,54 +11,54 @@ import (
 
 var (
 	blocklistedGoImports = map[string]struct{}{
-		"os/exec":        {},
-		"net":           {},
-		"net/http":      {},
-		"net/url":       {},
-		"net/smtp":      {},
-		"net/rpc":       {},
-		"net/mail":      {},
-		"syscall":       {},
-		"unsafe":        {},
-		"reflect":       {},
-		"plugin":        {},
-		"runtime":       {},
-		"runtime/cgo":   {},
-		"runtime/pprof":{},
-		"crypto":              {},
-		"crypto/md5":          {},
-		"crypto/sha1":         {},
-		"crypto/sha256":       {},
-		"crypto/sha512":       {},
-		"crypto/aes":          {},
-		"crypto/cipher":       {},
-		"crypto/des":          {},
-		"crypto/ecdsa":        {},
-		"crypto/ed25519":      {},
-		"crypto/elliptic":     {},
-		"crypto/hmac":         {},
-		"crypto/rand":         {},
-		"crypto/rsa":          {},
-		"crypto/subtle":       {},
-		"crypto/tls":          {},
-		"crypto/x509":         {},
-		"encoding":            {},
-		"encoding/hex":        {},
-		"encoding/base64":     {},
-		"encoding/gob":        {},
-		"encoding/pem":        {},
-		"encoding/asn1":       {},
-		"encoding/binary":     {},
-		"io/ioutil":           {},
-		"mime/multipart":      {},
-		"text/template":       {},
-		"html/template":       {},
-		"debug/dwarf":         {},
-		"debug/elf":           {},
-		"debug/gosym":         {},
-		"debug/macho":         {},
-		"debug/pe":            {},
-		"debug/plan9obj":      {},
+		"os/exec":         {},
+		"net":             {},
+		"net/http":        {},
+		"net/url":         {},
+		"net/smtp":        {},
+		"net/rpc":         {},
+		"net/mail":        {},
+		"syscall":         {},
+		"unsafe":          {},
+		"reflect":         {},
+		"plugin":          {},
+		"runtime":         {},
+		"runtime/cgo":     {},
+		"runtime/pprof":   {},
+		"crypto":          {},
+		"crypto/md5":      {},
+		"crypto/sha1":     {},
+		"crypto/sha256":   {},
+		"crypto/sha512":   {},
+		"crypto/aes":      {},
+		"crypto/cipher":   {},
+		"crypto/des":      {},
+		"crypto/ecdsa":    {},
+		"crypto/ed25519":  {},
+		"crypto/elliptic": {},
+		"crypto/hmac":     {},
+		"crypto/rand":     {},
+		"crypto/rsa":      {},
+		"crypto/subtle":   {},
+		"crypto/tls":      {},
+		"crypto/x509":     {},
+		"encoding":        {},
+		"encoding/hex":    {},
+		"encoding/base64": {},
+		"encoding/gob":    {},
+		"encoding/pem":    {},
+		"encoding/asn1":   {},
+		"encoding/binary": {},
+		"io/ioutil":       {},
+		"mime/multipart":  {},
+		"text/template":   {},
+		"html/template":   {},
+		"debug/dwarf":     {},
+		"debug/elf":       {},
+		"debug/gosym":     {},
+		"debug/macho":     {},
+		"debug/pe":        {},
+		"debug/plan9obj":  {},
 	}
 
 	blocklistedPythonPatterns = []string{
@@ -197,13 +197,13 @@ func ValidatePythonCode(source string) error {
 		if strings.HasPrefix(lineTrimmed, "#") {
 			continue
 		}
-		
+
 		for _, re := range pythonPatternRegexes {
 			if re.MatchString(line) {
 				return fmt.Errorf("line %d: blocklisted pattern %q", i+1, re.String())
 			}
 		}
-		
+
 		if strings.Contains(line, "import") {
 			if strings.Contains(line, "subprocess") || strings.Contains(line, "socket") ||
 				strings.Contains(line, "ctypes") || strings.Contains(line, "__import__") ||
@@ -222,20 +222,20 @@ func ValidatePythonCode(source string) error {
 }
 
 func IsPythonCode(code string) bool {
-	return strings.HasPrefix(code, "# python") || 
-	       strings.HasPrefix(code, "#!/usr/bin/env python") ||
-	       strings.Contains(code, "def ") || 
-	       strings.Contains(code, "import ") ||
-	       strings.Contains(code, "print(")
+	return strings.HasPrefix(code, "# python") ||
+		strings.HasPrefix(code, "#!/usr/bin/env python") ||
+		strings.Contains(code, "def ") ||
+		strings.Contains(code, "import ") ||
+		strings.Contains(code, "print(")
 }
 
 // CodeMetrics holds quality metrics extracted from tool source code.
 type CodeMetrics struct {
-	LinesOfCode        int
+	LinesOfCode          int
 	CyclomaticComplexity int
-	GofmtErrors        []string
-	HasGofmtViolations bool
-	EstimatedCoverage  float64
+	GofmtErrors          []string
+	HasGofmtViolations   bool
+	EstimatedCoverage    float64
 }
 
 // AnalyzeGoCodeQuality runs quality checks on Go source code.

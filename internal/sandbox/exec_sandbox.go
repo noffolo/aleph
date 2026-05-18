@@ -24,8 +24,8 @@ type ExecutionResult struct {
 }
 
 type SandboxManager interface {
-	ExecuteTool(ctx context.Context, toolID string, input map[string]interface{}) (ExecutionResult, error)
-	RunSkill(ctx context.Context, skillID string, input map[string]interface{}) (ExecutionResult, error)
+	ExecuteTool(ctx context.Context, toolID string, input map[string]any) (ExecutionResult, error)
+	RunSkill(ctx context.Context, skillID string, input map[string]any) (ExecutionResult, error)
 }
 
 type ExecSandbox struct {
@@ -43,7 +43,7 @@ func NewExecSandbox(l *slog.Logger, r *registry.DuckDBRegistry, meta *repository
 	return &ExecSandbox{logger: l, regMgr: r, metaRepo: meta, pythonCmd: py, goCmd: goCmd}
 }
 
-func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[string]interface{}) (ExecutionResult, error) {
+func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[string]any) (ExecutionResult, error) {
 	if s.metaRepo == nil {
 		return ExecutionResult{Error: "metadata repository not available", ExitCode: -1}, nil
 	}
@@ -75,7 +75,7 @@ func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[
 		}
 		cmd := exec.CommandContext(execCtx, s.pythonCmd, tmpFile)
 		cmd.Dir = tmpDir
-	cmd.Env = []string{
+		cmd.Env = []string{
 			"ALEPH_INPUT=" + string(inputJSON),
 			"PATH=/usr/bin:/bin",
 			"HOME=" + tmpDir,
@@ -146,7 +146,7 @@ func (s *ExecSandbox) ExecuteTool(ctx context.Context, toolID string, input map[
 	return ExecutionResult{Stdout: stdout.String(), Stderr: stderr.String(), ExitCode: exitCode}, nil
 }
 
-func (s *ExecSandbox) RunSkill(ctx context.Context, skillID string, input map[string]interface{}) (ExecutionResult, error) {
+func (s *ExecSandbox) RunSkill(ctx context.Context, skillID string, input map[string]any) (ExecutionResult, error) {
 	if s.metaRepo == nil {
 		return ExecutionResult{Error: "metadata repository not available", ExitCode: -1}, nil
 	}
@@ -172,9 +172,9 @@ func (s *ExecSandbox) RunSkill(ctx context.Context, skillID string, input map[st
 		if result.ExitCode != 0 {
 			return result, nil
 		}
-		var nextInput map[string]interface{}
+		var nextInput map[string]any
 		if err := json.Unmarshal([]byte(result.Stdout), &nextInput); err != nil {
-			nextInput = map[string]interface{}{"stdout": result.Stdout}
+			nextInput = map[string]any{"stdout": result.Stdout}
 		}
 		currentInput = nextInput
 	}

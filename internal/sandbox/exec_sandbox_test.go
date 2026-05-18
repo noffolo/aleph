@@ -17,7 +17,7 @@ func TestExecSandbox_NoMetadataRepository(t *testing.T) {
 	sb := NewExecSandbox(logger, nil, nil, "python3", "go")
 
 	ctx := context.Background()
-	result, err := sb.ExecuteTool(ctx, "nonexistent", map[string]interface{}{})
+	result, err := sb.ExecuteTool(ctx, "nonexistent", map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, -1, result.ExitCode)
 	assert.Contains(t, result.Error, "metadata repository not available")
@@ -28,7 +28,7 @@ func TestExecSandbox_RunSkill_NoMetadataRepository(t *testing.T) {
 	sb := NewExecSandbox(logger, nil, nil, "python3", "go")
 
 	ctx := context.Background()
-	result, err := sb.RunSkill(ctx, "nonexistent", map[string]interface{}{})
+	result, err := sb.RunSkill(ctx, "nonexistent", map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, -1, result.ExitCode)
 	assert.Contains(t, result.Error, "metadata repository not available")
@@ -40,7 +40,7 @@ func TestExecSandbox_Timeout(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	result, err := sb.ExecuteTool(ctx, "nonexistent", map[string]interface{}{})
+	result, err := sb.ExecuteTool(ctx, "nonexistent", map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, -1, result.ExitCode)
 	assert.Contains(t, result.Error, "metadata repository not available")

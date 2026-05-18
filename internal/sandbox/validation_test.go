@@ -156,38 +156,38 @@ os.system("ls")`,
 			wantErr: true,
 		},
 		{
-			name: "Blocked eval",
-			code: `x = eval("2+2")`,
+			name:    "Blocked eval",
+			code:    `x = eval("2+2")`,
 			wantErr: true,
 		},
 		{
-			name: "Blocked exec",
-			code: `exec("print('hello')")`,
+			name:    "Blocked exec",
+			code:    `exec("print('hello')")`,
 			wantErr: true,
 		},
 		{
-			name: "Blocked __import__",
-			code: `module = __import__("subprocess")`,
+			name:    "Blocked __import__",
+			code:    `module = __import__("subprocess")`,
 			wantErr: true,
 		},
 		{
-			name: "Blocked open with http URL",
-			code: `f = open("http://example.com", "r")`,
+			name:    "Blocked open with http URL",
+			code:    `f = open("http://example.com", "r")`,
 			wantErr: true,
 		},
 		{
-			name: "Blocked open with https URL",
-			code: `f = open("https://example.com", "r")`,
+			name:    "Blocked open with https URL",
+			code:    `f = open("https://example.com", "r")`,
 			wantErr: true,
 		},
 		{
-			name: "Blocked open with ftp URL",
-			code: `f = open("ftp://example.com/file.txt", "r")`,
+			name:    "Blocked open with ftp URL",
+			code:    `f = open("ftp://example.com/file.txt", "r")`,
 			wantErr: true,
 		},
 		{
-			name: "Allowed open with local file",
-			code: `f = open("/tmp/test.txt", "w")`,
+			name:    "Allowed open with local file",
+			code:    `f = open("/tmp/test.txt", "w")`,
 			wantErr: false,
 		},
 		{
@@ -203,8 +203,8 @@ print("hello")`,
 			wantErr: false,
 		},
 		{
-			name: "Disguised import with spaces",
-			code: `import  subprocess  # extra spaces`,
+			name:    "Disguised import with spaces",
+			code:    `import  subprocess  # extra spaces`,
 			wantErr: true,
 		},
 		{
@@ -364,8 +364,8 @@ func f() {
 
 func TestEstimateComplexity(t *testing.T) {
 	tests := []struct {
-		name     string
-		source   string
+		name          string
+		source        string
 		minComplexity int
 	}{
 		{"empty function", `package main

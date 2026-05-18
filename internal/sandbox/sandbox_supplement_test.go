@@ -16,7 +16,7 @@ func TestContainerSandbox_RunSkill_ErrorHandling(t *testing.T) {
 	cs := NewContainerSandbox(logger, nil, nil, DefaultContainerConfig(), nil)
 	assert.NotNil(t, cs)
 
-	result, err := cs.RunSkill(context.Background(), "skill1", map[string]interface{}{})
+	result, err := cs.RunSkill(context.Background(), "skill1", map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, -1, result.ExitCode)
 	assert.Contains(t, result.Error, "metadata repository not available")

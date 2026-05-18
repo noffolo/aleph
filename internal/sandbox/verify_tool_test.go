@@ -17,11 +17,11 @@ type mockSandboxManager struct {
 	execErr    error
 }
 
-func (m *mockSandboxManager) ExecuteTool(ctx context.Context, toolID string, input map[string]interface{}) (ExecutionResult, error) {
+func (m *mockSandboxManager) ExecuteTool(ctx context.Context, toolID string, input map[string]any) (ExecutionResult, error) {
 	return m.execResult, m.execErr
 }
 
-func (m *mockSandboxManager) RunSkill(ctx context.Context, skillID string, input map[string]interface{}) (ExecutionResult, error) {
+func (m *mockSandboxManager) RunSkill(ctx context.Context, skillID string, input map[string]any) (ExecutionResult, error) {
 	return ExecutionResult{}, nil
 }
 

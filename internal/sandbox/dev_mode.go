@@ -35,11 +35,11 @@ type ToolChangeHandler func(ctx context.Context, filename string, code string) e
 
 // ToolWatcher watches a directory for tool file changes and auto-reloads them.
 type ToolWatcher struct {
-	config     DevModeConfig
-	logger     *slog.Logger
-	onChange   ToolChangeHandler
-	checksums  map[string]string // filename -> sha256 hex digest
-	stopCh     chan struct{}
+	config    DevModeConfig
+	logger    *slog.Logger
+	onChange  ToolChangeHandler
+	checksums map[string]string // filename -> sha256 hex digest
+	stopCh    chan struct{}
 }
 
 // NewToolWatcher creates a new development-mode tool watcher.

@@ -93,11 +93,11 @@ func TestCommandAllowlist_Validate_ArgWhitelist(t *testing.T) {
 
 	// Blocked args for ls
 	blockedArgs := [][]string{
-		{"ls", "-R"},      // recursive listing
-		{"ls", "--exec"},  // dangerous flag
-		{"grep", "-e"},    // not in allowlist
-		{"sort", "-k"},    // not in allowlist
-		{"wc", "-L"},      // not in allowlist
+		{"ls", "-R"},     // recursive listing
+		{"ls", "--exec"}, // dangerous flag
+		{"grep", "-e"},   // not in allowlist
+		{"sort", "-k"},   // not in allowlist
+		{"wc", "-L"},     // not in allowlist
 	}
 	for _, args := range blockedArgs {
 		err := a.Validate(args)

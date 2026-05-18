@@ -43,21 +43,25 @@ func TestContainerSandbox_ExecuteTool_NoMetaRepo(t *testing.T) {
 	cs := NewContainerSandbox(logger, nil, nil, DefaultContainerConfig(), nil)
 
 	ctx := context.Background()
-	result, err := cs.ExecuteTool(ctx, "nonexistent", map[string]interface{}{})
+	result, err := cs.ExecuteTool(ctx, "nonexistent", map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, -1, result.ExitCode)
 	assert.Contains(t, result.Error, "metadata repository not available")
 }
 
 func TestContainerSandbox_ExecuteTool_DockerUnavailable_NoFallback(t *testing.T) {
-	if dockerAvailable() {
-		t.Skip("docker is available, cannot test unavailable path")
-	}
 	logger := slog.Default()
 	cs := NewContainerSandbox(logger, nil, nil, DefaultContainerConfig(), nil)
+	// Provide a tool code getter so the nil metaRepo check is bypassed,
+	// and override docker check to always report unavailable.
+	cs.toolCodeGetter = func(_ context.Context, toolID string) (string, error) {
+		return `# python
+print("hello")`, nil
+	}
+	cs.dockerCheckFunc = func() bool { return false }
 
 	ctx := context.Background()
-	result, err := cs.ExecuteTool(ctx, "tool1", map[string]interface{}{})
+	result, err := cs.ExecuteTool(ctx, "tool1", map[string]any{})
 	require.NoError(t, err)
 	assert.Contains(t, result.Error, "container runtime unavailable")
 }
@@ -82,7 +86,7 @@ func TestContainerSandbox_RunSkill_NoMetaRepo(t *testing.T) {
 	cs := NewContainerSandbox(logger, nil, nil, DefaultContainerConfig(), nil)
 
 	ctx := context.Background()
-	result, err := cs.RunSkill(ctx, "nonexistent", map[string]interface{}{})
+	result, err := cs.RunSkill(ctx, "nonexistent", map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, -1, result.ExitCode)
 	assert.Contains(t, result.Error, "metadata repository not available")

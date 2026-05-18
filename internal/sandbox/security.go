@@ -11,7 +11,7 @@ type SecurityRule struct {
 	Name        string
 	Description string
 	Pattern     *regexp.Regexp
-	Severity    string // "critical", "high", "medium", "low"
+	Severity    string   // "critical", "high", "medium", "low"
 	Languages   []string // "go", "python", or both
 }
 

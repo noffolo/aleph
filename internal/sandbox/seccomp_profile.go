@@ -28,7 +28,7 @@ var allowedSyscalls = []string{
 	// Time
 	"clock_gettime", "gettimeofday", "nanosleep",
 	// Signals
-	"rt_sigaction", "rt_sigprocmask", "sigreturn", "rt_sigreturn",
+	"rt_sigaction", "rt_sigprocmask", "rt_sigreturn",
 	// File access (no open — only openat)
 	"openat", "readlink",
 	// File metadata

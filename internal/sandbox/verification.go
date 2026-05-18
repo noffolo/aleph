@@ -122,7 +122,7 @@ func (v *Verifier) VerifyTool(ctx context.Context, toolID string, config Verific
 	} else {
 		execSandbox = NewExecSandbox(v.logger, nil, v.metaRepo, v.pythonCmd, v.goCmd)
 	}
-	execResult, err := execSandbox.ExecuteTool(execCtx, toolID, map[string]interface{}{"verification": true})
+	execResult, err := execSandbox.ExecuteTool(execCtx, toolID, map[string]any{"verification": true})
 
 	result.Duration = time.Since(start)
 	result.Stdout = execResult.Stdout

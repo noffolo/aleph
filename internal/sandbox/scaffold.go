@@ -127,7 +127,7 @@ if __name__ == "__main__":
 
 // GenerateGivenWhenThen produces a structured given/when/then description.
 // It describes the test scenario with example input and expected output values.
-func (sg *ScaffoldGenerator) GenerateGivenWhenThen(toolName, description string, inputExample, outputExample map[string]interface{}) string {
+func (sg *ScaffoldGenerator) GenerateGivenWhenThen(toolName, description string, inputExample, outputExample map[string]any) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("%s Test Scenarios\n", toolName))
 	b.WriteString(fmt.Sprintf("  %s\n", description))

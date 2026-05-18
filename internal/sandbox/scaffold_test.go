@@ -8,8 +8,8 @@ import (
 func TestScaffoldGenerator_GenerateGoTest(t *testing.T) {
 	sg := NewScaffoldGenerator()
 	inputs := map[string]string{
-		"query":    "string",
-		"limit":    "int",
+		"query": "string",
+		"limit": "int",
 	}
 	outputs := []string{"results", "total"}
 
@@ -60,10 +60,10 @@ func TestScaffoldGenerator_GeneratePythonTest(t *testing.T) {
 
 func TestScaffoldGenerator_GenerateGivenWhenThen(t *testing.T) {
 	sg := NewScaffoldGenerator()
-	inputExample := map[string]interface{}{
+	inputExample := map[string]any{
 		"query": "test",
 	}
-	outputExample := map[string]interface{}{
+	outputExample := map[string]any{
 		"results": "list",
 	}
 

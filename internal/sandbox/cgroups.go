@@ -13,7 +13,7 @@ import (
 const (
 	cgroupBase    = "/sys/fs/cgroup"
 	cgroupSubtree = "aleph"
-	memoryMax     = "268435456"     // 256 MB
+	memoryMax     = "268435456"    // 256 MB
 	cpuMax        = "50000 100000" // 50% of 1 CPU
 	pidsMax       = "32"
 )

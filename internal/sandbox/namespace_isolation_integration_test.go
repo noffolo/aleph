@@ -10,6 +10,9 @@ import (
 )
 
 func TestNamespaceSeccompIntegration(t *testing.T) {
+	if r := runningInContainer(); r {
+		t.Skip("skipping: seccomp+cgroup integration requires host-level capabilities")
+	}
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}
@@ -36,6 +39,9 @@ func TestNamespaceSeccompIntegration(t *testing.T) {
 }
 
 func TestNamespaceSeccomp_BlockedSyscall(t *testing.T) {
+	if r := runningInContainer(); r {
+		t.Skip("skipping: seccomp+cgroup integration requires host-level capabilities")
+	}
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
 	}

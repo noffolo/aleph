@@ -20,10 +20,10 @@ import (
 var ErrContainerUnavailable = errors.New("container runtime unavailable: docker daemon not reachable")
 
 const (
-	DefaultPythonImage  = "python:3.12-alpine"
-	DefaultGoImage      = "golang:1.24-alpine"
-	defaultMemoryMB     = 256
-	defaultCPUCores     = 0.5
+	DefaultPythonImage = "python:3.12-alpine"
+	DefaultGoImage     = "golang:1.24-alpine"
+	defaultMemoryMB    = 256
+	defaultCPUCores    = 0.5
 )
 
 type ContainerConfig struct {
@@ -51,21 +51,32 @@ func dockerAvailable() bool {
 	return err == nil
 }
 
+// getToolCode returns the tool code using test override if set, otherwise metaRepo.
+func (s *ContainerSandbox) getToolCode(ctx context.Context, toolID string) (string, error) {
+	if s.toolCodeGetter != nil {
+		return s.toolCodeGetter(ctx, toolID)
+	}
+	return s.metaRepo.GetToolCode(ctx, toolID)
+}
+
 type ContainerSandbox struct {
-	logger      *slog.Logger
-	regMgr      *registry.DuckDBRegistry
-	metaRepo    *repository.MetadataRepository
-	config      ContainerConfig
-	hasRunsc    bool
-	runscCached bool
+	logger          *slog.Logger
+	regMgr          *registry.DuckDBRegistry
+	metaRepo        *repository.MetadataRepository
+	config          ContainerConfig
+	hasRunsc        bool
+	runscCached     bool
+	toolCodeGetter  func(ctx context.Context, toolID string) (string, error) // test-only override
+	dockerCheckFunc func() bool                                              // test-only override for docker availability
 }
 
 func NewContainerSandbox(l *slog.Logger, r *registry.DuckDBRegistry, meta *repository.MetadataRepository, config ContainerConfig, _ SandboxManager) *ContainerSandbox {
 	cs := &ContainerSandbox{
-		logger:   l,
-		regMgr:   r,
-		metaRepo: meta,
-		config:   config,
+		logger:          l,
+		regMgr:          r,
+		metaRepo:        meta,
+		config:          config,
+		dockerCheckFunc: dockerAvailable,
 	}
 	cs.detectRunsc()
 	return cs
@@ -141,12 +152,12 @@ func (s *ContainerSandbox) HealthCheck(ctx context.Context) HealthCheckResult {
 	return result
 }
 
-func (s *ContainerSandbox) ExecuteTool(ctx context.Context, toolID string, input map[string]interface{}) (ExecutionResult, error) {
-	if s.metaRepo == nil {
+func (s *ContainerSandbox) ExecuteTool(ctx context.Context, toolID string, input map[string]any) (ExecutionResult, error) {
+	if s.metaRepo == nil && s.toolCodeGetter == nil {
 		return ExecutionResult{Error: "metadata repository not available", ExitCode: -1}, nil
 	}
 
-	code, err := s.metaRepo.GetToolCode(ctx, toolID)
+	code, err := s.getToolCode(ctx, toolID)
 	if err != nil {
 		return ExecutionResult{Error: "tool not found: " + err.Error(), ExitCode: -1}, nil
 	}
@@ -161,7 +172,7 @@ func (s *ContainerSandbox) ExecuteTool(ctx context.Context, toolID string, input
 		}
 	}
 
-	if !dockerAvailable() {
+	if !s.dockerCheckFunc() {
 		s.logger.Error("docker unavailable — container isolation required for tool execution, refusing fallback", "tool_id", toolID)
 		return ExecutionResult{Error: ErrContainerUnavailable.Error(), ExitCode: -1}, nil
 	}
@@ -169,7 +180,7 @@ func (s *ContainerSandbox) ExecuteTool(ctx context.Context, toolID string, input
 	return s.executeInContainer(ctx, code, input)
 }
 
-func (s *ContainerSandbox) executeInContainer(ctx context.Context, code string, input map[string]interface{}) (ExecutionResult, error) {
+func (s *ContainerSandbox) executeInContainer(ctx context.Context, code string, input map[string]any) (ExecutionResult, error) {
 	tmpDir, err := os.MkdirTemp("", "aleph-container-*")
 	if err != nil {
 		return ExecutionResult{Error: "failed to create temp dir: " + err.Error(), ExitCode: -1}, nil
@@ -274,8 +285,8 @@ func (s *ContainerSandbox) executeInContainer(ctx context.Context, code string, 
 	}, nil
 }
 
-func (s *ContainerSandbox) RunSkill(ctx context.Context, skillID string, input map[string]interface{}) (ExecutionResult, error) {
-	if s.metaRepo == nil {
+func (s *ContainerSandbox) RunSkill(ctx context.Context, skillID string, input map[string]any) (ExecutionResult, error) {
+	if s.metaRepo == nil && s.toolCodeGetter == nil {
 		return ExecutionResult{Error: "metadata repository not available", ExitCode: -1}, nil
 	}
 
@@ -299,9 +310,9 @@ func (s *ContainerSandbox) RunSkill(ctx context.Context, skillID string, input m
 		if result.ExitCode != 0 {
 			return result, nil
 		}
-		var nextInput map[string]interface{}
+		var nextInput map[string]any
 		if err := json.Unmarshal([]byte(result.Stdout), &nextInput); err != nil {
-			nextInput = map[string]interface{}{"stdout": result.Stdout}
+			nextInput = map[string]any{"stdout": result.Stdout}
 		}
 		currentInput = nextInput
 	}
