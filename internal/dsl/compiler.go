@@ -217,25 +217,25 @@ func (c *Compiler) CompileDDL() ([]string, error) {
 	return ddls, nil
 }
 
-func (c *Compiler) CompileActions() ([]map[string]interface{}, error) {
-	var actionTools []map[string]interface{}
+func (c *Compiler) CompileActions() ([]map[string]any, error) {
+	var actionTools []map[string]any
 	for _, stmt := range c.Program.Statements {
 		if stmt.Action != nil {
-			params := make(map[string]interface{})
+			params := make(map[string]any)
 			var required []string
 			for _, p := range stmt.Action.Parameters {
-				params[p.Name] = map[string]interface{}{
+				params[p.Name] = map[string]any{
 					"type": "string", // Semplificazione per LLM Tooling
 				}
 				required = append(required, p.Name)
 			}
-			
-			tool := map[string]interface{}{
+
+			tool := map[string]any{
 				"type": "function",
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":        stmt.Action.Name,
 					"description": fmt.Sprintf("Execute action %s on object %s", stmt.Action.Name, stmt.Action.OnObject),
-					"parameters": map[string]interface{}{
+					"parameters": map[string]any{
 						"type":       "object",
 						"properties": params,
 						"required":   required,

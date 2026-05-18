@@ -217,9 +217,9 @@ func (dm *DiagnosticMonitor) GetPatterns() []ErrorPattern {
 
 // SubsystemSummary aggregates error statistics for a single subsystem.
 type SubsystemSummary struct {
-	Subsystem    string `json:"subsystem"`
-	TotalErrors  int    `json:"total_errors"`
-	Patterns     int    `json:"patterns"`
+	Subsystem       string `json:"subsystem"`
+	TotalErrors     int    `json:"total_errors"`
+	Patterns        int    `json:"patterns"`
 	HighestSeverity string `json:"highest_severity"`
 }
 
@@ -237,7 +237,7 @@ func (dm *DiagnosticMonitor) CorrelateWithSubsystem() []SubsystemSummary {
 		ss, ok := bySubsystem[comp]
 		if !ok {
 			ss = &SubsystemSummary{
-				Subsystem:    comp,
+				Subsystem:       comp,
 				HighestSeverity: SeverityLow,
 			}
 			bySubsystem[comp] = ss

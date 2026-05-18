@@ -783,4 +783,3 @@ func ValidateToolRecord(rec *repository.ToolRecord) error {
 	}
 	return nil
 }
-

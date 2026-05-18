@@ -1,8 +1,8 @@
 package dsl
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestParseObject(t *testing.T) {
@@ -16,7 +16,7 @@ func TestParseObject(t *testing.T) {
 	program, err := Parse(input)
 	assert.NoError(t, err)
 	assert.Len(t, program.Statements, 1)
-	
+
 	obj := program.Statements[0].Object
 	assert.Equal(t, "AppaltoPubblico", obj.Name)
 	assert.Equal(t, "anac_bandi_cig", obj.FromSource)

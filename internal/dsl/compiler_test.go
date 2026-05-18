@@ -137,10 +137,10 @@ func TestSQLInjection_ObjectName(t *testing.T) {
 
 func TestSQLInjection_PropertyFrom(t *testing.T) {
 	tests := []struct {
-		name       string
-		propName   string
-		propFrom   string
-		expectErr  bool
+		name      string
+		propName  string
+		propFrom  string
+		expectErr bool
 	}{
 		{"valid_normal", "cig", "CIG", false},
 		{"valid_underscore", "my_col", "my_col", false},
@@ -465,7 +465,7 @@ func TestCompileActions_Single(t *testing.T) {
 	action := actions[0]
 	assert.Equal(t, "function", action["type"])
 
-	fn := action["function"].(map[string]interface{})
+	fn := action["function"].(map[string]any)
 	assert.Equal(t, "send_alert", fn["name"])
 	assert.Contains(t, fn["description"], "Appalto")
 }

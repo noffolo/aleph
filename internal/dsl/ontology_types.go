@@ -4,15 +4,15 @@ package dsl
 // It wraps a diff with metadata about the source (e.g. LLM suggestion)
 // and the current negotiation state.
 type OntologySuggestion struct {
-	ID          string `json:"id"`
-	ProjectID   string `json:"project_id"`
-	Diff        *OntologyDiff `json:"diff"`
+	ID          string            `json:"id"`
+	ProjectID   string            `json:"project_id"`
+	Diff        *OntologyDiff     `json:"diff"`
 	Status      NegotiationStatus `json:"status"`
-	SuggestedBy string `json:"suggested_by,omitempty"`   // "llm" | "user" | "system"
-	Rationale   string `json:"rationale,omitempty"`      // LLM rationale
-	Confidence  float64 `json:"confidence,omitempty"`    // LLM confidence 0.0-1.0
-	CreatedAt   string `json:"created_at,omitempty"`
-	UpdatedAt   string `json:"updated_at,omitempty"`
+	SuggestedBy string            `json:"suggested_by,omitempty"` // "llm" | "user" | "system"
+	Rationale   string            `json:"rationale,omitempty"`    // LLM rationale
+	Confidence  float64           `json:"confidence,omitempty"`   // LLM confidence 0.0-1.0
+	CreatedAt   string            `json:"created_at,omitempty"`
+	UpdatedAt   string            `json:"updated_at,omitempty"`
 }
 
 // NegotiationStatus represents the state of an ontology suggestion.
@@ -46,21 +46,21 @@ func (s NegotiationStatus) String() string {
 
 // OntologyDiff describes an atomic set of changes to an ontology.
 type OntologyDiff struct {
-	ID               string `json:"id"`
-	ProjectID        string `json:"project_id"`
-	ParentVersionID  string `json:"parent_version_id,omitempty"`
-	ObjectsAdd       []ObjectAdd       `json:"objects_add,omitempty"`
-	ObjectsModify    []ObjectModify    `json:"objects_modify,omitempty"`
-	ObjectsRemove    []ObjectRemove    `json:"objects_remove,omitempty"`
-	RelationsAdd     []RelationAdd     `json:"relations_add,omitempty"`
-	RelationsModify  []RelationModify  `json:"relations_modify,omitempty"`
-	RelationsRemove  []RelationRemove  `json:"relations_remove,omitempty"`
-	SourceDescription string          `json:"source_description,omitempty"`
-	Rationale        string           `json:"rationale,omitempty"`
-	Confidence       float64          `json:"confidence,omitempty"`
-	Status           NegotiationStatus `json:"status"`
-	CoreAlephPreview string           `json:"core_aleph_preview,omitempty"`
-	Warnings         []string         `json:"warnings,omitempty"`
+	ID                string            `json:"id"`
+	ProjectID         string            `json:"project_id"`
+	ParentVersionID   string            `json:"parent_version_id,omitempty"`
+	ObjectsAdd        []ObjectAdd       `json:"objects_add,omitempty"`
+	ObjectsModify     []ObjectModify    `json:"objects_modify,omitempty"`
+	ObjectsRemove     []ObjectRemove    `json:"objects_remove,omitempty"`
+	RelationsAdd      []RelationAdd     `json:"relations_add,omitempty"`
+	RelationsModify   []RelationModify  `json:"relations_modify,omitempty"`
+	RelationsRemove   []RelationRemove  `json:"relations_remove,omitempty"`
+	SourceDescription string            `json:"source_description,omitempty"`
+	Rationale         string            `json:"rationale,omitempty"`
+	Confidence        float64           `json:"confidence,omitempty"`
+	Status            NegotiationStatus `json:"status"`
+	CoreAlephPreview  string            `json:"core_aleph_preview,omitempty"`
+	Warnings          []string          `json:"warnings,omitempty"`
 }
 
 // Relationship describes a parsed relation between two ontology objects.
@@ -85,11 +85,11 @@ type ObjectAdd struct {
 
 // ObjectModify describes modifications to an existing ontology object.
 type ObjectModify struct {
-	Name            string            `json:"name"`
-	PropertiesAdd   []string          `json:"properties_add,omitempty"`
-	PropertiesRemove []string         `json:"properties_remove,omitempty"`
-	TypeHintsUpdate map[string]string `json:"type_hints_update,omitempty"`
-	DescriptionUpdate string          `json:"description_update,omitempty"`
+	Name              string            `json:"name"`
+	PropertiesAdd     []string          `json:"properties_add,omitempty"`
+	PropertiesRemove  []string          `json:"properties_remove,omitempty"`
+	TypeHintsUpdate   map[string]string `json:"type_hints_update,omitempty"`
+	DescriptionUpdate string            `json:"description_update,omitempty"`
 }
 
 // ObjectRemove describes an object to remove from the ontology.
@@ -120,9 +120,9 @@ type RelationRemove struct {
 
 // VersionEntry represents a single entry in the ontology version history.
 type VersionEntry struct {
-	VersionID        string `json:"version_id"`
-	ParentVersionID  string `json:"parent_version_id,omitempty"`
-	CreatedAt        string `json:"created_at"`
-	Status           string `json:"status"` // "accepted" | "rejected" | "superseded"
+	VersionID         string `json:"version_id"`
+	ParentVersionID   string `json:"parent_version_id,omitempty"`
+	CreatedAt         string `json:"created_at"`
+	Status            string `json:"status"` // "accepted" | "rejected" | "superseded"
 	SourceDescription string `json:"source_description,omitempty"`
 }

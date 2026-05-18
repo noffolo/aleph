@@ -4,9 +4,9 @@ import "testing"
 
 func TestClassifyError_Timeout(t *testing.T) {
 	tests := []struct {
-		code    string
-		msg     string
-		want    string
+		code string
+		msg  string
+		want string
 	}{
 		{"ERR_DEADLINE_EXCEEDED", "operation timed out", PatternTimeout},
 		{"ERR_UNAVAILABLE", "service unavailable", PatternTimeout},

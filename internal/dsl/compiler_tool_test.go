@@ -21,8 +21,8 @@ func TestTestGeneratedTool_NilGen(t *testing.T) {
 func TestTestGeneratedTool_ValidationError(t *testing.T) {
 	v := sandbox.NewVerifier(nil, nil, "", "")
 	gen := &GeneratedTool{
-		Name:    "",
-		GoCode:  "package main\nfunc main() {}",
+		Name:   "",
+		GoCode: "package main\nfunc main() {}",
 	}
 	result, err := TestGeneratedTool(context.Background(), gen, v)
 	if err != nil {
@@ -36,8 +36,8 @@ func TestTestGeneratedTool_ValidationError(t *testing.T) {
 func TestTestGeneratedTool_ValidPasses(t *testing.T) {
 	v := sandbox.NewVerifier(nil, nil, "", "")
 	gen := &GeneratedTool{
-		Name:    "hello_world",
-		GoCode:  "package main\nimport \"fmt\"\nfunc main() { fmt.Println(\"hello\") }",
+		Name:   "hello_world",
+		GoCode: "package main\nimport \"fmt\"\nfunc main() { fmt.Println(\"hello\") }",
 		Inputs: []*ToolParam{
 			{Name: "name", Type: "string", Required: false},
 		},
@@ -45,7 +45,7 @@ func TestTestGeneratedTool_ValidPasses(t *testing.T) {
 			{Name: "greeting", Type: "string"},
 		},
 		Handler: &ToolHandler{
-			Language: "go",
+			Language:   "go",
 			EntryPoint: "handler.go",
 		},
 	}
@@ -71,8 +71,8 @@ func TestTestGeneratedTool_ValidPython(t *testing.T) {
 			{Name: "greeting", Type: "string"},
 		},
 		Handler: &ToolHandler{
-			Language:    "python",
-			EntryPoint:  "handler.py",
+			Language:   "python",
+			EntryPoint: "handler.py",
 		},
 	}
 	result, err := TestGeneratedTool(context.Background(), gen, v)
@@ -114,8 +114,8 @@ func TestRegisterTool_NilGen(t *testing.T) {
 
 func TestRegisterTool_NilMetaRepo(t *testing.T) {
 	gen := &GeneratedTool{
-		Name:    "my_tool",
-		GoCode:  "package main\nfunc main() {}",
+		Name:     "my_tool",
+		GoCode:   "package main\nfunc main() {}",
 		Template: TemplateDataProcessor,
 	}
 	rec, err := RegisterTool(context.Background(), gen, nil)
