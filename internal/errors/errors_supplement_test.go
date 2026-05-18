@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	stderrors "errors"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestWithSubsystem(t *testing.T) {

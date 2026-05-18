@@ -44,7 +44,7 @@ type APIError struct {
 	// Message is the user-facing message in Italian
 	Message string
 	// Details is optional additional context for the error
-	Details map[string]interface{}
+	Details map[string]any
 	// Err is the underlying technical error in English (optional)
 	Err error
 	// Subsystem identifies which subsystem generated the error
@@ -75,7 +75,7 @@ func NewAPIError(code, userMsg string, err error) *APIError {
 }
 
 // NewAPIErrorWithDetails creates a new APIError with additional details.
-func NewAPIErrorWithDetails(code, userMsg string, details map[string]interface{}, err error) *APIError {
+func NewAPIErrorWithDetails(code, userMsg string, details map[string]any, err error) *APIError {
 	return &APIError{
 		Code:         code,
 		Message:      userMsg,
@@ -160,7 +160,7 @@ func Wrap(err error, code, userMsg string) *APIError {
 }
 
 // WrapWithDetails wraps an existing error with an APIError and details.
-func WrapWithDetails(err error, code, userMsg string, details map[string]interface{}) *APIError {
+func WrapWithDetails(err error, code, userMsg string, details map[string]any) *APIError {
 	return NewAPIErrorWithDetails(code, userMsg, details, err)
 }
 

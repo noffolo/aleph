@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	stderrors "errors"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewAPIError(t *testing.T) {
@@ -25,7 +25,7 @@ func TestNewAPIError_WithUnderlying(t *testing.T) {
 }
 
 func TestNewAPIErrorWithDetails(t *testing.T) {
-	details := map[string]interface{}{"field": "name", "reason": "too short"}
+	details := map[string]any{"field": "name", "reason": "too short"}
 	err := NewAPIErrorWithDetails(ErrValidation, "Dati non validi", details, nil)
 	assert.Equal(t, details, err.Details)
 }
@@ -99,7 +99,7 @@ func TestWrap(t *testing.T) {
 }
 
 func TestWrapWithDetails(t *testing.T) {
-	details := map[string]interface{}{"detail": "value"}
+	details := map[string]any{"detail": "value"}
 	err := WrapWithDetails(fmt.Errorf("orig"), ErrValidation, "msg", details)
 	assert.Equal(t, details, err.Details)
 }
@@ -159,6 +159,6 @@ func TestAPIErrorWithNilDetails(t *testing.T) {
 
 func TestAPIErrorWithErrorOnly(t *testing.T) {
 	err := NewAPIErrorWithDetails(ErrInvalidArgument, "bad arg",
-		map[string]interface{}{"arg": "value"}, fmt.Errorf("root cause"))
+		map[string]any{"arg": "value"}, fmt.Errorf("root cause"))
 	assert.Equal(t, "ERR_INVALID_ARGUMENT: root cause", err.Error())
 }
