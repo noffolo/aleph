@@ -9,6 +9,6 @@ func NewTestRateLimitedClient() *RateLimitedClient {
 }
 
 func (j *JSONAPIIngester) UseNonSSRFClient() { j.client = NewTestRateLimitedClient() }
-func (s *SitemapIngester) UseNonSSRFClient()  { s.client = NewTestRateLimitedClient() }
-func (g *GitHubIngester) UseNonSSRFClient()   { g.client = NewTestRateLimitedClient() }
-func (sh *SheetsIngester) UseNonSSRFClient()  { sh.client = NewTestRateLimitedClient() }
+func (s *SitemapIngester) UseNonSSRFClient() { s.client = NewTestRateLimitedClient() }
+func (g *GitHubIngester) UseNonSSRFClient()  { g.client = NewTestRateLimitedClient() }
+func (sh *SheetsIngester) UseNonSSRFClient() { sh.client = NewTestRateLimitedClient() }

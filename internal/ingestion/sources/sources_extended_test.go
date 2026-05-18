@@ -650,10 +650,10 @@ func TestGitHubIngester_FetchPaginated(t *testing.T) {
 		if callCount == 1 {
 			w.Header().Set("Link", `<`+serverURL+`?page=2>; rel="next"`)
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode([]map[string]interface{}{{"id": 1, "title": "issue 1"}})
+			json.NewEncoder(w).Encode([]map[string]any{{"id": 1, "title": "issue 1"}})
 		} else {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode([]map[string]interface{}{{"id": 2, "title": "issue 2"}})
+			json.NewEncoder(w).Encode([]map[string]any{{"id": 2, "title": "issue 2"}})
 		}
 	}))
 	defer server.Close()

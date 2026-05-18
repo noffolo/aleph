@@ -71,7 +71,7 @@ func TestSprintRunEmailNoUser(t *testing.T) {
 func TestSprintRunEmailIMAPConn(t *testing.T) {
 	eng, root := setupEngineFull(t)
 	createDirs(t, root, "eimap")
-	task := &v1.IngestionTask{Id: "eimap", SourceType: "email", ConfigJson: mj(map[string]string{"host":"127.0.0.1:19999","user":"u","pass":"p"})}
+	task := &v1.IngestionTask{Id: "eimap", SourceType: "email", ConfigJson: mj(map[string]string{"host": "127.0.0.1:19999", "user": "u", "pass": "p"})}
 	err := eng.RunTask(t.Context(), "eimap", task)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "IMAP fetch failed")
@@ -80,7 +80,7 @@ func TestSprintRunEmailIMAPConn(t *testing.T) {
 func TestSprintRunEmailBadTable(t *testing.T) {
 	eng, root := setupEngineFull(t)
 	createDirs(t, root, "ebad")
-	task := &v1.IngestionTask{Id: "bad;name", SourceType: "email", ConfigJson: mj(map[string]string{"host":"h","user":"u","pass":"p"})}
+	task := &v1.IngestionTask{Id: "bad;name", SourceType: "email", ConfigJson: mj(map[string]string{"host": "h", "user": "u", "pass": "p"})}
 	err := eng.RunTask(t.Context(), "ebad", task)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid table name")
@@ -167,7 +167,7 @@ func TestSprintRunPostgresInstall(t *testing.T) {
 	os.MkdirAll(filepath.Dir(logPath), 0755)
 	f, _ := os.Create(logPath)
 	defer f.Close()
-	task := &v1.IngestionTask{Id: "pgi", SourceType: "postgres", ConfigJson: mj(map[string]string{"dsn":"host=localhost port=5432 dbname=mydb user=test"})}
+	task := &v1.IngestionTask{Id: "pgi", SourceType: "postgres", ConfigJson: mj(map[string]string{"dsn": "host=localhost port=5432 dbname=mydb user=test"})}
 	err := eng.runPostgresLoad(t.Context(), f, "pgi", task)
 	assert.Error(t, err)
 }
@@ -254,7 +254,7 @@ func TestSprintRunCopyFull(t *testing.T) {
 func TestSprintRunPostgresQueryBlocked(t *testing.T) {
 	eng, root := setupEngineFull(t)
 	createDirs(t, root, "pqb")
-	task := &v1.IngestionTask{Id: "pqb", SourceType: "postgres", ConfigJson: mj(map[string]string{"dsn":"p","query":"SELECT 1"})}
+	task := &v1.IngestionTask{Id: "pqb", SourceType: "postgres", ConfigJson: mj(map[string]string{"dsn": "p", "query": "SELECT 1"})}
 	err := eng.RunTask(t.Context(), "pqb", task)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "custom queries not allowed")

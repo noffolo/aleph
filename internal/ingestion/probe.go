@@ -47,9 +47,9 @@ type SourceProbeResult struct {
 	TotalEstimate int64          `json:"total_estimate"`
 }
 
-func (s *SourceProbeResult) SourceType() string          { return s.SrcType }
-func (s *SourceProbeResult) Pagination() PaginationInfo   { return s.Pag }
-func (s *SourceProbeResult) Columns() []ColumnInfo         { return s.Cols }
+func (s *SourceProbeResult) SourceType() string         { return s.SrcType }
+func (s *SourceProbeResult) Pagination() PaginationInfo { return s.Pag }
+func (s *SourceProbeResult) Columns() []ColumnInfo      { return s.Cols }
 
 // Validate checks the probe result for correctness.
 func (s *SourceProbeResult) Validate() error {
@@ -175,10 +175,10 @@ func (p *ProbeRunner) Execute(ctx context.Context, result *SourceProbeResult) er
 }
 
 var (
-	reSitemap  = regexp.MustCompile(`(?i)<(urlset|sitemapindex)`)
-	reRSS      = regexp.MustCompile(`(?i)<(rss|feed)\b`)
-	reHTML     = regexp.MustCompile(`(?i)<!DOCTYPE\s+html|<html\b`)
-	reGitHub   = regexp.MustCompile(`github\.com/.*/repos/`)
+	reSitemap = regexp.MustCompile(`(?i)<(urlset|sitemapindex)`)
+	reRSS     = regexp.MustCompile(`(?i)<(rss|feed)\b`)
+	reHTML    = regexp.MustCompile(`(?i)<!DOCTYPE\s+html|<html\b`)
+	reGitHub  = regexp.MustCompile(`github\.com/.*/repos/`)
 )
 
 func classifySourceType(endpoint string, contentType string, body []byte) string {
@@ -285,7 +285,7 @@ func detectPagination(endpoint string, resp *http.Response, body []byte) Paginat
 
 	// 3. Check for page/offset pagination in JSON body for REST endpoints
 	if len(body) > 0 && body[0] == '{' {
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		if err := json.Unmarshal(body, &parsed); err == nil {
 			// Check for common pagination fields in the JSON response
 			if _, hasPage := parsed["page"]; hasPage {
@@ -306,7 +306,7 @@ func detectPagination(endpoint string, resp *http.Response, body []byte) Paginat
 			}
 			// Check if the response has a nested data object with pagination
 			if meta, ok := parsed["meta"]; ok {
-				if metaMap, ok := meta.(map[string]interface{}); ok {
+				if metaMap, ok := meta.(map[string]any); ok {
 					if _, hasPage := metaMap["page"]; hasPage {
 						return PaginationInfo{
 							Type:       "page",
@@ -340,24 +340,24 @@ func detectColumns(body []byte) []ColumnInfo {
 	}
 
 	// Try to extract the first object from a JSON array response
-	var data interface{}
+	var data any
 	if err := json.Unmarshal(trimmed, &data); err != nil {
 		return nil
 	}
 
 	// Extract first object from array
 	switch v := data.(type) {
-	case []interface{}:
+	case []any:
 		if len(v) > 0 {
-			if obj, ok := v[0].(map[string]interface{}); ok {
+			if obj, ok := v[0].(map[string]any); ok {
 				return columnsFromMap(obj, "")
 			}
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		// Check for common data wrapper patterns
 		for _, key := range []string{"data", "results", "items", "records", "entries"} {
-			if arr, ok := v[key].([]interface{}); ok && len(arr) > 0 {
-				if obj, ok := arr[0].(map[string]interface{}); ok {
+			if arr, ok := v[key].([]any); ok && len(arr) > 0 {
+				if obj, ok := arr[0].(map[string]any); ok {
 					return columnsFromMap(obj, key)
 				}
 			}
@@ -374,7 +374,7 @@ func detectColumns(body []byte) []ColumnInfo {
 	return nil
 }
 
-func columnsFromMap(m map[string]interface{}, prefix string) []ColumnInfo {
+func columnsFromMap(m map[string]any, prefix string) []ColumnInfo {
 	var cols []ColumnInfo
 	for k, v := range m {
 		path := prefix + "." + k
@@ -391,7 +391,7 @@ func columnsFromMap(m map[string]interface{}, prefix string) []ColumnInfo {
 	return cols
 }
 
-func columnsFromMapSkip(m map[string]interface{}, prefix string, skip map[string]bool) []ColumnInfo {
+func columnsFromMapSkip(m map[string]any, prefix string, skip map[string]bool) []ColumnInfo {
 	var cols []ColumnInfo
 	for k, v := range m {
 		if skip[k] {
@@ -411,7 +411,7 @@ func columnsFromMapSkip(m map[string]interface{}, prefix string, skip map[string
 	return cols
 }
 
-func goValueToColumnType(v interface{}) string {
+func goValueToColumnType(v any) string {
 	if v == nil {
 		return "string"
 	}
@@ -423,9 +423,9 @@ func goValueToColumnType(v interface{}) string {
 		return "string"
 	case bool:
 		return "boolean"
-	case map[string]interface{}:
+	case map[string]any:
 		return "object"
-	case []interface{}:
+	case []any:
 		return "array"
 	default:
 		return "string"
@@ -454,7 +454,7 @@ func buildNextURLFn(initialURL string, pag PaginationInfo) func(body []byte) str
 }
 
 func nextCursorURL(body []byte, cursorParam string) string {
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return ""
 	}
@@ -471,14 +471,14 @@ func nextCursorURL(body []byte, cursorParam string) string {
 
 	// Check nested meta.pagination
 	if meta, ok := parsed["meta"]; ok {
-		if metaMap, ok := meta.(map[string]interface{}); ok {
+		if metaMap, ok := meta.(map[string]any); ok {
 			if cursor, ok := metaMap["next_cursor"]; ok {
 				if cursorStr, ok := cursor.(string); ok && cursorStr != "" {
 					return cursorStr
 				}
 			}
 			if pag, ok := metaMap["pagination"]; ok {
-				if pagMap, ok := pag.(map[string]interface{}); ok {
+				if pagMap, ok := pag.(map[string]any); ok {
 					if next, ok := pagMap["next"]; ok {
 						if nextStr, ok := next.(string); ok && nextStr != "" {
 							return nextStr
@@ -493,7 +493,7 @@ func nextCursorURL(body []byte, cursorParam string) string {
 }
 
 func nextPageURL(body []byte, initialURL string, pag PaginationInfo) string {
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return ""
 	}
@@ -504,7 +504,7 @@ func nextPageURL(body []byte, initialURL string, pag PaginationInfo) string {
 	if page, ok := parsed["page"]; ok {
 		currentPage, _ = toFloat64(page)
 	} else if meta, ok := parsed["meta"]; ok {
-		if metaMap, ok := meta.(map[string]interface{}); ok {
+		if metaMap, ok := meta.(map[string]any); ok {
 			if page, ok := metaMap["page"]; ok {
 				currentPage, _ = toFloat64(page)
 			} else if offset, ok := metaMap["offset"]; ok {
@@ -541,7 +541,7 @@ func nextPageURL(body []byte, initialURL string, pag PaginationInfo) string {
 	return u.String()
 }
 
-func toFloat64(v interface{}) (float64, bool) {
+func toFloat64(v any) (float64, bool) {
 	switch val := v.(type) {
 	case float64:
 		return val, true

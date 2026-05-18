@@ -222,9 +222,9 @@ func TestEngine_InsertJSONArray_Success(t *testing.T) {
 	createTestProject(t, projectsRoot, "httptest-proj")
 	eng.projectsRoot = projectsRoot
 
-	arr := []interface{}{
-		map[string]interface{}{"name": "Alice", "age": float64(30)},
-		map[string]interface{}{"name": "Bob", "age": float64(25)},
+	arr := []any{
+		map[string]any{"name": "Alice", "age": float64(30)},
+		map[string]any{"name": "Bob", "age": float64(25)},
 	}
 	err := eng.insertJSONArray(context.Background(), "insert_test_table", arr, os.Stdout)
 	require.NoError(t, err)
@@ -245,14 +245,14 @@ func TestEngine_InsertJSONArray_Success(t *testing.T) {
 func TestEngine_InsertJSONArray_EmptyArray(t *testing.T) {
 	t.Parallel()
 	eng, _ := setupTestEngine(t)
-	err := eng.insertJSONArray(context.Background(), "empty_tbl", []interface{}{}, os.Stdout)
+	err := eng.insertJSONArray(context.Background(), "empty_tbl", []any{}, os.Stdout)
 	assert.NoError(t, err)
 }
 
 func TestEngine_InsertJSONArray_NotObject(t *testing.T) {
 	t.Parallel()
 	eng, _ := setupTestEngine(t)
-	arr := []interface{}{"not_an_object"}
+	arr := []any{"not_an_object"}
 	err := eng.insertJSONArray(context.Background(), "bad_tbl", arr, os.Stdout)
 	assert.Error(t, err)
 }

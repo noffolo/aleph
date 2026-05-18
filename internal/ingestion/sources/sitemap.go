@@ -369,7 +369,7 @@ func (s *SitemapIngester) fetchAllPages(ctx context.Context, urls []string) ([]P
 			fetchSinglePage(pageCtx, pageURL, ch)
 		}()
 
-	select {
+		select {
 		case pr := <-ch:
 			mu.Lock()
 			results[job.Index] = pr

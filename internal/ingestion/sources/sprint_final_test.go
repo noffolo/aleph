@@ -43,7 +43,7 @@ func newSheetsIngesterForTest(t *testing.T, srv *httptest.Server, apiKey string)
 
 func TestFetchSheet_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"values": [][]string{
 				{"name", "score"},
 				{"Alice", "95"},
@@ -108,7 +108,7 @@ func TestFetchSheet_BadJSON(t *testing.T) {
 
 func TestFetchSheet_EmptyValues(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		resp := map[string]interface{}{"values": [][]string{}}
+		resp := map[string]any{"values": [][]string{}}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
 	}))
@@ -122,7 +122,7 @@ func TestFetchSheet_EmptyValues(t *testing.T) {
 
 func TestFetchSheet_CustomRange(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"values": [][]string{{"a"}, {"1"}},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -141,7 +141,7 @@ func TestFetchSheet_CustomRange(t *testing.T) {
 
 func TestFetchSheet_EmptyKey(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"values": [][]string{{"x"}, {"0"}},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -158,7 +158,7 @@ func TestFetchSheet_EmptyKey(t *testing.T) {
 func TestFetchSheet_SparseRows(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Header row: 4 cols. Data rows have missing/empty cells.
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"values": [][]string{
 				{"A", "B", "C", "D"},
 				{"1", "", "3", ""},
@@ -191,14 +191,14 @@ func TestFetchAllSheets_SingleSheet(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if calls == 1 {
 			// metadata
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"sheets": []map[string]interface{}{
-					{"properties": map[string]interface{}{"title": "Sheet1"}},
+			json.NewEncoder(w).Encode(map[string]any{
+				"sheets": []map[string]any{
+					{"properties": map[string]any{"title": "Sheet1"}},
 				},
 			})
 		} else {
 			// sheet values
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
 				"values": [][]string{{"h"}, {"v"}},
 			})
 		}
@@ -240,8 +240,8 @@ func TestFetchAllSheets_BadMetadataJSON(t *testing.T) {
 func TestFetchAllSheets_NoSheets(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"sheets": []interface{}{},
+		json.NewEncoder(w).Encode(map[string]any{
+			"sheets": []any{},
 		})
 	}))
 	t.Cleanup(srv.Close)
@@ -259,14 +259,14 @@ func TestFetchAllSheets_TwoSheets(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if calls == 1 {
 			// metadata with 2 sheets
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"sheets": []map[string]interface{}{
-					{"properties": map[string]interface{}{"title": "Data"}},
-					{"properties": map[string]interface{}{"title": "Summary"}},
+			json.NewEncoder(w).Encode(map[string]any{
+				"sheets": []map[string]any{
+					{"properties": map[string]any{"title": "Data"}},
+					{"properties": map[string]any{"title": "Summary"}},
 				},
 			})
 		} else {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
 				"values": [][]string{{"h"}, {"v"}},
 			})
 		}
@@ -288,9 +288,9 @@ func TestFetchAllSheets_TwoSheets(t *testing.T) {
 func TestDetectConfig_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"sheets": []map[string]interface{}{
-				{"properties": map[string]interface{}{"title": "MainData"}},
+		json.NewEncoder(w).Encode(map[string]any{
+			"sheets": []map[string]any{
+				{"properties": map[string]any{"title": "MainData"}},
 			},
 		})
 	}))
@@ -333,8 +333,8 @@ func TestDetectConfig_BadJSON(t *testing.T) {
 func TestDetectConfig_NoSheets(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"sheets": []interface{}{},
+		json.NewEncoder(w).Encode(map[string]any{
+			"sheets": []any{},
 		})
 	}))
 	t.Cleanup(srv.Close)

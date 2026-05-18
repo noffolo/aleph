@@ -20,15 +20,15 @@ import (
 
 // APIConfig defines how to fetch pages from a JSON REST API.
 type APIConfig struct {
-	BaseURL       string
-	Headers       map[string]string
+	BaseURL        string
+	Headers        map[string]string
 	PaginationType string // "offset", "cursor", "page", "none"
-	PageParam     string // e.g. "page" (default: "page")
-	LimitParam    string // e.g. "per_page" (default: "per_page")
-	Limit         int    // page size
-	DataPath      string // JSONPath to data array, e.g. "data.items", "results" ("" means root is the array)
-	TotalPath     string // JSONPath to total count, e.g. "total", "meta.total"
-	MaxPages      int    // max pages to fetch (0 = all)
+	PageParam      string // e.g. "page" (default: "page")
+	LimitParam     string // e.g. "per_page" (default: "per_page")
+	Limit          int    // page size
+	DataPath       string // JSONPath to data array, e.g. "data.items", "results" ("" means root is the array)
+	TotalPath      string // JSONPath to total count, e.g. "total", "meta.total"
+	MaxPages       int    // max pages to fetch (0 = all)
 }
 
 // Validate checks the APIConfig for common mistakes.
@@ -183,10 +183,10 @@ func (j *JSONAPIIngester) FetchAll(ctx context.Context, cfg APIConfig) ([]byte, 
 
 // SourceProbeResult is the result of probing a JSON API endpoint.
 type SourceProbeResult struct {
-	SourceType  string // "array-root" or "object-with-nested"
-	DataPath    string // detected path to data array ("" if root is array)
-	SampleBody  []byte // raw first-page body (truncated to 64 KiB)
-	PageURL     string
+	SourceType string // "array-root" or "object-with-nested"
+	DataPath   string // detected path to data array ("" if root is array)
+	SampleBody []byte // raw first-page body (truncated to 64 KiB)
+	PageURL    string
 }
 
 // Probe fetches a single page and returns a probe result describing the
@@ -263,12 +263,12 @@ func (j *JSONAPIIngester) Probe(ctx context.Context, apiURL string, headers map[
 // DetectConfig probes a sample URL and returns a best-guess APIConfig.
 func (j *JSONAPIIngester) DetectConfig(ctx context.Context, sampleURL string) (*APIConfig, error) {
 	cfg := &APIConfig{
-		BaseURL:       sampleURL,
-		Headers:       map[string]string{},
+		BaseURL:        sampleURL,
+		Headers:        map[string]string{},
 		PaginationType: "none",
-		PageParam:     "page",
-		LimitParam:    "per_page",
-		Limit:         100,
+		PageParam:      "page",
+		LimitParam:     "per_page",
+		Limit:          100,
 	}
 
 	// Detect pagination type from URL query params.

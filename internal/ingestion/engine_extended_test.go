@@ -13,7 +13,7 @@ import (
 
 func TestContainsColon(t *testing.T) {
 	tests := []struct {
-		s       string
+		s        string
 		hasColon bool
 	}{
 		{"host:993", true},
@@ -90,10 +90,10 @@ func TestVerifyChecksum_ShortExpected(t *testing.T) {
 
 func TestResolveTableName(t *testing.T) {
 	tests := []struct {
-		name    string
-		task    *v1.IngestionTask
-		wantOK  bool
-		want    string
+		name   string
+		task   *v1.IngestionTask
+		wantOK bool
+		want   string
 	}{
 		{
 			name: "config_tableName",
@@ -188,43 +188,43 @@ func TestResolveTableName(t *testing.T) {
 func TestExtractArray(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   map[string]interface{}
+		input   map[string]any
 		wantLen int
 		wantOK  bool
 	}{
 		{
 			name:    "simple_array",
-			input:   map[string]interface{}{"items": []interface{}{"a", "b", "c"}},
+			input:   map[string]any{"items": []any{"a", "b", "c"}},
 			wantLen: 3,
 			wantOK:  true,
 		},
 		{
 			name:    "empty_array",
-			input:   map[string]interface{}{"data": []interface{}{}},
+			input:   map[string]any{"data": []any{}},
 			wantLen: 0,
 			wantOK:  true,
 		},
 		{
 			name:    "no_array",
-			input:   map[string]interface{}{"key": "value"},
+			input:   map[string]any{"key": "value"},
 			wantLen: 0,
 			wantOK:  false,
 		},
 		{
 			name:    "empty_map",
-			input:   map[string]interface{}{},
+			input:   map[string]any{},
 			wantLen: 0,
 			wantOK:  false,
 		},
 		{
 			name:    "nested_objects_not_array",
-			input:   map[string]interface{}{"obj": map[string]interface{}{"x": "y"}},
+			input:   map[string]any{"obj": map[string]any{"x": "y"}},
 			wantLen: 0,
 			wantOK:  false,
 		},
 		{
 			name:    "first_value_is_array",
-			input:   map[string]interface{}{"results": []interface{}{1, 2, 3, 4, 5}},
+			input:   map[string]any{"results": []any{1, 2, 3, 4, 5}},
 			wantLen: 5,
 			wantOK:  true,
 		},
@@ -258,7 +258,7 @@ func TestValidateSQLName(t *testing.T) {
 		{"starts_with_number", "123_table", true},
 		{"contains_hyphen", "table-name", true},
 		{"contains_space", "table name", true},
-		{"sql_keyword", "SELECT", true},  // safeident blocks SQL keywords
+		{"sql_keyword", "SELECT", true}, // safeident blocks SQL keywords
 		{"reserved", "DROP", true},
 	}
 	for _, tt := range tests {
@@ -280,10 +280,10 @@ func TestValidateSQLName(t *testing.T) {
 
 func TestStripAndValidateName(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		want    string
-		wantOK  bool
+		name   string
+		input  string
+		want   string
+		wantOK bool
 	}{
 		{"clean_name", "my_table", "my_table", true},
 		{"with_spaces", "my table", "my_table", true},
@@ -848,9 +848,9 @@ func TestDetectColumns(t *testing.T) {
 }
 
 func TestColumnsFromMap(t *testing.T) {
-	m := map[string]interface{}{
-		"name": "Alice",
-		"age":  float64(30),
+	m := map[string]any{
+		"name":   "Alice",
+		"age":    float64(30),
 		"active": true,
 	}
 	cols := columnsFromMap(m, "")
@@ -873,7 +873,7 @@ func TestColumnsFromMap(t *testing.T) {
 }
 
 func TestColumnsFromMap_WithPrefix(t *testing.T) {
-	m := map[string]interface{}{"key": "val"}
+	m := map[string]any{"key": "val"}
 	cols := columnsFromMap(m, "data")
 	if len(cols) != 1 {
 		t.Fatalf("columnsFromMap() len = %d, want 1", len(cols))
@@ -884,11 +884,11 @@ func TestColumnsFromMap_WithPrefix(t *testing.T) {
 }
 
 func TestColumnsFromMapSkip(t *testing.T) {
-	m := map[string]interface{}{
+	m := map[string]any{
 		"name":       "Test",
-		"meta":       map[string]interface{}{"page": 1},
-		"pagination": map[string]interface{}{"total": 100},
-		"links":      map[string]interface{}{"next": "/page/2"},
+		"meta":       map[string]any{"page": 1},
+		"pagination": map[string]any{"total": 100},
+		"links":      map[string]any{"next": "/page/2"},
 	}
 	skip := map[string]bool{"meta": true, "pagination": true, "links": true}
 	cols := columnsFromMapSkip(m, "", skip)
@@ -906,7 +906,7 @@ func TestColumnsFromMapSkip(t *testing.T) {
 
 func TestGoValueToColumnType(t *testing.T) {
 	tests := []struct {
-		value interface{}
+		value any
 		want  string
 	}{
 		{nil, "string"},
@@ -914,8 +914,8 @@ func TestGoValueToColumnType(t *testing.T) {
 		{"hello", "string"},
 		{true, "boolean"},
 		{false, "boolean"},
-		{map[string]interface{}{"a": 1}, "object"},
-		{[]interface{}{1, 2, 3}, "array"},
+		{map[string]any{"a": 1}, "object"},
+		{[]any{1, 2, 3}, "array"},
 		{int(1), "string"}, // int not specially handled - falls to default
 	}
 	for _, tt := range tests {
@@ -932,9 +932,9 @@ func TestGoValueToColumnType(t *testing.T) {
 
 func TestToFloat64(t *testing.T) {
 	tests := []struct {
-		name  string
-		value interface{}
-		want  float64
+		name   string
+		value  any
+		want   float64
 		wantOK bool
 	}{
 		{"float64", float64(42.5), 42.5, true},
@@ -997,9 +997,9 @@ func TestBuildNextURLFn_Offset(t *testing.T) {
 
 func TestNextCursorURL(t *testing.T) {
 	tests := []struct {
-		name    string
-		body    []byte
-		want    string
+		name string
+		body []byte
+		want string
 	}{
 		{"next_cursor", []byte(`{"next_cursor": "abc123"}`), "abc123"},
 		{"cursor", []byte(`{"cursor": "def456"}`), "def456"},

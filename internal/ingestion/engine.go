@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/tls"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
@@ -31,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/ingestion/sources"
@@ -40,6 +39,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/sandbox"
 	"github.com/ff3300/aleph-v2/internal/ssrf"
 	"github.com/ff3300/aleph-v2/internal/storage"
+	"github.com/google/uuid"
 )
 
 var validIdentifier = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -157,13 +157,15 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	e.updateProgress(task.Id, 0, "running")
 	logPath := filepath.Join(e.projectsRoot, projectID, "logs", task.Id+".log")
 	os.MkdirAll(filepath.Dir(logPath), 0755)
-	
+
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil { return fmt.Errorf("openLogFile: %w", err) }
+	if err != nil {
+		return fmt.Errorf("openLogFile: %w", err)
+	}
 	defer f.Close()
 
 	fmt.Fprintf(f, "\n--- Task Start: %s at %s ---\n", task.Id, time.Now().Format(time.RFC3339))
-	
+
 	var taskErr error
 	switch task.SourceType {
 	case "rss", "rest":
@@ -279,7 +281,7 @@ func resolveTableName(task *v1.IngestionTask) (string, error) {
 
 func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableName string) {
 	log.Printf("[Engine] Starting predictive enrichment for table %s", tableName)
-	
+
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	ontPath := filepath.Join(projectPath, "ontologies", "core.aleph")
 	content, err := os.ReadFile(ontPath)
@@ -299,14 +301,14 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 	// Table creation has been moved to migrations/000001_init_schema.up.sql
 	// The following query is kept for reference but commented out:
 	/*
-	e.db.Exec(ctx, `CREATE TABLE IF NOT EXISTS system_features (
-		project_id VARCHAR,
-		task_id VARCHAR,
-		entity_id VARCHAR,
-		feature_type VARCHAR,
-		feature_value FLOAT,
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	)`)
+		e.db.Exec(ctx, `CREATE TABLE IF NOT EXISTS system_features (
+			project_id VARCHAR,
+			task_id VARCHAR,
+			entity_id VARCHAR,
+			feature_type VARCHAR,
+			feature_value FLOAT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`)
 	*/
 
 	query := "SELECT * FROM " + safeident.QuoteIdentifier(tableName) + " WHERE _aleph_ingested_at > (CURRENT_TIMESTAMP - INTERVAL '1 MINUTE')" // safe: tableName validated via safeident.ValidateStrictIdentifier (via enrichPredictiveMetadata caller)
@@ -318,7 +320,7 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 	defer rows.Close()
 
 	cols, _ := rows.Columns()
-	
+
 	// Identificazione indice chiave primaria
 	idIdx := 0
 	if primaryKey != "" {
@@ -341,13 +343,19 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 
 	for rows.Next() {
 		select {
-		case <-ctx.Done(): return
+		case <-ctx.Done():
+			return
 		default:
 		}
 
-		vals := make([]interface{}, len(cols)); vps := make([]interface{}, len(cols))
-		for i := range vals { vps[i] = &vals[i] }
-		if err := rows.Scan(vps...); err != nil { continue }
+		vals := make([]any, len(cols))
+		vps := make([]any, len(cols))
+		for i := range vals {
+			vps[i] = &vals[i]
+		}
+		if err := rows.Scan(vps...); err != nil {
+			continue
+		}
 
 		entityID := fmt.Sprintf("%v", vals[idIdx])
 
@@ -379,10 +387,14 @@ func (e *Engine) registerViews(ctx context.Context, projectID string) error {
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	ontPath := filepath.Join(projectPath, "ontologies", "core.aleph")
 	content, err := os.ReadFile(ontPath)
-	if err != nil { return nil } // No ontology, skip
+	if err != nil {
+		return nil
+	} // No ontology, skip
 
 	prog, err := dsl.Parse(string(content))
-	if err != nil { return fmt.Errorf("parsing ontology: %w", err) }
+	if err != nil {
+		return fmt.Errorf("parsing ontology: %w", err)
+	}
 
 	dataRoot := filepath.Join(projectPath, "raw")
 	compiler := dsl.NewCompiler(prog, dataRoot)
@@ -390,8 +402,10 @@ func (e *Engine) registerViews(ctx context.Context, projectID string) error {
 	for _, stmt := range prog.Statements {
 		if stmt.Object != nil {
 			sql, err := compiler.CompileObject(stmt.Object.Name)
-			if err != nil { continue }
-			
+			if err != nil {
+				continue
+			}
+
 			viewName := strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(fmt.Sprintf("%s_%s", projectID, stmt.Object.Name), "_"))
 			if err := safeident.ValidateIdentifier(viewName); err != nil {
 				log.Printf("[Engine] Invalid view name %q: %v", viewName, err)
@@ -455,7 +469,9 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 	e.updateProgress(task.Id, 70, "running")
 
 	tableName := task.Id
-	if err := safeident.ValidateIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(precompiled): %w", err) }
+	if err := safeident.ValidateIdentifier(tableName); err != nil {
+		return fmt.Errorf("sanitizeTableName(precompiled): %w", err)
+	}
 	contentType := resp.Header.Get("Content-Type")
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	os.MkdirAll(filepath.Join(projectPath, "raw"), 0755)
@@ -541,8 +557,12 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 
 	contentType := resp.Header.Get("Content-Type")
 	tableName := task.Id
-	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(urlfetch): %w", err) }
-	if err := validateSQLName(tableName); err != nil { return fmt.Errorf("validateTableName(urlfetch): %w", err) }
+	if err := sanitizeIdentifier(tableName); err != nil {
+		return fmt.Errorf("sanitizeTableName(urlfetch): %w", err)
+	}
+	if err := validateSQLName(tableName); err != nil {
+		return fmt.Errorf("validateTableName(urlfetch): %w", err)
+	}
 	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
 	os.MkdirAll(projectPath, 0755)
 
@@ -590,7 +610,7 @@ func (e *Engine) runURLFetch(ctx context.Context, w *os.File, projectID string, 
 	return nil
 }
 
-func (e *Engine) insertJSONArray(ctx context.Context, tableName string, arr []interface{}, w *os.File) error {
+func (e *Engine) insertJSONArray(ctx context.Context, tableName string, arr []any, w *os.File) error {
 	if err := safeident.ValidateIdentifier(tableName); err != nil {
 		return fmt.Errorf("invalid table name for JSON array insert: %w", err)
 	}
@@ -599,7 +619,7 @@ func (e *Engine) insertJSONArray(ctx context.Context, tableName string, arr []in
 		return nil
 	}
 
-	first, ok := arr[0].(map[string]interface{})
+	first, ok := arr[0].(map[string]any)
 	if !ok {
 		return fmt.Errorf("first element is not a JSON object")
 	}
@@ -621,9 +641,9 @@ func (e *Engine) insertJSONArray(ctx context.Context, tableName string, arr []in
 	}
 
 	values := make([]string, 0, len(arr))
-	params := make([]interface{}, 0)
+	params := make([]any, 0)
 	for _, item := range arr {
-		obj, ok := item.(map[string]interface{})
+		obj, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -660,9 +680,9 @@ func (e *Engine) insertJSONArray(ctx context.Context, tableName string, arr []in
 	return nil
 }
 
-func extractArray(m map[string]interface{}) ([]interface{}, bool) {
+func extractArray(m map[string]any) ([]any, bool) {
 	for _, v := range m {
-		if arr, ok := v.([]interface{}); ok {
+		if arr, ok := v.([]any); ok {
 			return arr, true
 		}
 	}
@@ -692,9 +712,15 @@ func (e *Engine) runCSVLoad(ctx context.Context, w *os.File, projectID string, t
 		tableName = task.Id
 	}
 	tableName = strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(tableName, "_"))
-	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(csvload): %w", err) }
-	if err := validateSQLName(tableName); err != nil { return fmt.Errorf("validateTableName(csvload): %w", err) }
-	if err := sanitizeFilePath(config.Path); err != nil { return fmt.Errorf("sanitizeFilePath: %w", err) }
+	if err := sanitizeIdentifier(tableName); err != nil {
+		return fmt.Errorf("sanitizeTableName(csvload): %w", err)
+	}
+	if err := validateSQLName(tableName); err != nil {
+		return fmt.Errorf("validateTableName(csvload): %w", err)
+	}
+	if err := sanitizeFilePath(config.Path); err != nil {
+		return fmt.Errorf("sanitizeFilePath: %w", err)
+	}
 
 	readerFunc := "read_csv_auto"
 	if strings.HasSuffix(strings.ToLower(config.Path), ".parquet") {
@@ -705,8 +731,12 @@ func (e *Engine) runCSVLoad(ctx context.Context, w *os.File, projectID string, t
 	os.MkdirAll(projectPath, 0755)
 	localPath := filepath.Join(projectPath, tableName+filepath.Ext(config.Path))
 	data, err := os.ReadFile(config.Path)
-	if err != nil { return fmt.Errorf("file read failed: %w", err) }
-	if err := os.WriteFile(localPath, data, 0644); err != nil { return fmt.Errorf("local file write failed: %w", err) }
+	if err != nil {
+		return fmt.Errorf("file read failed: %w", err)
+	}
+	if err := os.WriteFile(localPath, data, 0644); err != nil {
+		return fmt.Errorf("local file write failed: %w", err)
+	}
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM " + readerFunc + "(" + safeident.QuoteStringLiteral(localPath) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath validated via safeident.SanitizeFilePath
 	if _, err := e.db.Exec(ctx, createSQL); err != nil {
@@ -734,8 +764,12 @@ func (e *Engine) runPostgresLoad(ctx context.Context, w *os.File, projectID stri
 	e.updateProgress(task.Id, 10, "running")
 
 	tableName := task.Id
-	if err := sanitizeIdentifier(tableName); err != nil { return fmt.Errorf("sanitizeTableName(postgres): %w", err) }
-	if err := validateSQLName(tableName); err != nil { return fmt.Errorf("validateTableName(postgres): %w", err) }
+	if err := sanitizeIdentifier(tableName); err != nil {
+		return fmt.Errorf("sanitizeTableName(postgres): %w", err)
+	}
+	if err := validateSQLName(tableName); err != nil {
+		return fmt.Errorf("validateTableName(postgres): %w", err)
+	}
 
 	_, err := e.db.Exec(ctx, "INSTALL postgres_scanner")
 	if err != nil {
@@ -788,11 +822,15 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir() { continue }
+		if entry.IsDir() {
+			continue
+		}
 		srcFile := filepath.Join(sourcePath, entry.Name())
 		dstFile := filepath.Join(destPath, entry.Name())
 		data, err := os.ReadFile(srcFile)
-		if err != nil { continue }
+		if err != nil {
+			continue
+		}
 		if err := os.WriteFile(dstFile, data, 0644); err != nil {
 			fmt.Fprintf(w, "Warning: copy %s failed: %v\n", entry.Name(), err)
 			continue
@@ -803,7 +841,9 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 	e.updateProgress(task.Id, 80, "running")
 
 	for _, entry := range entries {
-		if entry.IsDir() { continue }
+		if entry.IsDir() {
+			continue
+		}
 		tableName := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
 		if err := safeident.ValidateIdentifier(tableName); err != nil {
 			fmt.Fprintf(w, "Warning: skipping invalid table name %q: %v\n", tableName, err)
@@ -822,7 +862,9 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 			createSQL = "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(filePath) + ")" // safe: tableName validated via safeident.ValidateIdentifier; filePath via safeident.SanitizeFilePath
 		} else if ext == ".parquet" {
 			createSQL = "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_parquet(" + safeident.QuoteStringLiteral(filePath) + ")" // safe: tableName validated; filePath via safeident.SanitizeFilePath
-		} else { continue }
+		} else {
+			continue
+		}
 		if _, err := e.db.Exec(ctx, createSQL); err != nil {
 			fmt.Fprintf(w, "Warning: view %s failed: %v\n", tableName, err)
 		}
@@ -834,8 +876,12 @@ func (e *Engine) runCopy(ctx context.Context, w *os.File, projectID string, task
 }
 
 func (e *Engine) runDynamic(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
-	var config struct { Code string `json:"code"` }
-	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil { return fmt.Errorf("unmarshalDynamicConfig: %w", err) }
+	var config struct {
+		Code string `json:"code"`
+	}
+	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
+		return fmt.Errorf("unmarshalDynamicConfig: %w", err)
+	}
 	if config.Code == "" {
 		return fmt.Errorf("empty code in config")
 	}
@@ -848,11 +894,15 @@ func (e *Engine) runDynamic(ctx context.Context, w *os.File, projectID string, t
 	defer cancel()
 
 	tmpDir, err := os.MkdirTemp("", "aleph-run-*")
-	if err != nil { return fmt.Errorf("createTempDir: %w", err) }
+	if err != nil {
+		return fmt.Errorf("createTempDir: %w", err)
+	}
 	defer os.RemoveAll(tmpDir)
 
 	tmpFile := filepath.Join(tmpDir, "main.go")
-	if err := os.WriteFile(tmpFile, []byte(config.Code), 0644); err != nil { return fmt.Errorf("writeTempFile: %w", err) }
+	if err := os.WriteFile(tmpFile, []byte(config.Code), 0644); err != nil {
+		return fmt.Errorf("writeTempFile: %w", err)
+	}
 	binaryPath := filepath.Join(tmpDir, "conn")
 
 	cmdBuild := exec.CommandContext(sandboxCtx, "go", "build", "-o", binaryPath, tmpFile)
@@ -1681,7 +1731,9 @@ func (e *Engine) runSheetsSource(ctx context.Context, w *os.File, projectID stri
 
 func containsColon(s string) bool {
 	for _, c := range s {
-		if c == ':' { return true }
+		if c == ':' {
+			return true
+		}
 	}
 	return false
 }

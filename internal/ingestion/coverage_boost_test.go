@@ -44,7 +44,7 @@ func createDirs(t *testing.T, root, projID string) {
 	}
 }
 
-func mj(v interface{}) string {
+func mj(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
 }
@@ -398,25 +398,25 @@ func TestInsertJSONArray_ErrPaths(t *testing.T) {
 		logPath := filepath.Join(t.TempDir(), "e.log")
 		f, _ := os.Create(logPath)
 		defer f.Close()
-		assert.NoError(t, eng.insertJSONArray(context.Background(), "t", []interface{}{}, f))
+		assert.NoError(t, eng.insertJSONArray(context.Background(), "t", []any{}, f))
 	})
 	t.Run("bad_table", func(t *testing.T) {
 		logPath := filepath.Join(t.TempDir(), "bt.log")
 		f, _ := os.Create(logPath)
 		defer f.Close()
-		assert.Error(t, eng.insertJSONArray(context.Background(), "bad;name", []interface{}{map[string]interface{}{"k": "v"}}, f))
+		assert.Error(t, eng.insertJSONArray(context.Background(), "bad;name", []any{map[string]any{"k": "v"}}, f))
 	})
 	t.Run("bad_col", func(t *testing.T) {
 		logPath := filepath.Join(t.TempDir(), "bc.log")
 		f, _ := os.Create(logPath)
 		defer f.Close()
-		assert.Error(t, eng.insertJSONArray(context.Background(), "t", []interface{}{map[string]interface{}{"bad;col": "v"}}, f))
+		assert.Error(t, eng.insertJSONArray(context.Background(), "t", []any{map[string]any{"bad;col": "v"}}, f))
 	})
 	t.Run("not_obj", func(t *testing.T) {
 		logPath := filepath.Join(t.TempDir(), "no.log")
 		f, _ := os.Create(logPath)
 		defer f.Close()
-		assert.Error(t, eng.insertJSONArray(context.Background(), "t", []interface{}{"not_obj"}, f))
+		assert.Error(t, eng.insertJSONArray(context.Background(), "t", []any{"not_obj"}, f))
 	})
 }
 
@@ -583,7 +583,7 @@ func TestRunEmailFetch_BadJSON(t *testing.T) {
 func TestRunEmailFetch_DefaultFolder(t *testing.T) {
 	eng, r := setupEngineFull(t)
 	createDirs(t, r, "edf")
-	task := &v1.IngestionTask{Id: "edf", SourceType: "email", ConfigJson: mj(map[string]string{"host":"h","user":"u","pass":"p"})}
+	task := &v1.IngestionTask{Id: "edf", SourceType: "email", ConfigJson: mj(map[string]string{"host": "h", "user": "u", "pass": "p"})}
 	logPath := filepath.Join(r, "edf", "logs", "edf.log")
 	os.MkdirAll(filepath.Dir(logPath), 0755)
 	f, _ := os.Create(logPath)
@@ -675,7 +675,7 @@ func TestBuildNextURLFn(t *testing.T) {
 }
 
 func TestNextPageURL_2(t *testing.T) {
-	got := nextPageURL([]byte(`{"page":2}`), "https://x.com", PaginationInfo{Type:"page",PageParam:"page"})
+	got := nextPageURL([]byte(`{"page":2}`), "https://x.com", PaginationInfo{Type: "page", PageParam: "page"})
 	assert.Contains(t, got, "page=3")
 }
 
@@ -711,7 +711,7 @@ func TestRunDynamic_BadCode(t *testing.T) {
 func TestRunEmailFetch_NoHost(t *testing.T) {
 	eng, r := setupEngineFull(t)
 	createDirs(t, r, "enh")
-	task := &v1.IngestionTask{Id: "enh", SourceType: "email", ConfigJson: mj(map[string]string{"host":"", "user":"u", "pass":"p"})}
+	task := &v1.IngestionTask{Id: "enh", SourceType: "email", ConfigJson: mj(map[string]string{"host": "", "user": "u", "pass": "p"})}
 	logPath := filepath.Join(r, "enh", "logs", "enh.log")
 	os.MkdirAll(filepath.Dir(logPath), 0755)
 	f, _ := os.Create(logPath)
@@ -723,7 +723,7 @@ func TestRunEmailFetch_NoHost(t *testing.T) {
 func TestRunEmailFetch_NoUser(t *testing.T) {
 	eng, r := setupEngineFull(t)
 	createDirs(t, r, "enu")
-	task := &v1.IngestionTask{Id: "enu", SourceType: "email", ConfigJson: mj(map[string]string{"host":"h","pass":"p"})}
+	task := &v1.IngestionTask{Id: "enu", SourceType: "email", ConfigJson: mj(map[string]string{"host": "h", "pass": "p"})}
 	logPath := filepath.Join(r, "enu", "logs", "enu.log")
 	os.MkdirAll(filepath.Dir(logPath), 0755)
 	f, _ := os.Create(logPath)
@@ -747,7 +747,7 @@ func TestRunGitHubSource_BadJSON(t *testing.T) {
 func TestRunGitHubSource_NoRepo(t *testing.T) {
 	eng, r := setupEngineFull(t)
 	createDirs(t, r, "gnr")
-	task := &v1.IngestionTask{Id: "gnr", SourceType: "github", ConfigJson: mj(map[string]string{"owner":"o"})}
+	task := &v1.IngestionTask{Id: "gnr", SourceType: "github", ConfigJson: mj(map[string]string{"owner": "o"})}
 	logPath := filepath.Join(r, "gnr", "logs", "gnr.log")
 	os.MkdirAll(filepath.Dir(logPath), 0755)
 	f, _ := os.Create(logPath)
@@ -807,7 +807,7 @@ func TestRunPostgresLoad_BadJSON(t *testing.T) {
 func TestRunCopy_NotFound(t *testing.T) {
 	eng, r := setupEngineFull(t)
 	createDirs(t, r, "cnf")
-	task := &v1.IngestionTask{Id: "cnf", SourceType: "copy", ConfigJson: mj(map[string]string{"source":"nonexistent"})}
+	task := &v1.IngestionTask{Id: "cnf", SourceType: "copy", ConfigJson: mj(map[string]string{"source": "nonexistent"})}
 	logPath := filepath.Join(r, "cnf", "logs", "cnf.log")
 	os.MkdirAll(filepath.Dir(logPath), 0755)
 	f, _ := os.Create(logPath)
