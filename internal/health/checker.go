@@ -39,8 +39,8 @@ type HealthChecker struct {
 	checker    ToolChecker
 	interval   time.Duration
 	ctx        context.Context
-	cancel      context.CancelFunc
-	alertCount int          // number of consecutive failures before alerting
+	cancel     context.CancelFunc
+	alertCount int               // number of consecutive failures before alerting
 	mcpHealth  MCPHealthProvider // optional MCP subprocess health monitor
 }
 
@@ -262,6 +262,9 @@ func (hc *HealthChecker) checkMCPHealth() {
 		}
 	}
 }
+
+// Compile-time assertion: BuiltinChecker implements ToolChecker.
+var _ ToolChecker = (*BuiltinChecker)(nil)
 
 // BuiltinChecker checks health of builtin tools (always healthy if code exists).
 type BuiltinChecker struct {

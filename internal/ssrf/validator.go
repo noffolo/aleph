@@ -168,16 +168,16 @@ var (
 
 // consolidated CIDR ranges merged from all prior implementations.
 var cidrStrs = []string{
-	"10.0.0.0/8",       // RFC 1918
-	"172.16.0.0/12",    // RFC 1918
-	"192.168.0.0/16",   // RFC 1918
-	"100.64.0.0/10",    // Carrier-grade NAT (RFC 6598)
-	"169.254.0.0/16",   // Link-local (RFC 3927)
-	"127.0.0.0/8",      // Loopback
-	"0.0.0.0/8",        // Current network (RFC 1122)
-	"::1/128",           // IPv6 loopback
-	"fc00::/7",          // IPv6 unique local address (ULA)
-	"fe80::/10",         // IPv6 link-local
+	"10.0.0.0/8",     // RFC 1918
+	"172.16.0.0/12",  // RFC 1918
+	"192.168.0.0/16", // RFC 1918
+	"100.64.0.0/10",  // Carrier-grade NAT (RFC 6598)
+	"169.254.0.0/16", // Link-local (RFC 3927)
+	"127.0.0.0/8",    // Loopback
+	"0.0.0.0/8",      // Current network (RFC 1122)
+	"::1/128",        // IPv6 loopback
+	"fc00::/7",       // IPv6 unique local address (ULA)
+	"fe80::/10",      // IPv6 link-local
 }
 
 // validateCIDR parses s as a CIDR notation IP address and prefix, returning

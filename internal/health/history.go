@@ -19,7 +19,7 @@ type HealthRecord struct {
 	Status       string    `json:"status"`
 	CheckedAt    time.Time `json:"checked_at"`
 	ResponseTime string    `json:"response_time"` // e.g., "150ms"
-	Error         string    `json:"error,omitempty"`
+	Error        string    `json:"error,omitempty"`
 }
 
 // HistoryStore keeps the last N health records per tool.

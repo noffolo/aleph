@@ -11,20 +11,20 @@ func TestLooksLikeNonDecimalPart(t *testing.T) {
 		part   string
 		bypass bool
 	}{
-		{"0", false},        // just zero
-		{"01", true},        // leading zero = octal
-		{"010", true},       // octal
-		{"0x7f", true},      // hex
-		{"0X7F", true},      // hex uppercase
-		{"0x", false},       // incomplete hex
-		{"0X", false},       // incomplete hex uppercase
-		{"0xGG", true},      // starts with 0x, treated as bypass
-		{"255", false},      // normal decimal
-		{"1", false},        // single digit
-		{"", false},         // empty
-		{"0x0", true},       // hex zero
+		{"0", false},         // just zero
+		{"01", true},         // leading zero = octal
+		{"010", true},        // octal
+		{"0x7f", true},       // hex
+		{"0X7F", true},       // hex uppercase
+		{"0x", false},        // incomplete hex
+		{"0X", false},        // incomplete hex uppercase
+		{"0xGG", true},       // starts with 0x, treated as bypass
+		{"255", false},       // normal decimal
+		{"1", false},         // single digit
+		{"", false},          // empty
+		{"0x0", true},        // hex zero
 		{"0xdeadbeef", true}, // large hex value
-		{"08", true},        // leading zero (octal)
+		{"08", true},         // leading zero (octal)
 	}
 	for _, tt := range tests {
 		t.Run(tt.part, func(t *testing.T) {
@@ -41,7 +41,7 @@ func TestIsBypassHost_AdditionalCases(t *testing.T) {
 		// Normal domain names (not bypass)
 		{"api.github.com", false},
 		{"sub.domain.example.com", false},
-		{"a.b", false},       // 2 parts, non-numeric last = domain, not bypass
+		{"a.b", false},         // 2 parts, non-numeric last = domain, not bypass
 		{"foo.bar.baz", false}, // 3 parts, non-numeric = domain
 
 		// Edge: 2 numeric parts → short-form IP
@@ -53,10 +53,10 @@ func TestIsBypassHost_AdditionalCases(t *testing.T) {
 		// Single part non-numeric → not bypass
 		{"mytool", false},
 
-		{"8080", true},  // >3 chars, treated as bypass
-		{"80", false},   // ≤3 chars, not a bypass integer
-		{"0", true},     // "0" is special-cased as bypass
-		{"100", false},  // ≤3 chars, not a bypass integer
+		{"8080", true}, // >3 chars, treated as bypass
+		{"80", false},  // ≤3 chars, not a bypass integer
+		{"0", true},    // "0" is special-cased as bypass
+		{"100", false}, // ≤3 chars, not a bypass integer
 
 		// Valid IPv4 (not bypass)
 		{"8.8.8.8", false},
