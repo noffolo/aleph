@@ -87,6 +87,6 @@ func TestProjectsRoot(t *testing.T) {
 	root, err := ProjectsRoot()
 	assert.NoError(t, err, "ProjectsRoot should not error")
 	assert.NotEmpty(t, root, "ProjectsRoot should return non-empty path")
-	assert.True(t, strings.Contains(root, "data") || strings.Contains(root, "projects"), 
+	assert.True(t, strings.Contains(root, "data") || strings.Contains(root, "projects"),
 		"ProjectsRoot should contain expected path components")
 }

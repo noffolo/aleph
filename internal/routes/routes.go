@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/ff3300/aleph-v2/internal/api/handler"
@@ -56,13 +58,18 @@ type RegisterConfig struct {
 	RegistryHandler     *handler.RegistryServiceHandler
 
 	// Raw HTTP handlers
-	ToolExecHandler   *handler.ToolExecuteHandler
-	CodeFlowHandler   *handler.CodeFlowHandler
-	SuggestPipeline   http.Handler
-	SessionHandler    *handler.SessionHandler
-	AuthRateLimiter   *middleware.AuthRateLimiter
+	ToolExecHandler *handler.ToolExecuteHandler
+	CodeFlowHandler *handler.CodeFlowHandler
+	SuggestPipeline http.Handler
+	SessionHandler  *handler.SessionHandler
+	AuthRateLimiter *middleware.AuthRateLimiter
 
 	Interceptors []connect.HandlerOption
+
+	// HealthCheckFunc is an optional function for DB-backed liveness/health probes.
+	// When set, /livez and /api/v1/healthz will call it with a 2s timeout and
+	// return 503 if it returns an error.
+	HealthCheckFunc func(ctx context.Context) error
 }
 
 // RegisterRoutes registers all HTTP routes on the given mux.
@@ -79,9 +86,18 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// Liveness probe: lightweight check
+	// Liveness probe: lightweight check with DB health
 	mux.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if cfg.HealthCheckFunc != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			defer cancel()
+			if err := cfg.HealthCheckFunc(ctx); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte(`{"status":"unhealthy","reason":"` + err.Error() + `"}`))
+				return
+			}
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"alive"}`))
 	})
@@ -89,6 +105,15 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 	// Unauthenticated health check endpoint (for Docker HEALTHCHECK, load balancers, etc.)
 	mux.HandleFunc("/api/v1/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if cfg.HealthCheckFunc != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			defer cancel()
+			if err := cfg.HealthCheckFunc(ctx); err != nil {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte(`{"status":"unhealthy","reason":"` + err.Error() + `"}`))
+				return
+			}
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	})
@@ -195,10 +220,9 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 	fileServer := http.FileServer(http.FS(subFS))
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/aleph.v1.") || r.URL.Path == "/swagger.json" {
-			mux.ServeHTTP(w, r)
-			return
-		}
+		// NOTE: gRPC (aleph.v1.*) and /swagger.json are handled by more specific
+		// mux patterns above. If a request reaches here, it's genuinely unmatched
+		// (not an RPC or swagger path), so we treat it as a frontend SPA request.
 		f, err := subFS.Open(strings.TrimPrefix(r.URL.Path, "/"))
 		if err == nil {
 			f.Close()

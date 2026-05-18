@@ -13,9 +13,8 @@ import (
 //go:embed dist/*
 var testFrontend embed.FS
 
-func TestRegisterRoutes_WithHandlerStructs(t *testing.T) {
-	mux := http.NewServeMux()
-	RegisterRoutes(mux, RegisterConfig{
+func testConfig() RegisterConfig {
+	return RegisterConfig{
 		QueryHandler:        &handler.QueryHandler{},
 		ProjectHandler:      &handler.ProjectHandler{},
 		AgentHandler:        &handler.AgentHandler{},
@@ -33,7 +32,12 @@ func TestRegisterRoutes_WithHandlerStructs(t *testing.T) {
 		SessionHandler:      &handler.SessionHandler{},
 		Frontend:            testFrontend,
 		JWTSecret:           []byte("test"),
-	})
+	}
+}
+
+func TestRegisterRoutes_WithHandlerStructs(t *testing.T) {
+	mux := http.NewServeMux()
+	RegisterRoutes(mux, testConfig())
 
 	for _, path := range []string{"/readyz", "/livez", "/api/v1/healthz", "/metrics"} {
 		req := httptest.NewRequest("GET", path, nil)
@@ -45,111 +49,29 @@ func TestRegisterRoutes_WithHandlerStructs(t *testing.T) {
 
 func TestRegisterRoutes_SPAFallback(t *testing.T) {
 	mux := http.NewServeMux()
-	RegisterRoutes(mux, RegisterConfig{
-		QueryHandler:        &handler.QueryHandler{},
-		ProjectHandler:      &handler.ProjectHandler{},
-		AgentHandler:        &handler.AgentHandler{},
-		SkillHandler:        &handler.SkillHandler{},
-		LibraryHandler:      &handler.LibraryHandler{},
-		ToolHandler:         &handler.ToolHandler{},
-		NLPHandler:          &handler.NLPHandler{},
-		NotificationHandler: &handler.NotificationHandler{},
-		AuthHandler:         &handler.AuthHandler{},
-		IngestionHandler:    &handler.IngestionHandler{},
-		SandboxHandler:      &handler.SandboxServiceHandler{},
-		RegistryHandler:     &handler.RegistryServiceHandler{},
-		ToolExecHandler:     &handler.ToolExecuteHandler{},
-		CodeFlowHandler:     &handler.CodeFlowHandler{},
-		SessionHandler:      &handler.SessionHandler{},
-		Frontend:            testFrontend,
-		JWTSecret:           []byte("test"),
-	})
+	RegisterRoutes(mux, testConfig())
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "test")
-}
-
-func TestRegisterRoutes_SwaggerEndpoint(t *testing.T) {
-	mux := http.NewServeMux()
-	RegisterRoutes(mux, RegisterConfig{
-		QueryHandler:        &handler.QueryHandler{},
-		ProjectHandler:      &handler.ProjectHandler{},
-		AgentHandler:        &handler.AgentHandler{},
-		SkillHandler:        &handler.SkillHandler{},
-		LibraryHandler:      &handler.LibraryHandler{},
-		ToolHandler:         &handler.ToolHandler{},
-		NLPHandler:          &handler.NLPHandler{},
-		NotificationHandler: &handler.NotificationHandler{},
-		AuthHandler:         &handler.AuthHandler{},
-		IngestionHandler:    &handler.IngestionHandler{},
-		SandboxHandler:      &handler.SandboxServiceHandler{},
-		RegistryHandler:     &handler.RegistryServiceHandler{},
-		ToolExecHandler:     &handler.ToolExecuteHandler{},
-		CodeFlowHandler:     &handler.CodeFlowHandler{},
-		SessionHandler:      &handler.SessionHandler{},
-		Frontend:            testFrontend,
-		JWTSecret:           []byte("test"),
-	})
-
-	req := httptest.NewRequest("GET", "/swagger.json", nil)
-	rr := httptest.NewRecorder()
-	mux.ServeHTTP(rr, req)
-	assert.NotEqual(t, 0, rr.Code)
+	assert.Contains(t, rr.Body.String(), `<div id="root"`)
 }
 
 func TestRegisterRoutes_NestedSPAFallback(t *testing.T) {
 	mux := http.NewServeMux()
-	RegisterRoutes(mux, RegisterConfig{
-		QueryHandler:        &handler.QueryHandler{},
-		ProjectHandler:      &handler.ProjectHandler{},
-		AgentHandler:        &handler.AgentHandler{},
-		SkillHandler:        &handler.SkillHandler{},
-		LibraryHandler:      &handler.LibraryHandler{},
-		ToolHandler:         &handler.ToolHandler{},
-		NLPHandler:          &handler.NLPHandler{},
-		NotificationHandler: &handler.NotificationHandler{},
-		AuthHandler:         &handler.AuthHandler{},
-		IngestionHandler:    &handler.IngestionHandler{},
-		SandboxHandler:      &handler.SandboxServiceHandler{},
-		RegistryHandler:     &handler.RegistryServiceHandler{},
-		ToolExecHandler:     &handler.ToolExecuteHandler{},
-		CodeFlowHandler:     &handler.CodeFlowHandler{},
-		SessionHandler:      &handler.SessionHandler{},
-		Frontend:            testFrontend,
-		JWTSecret:           []byte("test"),
-	})
+	RegisterRoutes(mux, testConfig())
 
 	req := httptest.NewRequest("GET", "/app/settings", nil)
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "test")
+	assert.Contains(t, rr.Body.String(), `<div id="root"`)
 }
 
 func TestRegisterRoutes_ReadyzJSONContent(t *testing.T) {
 	mux := http.NewServeMux()
-	RegisterRoutes(mux, RegisterConfig{
-		QueryHandler:        &handler.QueryHandler{},
-		ProjectHandler:      &handler.ProjectHandler{},
-		AgentHandler:        &handler.AgentHandler{},
-		SkillHandler:        &handler.SkillHandler{},
-		LibraryHandler:      &handler.LibraryHandler{},
-		ToolHandler:         &handler.ToolHandler{},
-		NLPHandler:          &handler.NLPHandler{},
-		NotificationHandler: &handler.NotificationHandler{},
-		AuthHandler:         &handler.AuthHandler{},
-		IngestionHandler:    &handler.IngestionHandler{},
-		SandboxHandler:      &handler.SandboxServiceHandler{},
-		RegistryHandler:     &handler.RegistryServiceHandler{},
-		ToolExecHandler:     &handler.ToolExecuteHandler{},
-		CodeFlowHandler:     &handler.CodeFlowHandler{},
-		SessionHandler:      &handler.SessionHandler{},
-		Frontend:            testFrontend,
-		JWTSecret:           []byte("test"),
-	})
+	RegisterRoutes(mux, testConfig())
 
 	SetDraining(false)
 	req := httptest.NewRequest("GET", "/readyz", nil)
@@ -162,25 +84,7 @@ func TestRegisterRoutes_ReadyzJSONContent(t *testing.T) {
 
 func TestRegisterRoutes_AllProbeEndpoints(t *testing.T) {
 	mux := http.NewServeMux()
-	RegisterRoutes(mux, RegisterConfig{
-		QueryHandler:        &handler.QueryHandler{},
-		ProjectHandler:      &handler.ProjectHandler{},
-		AgentHandler:        &handler.AgentHandler{},
-		SkillHandler:        &handler.SkillHandler{},
-		LibraryHandler:      &handler.LibraryHandler{},
-		ToolHandler:         &handler.ToolHandler{},
-		NLPHandler:          &handler.NLPHandler{},
-		NotificationHandler: &handler.NotificationHandler{},
-		AuthHandler:         &handler.AuthHandler{},
-		IngestionHandler:    &handler.IngestionHandler{},
-		SandboxHandler:      &handler.SandboxServiceHandler{},
-		RegistryHandler:     &handler.RegistryServiceHandler{},
-		ToolExecHandler:     &handler.ToolExecuteHandler{},
-		CodeFlowHandler:     &handler.CodeFlowHandler{},
-		SessionHandler:      &handler.SessionHandler{},
-		Frontend:            testFrontend,
-		JWTSecret:           []byte("test"),
-	})
+	RegisterRoutes(mux, testConfig())
 
 	tests := []struct {
 		method string
@@ -206,25 +110,7 @@ func TestRegisterRoutes_AllProbeEndpoints(t *testing.T) {
 
 func TestRegisterRoutes_DrainingReadyz(t *testing.T) {
 	mux := http.NewServeMux()
-	RegisterRoutes(mux, RegisterConfig{
-		QueryHandler:        &handler.QueryHandler{},
-		ProjectHandler:      &handler.ProjectHandler{},
-		AgentHandler:        &handler.AgentHandler{},
-		SkillHandler:        &handler.SkillHandler{},
-		LibraryHandler:      &handler.LibraryHandler{},
-		ToolHandler:         &handler.ToolHandler{},
-		NLPHandler:          &handler.NLPHandler{},
-		NotificationHandler: &handler.NotificationHandler{},
-		AuthHandler:         &handler.AuthHandler{},
-		IngestionHandler:    &handler.IngestionHandler{},
-		SandboxHandler:      &handler.SandboxServiceHandler{},
-		RegistryHandler:     &handler.RegistryServiceHandler{},
-		ToolExecHandler:     &handler.ToolExecuteHandler{},
-		CodeFlowHandler:     &handler.CodeFlowHandler{},
-		SessionHandler:      &handler.SessionHandler{},
-		Frontend:            testFrontend,
-		JWTSecret:           []byte("test"),
-	})
+	RegisterRoutes(mux, testConfig())
 
 	SetDraining(true)
 	defer SetDraining(false)

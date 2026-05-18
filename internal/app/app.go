@@ -81,18 +81,29 @@ type AlephApp struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 
-	healthChecker    *health.HealthChecker
-	discoveryEngine  *mcp.DiscoveryEngine
-	notificationSvc  *notification.NotificationService
-	sseBroker        *sse.Broker
-	rlCleanup        func()
-	authRlCleanup    func()
-	memStore         *memory.MemoryStore
-	usageTracker     tracker.Tracker
+	healthChecker   *health.HealthChecker
+	discoveryEngine *mcp.DiscoveryEngine
+	notificationSvc *notification.NotificationService
+	sseBroker       *sse.Broker
+	rlCleanup       func()
+	authRlCleanup   func()
+	memStore        *memory.MemoryStore
+	usageTracker    tracker.Tracker
 }
 
 func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	var logLevel slog.Level
+	switch strings.ToLower(cfg.LogLevel) {
+	case "debug":
+		logLevel = slog.LevelDebug
+	case "warn":
+		logLevel = slog.LevelWarn
+	case "error":
+		logLevel = slog.LevelError
+	default:
+		logLevel = slog.LevelInfo
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 	slog.SetDefault(logger)
 
 	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
@@ -114,7 +125,7 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 		return nil, fmt.Errorf("failed to open duckdb: %w", err)
 	}
 	func() {
-		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		db.Exec(ctx, "PRAGMA memory_limit='80%'")
 	}()
@@ -147,23 +158,27 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 
 	wd, _ := os.Getwd()
 	projectsRoot := filepath.Join(wd, "data", "projects")
-	
+
 	nlpAddr := cfg.NLPAddr
 
 	var httpClient *http.Client
 	if cfg.DevMode {
-		if !strings.HasPrefix(nlpAddr, "http") { nlpAddr = "http://" + nlpAddr }
+		if !strings.HasPrefix(nlpAddr, "http") {
+			nlpAddr = "http://" + nlpAddr
+		}
 		httpClient = newH2CClient()
 	} else {
-		if !strings.HasPrefix(nlpAddr, "http") { nlpAddr = "https://" + nlpAddr }
+		if !strings.HasPrefix(nlpAddr, "http") {
+			nlpAddr = "https://" + nlpAddr
+		}
 		httpClient = newTLSClient()
 	}
 	nlpClient := nlpconnect.NewNLPServiceClient(httpClient, nlpAddr, connect.WithGRPC())
 	nlpHandler := handler.NewNLPHandler(logger, nlpClient, httpClient)
 	nlpAdapter := &nlp_adapter.Adapter{NLPHandler: nlpHandler}
-	
+
 	eng := ingestion.NewEngine(projectsRoot, metaRepo, db, nlpAdapter)
-	
+
 	brierMonitor := predict.NewBrierMonitor(logger)
 	nlpHandler.SetBrierMonitor(brierMonitor)
 
@@ -187,7 +202,6 @@ func NewAlephApp(cfg *config.Config, frontend embed.FS) (*AlephApp, error) {
 	}, nil
 }
 
-
 func (a *AlephApp) Serve(port int) error {
 	projectsRoot, _ := routes.ProjectsRoot()
 
@@ -197,8 +211,8 @@ func (a *AlephApp) Serve(port int) error {
 	auditRepo := repository.NewAuditRepository(a.pg.DB())
 	auditInterceptor := middleware.NewAuditInterceptor(auditRepo, a.logger)
 	authInterceptor := middleware.NewAuthInterceptor(a.metaRepo, a.cfg.JWTSecret)
-	timeoutInterceptor := middleware.NewTimeoutInterceptor(nil) // defaults
-	retryInterceptor := middleware.NewRetryInterceptor(nil)     // defaults
+	timeoutInterceptor := middleware.NewTimeoutInterceptor(nil)   // defaults
+	retryInterceptor := middleware.NewRetryInterceptor(nil)       // defaults
 	bulkheadInterceptor := middleware.NewBulkheadInterceptor(nil) // defaults
 	circuitBreakerInterceptor := middleware.NewCircuitBreakerInterceptor(5, 30*time.Second)
 	trackingInterceptor := tracker.NewTrackingInterceptor(a.usageTracker)
@@ -356,31 +370,32 @@ func (a *AlephApp) Serve(port int) error {
 	// ── Routes ───────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 	routes.RegisterRoutes(mux, routes.RegisterConfig{
-		MetaRepo:          a.metaRepo,
-		JWTSecret:         a.cfg.JWTSecret,
-		SSEBroker:         a.sseBroker,
-		SSEHandler:        sseHandler,
-		DiagnosticMonitor: diagnosticMonitor,
-		Frontend:          a.frontend,
-		CodeFlow:          codeFlow,
-		QueryHandler:      queryHandler,
-		ProjectHandler:    projectHandler,
-		AgentHandler:      agentHandler,
-		SkillHandler:      skillHandler,
-		LibraryHandler:    libraryHandler,
-		ToolHandler:       toolHandler,
-		NLPHandler:        a.nlpHandler,
+		MetaRepo:            a.metaRepo,
+		JWTSecret:           a.cfg.JWTSecret,
+		SSEBroker:           a.sseBroker,
+		SSEHandler:          sseHandler,
+		DiagnosticMonitor:   diagnosticMonitor,
+		Frontend:            a.frontend,
+		CodeFlow:            codeFlow,
+		QueryHandler:        queryHandler,
+		ProjectHandler:      projectHandler,
+		AgentHandler:        agentHandler,
+		SkillHandler:        skillHandler,
+		LibraryHandler:      libraryHandler,
+		ToolHandler:         toolHandler,
+		NLPHandler:          a.nlpHandler,
 		NotificationHandler: notificationHandler,
-		AuthHandler:       authHandler,
-		SessionHandler:    sessionHandler,
-		IngestionHandler:  ingestionHandler,
-		SandboxHandler:    sandboxHandler,
-		RegistryHandler:   registryHandler,
-		ToolExecHandler:   toolExecHandler,
-		CodeFlowHandler:   codeFlowHandler,
-		SuggestPipeline:   toolSuggestHandler,
-		Interceptors:      interceptors,
-		AuthRateLimiter:   authRateLimiter,
+		AuthHandler:         authHandler,
+		SessionHandler:      sessionHandler,
+		IngestionHandler:    ingestionHandler,
+		SandboxHandler:      sandboxHandler,
+		RegistryHandler:     registryHandler,
+		ToolExecHandler:     toolExecHandler,
+		CodeFlowHandler:     codeFlowHandler,
+		SuggestPipeline:     toolSuggestHandler,
+		Interceptors:        interceptors,
+		AuthRateLimiter:     authRateLimiter,
+		HealthCheckFunc:     a.metaRepo.Health,
 	})
 
 	corsHandler := routes.CORSHandler(mux, a.cfg.CORSAllowedOrigins, a.logger)
@@ -414,6 +429,7 @@ func (a *AlephApp) Serve(port int) error {
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1 MB — prevent oversized header attacks
 	}
 
 	return a.server.ListenAndServe()
@@ -531,7 +547,7 @@ func (a *AlephApp) makeSentimentHelper() func(ctx context.Context, text string) 
 			slog.Warn("sentiment analysis failed", "err", err)
 			return "", fmt.Errorf("Errore analisi sentiment: %w", err)
 		}
-		result := map[string]interface{}{
+		result := map[string]any{
 			"score": resp.Msg.Score,
 			"label": resp.Msg.Label,
 		}
@@ -549,7 +565,7 @@ func (a *AlephApp) makeTrustScoreHelper(reg *registry.DuckDBRegistry) func(ctx c
 		if err != nil || comp == nil {
 			return "", fmt.Errorf("entity %s not found", entityID)
 		}
-		result := map[string]interface{}{
+		result := map[string]any{
 			"entity_id":       entityID,
 			"avg_brier_score": comp.AvgBrierScore,
 			"trust_score":     comp.TrustScore,
