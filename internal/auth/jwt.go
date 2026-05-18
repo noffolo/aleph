@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	ErrMissingSubject = errors.New("jwt: missing sub claim")
-	ErrInvalidIssuer  = errors.New("jwt: invalid iss claim")
+	ErrMissingSubject  = errors.New("jwt: missing sub claim")
+	ErrInvalidIssuer   = errors.New("jwt: invalid iss claim")
 	ErrInvalidAudience = errors.New("jwt: missing aud claim")
-	ErrMissingTokenID = errors.New("jwt: missing jti claim")
+	ErrMissingTokenID  = errors.New("jwt: missing jti claim")
 )
 
 const (
@@ -70,7 +70,7 @@ func ValidateToken(tokenString string, secret []byte) (*SessionToken, error) {
 	}
 
 	claims := &SessionToken{}
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("jwt: unexpected signing method: %v", t.Header["alg"])
 		}
