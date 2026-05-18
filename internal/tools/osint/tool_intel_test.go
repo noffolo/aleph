@@ -8,10 +8,10 @@ import (
 
 func TestHasImport(t *testing.T) {
 	tests := []struct {
-		name    string
-		pkg     string
-		code    string
-		want    bool
+		name string
+		pkg  string
+		code string
+		want bool
 	}{
 		{"go double-quoted import", "os/exec", `import "os/exec"`, true},
 		{"go single-quoted import", "os/exec", `import 'os/exec'`, true},

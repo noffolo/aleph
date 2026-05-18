@@ -15,13 +15,13 @@ func TestResearchProfiles(t *testing.T) {
 	t.Run("returns synthetic profiles when DuckDB unavailable", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"query": "ecosystem analysis"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "ecosystem analysis", r["query"])
 		assert.True(t, r["is_synthetic"].(bool))
-		profiles, ok := r["profiles"].([]map[string]interface{})
+		profiles, ok := r["profiles"].([]map[string]any)
 		if !ok {
-			profilesRaw, ok := r["profiles"].([]interface{})
+			profilesRaw, ok := r["profiles"].([]any)
 			require.True(t, ok)
 			assert.Greater(t, len(profilesRaw), 0)
 		} else {
@@ -56,11 +56,11 @@ func TestRelationalEngine(t *testing.T) {
 	t.Run("returns synthetic relations when DuckDB unavailable", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"entity": "ecosystem-alpha"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "ecosystem-alpha", r["entity"])
 		assert.True(t, r["is_synthetic"].(bool))
-		relationsRaw, ok := r["relations"].([]map[string]interface{})
+		relationsRaw, ok := r["relations"].([]map[string]any)
 		require.True(t, ok, "relations should be []map[string]interface{}")
 		assert.Greater(t, len(relationsRaw), 0)
 		assert.Contains(t, relationsRaw[0], "relation_id")
@@ -71,7 +71,7 @@ func TestRelationalEngine(t *testing.T) {
 	t.Run("defaults entity when empty", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "default", r["entity"])
 	})
@@ -79,10 +79,10 @@ func TestRelationalEngine(t *testing.T) {
 	t.Run("relation_ids are SHA-256 hashed", func(t *testing.T) {
 		r1, _ := tool.Execute(context.Background(), map[string]any{"entity": "test"})
 		r2, _ := tool.Execute(context.Background(), map[string]any{"entity": "test"})
-		m1 := r1.(map[string]interface{})
-		m2 := r2.(map[string]interface{})
-		rels1 := m1["relations"].([]map[string]interface{})
-		rels2 := m2["relations"].([]map[string]interface{})
+		m1 := r1.(map[string]any)
+		m2 := r2.(map[string]any)
+		rels1 := m1["relations"].([]map[string]any)
+		rels2 := m2["relations"].([]map[string]any)
 		for i := range rels1 {
 			assert.Equal(t, rels1[i]["relation_id"], rels2[i]["relation_id"])
 		}
@@ -96,7 +96,7 @@ func TestGeographicContext(t *testing.T) {
 	t.Run("returns synthetic geographic data", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"region": "patagonia"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "patagonia", r["region"])
 		assert.True(t, r["is_synthetic"].(bool))
@@ -106,8 +106,8 @@ func TestGeographicContext(t *testing.T) {
 
 	t.Run("returns valid coordinate ranges", func(t *testing.T) {
 		result, _ := tool.Execute(context.Background(), map[string]any{"region": "test"})
-		r := result.(map[string]interface{})
-		coords := r["coordinates"].(map[string]interface{})
+		r := result.(map[string]any)
+		coords := r["coordinates"].(map[string]any)
 		lat := coords["latitude"].(float64)
 		lon := coords["longitude"].(float64)
 		assert.GreaterOrEqual(t, lat, -90.0)
@@ -119,7 +119,7 @@ func TestGeographicContext(t *testing.T) {
 	t.Run("defaults region when empty", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{})
 		require.NoError(t, err)
-		r := result.(map[string]interface{})
+		r := result.(map[string]any)
 		assert.Equal(t, "default", r["region"])
 	})
 }
@@ -131,10 +131,10 @@ func TestPatternClassifier(t *testing.T) {
 	t.Run("returns synthetic patterns", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"data": "network analysis sample"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.True(t, r["is_synthetic"].(bool))
-		patterns, ok := r["patterns"].([]map[string]interface{})
+		patterns, ok := r["patterns"].([]map[string]any)
 		require.True(t, ok, "patterns should be []map[string]interface{}")
 		assert.Greater(t, len(patterns), 0)
 	})
@@ -142,8 +142,8 @@ func TestPatternClassifier(t *testing.T) {
 	t.Run("patterns have confidence scores", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"data": "confidence check"})
 		require.NoError(t, err)
-		r := result.(map[string]interface{})
-		patterns := r["patterns"].([]map[string]interface{})
+		r := result.(map[string]any)
+		patterns := r["patterns"].([]map[string]any)
 		for _, pat := range patterns {
 			conf, ok := pat["confidence"].(float64)
 			require.True(t, ok)
@@ -160,8 +160,8 @@ func TestPatternClassifier(t *testing.T) {
 
 	t.Run("pattern_ids are hashed, never raw input", func(t *testing.T) {
 		result, _ := tool.Execute(context.Background(), map[string]any{"data": "sensitive_info"})
-		r := result.(map[string]interface{})
-		patterns := r["patterns"].([]map[string]interface{})
+		r := result.(map[string]any)
+		patterns := r["patterns"].([]map[string]any)
 		for _, pat := range patterns {
 			id, ok := pat["pattern_id"].(string)
 			require.True(t, ok)
@@ -177,7 +177,7 @@ func TestPluginViz(t *testing.T) {
 	t.Run("returns graph visualization by default", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Contains(t, r, "viz_type")
 		assert.Contains(t, r, "nodes")
@@ -188,7 +188,7 @@ func TestPluginViz(t *testing.T) {
 	t.Run("supports heatmap viz_type", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"viz_type": "heatmap"})
 		require.NoError(t, err)
-		r := result.(map[string]interface{})
+		r := result.(map[string]any)
 		assert.Equal(t, "heatmap", r["viz_type"])
 		assert.Contains(t, r, "matrix")
 	})
@@ -196,15 +196,15 @@ func TestPluginViz(t *testing.T) {
 	t.Run("supports timeline viz_type", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"viz_type": "timeline"})
 		require.NoError(t, err)
-		r := result.(map[string]interface{})
+		r := result.(map[string]any)
 		assert.Equal(t, "timeline", r["viz_type"])
 		assert.Contains(t, r, "events")
 	})
 
 	t.Run("nodes use SHA-256 hashed IDs, never raw data", func(t *testing.T) {
 		result, _ := tool.Execute(context.Background(), map[string]any{})
-		r := result.(map[string]interface{})
-		nodes := r["nodes"].([]map[string]interface{})
+		r := result.(map[string]any)
+		nodes := r["nodes"].([]map[string]any)
 		for _, node := range nodes {
 			id, ok := node["id"].(string)
 			require.True(t, ok)
@@ -220,7 +220,7 @@ func TestDemographicProfileTool(t *testing.T) {
 	t.Run("returns demographic data for USA", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "USA"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "USA", r["country_code"])
 		assert.Equal(t, "United States", r["country_name"])
@@ -237,7 +237,7 @@ func TestDemographicProfileTool(t *testing.T) {
 	t.Run("returns demographic data for JPN", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "JPN"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "Japan", r["country_name"])
 		assert.Equal(t, "JPN", r["country_code"])
@@ -266,7 +266,7 @@ func TestSocioeconomicIndicatorsTool(t *testing.T) {
 	t.Run("returns socioeconomic data for ZAF", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "ZAF"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "ZAF", r["country_code"])
 		gini, ok := r["gini_coefficient"].(float64)
@@ -280,7 +280,7 @@ func TestSocioeconomicIndicatorsTool(t *testing.T) {
 	t.Run("returns low Gini for KOR", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "KOR"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		gini, ok := r["gini_coefficient"].(float64)
 		require.True(t, ok)
@@ -305,7 +305,7 @@ func TestCulturalMetricsTool(t *testing.T) {
 	t.Run("returns cultural metrics for IND", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "IND"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "IND", r["country_code"])
 		langDiv, ok := r["language_diversity"].(float64)
@@ -316,7 +316,7 @@ func TestCulturalMetricsTool(t *testing.T) {
 	t.Run("returns low language diversity for KOR", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "KOR"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		langDiv, ok := r["language_diversity"].(float64)
 		require.True(t, ok)
@@ -336,7 +336,7 @@ func TestUrbanRuralDistributionTool(t *testing.T) {
 	t.Run("returns urban distribution for JPN", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "JPN"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "JPN", r["country_code"])
 		urbanPct, ok := r["urban_pct"].(float64)
@@ -349,7 +349,7 @@ func TestUrbanRuralDistributionTool(t *testing.T) {
 	t.Run("returns mostly_rural for ETH", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "ETH"})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		urbanPct, ok := r["urban_pct"].(float64)
 		require.True(t, ok)
@@ -360,7 +360,7 @@ func TestUrbanRuralDistributionTool(t *testing.T) {
 	t.Run("respects custom threshold", func(t *testing.T) {
 		result, err := tool.Execute(context.Background(), map[string]any{"countryCode": "JPN", "threshold": 90.0})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, float64(90), r["threshold_pct"])
 	})
@@ -381,7 +381,7 @@ func TestMigrationPatternsTool(t *testing.T) {
 			"destCountry":   "USA",
 		})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "MEX", r["origin"])
 		assert.Equal(t, "USA", r["dest"])
@@ -396,7 +396,7 @@ func TestMigrationPatternsTool(t *testing.T) {
 			"destCountry":   "DEU",
 		})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		stock, ok := r["stock"].(int64)
 		require.True(t, ok)
@@ -409,7 +409,7 @@ func TestMigrationPatternsTool(t *testing.T) {
 			"destCountry":   "JPN",
 		})
 		require.NoError(t, err)
-		r, ok := result.(map[string]interface{})
+		r, ok := result.(map[string]any)
 		require.True(t, ok)
 		stock, ok := r["stock"].(int64)
 		require.True(t, ok)
@@ -445,11 +445,11 @@ func TestListTools(t *testing.T) {
 	t.Run("all tools return valid Execute results", func(t *testing.T) {
 		// Tools that require specific arguments.
 		argMap := map[string]map[string]any{
-			"demographicProfile":     {"countryCode": "USA"},
+			"demographicProfile":      {"countryCode": "USA"},
 			"socioeconomicIndicators": {"countryCode": "USA"},
-			"culturalMetrics":        {"countryCode": "USA"},
-			"urbanRuralDistribution": {"countryCode": "USA"},
-			"migrationPatterns":      {"originCountry": "MEX", "destCountry": "USA"},
+			"culturalMetrics":         {"countryCode": "USA"},
+			"urbanRuralDistribution":  {"countryCode": "USA"},
+			"migrationPatterns":       {"originCountry": "MEX", "destCountry": "USA"},
 		}
 		for _, tool := range tools {
 			args, ok := argMap[tool.Name()]

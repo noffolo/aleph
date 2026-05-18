@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/ff3300/aleph-v2/internal/ssrf"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 type ShadowbrokerConfig struct {
@@ -23,7 +23,7 @@ type ShadowbrokerConfig struct {
 }
 
 type cacheEntry struct {
-	value      interface{}
+	value      any
 	expiration time.Time
 }
 
@@ -44,7 +44,7 @@ func newSimpleCache(size int, ttl time.Duration) (*simpleCache, error) {
 	}, nil
 }
 
-func (c *simpleCache) Get(key string) (interface{}, bool) {
+func (c *simpleCache) Get(key string) (any, bool) {
 	if c == nil || c.lru == nil {
 		return nil, false
 	}
@@ -60,7 +60,7 @@ func (c *simpleCache) Get(key string) (interface{}, bool) {
 	return entry.value, true
 }
 
-func (c *simpleCache) Set(key string, value interface{}) {
+func (c *simpleCache) Set(key string, value any) {
 	if c == nil || c.lru == nil {
 		return
 	}
@@ -199,7 +199,7 @@ func NewShadowbroker(config ShadowbrokerConfig) *Shadowbroker {
 	}
 }
 
-func (s *Shadowbroker) Request(ctx context.Context, endpoint string, params map[string]string) (map[string]interface{}, error) {
+func (s *Shadowbroker) Request(ctx context.Context, endpoint string, params map[string]string) (map[string]any, error) {
 	target, err := url.JoinPath(s.config.BaseURL, endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("join URL path: %w", err)
@@ -226,7 +226,7 @@ func (s *Shadowbroker) Request(ctx context.Context, endpoint string, params map[
 
 	cacheKey := target
 	if cached, ok := s.cache.Get(cacheKey); ok {
-		if m, ok := cached.(map[string]interface{}); ok {
+		if m, ok := cached.(map[string]any); ok {
 			return m, nil
 		}
 	}
@@ -261,7 +261,7 @@ func (s *Shadowbroker) Request(ctx context.Context, endpoint string, params map[
 		return nil, fmt.Errorf("read body: %w", err)
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("unmarshal JSON: %w", err)
 	}

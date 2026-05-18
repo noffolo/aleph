@@ -19,10 +19,10 @@ type UsagePattern struct {
 
 // Relation describes a relational connection between tools.
 type Relation struct {
-	ToolID      string `json:"tool_id"`
-	RelatedID   string `json:"related_id"`
+	ToolID       string `json:"tool_id"`
+	RelatedID    string `json:"related_id"`
 	RelationType string `json:"relation_type"` // "co_used", "sequence", "depends_on"
-	Strength    int    `json:"strength"`       // 0-100
+	Strength     int    `json:"strength"`      // 0-100
 }
 
 type usageEntry struct {
@@ -34,9 +34,9 @@ type usageEntry struct {
 
 // ToolUsageTracker tracks tool usage patterns and relational context.
 type ToolUsageTracker struct {
-	mu       sync.RWMutex
-	entries  []usageEntry
-	patterns map[string]*UsagePattern // key: "userID:toolID"
+	mu         sync.RWMutex
+	entries    []usageEntry
+	patterns   map[string]*UsagePattern // key: "userID:toolID"
 	maxEntries int
 }
 

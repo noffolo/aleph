@@ -48,15 +48,15 @@ func TestQueryViz_WithDuckDB(t *testing.T) {
 
 	result, err := tool.Execute(context.Background(), map[string]any{})
 	require.NoError(t, err)
-	r, ok := result.(map[string]interface{})
+	r, ok := result.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "graph", r["viz_type"])
 	assert.False(t, r["is_synthetic"].(bool))
 	assert.Contains(t, r, "nodes")
 	assert.Contains(t, r, "edges")
-	nodesRaw, ok := r["nodes"].([]map[string]interface{})
+	nodesRaw, ok := r["nodes"].([]map[string]any)
 	if !ok {
-		nodesIface, ok := r["nodes"].([]interface{})
+		nodesIface, ok := r["nodes"].([]any)
 		require.True(t, ok)
 		assert.GreaterOrEqual(t, len(nodesIface), 1)
 	} else {
@@ -73,7 +73,7 @@ func TestQueryViz_WithScope(t *testing.T) {
 		"scope":    "analysis",
 	})
 	require.NoError(t, err)
-	r := result.(map[string]interface{})
+	r := result.(map[string]any)
 	assert.Equal(t, "heatmap", r["viz_type"])
 	assert.Equal(t, "analysis", r["scope"])
 }
@@ -88,7 +88,7 @@ func TestQueryRelational_WithDuckDB(t *testing.T) {
 		"entity": "ecosystem-alpha",
 	})
 	require.NoError(t, err)
-	r, ok := result.(map[string]interface{})
+	r, ok := result.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "ecosystem-alpha", r["entity"])
 	assert.False(t, r["is_synthetic"].(bool))
@@ -105,7 +105,7 @@ func TestQueryProfiles_WithDuckDB(t *testing.T) {
 		"query": "ecosystem analysis",
 	})
 	require.NoError(t, err)
-	r, ok := result.(map[string]interface{})
+	r, ok := result.(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "ecosystem analysis", r["query"])
 	assert.False(t, r["is_synthetic"].(bool))
@@ -122,7 +122,7 @@ func TestBuildVizOutput_DefaultCase(t *testing.T) {
 		"viz_type": "unknown_type",
 	})
 	require.NoError(t, err)
-	r := result.(map[string]interface{})
+	r := result.(map[string]any)
 	assert.Equal(t, "unknown_type", r["viz_type"])
 	assert.Contains(t, r, "nodes")
 	assert.Contains(t, r, "edges")
@@ -254,9 +254,9 @@ func TestRelationalEngine_Synthetic_Deterministic(t *testing.T) {
 	tool := NewRelationalEngine(dbl)
 	result, err := tool.Execute(context.Background(), map[string]any{"entity": "test_entity"})
 	require.NoError(t, err)
-	r := result.(map[string]interface{})
+	r := result.(map[string]any)
 	assert.True(t, r["is_synthetic"].(bool))
-	relations := r["relations"].([]map[string]interface{})
+	relations := r["relations"].([]map[string]any)
 	assert.GreaterOrEqual(t, len(relations), 3)
 }
 
@@ -267,7 +267,7 @@ func TestResearchProfiles_Synthetic_DefaultQuery(t *testing.T) {
 	tool := NewResearchProfiles(dbl)
 	result, err := tool.Execute(context.Background(), map[string]any{})
 	require.NoError(t, err)
-	r := result.(map[string]interface{})
+	r := result.(map[string]any)
 	assert.True(t, r["is_synthetic"].(bool))
 	assert.Equal(t, "default ecosystem analysis", r["query"])
 }

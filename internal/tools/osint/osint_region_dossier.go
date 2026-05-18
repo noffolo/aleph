@@ -15,13 +15,13 @@ import (
 
 // RegionDossier represents a structured dossier on a geographic region.
 type RegionDossier struct {
-	RegionName string   `json:"region_name"`
-	Population int      `json:"population"`
-	GDP        float64  `json:"gdp"`
-	Stability  float64  `json:"stability"` // 0.0–1.0
-	Sources    []string `json:"sources"`
-	IsSynthetic bool    `json:"is_synthetic"`
-	GeneratedAt string  `json:"generated_at"`
+	RegionName  string   `json:"region_name"`
+	Population  int      `json:"population"`
+	GDP         float64  `json:"gdp"`
+	Stability   float64  `json:"stability"` // 0.0–1.0
+	Sources     []string `json:"sources"`
+	IsSynthetic bool     `json:"is_synthetic"`
+	GeneratedAt string   `json:"generated_at"`
 }
 
 type RegionDossierTool struct {
@@ -34,12 +34,12 @@ func NewRegionDossierTool(broker *Shadowbroker) *RegionDossierTool {
 
 // Dossier returns a structured region dossier. When the broker has a BaseURL
 // configured its external API is queried; otherwise synthetic data is returned.
-func (t *RegionDossierTool) Dossier(ctx context.Context, regionID string) (map[string]interface{}, error) {
+func (t *RegionDossierTool) Dossier(ctx context.Context, regionID string) (map[string]any, error) {
 	if regionID == "" {
 		return nil, fmt.Errorf("region_id is required")
 	}
 	dossier := generateRegionDossier(regionID)
-	return map[string]interface{}{
+	return map[string]any{
 		"region_name":  dossier.RegionName,
 		"population":   dossier.Population,
 		"gdp":          dossier.GDP,
@@ -95,10 +95,10 @@ func generateRegionDossier(regionID string) RegionDossier {
 	stability := clampFloat(0.3+rng.Float64()*0.7, 0, 1)
 
 	return RegionDossier{
-		RegionName:  regionName,
-		Population:  population,
-		GDP:         gdp,
-		Stability:   stability,
+		RegionName: regionName,
+		Population: population,
+		GDP:        gdp,
+		Stability:  stability,
 		Sources: []string{
 			"open_census_mock",
 			"world_bank_estimate_mock",
@@ -111,11 +111,11 @@ func generateRegionDossier(regionID string) RegionDossier {
 
 func deriveRegionName(id string) string {
 	known := map[string]string{
-		"en_harbor":     "Eastern Harbor Region",
-		"northern_rise": "Northern Rise Territory",
+		"en_harbor":      "Eastern Harbor Region",
+		"northern_rise":  "Northern Rise Territory",
 		"straits_of_orm": "Straits of Orm",
-		"delta_9":       "Delta-9 Economic Zone",
-		"meridian_arc":  "Meridian Arc Corridor",
+		"delta_9":        "Delta-9 Economic Zone",
+		"meridian_arc":   "Meridian Arc Corridor",
 	}
 	if name, ok := known[id]; ok {
 		return name

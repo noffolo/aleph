@@ -86,10 +86,10 @@ func TestGetCrossContextRecommendations_ScoreBounds(t *testing.T) {
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 
 	err := cf.RecordExecution(context.Background(), "bad-tool", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   100,
-		ErrorCount:  99,
-		TotalCalls:  100,
+		Duration:   100,
+		CallCount:  100,
+		ErrorCount: 99,
+		TotalCalls: 100,
 	})
 	assert.NoError(t, err)
 
@@ -110,10 +110,10 @@ func TestToolRecommendation_ReasonValues(t *testing.T) {
 	se := NewSynthesisEngine(cf, ut, sb, slog.Default())
 
 	err := cf.RecordExecution(context.Background(), "good-tool", codeflow.ExecutionMetrics{
-		Duration:    50,
-		CallCount:   5,
-		ErrorCount:  0,
-		TotalCalls:  5,
+		Duration:   50,
+		CallCount:  5,
+		ErrorCount: 0,
+		TotalCalls: 5,
 	})
 	assert.NoError(t, err)
 
@@ -134,10 +134,10 @@ func TestMultipleRecs(t *testing.T) {
 
 	for _, toolID := range []string{"tool-a", "tool-b", "tool-c"} {
 		err := cf.RecordExecution(context.Background(), toolID, codeflow.ExecutionMetrics{
-			Duration:    100,
-			CallCount:   5,
-			ErrorCount:  0,
-			TotalCalls:  5,
+			Duration:   100,
+			CallCount:  5,
+			ErrorCount: 0,
+			TotalCalls: 5,
 		})
 		assert.NoError(t, err)
 	}

@@ -33,7 +33,7 @@ func TestRegionDossierTool(t *testing.T) {
 	t.Run("Execute JSON→JSON", func(t *testing.T) {
 		raw, err := tool.Execute(context.Background(), `{"region_id":"delta_9"}`)
 		require.NoError(t, err)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(raw), &parsed)
 		require.NoError(t, err)
 		assert.Contains(t, parsed["region_name"], "Delta-9")
@@ -74,7 +74,7 @@ func TestThreatLevelTool(t *testing.T) {
 	t.Run("Execute JSON→JSON", func(t *testing.T) {
 		raw, err := tool.Execute(context.Background(), `{"target":"meridian_arc"}`)
 		require.NoError(t, err)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(raw), &parsed)
 		require.NoError(t, err)
 		assert.Equal(t, "meridian_arc", parsed["target"])
@@ -120,7 +120,7 @@ func TestVesselTrackingTool(t *testing.T) {
 	t.Run("Execute JSON→JSON", func(t *testing.T) {
 		raw, err := tool.Execute(context.Background(), `{"mmsi":"987654321"}`)
 		require.NoError(t, err)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(raw), &parsed)
 		require.NoError(t, err)
 		assert.Equal(t, "987654321", parsed["mmsi"])
@@ -154,7 +154,7 @@ func TestFlightTrackingTool(t *testing.T) {
 	t.Run("Execute JSON→JSON", func(t *testing.T) {
 		raw, err := tool.Execute(context.Background(), `{"flight_number":"LH400"}`)
 		require.NoError(t, err)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(raw), &parsed)
 		require.NoError(t, err)
 		assert.Equal(t, "LH400", parsed["flight_number"])
@@ -179,10 +179,10 @@ func TestCorrelationAlertsTool(t *testing.T) {
 		result, err := tool.Correlate(context.Background(), []string{"cyber_spike", "satellite_anomaly"})
 		require.NoError(t, err)
 		assert.Equal(t, 2, result["signal_count"])
-		alerts, ok := result["alerts"].([]map[string]interface{})
+		alerts, ok := result["alerts"].([]map[string]any)
 		if !ok {
 			// Might be []interface{} due to JSON round-trip
-			alertsRaw, ok := result["alerts"].([]interface{})
+			alertsRaw, ok := result["alerts"].([]any)
 			require.True(t, ok)
 			assert.Greater(t, len(alertsRaw), 0)
 		} else {
@@ -201,7 +201,7 @@ func TestCorrelationAlertsTool(t *testing.T) {
 	t.Run("Execute JSON→JSON", func(t *testing.T) {
 		raw, err := tool.Execute(context.Background(), `{"signals":["movement_detected","comms_intercept"]}`)
 		require.NoError(t, err)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(raw), &parsed)
 		require.NoError(t, err)
 		assert.Greater(t, parsed["signal_count"], 0.0)

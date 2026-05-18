@@ -432,13 +432,13 @@ func (t *WhoisLookupTool) Register(metaRepo *repository.MetadataRepository) erro
 
 // ThreatIntelResult contains a basic threat intelligence assessment for an IP.
 type ThreatIntelResult struct {
-	IP          string   `json:"ip"`
-	IsPrivate   bool     `json:"is_private"`
-	IsLoopback  bool     `json:"is_loopback"`
-	IsRFC1918   bool     `json:"is_rfc1918"`
-	RiskLevel   string   `json:"risk_level"` // "safe", "low", "medium", "high"
-	Warnings    []string `json:"warnings,omitempty"`
-	Source      string   `json:"source"`
+	IP         string   `json:"ip"`
+	IsPrivate  bool     `json:"is_private"`
+	IsLoopback bool     `json:"is_loopback"`
+	IsRFC1918  bool     `json:"is_rfc1918"`
+	RiskLevel  string   `json:"risk_level"` // "safe", "low", "medium", "high"
+	Warnings   []string `json:"warnings,omitempty"`
+	Source     string   `json:"source"`
 }
 
 // ThreatIntelCheckTool performs basic threat intel checks using heuristics only.
@@ -457,9 +457,9 @@ func (t *ThreatIntelCheckTool) Check(ctx context.Context, ip string) (ThreatInte
 	}
 
 	result := ThreatIntelResult{
-		IP:       ip,
+		IP:        ip,
 		RiskLevel: "safe",
-		Source:   "heuristic_analysis",
+		Source:    "heuristic_analysis",
 	}
 
 	parsedIP := net.ParseIP(ip)

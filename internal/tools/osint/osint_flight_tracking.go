@@ -34,7 +34,7 @@ func NewFlightTrackingTool(broker *Shadowbroker) *FlightTrackingTool {
 }
 
 // Track returns tracking data for a flight identified by flight number.
-func (t *FlightTrackingTool) Track(ctx context.Context, flightNumber string) (map[string]interface{}, error) {
+func (t *FlightTrackingTool) Track(ctx context.Context, flightNumber string) (map[string]any, error) {
 	if flightNumber == "" {
 		return nil, fmt.Errorf("flight_number is required")
 	}
@@ -87,7 +87,7 @@ var airports = []string{
 
 var flightStatuses = []string{"scheduled", "en_route", "landed", "delayed", "cancelled"}
 
-func generateFlightData(flightNumber string) map[string]interface{} {
+func generateFlightData(flightNumber string) map[string]any {
 	seed := int64(hashString(flightNumber))
 	rng := rand.New(rand.NewSource(seed))
 
@@ -103,7 +103,7 @@ func generateFlightData(flightNumber string) map[string]interface{} {
 	speed := 350 + rng.Float64()*200
 	status := flightStatuses[rng.Intn(len(flightStatuses))]
 
-	return map[string]interface{}{
+	return map[string]any{
 		"flight_number": flightNumber,
 		"airline":       airlines[int(hashString(flightNumber))%len(airlines)],
 		"origin":        origin,

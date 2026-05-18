@@ -3,6 +3,7 @@ package finance
 import (
 	"testing"
 
+	"github.com/ff3300/aleph-v2/internal/repository"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +25,7 @@ func TestListTools_ToolNames(t *testing.T) {
 	tools := ListTools(nil)
 	names := make([]string, 0, len(tools))
 	for _, tool := range tools {
-		names = append(names, interface{}(tool).(interface{ Name() string }).Name())
+		names = append(names, any(tool).(interface{ Name() string }).Name())
 	}
 	assert.Contains(t, names, "ProphetForecast")
 	assert.Contains(t, names, "OpenBBMarketData")
@@ -32,7 +33,7 @@ func TestListTools_ToolNames(t *testing.T) {
 }
 
 type namedTool interface {
-	Register(metaRepo interface{}) error
+	Register(metaRepo *repository.MetadataRepository) error
 	Name() string
 }
 
@@ -40,7 +41,7 @@ func TestListTools_AllImplementRegister(t *testing.T) {
 	t.Parallel()
 	tools := ListTools(nil)
 	for _, tool := range tools {
-		_, ok := interface{}(tool).(namedTool)
+		_, ok := any(tool).(namedTool)
 		assert.True(t, ok, "each tool should implement namedTool interface")
 	}
 }

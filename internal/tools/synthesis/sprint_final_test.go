@@ -17,10 +17,10 @@ func TestGetCrossContextRecommendations_ClampBelowZero(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "terrible-tool", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   50,
-		ErrorCount:  50,
-		TotalCalls:  50,
+		Duration:   100,
+		CallCount:  50,
+		ErrorCount: 50,
+		TotalCalls: 50,
 	})
 	assert.NoError(t, err)
 
@@ -43,19 +43,19 @@ func TestGetCrossContextRecommendations_BelowThresholdReason(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "mediocre-tool", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   5,
-		ErrorCount:  3, // 3/5 = 60% error rate → heavy penalty
-		TotalCalls:  5,
+		Duration:   100,
+		CallCount:  5,
+		ErrorCount: 3, // 3/5 = 60% error rate → heavy penalty
+		TotalCalls: 5,
 	})
 	assert.NoError(t, err)
 
 	for i := 0; i < 5; i++ {
 		err = cf.RecordExecution(context.Background(), "mediocre-tool", codeflow.ExecutionMetrics{
-			Duration:    100,
-			CallCount:   5,
-			ErrorCount:  3,
-			TotalCalls:  5,
+			Duration:   100,
+			CallCount:  5,
+			ErrorCount: 3,
+			TotalCalls: 5,
 		})
 		assert.NoError(t, err)
 	}
@@ -77,10 +77,10 @@ func TestGetCrossContextRecommendations_TimeDecayClampAbove100(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "popular-tool", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   5,
-		ErrorCount:  0,
-		TotalCalls:  5,
+		Duration:   100,
+		CallCount:  5,
+		ErrorCount: 0,
+		TotalCalls: 5,
 	})
 	assert.NoError(t, err)
 
@@ -121,10 +121,10 @@ func TestGetCrossContextRecommendations_AllReasonsPresent(t *testing.T) {
 
 	for _, tool := range tools {
 		err := cf.RecordExecution(context.Background(), tool.id, codeflow.ExecutionMetrics{
-			Duration:    100,
-			CallCount:   tool.totalCall,
-			ErrorCount:  tool.errCount,
-			TotalCalls:  tool.totalCall,
+			Duration:   100,
+			CallCount:  tool.totalCall,
+			ErrorCount: tool.errCount,
+			TotalCalls: tool.totalCall,
 		})
 		assert.NoError(t, err)
 
@@ -156,10 +156,10 @@ func TestGetCrossContextRecommendations_SuggestionsForHighError(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "buggy", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   10,
-		ErrorCount:  10,
-		TotalCalls:  10,
+		Duration:   100,
+		CallCount:  10,
+		ErrorCount: 10,
+		TotalCalls: 10,
 	})
 	assert.NoError(t, err)
 
@@ -180,10 +180,10 @@ func TestGetUnifiedToolIntel_WithErrorRate(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "error-tool", codeflow.ExecutionMetrics{
-		Duration:    200,
-		CallCount:   10,
-		ErrorCount:  5,
-		TotalCalls:  10,
+		Duration:   200,
+		CallCount:  10,
+		ErrorCount: 5,
+		TotalCalls: 10,
 	})
 	assert.NoError(t, err)
 
@@ -201,10 +201,10 @@ func TestGetUnifiedToolIntel_WithRecommendations(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "bad-tool", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   10,
-		ErrorCount:  10,
-		TotalCalls:  10,
+		Duration:   100,
+		CallCount:  10,
+		ErrorCount: 10,
+		TotalCalls: 10,
 	})
 	assert.NoError(t, err)
 
@@ -223,10 +223,10 @@ func TestGetUnifiedToolIntel_MultipleAnomalyRecords(t *testing.T) {
 	// Record multiple executions to trigger anomaly detection
 	for i := 0; i < 10; i++ {
 		err := cf.RecordExecution(context.Background(), "multi-exec", codeflow.ExecutionMetrics{
-			Duration:    100,
-			CallCount:   1,
-			ErrorCount:  0,
-			TotalCalls:  1,
+			Duration:   100,
+			CallCount:  1,
+			ErrorCount: 0,
+			TotalCalls: 1,
 		})
 		assert.NoError(t, err)
 	}
@@ -244,10 +244,10 @@ func TestGetUnifiedToolIntel_ZeroErrorRate(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "perfect-tool", codeflow.ExecutionMetrics{
-		Duration:    50,
-		CallCount:   100,
-		ErrorCount:  0,
-		TotalCalls:  100,
+		Duration:   50,
+		CallCount:  100,
+		ErrorCount: 0,
+		TotalCalls: 100,
 	})
 	assert.NoError(t, err)
 
@@ -264,10 +264,10 @@ func TestGetUnifiedToolIntel_WithRelatedTools(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "rel-tool", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   1,
-		ErrorCount:  0,
-		TotalCalls:  1,
+		Duration:   100,
+		CallCount:  1,
+		ErrorCount: 0,
+		TotalCalls: 1,
 	})
 	assert.NoError(t, err)
 
@@ -288,10 +288,10 @@ func TestGetCrossContextRecommendations_ScoreExactlyZero(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "worst-tool", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   100,
-		ErrorCount:  100,
-		TotalCalls:  100,
+		Duration:   100,
+		CallCount:  100,
+		ErrorCount: 100,
+		TotalCalls: 100,
 	})
 	assert.NoError(t, err)
 
@@ -312,10 +312,10 @@ func TestGetCrossContextRecommendations_SingleTool(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "solo-tool", codeflow.ExecutionMetrics{
-		Duration:    50,
-		CallCount:   2,
-		ErrorCount:  0,
-		TotalCalls:  2,
+		Duration:   50,
+		CallCount:  2,
+		ErrorCount: 0,
+		TotalCalls: 2,
 	})
 	assert.NoError(t, err)
 
@@ -355,10 +355,10 @@ func TestGetCrossContextRecommendations_ModerateScore(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "moderate-tool", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   5,
-		ErrorCount:  1,
-		TotalCalls:  5,
+		Duration:   100,
+		CallCount:  5,
+		ErrorCount: 1,
+		TotalCalls: 5,
 	})
 	assert.NoError(t, err)
 
@@ -435,10 +435,10 @@ func TestGetCrossContextRecommendations_UsageFrequencyBoost(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "popular", codeflow.ExecutionMetrics{
-		Duration:    50,
-		CallCount:   1,
-		ErrorCount:  0,
-		TotalCalls:  1,
+		Duration:   50,
+		CallCount:  1,
+		ErrorCount: 0,
+		TotalCalls: 1,
 	})
 	assert.NoError(t, err)
 
@@ -464,10 +464,10 @@ func TestGetCrossContextRecommendations_SecurityRiskPenalty(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "risky", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   1,
-		ErrorCount:  0,
-		TotalCalls:  1,
+		Duration:   100,
+		CallCount:  1,
+		ErrorCount: 0,
+		TotalCalls: 1,
 	})
 	assert.NoError(t, err)
 

@@ -83,7 +83,7 @@ func TestCodeFlow_RecordExecutionRollingAverage(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), m.CallCount)
 	assert.InDelta(t, float64(150*time.Millisecond), float64(m.Duration), float64(time.Millisecond))
-	assert.Equal(t, int64(1500), m.MemoryBytes) // (1000+2000)/2
+	assert.Equal(t, int64(1500), m.MemoryBytes)  // (1000+2000)/2
 	assert.Equal(t, int64(150), m.CPUMillicores) // (100+200)/2
 }
 

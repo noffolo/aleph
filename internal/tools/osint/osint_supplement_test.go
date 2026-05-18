@@ -99,12 +99,12 @@ func TestBytesCompare(t *testing.T) {
 
 func TestToolSecurityProfile_JSON(t *testing.T) {
 	profile := ToolSecurityProfile{
-		ToolName:  "test-tool",
-		RiskScore: 42.0,
-		RiskLevel: "medium",
-		Warnings:  []string{"warning1"},
+		ToolName:        "test-tool",
+		RiskScore:       42.0,
+		RiskLevel:       "medium",
+		Warnings:        []string{"warning1"},
 		Recommendations: []string{"fix it"},
-		Sources:   []string{"test"},
+		Sources:         []string{"test"},
 	}
 	data, err := json.Marshal(profile)
 	require.NoError(t, err)

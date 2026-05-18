@@ -72,10 +72,10 @@ func TestGetUnifiedToolIntel_WithCodeFlowData(t *testing.T) {
 
 	// Record some executions
 	err := cf.RecordExecution(context.Background(), "my-tool", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   5,
-		ErrorCount:  1,
-		TotalCalls:  5,
+		Duration:   100,
+		CallCount:  5,
+		ErrorCount: 1,
+		TotalCalls: 5,
 	})
 	assert.NoError(t, err)
 
@@ -136,10 +136,10 @@ func TestGetCrossContextRecommendations_WithData(t *testing.T) {
 
 	// Add some execution data
 	err := cf.RecordExecution(context.Background(), "tool-a", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   10,
-		ErrorCount:  0,
-		TotalCalls:  10,
+		Duration:   100,
+		CallCount:  10,
+		ErrorCount: 0,
+		TotalCalls: 10,
 	})
 	assert.NoError(t, err)
 
@@ -162,10 +162,10 @@ func TestGetCrossContextRecommendations_HighErrorRate(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "buggy-tool", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   10,
-		ErrorCount:  8,
-		TotalCalls:  10,
+		Duration:   100,
+		CallCount:  10,
+		ErrorCount: 8,
+		TotalCalls: 10,
 	})
 	assert.NoError(t, err)
 
@@ -189,14 +189,14 @@ func TestNewToolIntel(t *testing.T) {
 
 func TestUnifiedToolIntel_Fields(t *testing.T) {
 	intel := &UnifiedToolIntel{
-		ToolID:           "test-tool",
-		Name:             "Test Tool",
-		Category:         "analysis",
-		HealthStatus:     "healthy",
-		ExecutionCount:   100,
+		ToolID:            "test-tool",
+		Name:              "Test Tool",
+		Category:          "analysis",
+		HealthStatus:      "healthy",
+		ExecutionCount:    100,
 		SecurityRiskScore: 25.0,
-		Warnings:         []string{"warning 1"},
-		Recommendations:  []string{"rec 1"},
+		Warnings:          []string{"warning 1"},
+		Recommendations:   []string{"rec 1"},
 	}
 
 	assert.Equal(t, "test-tool", intel.ToolID)
@@ -211,9 +211,9 @@ func TestUnifiedToolIntel_Fields(t *testing.T) {
 
 func TestToolRecommendation_Fields(t *testing.T) {
 	rec := &ToolRecommendation{
-		ToolID:     "tool-1",
-		Score:      85.5,
-		Reason:     "Well-performing tool with good metrics",
+		ToolID:      "tool-1",
+		Score:       85.5,
+		Reason:      "Well-performing tool with good metrics",
 		Suggestions: []string{"Monitor performance"},
 	}
 
@@ -229,10 +229,10 @@ func TestGetCrossContextRecommendations_WithTimeDecay(t *testing.T) {
 	sb := osint.NewShadowbroker(osint.ShadowbrokerConfig{})
 
 	err := cf.RecordExecution(context.Background(), "tool-a", codeflow.ExecutionMetrics{
-		Duration:    100,
-		CallCount:   10,
-		ErrorCount:  0,
-		TotalCalls:  10,
+		Duration:   100,
+		CallCount:  10,
+		ErrorCount: 0,
+		TotalCalls: 10,
 	})
 	assert.NoError(t, err)
 
@@ -278,5 +278,3 @@ func TestGetUnifiedToolIntel_MultipleCalls(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, intel2)
 }
-
-

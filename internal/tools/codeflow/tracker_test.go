@@ -170,7 +170,7 @@ func TestTracker_AggregateMetrics(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, int64(2), ma.CallCount)
 	assert.InDelta(t, float64(150*time.Millisecond), float64(ma.Duration), float64(time.Millisecond))
-	assert.Equal(t, int64(1500), ma.MemoryBytes) // (1000+2000)/2
+	assert.Equal(t, int64(1500), ma.MemoryBytes)  // (1000+2000)/2
 	assert.Equal(t, int64(150), ma.CPUMillicores) // (100+200)/2
 }
 

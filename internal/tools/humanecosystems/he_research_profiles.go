@@ -59,16 +59,16 @@ func (r *ResearchProfiles) queryProfiles(ctx context.Context, query string) (any
 		rows.Scan(&total)
 	}
 
-	profiles := []map[string]interface{}{
+	profiles := []map[string]any{
 		{
-			"profile_id":   sha256Hash("ecosystem:" + query),
+			"profile_id":    sha256Hash("ecosystem:" + query),
 			"research_area": query,
-			"tool_count":   total,
-			"is_synthetic": false,
+			"tool_count":    total,
+			"is_synthetic":  false,
 		},
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"profiles":     profiles,
 		"is_synthetic": false,
 		"query":        query,
@@ -76,14 +76,14 @@ func (r *ResearchProfiles) queryProfiles(ctx context.Context, query string) (any
 	}, nil
 }
 
-func (r *ResearchProfiles) syntheticProfiles(query string) map[string]interface{} {
+func (r *ResearchProfiles) syntheticProfiles(query string) map[string]any {
 	seed := int64(hashString(query))
 	rng := rand.New(rand.NewSource(seed))
 	count := 3 + rng.Intn(5)
 
-	profiles := make([]map[string]interface{}, count)
+	profiles := make([]map[string]any, count)
 	for i := 0; i < count; i++ {
-		profiles[i] = map[string]interface{}{
+		profiles[i] = map[string]any{
 			"profile_id":    sha256Hash(fmt.Sprintf("profile:%s:%d", query, i)),
 			"research_area": fmt.Sprintf("Area %d: %s", i+1, query),
 			"tool_count":    rng.Intn(50),
@@ -91,7 +91,7 @@ func (r *ResearchProfiles) syntheticProfiles(query string) map[string]interface{
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"profiles":     profiles,
 		"is_synthetic": true,
 		"query":        query,
@@ -114,7 +114,7 @@ func hashString(s string) uint32 {
 }
 
 // marshalJSON is a helper that writes pretty-printed JSON for tool output.
-func marshalJSON(v interface{}) string {
+func marshalJSON(v any) string {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return fmt.Sprintf(`{"error":%q}`, err.Error())

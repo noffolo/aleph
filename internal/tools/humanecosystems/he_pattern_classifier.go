@@ -51,7 +51,7 @@ func (p *PatternClassifier) queryPatterns(ctx context.Context, data string) (any
 	}
 	defer rows.Close()
 
-	var patterns []map[string]interface{}
+	var patterns []map[string]any
 	for rows.Next() {
 		var id, name, category string
 		if err := rows.Scan(&id, &name, &category); err != nil {
@@ -59,7 +59,7 @@ func (p *PatternClassifier) queryPatterns(ctx context.Context, data string) (any
 		}
 		for _, pat := range builtinPatterns {
 			if strings.Contains(strings.ToLower(name), pat.Keyword) {
-				patterns = append(patterns, map[string]interface{}{
+				patterns = append(patterns, map[string]any{
 					"pattern_id":   sha256Hash(fmt.Sprintf("pat:%s:%s", data, id)),
 					"pattern_type": pat.Name,
 					"confidence":   0.8,
@@ -72,25 +72,25 @@ func (p *PatternClassifier) queryPatterns(ctx context.Context, data string) (any
 	}
 
 	if patterns == nil {
-		patterns = []map[string]interface{}{}
+		patterns = []map[string]any{}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"patterns":     patterns,
 		"is_synthetic": false,
 		"generated_at": time.Now().UTC().Format(time.RFC3339),
 	}, nil
 }
 
-func (p *PatternClassifier) syntheticPatterns(data string) map[string]interface{} {
+func (p *PatternClassifier) syntheticPatterns(data string) map[string]any {
 	seed := int64(hashString(data))
 	rng := rand.New(rand.NewSource(seed))
 	count := 2 + rng.Intn(4)
 
-	patterns := make([]map[string]interface{}, count)
+	patterns := make([]map[string]any, count)
 	for i := 0; i < count; i++ {
 		pat := builtinPatterns[rng.Intn(len(builtinPatterns))]
-		patterns[i] = map[string]interface{}{
+		patterns[i] = map[string]any{
 			"pattern_id":   sha256Hash(fmt.Sprintf("pat:%s:%d", data, i)),
 			"pattern_type": pat.Name,
 			"confidence":   roundFloat(0.5+rng.Float64()*0.5, 2),
@@ -99,7 +99,7 @@ func (p *PatternClassifier) syntheticPatterns(data string) map[string]interface{
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"patterns":     patterns,
 		"is_synthetic": true,
 		"data":         data,

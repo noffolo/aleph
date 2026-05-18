@@ -38,7 +38,8 @@ type SentimentAnalysisFinTool struct {
 	nlpAdapter NLPAnalyzer
 }
 
-// NewSentimentAnalysisFinTool returns a new SentimentAnalysisFinTool instance.
+func (t *SentimentAnalysisFinTool) Name() string { return "SentimentAnalysis" }
+
 func NewSentimentAnalysisFinTool() *SentimentAnalysisFinTool {
 	return &SentimentAnalysisFinTool{}
 }
@@ -101,7 +102,7 @@ func (t *SentimentAnalysisFinTool) syntheticAnalysis(ctx context.Context, text, 
 		"buy": 2, "positive": 2, "innovation": 1, "expansion": 2,
 		"record": 2, "surge": 2, "rally": 2, "momentum": 2,
 		"guidance": 1, "upward": 2, "gain": 1, "opportunity": 1,
-		"dividend": 1, 		"exceed": 2, "exceeded": 2,
+		"dividend": 1, "exceed": 2, "exceeded": 2,
 		"ahead": 1, "grow": 2, "rising": 1, "boost": 2,
 		"confidence": 1, "favorable": 2, "outlook": 1,
 	}

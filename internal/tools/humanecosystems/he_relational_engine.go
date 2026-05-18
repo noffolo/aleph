@@ -50,13 +50,13 @@ func (r *RelationalEngine) queryRelational(ctx context.Context, entity string) (
 	}
 	defer rows.Close()
 
-	var relations []map[string]interface{}
+	var relations []map[string]any
 	for rows.Next() {
 		var id, name, category string
 		if err := rows.Scan(&id, &name, &category); err != nil {
 			continue
 		}
-		relations = append(relations, map[string]interface{}{
+		relations = append(relations, map[string]any{
 			"relation_id":    sha256Hash(fmt.Sprintf("rel:%s:%s", entity, id)),
 			"related_entity": id,
 			"relation_type":  "dependency",
@@ -66,25 +66,25 @@ func (r *RelationalEngine) queryRelational(ctx context.Context, entity string) (
 	}
 
 	if relations == nil {
-		relations = []map[string]interface{}{}
+		relations = []map[string]any{}
 	}
 
-	return map[string]interface{}{
-		"entity":      entity,
-		"relations":   relations,
+	return map[string]any{
+		"entity":       entity,
+		"relations":    relations,
 		"is_synthetic": false,
 		"generated_at": time.Now().UTC().Format(time.RFC3339),
 	}, nil
 }
 
-func (r *RelationalEngine) syntheticRelational(entity string) map[string]interface{} {
+func (r *RelationalEngine) syntheticRelational(entity string) map[string]any {
 	seed := int64(hashString(entity))
 	rng := rand.New(rand.NewSource(seed))
 	count := 3 + rng.Intn(5)
 
-	relations := make([]map[string]interface{}, count)
+	relations := make([]map[string]any, count)
 	for i := 0; i < count; i++ {
-		relations[i] = map[string]interface{}{
+		relations[i] = map[string]any{
 			"relation_id":    sha256Hash(fmt.Sprintf("rel:%s:%d", entity, i)),
 			"related_entity": fmt.Sprintf("entity_%s_%d", entity, i),
 			"relation_type":  relationTypes[rng.Intn(len(relationTypes))],
@@ -93,9 +93,9 @@ func (r *RelationalEngine) syntheticRelational(entity string) map[string]interfa
 		}
 	}
 
-	return map[string]interface{}{
-		"entity":      entity,
-		"relations":   relations,
+	return map[string]any{
+		"entity":       entity,
+		"relations":    relations,
 		"is_synthetic": true,
 		"generated_at": time.Now().UTC().Format(time.RFC3339),
 	}

@@ -31,17 +31,17 @@ type ExecutionMetrics struct {
 
 // ToolExecutionGraph represents the execution graph for a tool.
 type ToolExecutionGraph struct {
-	ToolID    string    `json:"tool_id"`
+	ToolID    string      `json:"tool_id"`
 	Nodes     []GraphNode `json:"nodes"`
 	Edges     []GraphEdge `json:"edges"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time   `json:"created_at"`
 }
 
 // GraphNode represents a single node in the execution graph.
 type GraphNode struct {
-	ID       string   `json:"id"`
-	Label    string   `json:"label"`
-	NodeType NodeType `json:"node_type"`
+	ID       string           `json:"id"`
+	Label    string           `json:"label"`
+	NodeType NodeType         `json:"node_type"`
 	Metrics  ExecutionMetrics `json:"metrics,omitempty"`
 }
 
@@ -55,18 +55,18 @@ type GraphEdge struct {
 
 // ExecutionRecord stores a single execution event.
 type ExecutionRecord struct {
-	ToolID    string            `json:"tool_id"`
-	UserID    string            `json:"user_id,omitempty"`
-	Metrics   ExecutionMetrics  `json:"metrics"`
-	Status    string            `json:"status"` // "success", "error", "timeout"
-	Error     string            `json:"error,omitempty"`
-	Timestamp time.Time         `json:"timestamp"`
+	ToolID    string           `json:"tool_id"`
+	UserID    string           `json:"user_id,omitempty"`
+	Metrics   ExecutionMetrics `json:"metrics"`
+	Status    string           `json:"status"` // "success", "error", "timeout"
+	Error     string           `json:"error,omitempty"`
+	Timestamp time.Time        `json:"timestamp"`
 }
 
 // Anomaly describes a detected anomaly in tool execution.
 type Anomaly struct {
 	ToolID      string    `json:"tool_id"`
-	Type        string    `json:"type"` // "duration", "error_rate", "memory_spike"
+	Type        string    `json:"type"`     // "duration", "error_rate", "memory_spike"
 	Severity    string    `json:"severity"` // "low", "medium", "high"
 	Description string    `json:"description"`
 	Value       float64   `json:"value"`
@@ -76,18 +76,18 @@ type Anomaly struct {
 
 // ToolDependency describes a dependency relationship between tools.
 type ToolDependency struct {
-	ToolID       string `json:"tool_id"`
-	DependencyID string `json:"dependency_id"`
+	ToolID         string `json:"tool_id"`
+	DependencyID   string `json:"dependency_id"`
 	DependencyType string `json:"dependency_type"` // "import", "data", "service"
-	Required     bool   `json:"required"`
+	Required       bool   `json:"required"`
 }
 
 // CodeFlow manages tool execution tracking and analysis.
 type CodeFlow struct {
-	mu       sync.RWMutex
-	records  []ExecutionRecord
-	graphs   map[string]*ToolExecutionGraph
-	metrics  map[string]*ExecutionMetrics
+	mu         sync.RWMutex
+	records    []ExecutionRecord
+	graphs     map[string]*ToolExecutionGraph
+	metrics    map[string]*ExecutionMetrics
 	maxRecords int
 }
 

@@ -39,7 +39,7 @@ func TestIPLookupTool(t *testing.T) {
 			t.Skip("network unavailable in sandbox")
 		}
 		require.NoError(t, err)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(raw), &parsed)
 		require.NoError(t, err)
 		assert.Equal(t, "8.8.8.8", parsed["ip"])
@@ -90,11 +90,11 @@ func TestDNSResolutionTool(t *testing.T) {
 	t.Run("Execute JSON→JSON", func(t *testing.T) {
 		raw, err := tool.Execute(context.Background(), `{"domain":"localhost"}`)
 		require.NoError(t, err)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(raw), &parsed)
 		require.NoError(t, err)
 		assert.Equal(t, "localhost", parsed["domain"])
-		aRecords, ok := parsed["a_records"].([]interface{})
+		aRecords, ok := parsed["a_records"].([]any)
 		require.True(t, ok)
 		assert.Contains(t, aRecords, "127.0.0.1")
 	})
@@ -169,7 +169,7 @@ func TestWhoisLookupTool(t *testing.T) {
 	t.Run("Execute JSON→JSON", func(t *testing.T) {
 		raw, err := tool.Execute(context.Background(), `{"domain":"example.com"}`)
 		require.NoError(t, err)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(raw), &parsed)
 		require.NoError(t, err)
 		assert.Equal(t, "example.com", parsed["domain"])
@@ -272,7 +272,7 @@ func TestThreatIntelCheckTool(t *testing.T) {
 	t.Run("Execute JSON→JSON", func(t *testing.T) {
 		raw, err := tool.Execute(context.Background(), `{"ip":"10.0.0.1"}`)
 		require.NoError(t, err)
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(raw), &parsed)
 		require.NoError(t, err)
 		assert.Equal(t, "10.0.0.1", parsed["ip"])

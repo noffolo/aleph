@@ -45,12 +45,12 @@ type Candidate struct {
 
 // AnalysisDetail holds detailed results from the analysis stage.
 type AnalysisDetail struct {
-	Language     string   // "go" or "python"
-	Dependencies []string // detected import dependencies
-	Complexity   int      // estimated cyclomatic complexity
+	Language     string       // "go" or "python"
+	Dependencies []string     // detected import dependencies
+	Complexity   int          // estimated cyclomatic complexity
 	TemplateType TemplateType // detected or assigned template type
-	HasTests     bool     // whether test patterns are present
-	Issues       []string // code quality issues found
+	HasTests     bool         // whether test patterns are present
+	Issues       []string     // code quality issues found
 }
 
 // AdaptationResult holds the result of an adaptation run.
@@ -60,10 +60,10 @@ type AdaptationResult struct {
 	Version        string
 	Registered     bool
 	Error          string
-	CandidateCode  string          // original candidate code
-	AdaptedCode    string          // code after adaptation
-	TemplateType   TemplateType    // template type used
-	Analysis       AnalysisDetail  // analysis results
+	CandidateCode  string         // original candidate code
+	AdaptedCode    string         // code after adaptation
+	TemplateType   TemplateType   // template type used
+	Analysis       AnalysisDetail // analysis results
 }
 
 // StageResult holds the result of a single pipeline stage.

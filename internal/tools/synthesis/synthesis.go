@@ -17,37 +17,37 @@ import (
 
 // UnifiedToolIntel combines data from CodeFlow, HumanEcosystems, and OSINT.
 type UnifiedToolIntel struct {
-	ToolID           string               `json:"tool_id"`
-	Name             string               `json:"name"`
-	Category         string               `json:"category"`
-	HealthStatus     string               `json:"health_status"`
-	ExecutionCount   int64                `json:"execution_count"`
-	AvgDuration      time.Duration        `json:"avg_duration"`
-	ErrorRate        float64              `json:"error_rate"`
-	Anomalies        []codeflow.Anomaly   `json:"anomalies,omitempty"`
-	UsageFrequency   int                  `json:"usage_frequency"`
-	TopUsers         []string             `json:"top_users,omitempty"`
-	RelatedTools     []he.Relation        `json:"related_tools,omitempty"`
-	SecurityRiskScore float64             `json:"security_risk_score"`
-	Warnings         []string             `json:"warnings,omitempty"`
-	Recommendations  []string             `json:"recommendations,omitempty"`
+	ToolID            string             `json:"tool_id"`
+	Name              string             `json:"name"`
+	Category          string             `json:"category"`
+	HealthStatus      string             `json:"health_status"`
+	ExecutionCount    int64              `json:"execution_count"`
+	AvgDuration       time.Duration      `json:"avg_duration"`
+	ErrorRate         float64            `json:"error_rate"`
+	Anomalies         []codeflow.Anomaly `json:"anomalies,omitempty"`
+	UsageFrequency    int                `json:"usage_frequency"`
+	TopUsers          []string           `json:"top_users,omitempty"`
+	RelatedTools      []he.Relation      `json:"related_tools,omitempty"`
+	SecurityRiskScore float64            `json:"security_risk_score"`
+	Warnings          []string           `json:"warnings,omitempty"`
+	Recommendations   []string           `json:"recommendations,omitempty"`
 }
 
 // ToolRecommendation is a context-aware tool recommendation.
 type ToolRecommendation struct {
-	ToolID       string   `json:"tool_id"`
-	Score        float64  `json:"score"` // 0-100 composite score
-	Reason       string   `json:"reason"`
-	Suggestions  []string `json:"suggestions,omitempty"`
+	ToolID      string   `json:"tool_id"`
+	Score       float64  `json:"score"` // 0-100 composite score
+	Reason      string   `json:"reason"`
+	Suggestions []string `json:"suggestions,omitempty"`
 }
 
 // SynthesisEngine combines CodeFlow + HumanEcosystems + OSINT data sources.
 type SynthesisEngine struct {
-	codeFlow      *codeflow.CodeFlow
-	usageTracker  *he.ToolUsageTracker
-	shadowbroker  *osint.Shadowbroker
-	toolIntel     *osint.ToolIntel
-	logger        *slog.Logger
+	codeFlow     *codeflow.CodeFlow
+	usageTracker *he.ToolUsageTracker
+	shadowbroker *osint.Shadowbroker
+	toolIntel    *osint.ToolIntel
+	logger       *slog.Logger
 
 	// TimeDecayHalfLife controls how quickly past usage data is discounted
 	// in the recommendation scoring. Default 0 = no decay. Set to e.g. 7*24*time.Hour
@@ -343,9 +343,9 @@ func (se *SynthesisEngine) GetCrossContextRecommendations(ctx context.Context, u
 		}
 
 		recommendations = append(recommendations, ToolRecommendation{
-			ToolID:     toolID,
-			Score:      score,
-			Reason:     reason,
+			ToolID:      toolID,
+			Score:       score,
+			Reason:      reason,
 			Suggestions: suggestions,
 		})
 	}

@@ -13,8 +13,8 @@ import (
 // ThreatLevel represents a threat assessment for a target.
 type ThreatLevel struct {
 	Target      string  `json:"target"`
-	Level       string  `json:"level"`       // low, medium, high, critical
-	Confidence  float64 `json:"confidence"`  // 0.0–1.0
+	Level       string  `json:"level"`      // low, medium, high, critical
+	Confidence  float64 `json:"confidence"` // 0.0–1.0
 	Description string  `json:"description"`
 	Vector      string  `json:"vector"`
 	IsSynthetic bool    `json:"is_synthetic"`
@@ -30,7 +30,7 @@ func NewThreatLevelTool(broker *Shadowbroker) *ThreatLevelTool {
 }
 
 // Assess evaluates the threat level for a given target.
-func (t *ThreatLevelTool) Assess(ctx context.Context, target string) (map[string]interface{}, error) {
+func (t *ThreatLevelTool) Assess(ctx context.Context, target string) (map[string]any, error) {
 	if target == "" {
 		return nil, fmt.Errorf("target is required")
 	}
@@ -74,7 +74,7 @@ func (t *ThreatLevelTool) Register(metaRepo *repository.MetadataRepository) erro
 
 var threatLevels = []string{"low", "medium", "high", "critical"}
 
-func generateThreatAssessment(target string) map[string]interface{} {
+func generateThreatAssessment(target string) map[string]any {
 	seed := int64(hashString(target))
 	rng := rand.New(rand.NewSource(seed))
 
@@ -92,7 +92,7 @@ func generateThreatAssessment(target string) map[string]interface{} {
 	vectors := []string{"cyber", "physical", "economic", "social", "environmental"}
 	vector := vectors[rng.Intn(len(vectors))]
 
-	return map[string]interface{}{
+	return map[string]any{
 		"target":       target,
 		"level":        level,
 		"confidence":   confidence,

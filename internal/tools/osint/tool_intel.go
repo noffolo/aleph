@@ -210,12 +210,12 @@ func deduplicate(items []string) []string {
 
 // ToolSecurityProfile represents a comprehensive security profile for a tool.
 type ToolSecurityProfile struct {
-	ToolName       string   `json:"tool_name"`
-	RiskScore      float64  `json:"risk_score"` // 0-100
-	RiskLevel      string   `json:"risk_level"`
-	Warnings       []string `json:"warnings"`
+	ToolName        string   `json:"tool_name"`
+	RiskScore       float64  `json:"risk_score"` // 0-100
+	RiskLevel       string   `json:"risk_level"`
+	Warnings        []string `json:"warnings"`
 	Recommendations []string `json:"recommendations"`
-	Sources        []string `json:"sources"`
+	Sources         []string `json:"sources"`
 }
 
 // DiscoverToolSecurity discovers the security profile for a given tool name.
@@ -274,12 +274,12 @@ func (s *Shadowbroker) DiscoverToolSecurity(ctx context.Context, toolName string
 	}
 
 	profile := ToolSecurityProfile{
-		ToolName:       toolName,
-		RiskScore:      riskScore,
-		RiskLevel:      riskLevel,
-		Warnings:       warnings,
+		ToolName:        toolName,
+		RiskScore:       riskScore,
+		RiskLevel:       riskLevel,
+		Warnings:        warnings,
 		Recommendations: recommendations,
-		Sources:        sources,
+		Sources:         sources,
 	}
 
 	s.cache.Set(cacheKey, profile)

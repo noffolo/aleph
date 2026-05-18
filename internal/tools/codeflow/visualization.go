@@ -29,7 +29,7 @@ type GraphDataEdge struct {
 
 // ToD3JSON serializes the GraphData to D3.js force-directed graph JSON format.
 func (gd *GraphData) ToD3JSON() string {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"nodes": gd.Nodes,
 		"links": gd.Edges,
 	}

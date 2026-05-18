@@ -160,8 +160,8 @@ func TestIsRFC1918_EdgeCases(t *testing.T) {
 		{"192.168.255.254", true},
 		{"192.169.0.1", false},
 		{"8.8.8.8", false},
-		{"::1", false},        // IPv6 loopback is not RFC1918
-		{"fe80::1", false},    // IPv6 link-local is not RFC1918
+		{"::1", false},     // IPv6 loopback is not RFC1918
+		{"fe80::1", false}, // IPv6 link-local is not RFC1918
 	}
 	for _, tt := range tests {
 		t.Run(tt.ip, func(t *testing.T) {

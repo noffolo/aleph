@@ -54,10 +54,10 @@ func (g *GeographicContext) queryGeographic(ctx context.Context, region string) 
 		rows.Scan(&total)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"region":       region,
 		"tool_density": total,
-		"coordinates": map[string]interface{}{
+		"coordinates": map[string]any{
 			"latitude":  0.0,
 			"longitude": 0.0,
 		},
@@ -66,28 +66,28 @@ func (g *GeographicContext) queryGeographic(ctx context.Context, region string) 
 	}, nil
 }
 
-func (g *GeographicContext) syntheticGeographic(region string) map[string]interface{} {
+func (g *GeographicContext) syntheticGeographic(region string) map[string]any {
 	seed := int64(hashString(region))
 	rng := rand.New(rand.NewSource(seed))
 
 	lat := (rng.Float64() * 140) - 70
 	lon := (rng.Float64() * 260) - 130
 
-	clusters := make([]map[string]interface{}, 2+rng.Intn(4))
+	clusters := make([]map[string]any, 2+rng.Intn(4))
 	for i := range clusters {
-		clusters[i] = map[string]interface{}{
-			"cluster_id": sha256Hash(region + ":cluster:" + itoa(i)),
-			"latitude":   roundFloat(lat+rng.Float64()*10-5, 4),
-			"longitude":  roundFloat(lon+rng.Float64()*10-5, 4),
-			"density":    rng.Intn(100),
-			"label":      []string{"high", "medium", "low"}[rng.Intn(3)],
+		clusters[i] = map[string]any{
+			"cluster_id":   sha256Hash(region + ":cluster:" + itoa(i)),
+			"latitude":     roundFloat(lat+rng.Float64()*10-5, 4),
+			"longitude":    roundFloat(lon+rng.Float64()*10-5, 4),
+			"density":      rng.Intn(100),
+			"label":        []string{"high", "medium", "low"}[rng.Intn(3)],
 			"is_synthetic": true,
 		}
 	}
 
-	return map[string]interface{}{
-		"region":     region,
-		"coordinates": map[string]interface{}{
+	return map[string]any{
+		"region": region,
+		"coordinates": map[string]any{
 			"latitude":  roundFloat(lat, 4),
 			"longitude": roundFloat(lon, 4),
 		},

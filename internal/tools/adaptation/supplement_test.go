@@ -42,29 +42,29 @@ func TestToPascalCase(t *testing.T) {
 func TestCountSchemaProps(t *testing.T) {
 	tests := []struct {
 		name   string
-		schema map[string]interface{}
+		schema map[string]any
 		want   int
 	}{
 		{"nil schema", nil, 0},
-		{"empty schema", map[string]interface{}{}, 0},
-		{"no properties key", map[string]interface{}{"type": "object"}, 0},
-		{"properties not a map", map[string]interface{}{"properties": "invalid"}, 0},
+		{"empty schema", map[string]any{}, 0},
+		{"no properties key", map[string]any{"type": "object"}, 0},
+		{"properties not a map", map[string]any{"properties": "invalid"}, 0},
 		{
 			"single property",
-			map[string]interface{}{
-				"properties": map[string]interface{}{
-					"name": map[string]interface{}{"type": "string"},
+			map[string]any{
+				"properties": map[string]any{
+					"name": map[string]any{"type": "string"},
 				},
 			},
 			1,
 		},
 		{
 			"three properties",
-			map[string]interface{}{
-				"properties": map[string]interface{}{
-					"name":     map[string]interface{}{"type": "string"},
-					"age":      map[string]interface{}{"type": "integer"},
-					"location": map[string]interface{}{"type": "string"},
+			map[string]any{
+				"properties": map[string]any{
+					"name":     map[string]any{"type": "string"},
+					"age":      map[string]any{"type": "integer"},
+					"location": map[string]any{"type": "string"},
 				},
 			},
 			3,
@@ -239,7 +239,7 @@ func TestDetectTemplateType(t *testing.T) {
 		{
 			name: "adapter when InputSchema has properties",
 			def: mcp.ToolDefinition{
-				InputSchema: map[string]interface{}{"type": "object"},
+				InputSchema: map[string]any{"type": "object"},
 			},
 			want: TemplateAdapter,
 		},

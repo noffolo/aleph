@@ -27,7 +27,7 @@ func NewDuckDBLayer(db *storage.DuckDB) *DuckDBLayer {
 
 // QueryContext executes a read-only SQL query with context and schema scope.
 // When the underlying DuckDB is nil it returns a synthetic result.
-func (d *DuckDBLayer) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+func (d *DuckDBLayer) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -45,7 +45,7 @@ func (d *DuckDBLayer) QueryContext(ctx context.Context, query string, args ...in
 }
 
 // ExecContext executes a write SQL statement with context and schema scope.
-func (d *DuckDBLayer) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+func (d *DuckDBLayer) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -88,8 +88,8 @@ func SyntheticDuckDBLayer() *DuckDBLayer {
 
 // syntheticRowCount returns a synthetic result count for tools that
 // gracefully degrade when DuckDB is unavailable.
-func syntheticRowCount() []map[string]interface{} {
-	return []map[string]interface{}{
+func syntheticRowCount() []map[string]any {
+	return []map[string]any{
 		{
 			"count":        0,
 			"is_synthetic": true,

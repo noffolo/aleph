@@ -29,6 +29,8 @@ type ProphetForecastResult struct {
 // ProphetForecastTool provides time-series forecasting using SMA or linear regression.
 type ProphetForecastTool struct{}
 
+func (t *ProphetForecastTool) Name() string { return "ProphetForecast" }
+
 // NewProphetForecastTool returns a new ProphetForecastTool instance.
 func NewProphetForecastTool() *ProphetForecastTool {
 	return &ProphetForecastTool{}

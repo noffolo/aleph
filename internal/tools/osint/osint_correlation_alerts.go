@@ -12,10 +12,10 @@ import (
 
 // CorrelationEvent represents a single event in a correlation alert.
 type CorrelationEvent struct {
-	Type      string  `json:"type"`
-	Source    string  `json:"source"`
-	Severity  string  `json:"severity"`
-	Timestamp string  `json:"timestamp"`
+	Type       string  `json:"type"`
+	Source     string  `json:"source"`
+	Severity   string  `json:"severity"`
+	Timestamp  string  `json:"timestamp"`
 	Confidence float64 `json:"confidence"`
 }
 
@@ -38,7 +38,7 @@ func NewCorrelationAlertsTool(broker *Shadowbroker) *CorrelationAlertsTool {
 	return &CorrelationAlertsTool{broker: broker}
 }
 
-func (t *CorrelationAlertsTool) Correlate(ctx context.Context, signals []string) (map[string]interface{}, error) {
+func (t *CorrelationAlertsTool) Correlate(ctx context.Context, signals []string) (map[string]any, error) {
 	if len(signals) == 0 {
 		return nil, fmt.Errorf("at least one signal is required")
 	}
@@ -84,7 +84,7 @@ var eventTypes = []string{"movement", "communication", "economic", "cyber", "env
 var eventSources = []string{"satellite_imagery_mock", "sigint_mock", "humint_mock", "open_source_mock", "financial_monitor_mock"}
 var severities = []string{"info", "low", "medium", "high", "critical"}
 
-func generateCorrelationAlerts(signals []string) map[string]interface{} {
+func generateCorrelationAlerts(signals []string) map[string]any {
 	joined := ""
 	for i, s := range signals {
 		if i > 0 {
@@ -96,7 +96,7 @@ func generateCorrelationAlerts(signals []string) map[string]interface{} {
 	rng := rand.New(rand.NewSource(seed))
 
 	numAlerts := 1 + rng.Intn(3)
-	alerts := make([]map[string]interface{}, numAlerts)
+	alerts := make([]map[string]any, numAlerts)
 
 	for i := 0; i < numAlerts; i++ {
 		numEvents := 2 + rng.Intn(4)
@@ -113,18 +113,18 @@ func generateCorrelationAlerts(signals []string) map[string]interface{} {
 		}
 
 		severity := severities[rng.Intn(len(severities))]
-		alerts[i] = map[string]interface{}{
-			"alert_id": fmt.Sprintf("CORR-%s-%d", fmt.Sprintf("%x", seed)[:8], i+1),
-			"title":    fmt.Sprintf("Correlated event cluster %d: %s signals", i+1, signals[0]),
-			"severity": severity,
-			"events":   events,
-			"summary":  fmt.Sprintf("Correlation of %d events from %s signals indicates %s-level activity", numEvents, signals[0], severity),
+		alerts[i] = map[string]any{
+			"alert_id":     fmt.Sprintf("CORR-%s-%d", fmt.Sprintf("%x", seed)[:8], i+1),
+			"title":        fmt.Sprintf("Correlated event cluster %d: %s signals", i+1, signals[0]),
+			"severity":     severity,
+			"events":       events,
+			"summary":      fmt.Sprintf("Correlation of %d events from %s signals indicates %s-level activity", numEvents, signals[0], severity),
 			"is_synthetic": true,
 			"generated_at": time.Now().UTC().Format(time.RFC3339),
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"alerts":       alerts,
 		"signal_count": len(signals),
 		"is_synthetic": true,

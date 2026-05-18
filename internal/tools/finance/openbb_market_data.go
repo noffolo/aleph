@@ -36,12 +36,12 @@ type HistoricalDataPoint struct {
 
 // IndicatorResult holds computed technical indicators for a symbol.
 type IndicatorResult struct {
-	Symbol      string    `json:"symbol"`
-	SMA20       *float64  `json:"sma_20,omitempty"`
-	RSI14       *float64  `json:"rsi_14,omitempty"`
-	LastClose   float64   `json:"last_close"`
-	DataPoints  int       `json:"data_points"`
-	ComputedAt  time.Time `json:"computed_at"`
+	Symbol     string    `json:"symbol"`
+	SMA20      *float64  `json:"sma_20,omitempty"`
+	RSI14      *float64  `json:"rsi_14,omitempty"`
+	LastClose  float64   `json:"last_close"`
+	DataPoints int       `json:"data_points"`
+	ComputedAt time.Time `json:"computed_at"`
 }
 
 // OpenBBMarketDataArgs represents the input arguments for market data.
@@ -65,7 +65,8 @@ type OpenBBMarketDataTool struct {
 	httpClient *http.Client
 }
 
-// NewOpenBBMarketDataTool returns a new OpenBBMarketDataTool instance.
+func (t *OpenBBMarketDataTool) Name() string { return "OpenBBMarketData" }
+
 func NewOpenBBMarketDataTool() *OpenBBMarketDataTool {
 	return &OpenBBMarketDataTool{
 		httpClient: ssrf.NewClient(),

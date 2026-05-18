@@ -15,8 +15,10 @@ func NewDemographicProfileTool(dbl *DuckDBLayer) *DemographicProfileTool {
 	return &DemographicProfileTool{dbl: dbl}
 }
 
-func (t *DemographicProfileTool) Name() string        { return "demographicProfile" }
-func (t *DemographicProfileTool) Description() string  { return "Returns demographic profile data for a country (ISO alpha-3 code). Fields: population, GDP per capita, urbanization rate, median age, life expectancy." }
+func (t *DemographicProfileTool) Name() string { return "demographicProfile" }
+func (t *DemographicProfileTool) Description() string {
+	return "Returns demographic profile data for a country (ISO alpha-3 code). Fields: population, GDP per capita, urbanization rate, median age, life expectancy."
+}
 
 func (t *DemographicProfileTool) Execute(ctx context.Context, args map[string]any) (any, error) {
 	code, _ := args["countryCode"].(string)
@@ -28,14 +30,14 @@ func (t *DemographicProfileTool) Execute(ctx context.Context, args map[string]an
 		return nil, fmt.Errorf("unknown country code: %s", code)
 	}
 	return map[string]any{
-		"country_code":    d.Profile.CountryCode,
-		"country_name":    d.Profile.CountryName,
-		"population":      d.Profile.Population,
-		"gdp_per_capita":  d.Profile.GDPPerCapita,
+		"country_code":     d.Profile.CountryCode,
+		"country_name":     d.Profile.CountryName,
+		"population":       d.Profile.Population,
+		"gdp_per_capita":   d.Profile.GDPPerCapita,
 		"urbanization_pct": d.Profile.UrbanizationPct,
-		"median_age":      d.Profile.MedianAge,
-		"life_expectancy": d.Profile.LifeExpectancy,
-		"is_synthetic":    !t.dbl.IsAvailable(),
+		"median_age":       d.Profile.MedianAge,
+		"life_expectancy":  d.Profile.LifeExpectancy,
+		"is_synthetic":     !t.dbl.IsAvailable(),
 	}, nil
 }
 
@@ -49,8 +51,10 @@ func NewSocioeconomicIndicatorsTool(dbl *DuckDBLayer) *SocioeconomicIndicatorsTo
 	return &SocioeconomicIndicatorsTool{dbl: dbl}
 }
 
-func (t *SocioeconomicIndicatorsTool) Name() string       { return "socioeconomicIndicators" }
-func (t *SocioeconomicIndicatorsTool) Description() string { return "Returns socioeconomic indicators for a country: Gini coefficient, poverty rate, literacy rate, unemployment rate." }
+func (t *SocioeconomicIndicatorsTool) Name() string { return "socioeconomicIndicators" }
+func (t *SocioeconomicIndicatorsTool) Description() string {
+	return "Returns socioeconomic indicators for a country: Gini coefficient, poverty rate, literacy rate, unemployment rate."
+}
 
 func (t *SocioeconomicIndicatorsTool) Execute(ctx context.Context, args map[string]any) (any, error) {
 	code, _ := args["countryCode"].(string)
@@ -62,13 +66,13 @@ func (t *SocioeconomicIndicatorsTool) Execute(ctx context.Context, args map[stri
 		return nil, fmt.Errorf("unknown country code: %s", code)
 	}
 	return map[string]any{
-		"country_code":     d.Socio.CountryCode,
-		"country_name":     d.Socio.CountryName,
-		"gini_coefficient": d.Socio.GiniCoefficient,
-		"poverty_rate":     d.Socio.PovertyRate,
-		"literacy_rate":    d.Socio.LiteracyRate,
+		"country_code":      d.Socio.CountryCode,
+		"country_name":      d.Socio.CountryName,
+		"gini_coefficient":  d.Socio.GiniCoefficient,
+		"poverty_rate":      d.Socio.PovertyRate,
+		"literacy_rate":     d.Socio.LiteracyRate,
 		"unemployment_rate": d.Socio.UnemploymentRate,
-		"is_synthetic":     !t.dbl.IsAvailable(),
+		"is_synthetic":      !t.dbl.IsAvailable(),
 	}, nil
 }
 
@@ -82,8 +86,10 @@ func NewCulturalMetricsTool(dbl *DuckDBLayer) *CulturalMetricsTool {
 	return &CulturalMetricsTool{dbl: dbl}
 }
 
-func (t *CulturalMetricsTool) Name() string       { return "culturalMetrics" }
-func (t *CulturalMetricsTool) Description() string { return "Returns cultural metrics for a country: language diversity index, internet penetration, mobile adoption." }
+func (t *CulturalMetricsTool) Name() string { return "culturalMetrics" }
+func (t *CulturalMetricsTool) Description() string {
+	return "Returns cultural metrics for a country: language diversity index, internet penetration, mobile adoption."
+}
 
 func (t *CulturalMetricsTool) Execute(ctx context.Context, args map[string]any) (any, error) {
 	code, _ := args["countryCode"].(string)
@@ -114,8 +120,10 @@ func NewUrbanRuralDistributionTool(dbl *DuckDBLayer) *UrbanRuralDistributionTool
 	return &UrbanRuralDistributionTool{dbl: dbl}
 }
 
-func (t *UrbanRuralDistributionTool) Name() string       { return "urbanRuralDistribution" }
-func (t *UrbanRuralDistributionTool) Description() string { return "Computes urban vs rural population split for a country. Optional threshold defaults to 50%." }
+func (t *UrbanRuralDistributionTool) Name() string { return "urbanRuralDistribution" }
+func (t *UrbanRuralDistributionTool) Description() string {
+	return "Computes urban vs rural population split for a country. Optional threshold defaults to 50%."
+}
 
 func (t *UrbanRuralDistributionTool) Execute(ctx context.Context, args map[string]any) (any, error) {
 	code, _ := args["countryCode"].(string)
@@ -140,16 +148,16 @@ func (t *UrbanRuralDistributionTool) Execute(ctx context.Context, args map[strin
 	ruralPop := d.Profile.Population - urbanPop
 
 	return map[string]any{
-		"country_code":    code,
-		"country_name":    d.Profile.CountryName,
-		"urban_pct":       urbanPct,
-		"rural_pct":       ruralPct,
+		"country_code":     code,
+		"country_name":     d.Profile.CountryName,
+		"urban_pct":        urbanPct,
+		"rural_pct":        ruralPct,
 		"urban_population": urbanPop,
 		"rural_population": ruralPop,
-		"above_threshold": urbanPct >= threshold,
-		"threshold_pct":   threshold,
-		"classification":  classifyUrbanRural(urbanPct),
-		"is_synthetic":    !t.dbl.IsAvailable(),
+		"above_threshold":  urbanPct >= threshold,
+		"threshold_pct":    threshold,
+		"classification":   classifyUrbanRural(urbanPct),
+		"is_synthetic":     !t.dbl.IsAvailable(),
 	}, nil
 }
 
@@ -176,8 +184,10 @@ func NewMigrationPatternsTool(dbl *DuckDBLayer) *MigrationPatternsTool {
 	return &MigrationPatternsTool{dbl: dbl}
 }
 
-func (t *MigrationPatternsTool) Name() string       { return "migrationPatterns" }
-func (t *MigrationPatternsTool) Description() string { return "Returns estimated migration stock data between origin and destination countries (ISO alpha-3 codes)." }
+func (t *MigrationPatternsTool) Name() string { return "migrationPatterns" }
+func (t *MigrationPatternsTool) Description() string {
+	return "Returns estimated migration stock data between origin and destination countries (ISO alpha-3 codes)."
+}
 
 func (t *MigrationPatternsTool) Execute(ctx context.Context, args map[string]any) (any, error) {
 	origin, _ := args["originCountry"].(string)
@@ -196,11 +206,11 @@ func (t *MigrationPatternsTool) Execute(ctx context.Context, args map[string]any
 		}, nil
 	}
 	return map[string]any{
-		"origin":           f.OriginCountryCode,
-		"origin_name":      f.OriginCountryName,
-		"dest":             f.DestCountryCode,
-		"dest_name":        f.DestCountryName,
-		"stock":            f.Stock,
-		"is_synthetic":     !t.dbl.IsAvailable(),
+		"origin":       f.OriginCountryCode,
+		"origin_name":  f.OriginCountryName,
+		"dest":         f.DestCountryCode,
+		"dest_name":    f.DestCountryName,
+		"stock":        f.Stock,
+		"is_synthetic": !t.dbl.IsAvailable(),
 	}, nil
 }

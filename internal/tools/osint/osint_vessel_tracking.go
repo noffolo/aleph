@@ -32,7 +32,7 @@ func NewVesselTrackingTool(broker *Shadowbroker) *VesselTrackingTool {
 }
 
 // Track returns tracking data for a vessel identified by MMSI.
-func (t *VesselTrackingTool) Track(ctx context.Context, mmsi string) (map[string]interface{}, error) {
+func (t *VesselTrackingTool) Track(ctx context.Context, mmsi string) (map[string]any, error) {
 	if mmsi == "" {
 		return nil, fmt.Errorf("mmsi is required")
 	}
@@ -79,7 +79,7 @@ var vesselNames = []string{
 	"Maritime Trader", "Coastal Venture", "Deep Blue", "Atlantic Runner",
 }
 
-func generateVesselData(mmsi string) map[string]interface{} {
+func generateVesselData(mmsi string) map[string]any {
 	seed := int64(hashString(mmsi))
 	rng := rand.New(rand.NewSource(seed))
 
@@ -90,7 +90,7 @@ func generateVesselData(mmsi string) map[string]interface{} {
 	statuses := []string{"underway", "anchored", "moored", "drifting"}
 	status := statuses[rng.Intn(len(statuses))]
 
-	return map[string]interface{}{
+	return map[string]any{
 		"mmsi":         mmsi,
 		"vessel_name":  vesselNames[int(hashString(mmsi))%len(vesselNames)],
 		"latitude":     roundFloat(lat, 4),

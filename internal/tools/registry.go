@@ -24,10 +24,10 @@ type ParamDef struct {
 // The Execute function uses a normalized signature: params are always
 // map[string]any; the return value is marshalled to JSON by the caller.
 type ToolDefinition struct {
-	Name        string                 `json:"name"`
-	Category    string                 `json:"category"`
-	Description string                 `json:"description"`
-	Params      []ParamDef             `json:"params,omitempty"`
+	Name        string                                                        `json:"name"`
+	Category    string                                                        `json:"category"`
+	Description string                                                        `json:"description"`
+	Params      []ParamDef                                                    `json:"params,omitempty"`
 	Execute     func(ctx context.Context, params map[string]any) (any, error) `json:"-"`
 }
 
@@ -247,5 +247,3 @@ func HEToolDef(tool HETool) ToolDefinition {
 		Execute:     tool.Execute,
 	}
 }
-
-

@@ -194,9 +194,9 @@ func TestSentimentAnalysisFinTool(t *testing.T) {
 		require.Nil(t, tool.nlpAdapter) // no adapter set
 
 		tests := []struct {
-			name   string
-			args   map[string]any
-			check  func(t *testing.T, result any)
+			name  string
+			args  map[string]any
+			check func(t *testing.T, result any)
 		}{
 			{
 				name: "positive sentiment",
@@ -432,11 +432,11 @@ func TestMockMarketData(t *testing.T) {
 
 func TestLinearRegressionForecast(t *testing.T) {
 	tests := []struct {
-		name     string
-		data     []float64
-		periods  int
-		wantLen  int
-		check    func(t *testing.T, predictions []float64, confidence float64)
+		name    string
+		data    []float64
+		periods int
+		wantLen int
+		check   func(t *testing.T, predictions []float64, confidence float64)
 	}{
 		{
 			name:    "perfect linear",

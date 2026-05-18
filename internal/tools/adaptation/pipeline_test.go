@@ -125,10 +125,10 @@ func TestAnalysisStage_Execute(t *testing.T) {
 	adapterDef := mcp.ToolDefinition{
 		Name:        "mcp-tool",
 		Description: "MCP test tool",
-		InputSchema: map[string]interface{}{
+		InputSchema: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"query": map[string]interface{}{"type": "string"},
+			"properties": map[string]any{
+				"query": map[string]any{"type": "string"},
 			},
 		},
 		Version: "1.0.0",
@@ -259,7 +259,7 @@ func TestAdaptationStage_Execute(t *testing.T) {
 				ToolDef: mcp.ToolDefinition{
 					Name:        "adapter-tool",
 					Description: "An adapter test tool",
-					InputSchema: map[string]interface{}{"type": "object"},
+					InputSchema: map[string]any{"type": "object"},
 				},
 			},
 			checkFn: func(t *testing.T, result *AdaptationResult, sr StageResult) {
@@ -330,7 +330,7 @@ func main() {}`
 		{
 			name: "valid go code passes",
 			candidate: Candidate{
-				Code: validGoTool,
+				Code:    validGoTool,
 				ToolDef: mcp.ToolDefinition{Name: "test-go"},
 			},
 			result:   &AdaptationResult{AdaptedCode: validGoTool},
@@ -339,7 +339,7 @@ func main() {}`
 		{
 			name: "valid python code passes",
 			candidate: Candidate{
-				Code: validPythonTool,
+				Code:    validPythonTool,
 				ToolDef: mcp.ToolDefinition{Name: "test-py"},
 			},
 			result:   &AdaptationResult{AdaptedCode: validPythonTool},
@@ -352,7 +352,7 @@ func main() {}`
 func main() { this is invalid }`,
 				ToolDef: mcp.ToolDefinition{Name: "bad-go"},
 			},
-			result:   &AdaptationResult{AdaptedCode: `package main
+			result: &AdaptationResult{AdaptedCode: `package main
 func main() { this is invalid }`},
 			wantPass: false,
 		},
@@ -463,7 +463,7 @@ func TestPipeline_Run(t *testing.T) {
 
 	t.Run("full pipeline succeeds with valid input", func(t *testing.T) {
 		result, err := pipeline.RunCandidate(context.Background(), &Candidate{
-			Code:    pureGoCode,
+			Code: pureGoCode,
 			ToolDef: mcp.ToolDefinition{
 				Name:        "pipeline-test",
 				Description: "Pipeline integration test",
@@ -485,7 +485,7 @@ func TestPipeline_Run(t *testing.T) {
 
 	t.Run("pipeline fails on blocked python code", func(t *testing.T) {
 		result, err := pipeline.RunCandidate(context.Background(), &Candidate{
-			Code:    blockedPythonCode,
+			Code: blockedPythonCode,
 			ToolDef: mcp.ToolDefinition{
 				Name:    "blocked-test",
 				Version: "1.0.0",

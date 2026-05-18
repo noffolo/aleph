@@ -56,16 +56,16 @@ func (p *PluginViz) queryViz(ctx context.Context, vizType, scope string) (any, e
 	}
 	defer rows.Close()
 
-	nodes := make([]map[string]interface{}, 0)
+	nodes := make([]map[string]any, 0)
 	for rows.Next() {
 		var id, name, category string
 		if err := rows.Scan(&id, &name, &category); err != nil {
 			continue
 		}
-		nodes = append(nodes, map[string]interface{}{
-			"id":          sha256Hash("viz:" + id),
-			"label":       name,
-			"group":       category,
+		nodes = append(nodes, map[string]any{
+			"id":           sha256Hash("viz:" + id),
+			"label":        name,
+			"group":        category,
 			"is_synthetic": false,
 		})
 	}
@@ -73,8 +73,8 @@ func (p *PluginViz) queryViz(ctx context.Context, vizType, scope string) (any, e
 	return buildVizOutput(vizType, scope, nodes, false), nil
 }
 
-func (p *PluginViz) syntheticViz(vizType, scope string) map[string]interface{} {
-	nodes := []map[string]interface{}{
+func (p *PluginViz) syntheticViz(vizType, scope string) map[string]any {
+	nodes := []map[string]any{
 		{"id": sha256Hash("viz:ecosystem"), "label": "Human Ecosystem", "group": "root", "is_synthetic": true},
 		{"id": sha256Hash("viz:research"), "label": "Research", "group": "activity", "is_synthetic": true},
 		{"id": sha256Hash("viz:relations"), "label": "Relations", "group": "activity", "is_synthetic": true},
@@ -85,8 +85,8 @@ func (p *PluginViz) syntheticViz(vizType, scope string) map[string]interface{} {
 	return buildVizOutput(vizType, scope, nodes, true)
 }
 
-func buildVizOutput(vizType, scope string, nodes []map[string]interface{}, isSynthetic bool) map[string]interface{} {
-	output := map[string]interface{}{
+func buildVizOutput(vizType, scope string, nodes []map[string]any, isSynthetic bool) map[string]any {
+	output := map[string]any{
 		"viz_type":     vizType,
 		"scope":        scope,
 		"is_synthetic": isSynthetic,
@@ -98,13 +98,13 @@ func buildVizOutput(vizType, scope string, nodes []map[string]interface{}, isSyn
 		output["nodes"] = nodes
 		output["edges"] = buildSyntheticEdges(nodes, isSynthetic)
 	case "heatmap":
-		output["matrix"] = map[string]interface{}{
+		output["matrix"] = map[string]any{
 			"rows":    nodes,
 			"columns": []string{"density", "activity", "connectivity"},
 			"values":  fmt.Sprintf("%dx%d matrix", len(nodes), 3),
 		}
 	case "timeline":
-		output["events"] = []map[string]interface{}{
+		output["events"] = []map[string]any{
 			{"timestamp": time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339), "event": "analysis_start", "is_synthetic": isSynthetic},
 			{"timestamp": time.Now().UTC().Format(time.RFC3339), "event": "current_state", "is_synthetic": isSynthetic},
 		}
@@ -116,12 +116,12 @@ func buildVizOutput(vizType, scope string, nodes []map[string]interface{}, isSyn
 	return output
 }
 
-func buildSyntheticEdges(nodes []map[string]interface{}, isSynthetic bool) []map[string]interface{} {
-	edges := make([]map[string]interface{}, 0)
+func buildSyntheticEdges(nodes []map[string]any, isSynthetic bool) []map[string]any {
+	edges := make([]map[string]any, 0)
 	for i := 1; i < len(nodes); i++ {
 		if idA, ok := nodes[i-1]["id"].(string); ok {
 			if idB, ok := nodes[i]["id"].(string); ok {
-				edges = append(edges, map[string]interface{}{
+				edges = append(edges, map[string]any{
 					"from":         idA,
 					"to":           idB,
 					"label":        "connects",

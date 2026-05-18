@@ -82,7 +82,7 @@ func generateAdapterTemplate(code string, def mcp.ToolDefinition) string {
 	// Build schema fields from InputSchema for documentation
 	schemaFields := ""
 	if def.InputSchema != nil {
-		if props, ok := def.InputSchema["properties"].(map[string]interface{}); ok {
+		if props, ok := def.InputSchema["properties"].(map[string]any); ok {
 			for name := range props {
 				schemaFields += fmt.Sprintf("\t// - %s\n", name)
 			}
@@ -226,15 +226,13 @@ func toPascalCase(s string) string {
 }
 
 // countSchemaProps counts top-level properties in an MCP input schema.
-func countSchemaProps(schema map[string]interface{}) int {
+func countSchemaProps(schema map[string]any) int {
 	if schema == nil {
 		return 0
 	}
-	props, ok := schema["properties"].(map[string]interface{})
+	props, ok := schema["properties"].(map[string]any)
 	if !ok {
 		return 0
 	}
 	return len(props)
 }
-
-

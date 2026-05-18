@@ -130,7 +130,7 @@ func TestCircuitBreaker_Allow(t *testing.T) {
 		assert.Equal(t, StateOpen, cb.State())
 
 		time.Sleep(20 * time.Millisecond)
-		assert.True(t, cb.Allow())               // should transition to half-open
+		assert.True(t, cb.Allow()) // should transition to half-open
 		assert.Equal(t, StateHalfOpen, cb.State())
 	})
 
@@ -148,8 +148,8 @@ func TestCircuitBreaker_RecordSuccess(t *testing.T) {
 		cb := NewCircuitBreaker(1, 1*time.Millisecond)
 		cb.RecordFailure()
 		time.Sleep(10 * time.Millisecond)
-		cb.Allow()             // half-open
-		cb.RecordSuccess()     // should go back to closed
+		cb.Allow()         // half-open
+		cb.RecordSuccess() // should go back to closed
 		assert.Equal(t, StateClosed, cb.State())
 	})
 
@@ -377,7 +377,7 @@ func TestCircuitBreaker_FullCycle(t *testing.T) {
 
 	// Wait for recovery
 	time.Sleep(50 * time.Millisecond)
-	assert.True(t, cb.Allow())           // half-open
+	assert.True(t, cb.Allow()) // half-open
 	assert.Equal(t, StateHalfOpen, cb.State())
 
 	// Success → closed

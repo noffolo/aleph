@@ -3,7 +3,7 @@ package humanecosystems
 
 // DemographicProfile holds basic demographic indicators for a country.
 type DemographicProfile struct {
-	CountryCode     string  // ISO 3166-1 alpha-3
+	CountryCode     string // ISO 3166-1 alpha-3
 	CountryName     string
 	Population      int64   // 2024 estimate
 	GDPPerCapita    float64 // USD, 2024 estimate
@@ -14,12 +14,12 @@ type DemographicProfile struct {
 
 // SocioeconomicIndicators holds socioeconomic data for a country.
 type SocioeconomicIndicators struct {
-	CountryCode       string
-	CountryName       string
-	GiniCoefficient   float64 // 0-100
-	PovertyRate       float64 // % below national poverty line
-	LiteracyRate      float64 // % adult literacy
-	UnemploymentRate  float64 // % of labor force
+	CountryCode      string
+	CountryName      string
+	GiniCoefficient  float64 // 0-100
+	PovertyRate      float64 // % below national poverty line
+	LiteracyRate     float64 // % adult literacy
+	UnemploymentRate float64 // % of labor force
 }
 
 // CulturalMetrics holds cultural/infrastructure metrics for a country.
@@ -33,12 +33,12 @@ type CulturalMetrics struct {
 
 // UrbanRuralSplit holds urban vs rural population data.
 type UrbanRuralSplit struct {
-	CountryCode      string
-	CountryName      string
-	UrbanPct         float64 // % urban
-	RuralPct         float64 // % rural
-	UrbanPopulation  int64
-	RuralPopulation  int64
+	CountryCode     string
+	CountryName     string
+	UrbanPct        float64 // % urban
+	RuralPct        float64 // % rural
+	UrbanPopulation int64
+	RuralPopulation int64
 }
 
 // MigrationFlow holds migration stock data between two countries.
@@ -52,9 +52,9 @@ type MigrationFlow struct {
 
 // countryData assembles all data for a single country.
 type countryData struct {
-	Profile     DemographicProfile
-	Socio       SocioeconomicIndicators
-	Cultural    CulturalMetrics
+	Profile  DemographicProfile
+	Socio    SocioeconomicIndicators
+	Cultural CulturalMetrics
 }
 
 var (
