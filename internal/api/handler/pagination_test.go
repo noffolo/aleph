@@ -83,10 +83,10 @@ func TestParsePagePagination_NonNumericIgnored(t *testing.T) {
 
 func TestPagePaginationParams_Offset(t *testing.T) {
 	tests := []struct {
-		name   string
-		page   int
+		name    string
+		page    int
 		perPage int
-		want   int
+		want    int
 	}{
 		{"page 1", 1, 50, 0},
 		{"page 2", 2, 50, 50},

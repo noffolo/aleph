@@ -27,7 +27,9 @@ func (h *AuthHandler) ListApiKeys(
 ) (*connect.Response[v1.ListApiKeysResponse], error) {
 	projectID := req.Msg.ProjectId
 	keys, err := h.metaRepo.ListAPIKeys(projectID)
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	var result []*v1.ApiKey
 	for _, k := range keys {
@@ -61,7 +63,9 @@ func (h *AuthHandler) CreateApiKey(
 	}
 
 	err = h.metaRepo.CreateAPIKey(id, projectID, label, hashedKey)
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	return connect.NewResponse(&v1.CreateApiKeyResponse{
 		Key: &v1.ApiKey{Id: id, Label: label, Key: key, CreatedAt: time.Now().Unix()},
@@ -73,6 +77,8 @@ func (h *AuthHandler) DeleteApiKey(
 	req *connect.Request[v1.DeleteApiKeyRequest],
 ) (*connect.Response[v1.DeleteApiKeyResponse], error) {
 	err := h.metaRepo.DeleteAPIKey(req.Msg.Id, req.Msg.ProjectId)
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&v1.DeleteApiKeyResponse{Success: true}), nil
 }

@@ -43,7 +43,7 @@ func TestWriteError_NotFound(t *testing.T) {
 
 func TestWriteJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
-	writeJSON(rec, http.StatusOK, map[string]interface{}{"id": 42, "name": "test"})
+	writeJSON(rec, http.StatusOK, map[string]any{"id": 42, "name": "test"})
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", rec.Code)

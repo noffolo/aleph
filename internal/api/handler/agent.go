@@ -16,9 +16,9 @@ import (
 )
 
 type AgentHandler struct {
-	projectsRoot      string
-	metaRepo          *repository.MetadataRepository
-	ollamaBaseURL     string
+	projectsRoot        string
+	metaRepo            *repository.MetadataRepository
+	ollamaBaseURL       string
 	maxAgentsPerProject int
 }
 
@@ -40,7 +40,9 @@ func (h *AgentHandler) ListAgents(
 		projectID = req.Msg.ProjectId
 	}
 	agentRecs, err := h.metaRepo.ListAgents(projectID)
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	var agents []*v1.Agent
 	for _, a := range agentRecs {
@@ -50,7 +52,11 @@ func (h *AgentHandler) ListAgents(
 		}
 		if a.ApiKey != "" {
 			runes := []rune(a.ApiKey)
-			if len(runes) > 8 { agent.ApiKey = string(runes[:8]) + "****" } else { agent.ApiKey = "****" }
+			if len(runes) > 8 {
+				agent.ApiKey = string(runes[:8]) + "****"
+			} else {
+				agent.ApiKey = "****"
+			}
 		}
 		if a.SkillIDsJSON != "" {
 			if err := json.Unmarshal([]byte(a.SkillIDsJSON), &agent.SkillIds); err != nil {
@@ -100,11 +106,14 @@ func (h *AgentHandler) CreateAgent(
 	}
 	if agent.ApiKey != "" {
 		runes := []rune(agent.ApiKey)
-		if len(runes) > 8 { agent.ApiKey = string(runes[:8]) + "****" } else { agent.ApiKey = "****" }
+		if len(runes) > 8 {
+			agent.ApiKey = string(runes[:8]) + "****"
+		} else {
+			agent.ApiKey = "****"
+		}
 	}
 	return connect.NewResponse(&v1.CreateAgentResponse{Agent: agent}), nil
 }
-
 
 func (h *AgentHandler) ListModels(
 	ctx context.Context,
@@ -131,7 +140,9 @@ func (h *AgentHandler) ListModels(
 	defer resp.Body.Close()
 
 	var ollamaResp struct {
-		Models []struct { Name string `json:"name"` } `json:"models"`
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -182,7 +193,11 @@ func (h *AgentHandler) UpdateAgent(
 	}
 	if agent.ApiKey != "" {
 		runes := []rune(agent.ApiKey)
-		if len(runes) > 8 { agent.ApiKey = string(runes[:8]) + "****" } else { agent.ApiKey = "****" }
+		if len(runes) > 8 {
+			agent.ApiKey = string(runes[:8]) + "****"
+		} else {
+			agent.ApiKey = "****"
+		}
 	}
 	return connect.NewResponse(&v1.UpdateAgentResponse{Agent: agent}), nil
 }

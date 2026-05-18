@@ -736,4 +736,3 @@ func TestTruncateJSON_DeepObjectTruncation(t *testing.T) {
 	result := truncateJSON(nested, 80)
 	assert.True(t, len(result) <= 83)
 }
-

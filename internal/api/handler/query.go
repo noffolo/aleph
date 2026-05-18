@@ -54,7 +54,7 @@ func (h *QueryHandler) SetMemoryStore(ms *memory.MemoryStore) {
 
 func NewQueryHandler(db *storage.DuckDB, projectsRoot string, metaRepo *repository.MetadataRepository, nlpHandler *NLPHandler, reg *registry.DuckDBRegistry, llmTimeout time.Duration) *QueryHandler {
 	return &QueryHandler{
-		db:           db, 
+		db:           db,
 		projectsRoot: projectsRoot,
 		programs:     newProgramCache(),
 		metaRepo:     metaRepo,
@@ -66,17 +66,27 @@ func NewQueryHandler(db *storage.DuckDB, projectsRoot string, metaRepo *reposito
 }
 
 func (h *QueryHandler) resolveProject(projectID string) (string, *dsl.Program, error) {
-	if projectID == "" { projectID = "default" }
+	if projectID == "" {
+		projectID = "default"
+	}
 	prog := h.programs.Get(projectID)
 	projectPath, err := sanitizePath(h.projectsRoot, projectID)
-	if err != nil { return "", nil, connect.NewError(connect.CodeInvalidArgument, err) }
-	if _, serr := os.Stat(projectPath); os.IsNotExist(serr) { return "", nil, fmt.Errorf("project %s not found", projectID) }
+	if err != nil {
+		return "", nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if _, serr := os.Stat(projectPath); os.IsNotExist(serr) {
+		return "", nil, fmt.Errorf("project %s not found", projectID)
+	}
 	if prog == nil {
 		ontPath := filepath.Join(projectPath, "ontologies", "core.aleph")
 		content, err := os.ReadFile(ontPath)
-		if err != nil { return "", nil, fmt.Errorf("failed to read ontology: %w", err) }
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to read ontology: %w", err)
+		}
 		prog, err = dsl.Parse(string(content))
-		if err != nil { return "", nil, fmt.Errorf("failed to parse ontology: %w", err) }
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to parse ontology: %w", err)
+		}
 		h.programs.Set(projectID, prog)
 	}
 	return projectPath, prog, nil
@@ -118,7 +128,9 @@ func (h *QueryHandler) GetChatHistory(ctx context.Context, req *connect.Request[
 	}
 	agentID := req.Msg.AgentId
 	msgs, err := h.metaRepo.GetChatHistory(ctx, projectID, agentID)
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	var messages []*v1.ChatMessage
 	for _, m := range msgs {
 		messages = append(messages, &v1.ChatMessage{Role: m.Role, Content: m.Content, ToolCall: m.ToolCall, CreatedAt: m.CreatedAt.Unix()})
@@ -231,8 +243,8 @@ func (h *QueryHandler) ExecuteQuery(
 	cols, _ := rows.Columns()
 	var protoRows []*v1.Row
 	for rows.Next() {
-		row := make([]interface{}, len(cols))
-		rp := make([]interface{}, len(cols))
+		row := make([]any, len(cols))
+		rp := make([]any, len(cols))
 		for i := range row {
 			rp[i] = &row[i]
 		}
@@ -252,7 +264,7 @@ func (h *QueryHandler) ExecuteQuery(
 	if len(protoRows) > 0 {
 		slog.Debug("execute_query results", "object", objName, "rows", len(protoRows), "columns", len(cols), "duration", time.Since(start))
 	}
-		res := connect.NewResponse(&v1.ExecuteQueryResponse{Sql: sql, Columns: cols, Rows: protoRows})
+	res := connect.NewResponse(&v1.ExecuteQueryResponse{Sql: sql, Columns: cols, Rows: protoRows})
 	return res, nil
 }
 
@@ -260,12 +272,22 @@ func (h *QueryHandler) suggestView(cols []string) string {
 	hasLat, hasLon, hasTime := false, false, false
 	for _, c := range cols {
 		cl := strings.ToLower(c)
-		if strings.Contains(cl, "lat") { hasLat = true }
-		if strings.Contains(cl, "lon") || strings.Contains(cl, "lng") { hasLon = true }
-		if strings.Contains(cl, "date") || strings.Contains(cl, "time") { hasTime = true }
+		if strings.Contains(cl, "lat") {
+			hasLat = true
+		}
+		if strings.Contains(cl, "lon") || strings.Contains(cl, "lng") {
+			hasLon = true
+		}
+		if strings.Contains(cl, "date") || strings.Contains(cl, "time") {
+			hasTime = true
+		}
 	}
-	if hasLat && hasLon { return "map" }
-	if hasTime { return "timeline" }
+	if hasLat && hasLon {
+		return "map"
+	}
+	if hasTime {
+		return "timeline"
+	}
 	return "table"
 }
 
@@ -283,14 +305,21 @@ func (h *QueryHandler) GetDataStats(ctx context.Context, req *connect.Request[v1
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid object name: %w", err))
 	}
 	projectPath, prog, err := h.resolveProject(projectID)
-	if err != nil { return nil, connect.NewError(connect.CodeNotFound, err) }
-	dataRoot := filepath.Join(projectPath, "raw"); compiler := dsl.NewCompiler(prog, dataRoot)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	}
+	dataRoot := filepath.Join(projectPath, "raw")
+	compiler := dsl.NewCompiler(prog, dataRoot)
 	baseSql, err := compiler.CompileObject(objName)
-	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
-	
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
 	// Query 1: Discover columns and types
 	rows, err := h.db.Query(fmt.Sprintf("SELECT * FROM (%s) LIMIT 0", baseSql))
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	allCols, _ := rows.Columns()
 	colTypes, _ := rows.ColumnTypes()
 	rows.Close()
@@ -320,7 +349,7 @@ func (h *QueryHandler) GetDataStats(ctx context.Context, req *connect.Request[v1
 	// Query 2: Single batch — MIN/MAX/COUNT/COUNT(DISTINCT) for ALL columns (1 query total)
 	// Build aggregate SELECT parts — column names validated by safeident.ValidateColumnName; SQL identifiers cannot be parameterized
 	var selectParts []string
-	var scanTargets []interface{}
+	var scanTargets []any
 	for i, c := range cols {
 		quoted := safeident.QuoteIdentifier(c)
 		if aggFlags[i] {
@@ -330,7 +359,7 @@ func (h *QueryHandler) GetDataStats(ctx context.Context, req *connect.Request[v1
 			selectParts = append(selectParts,
 				"NULL, NULL, COUNT("+quoted+"), COUNT(DISTINCT "+quoted+")")
 		}
-		scanTargets = append(scanTargets, new(interface{}), new(interface{}), new(int64), new(int64))
+		scanTargets = append(scanTargets, new(any), new(any), new(int64), new(int64))
 	}
 
 	aggSQL := fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(selectParts, ", "), baseSql)
@@ -339,8 +368,8 @@ func (h *QueryHandler) GetDataStats(ctx context.Context, req *connect.Request[v1
 	}
 
 	for i := range cols {
-		minPtr := scanTargets[i*4+0].(*interface{})
-		maxPtr := scanTargets[i*4+1].(*interface{})
+		minPtr := scanTargets[i*4+0].(*any)
+		maxPtr := scanTargets[i*4+1].(*any)
 		countPtr := scanTargets[i*4+2].(*int64)
 		distinctPtr := scanTargets[i*4+3].(*int64)
 		if *minPtr != nil {
@@ -500,7 +529,7 @@ func (h *QueryHandler) GetChecksum(ctx context.Context, req *connect.Request[v1.
 }
 
 func (h *QueryHandler) GlobalQuery(ctx context.Context, req *connect.Request[v1.GlobalQueryRequest]) (*connect.Response[v1.GlobalQueryResponse], error) {
-	// Re-map the request and call ExecuteQuery. Since signatures now match conceptually but not type-wise, 
+	// Re-map the request and call ExecuteQuery. Since signatures now match conceptually but not type-wise,
 	// we perform a light manual mapping or cast. Given the structures are identical, we can safely adapt.
 	execReq := &connect.Request[v1.ExecuteQueryRequest]{
 		Msg: &v1.ExecuteQueryRequest{
@@ -510,12 +539,14 @@ func (h *QueryHandler) GlobalQuery(ctx context.Context, req *connect.Request[v1.
 		},
 	}
 	resp, err := h.ExecuteQuery(ctx, execReq)
-	if err != nil { return nil, err }
-	
+	if err != nil {
+		return nil, err
+	}
+
 	return connect.NewResponse(&v1.GlobalQueryResponse{
-		Sql:      resp.Msg.Sql,
-		Columns:  resp.Msg.Columns,
-		Rows:     resp.Msg.Rows,
+		Sql:     resp.Msg.Sql,
+		Columns: resp.Msg.Columns,
+		Rows:    resp.Msg.Rows,
 	}), nil
 }
 
@@ -679,4 +710,3 @@ func truncateJSON(s string, limit int) string {
 	}
 	return result
 }
-
