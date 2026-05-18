@@ -58,7 +58,7 @@ func TestPublishTo_ExistingClient(t *testing.T) {
 	select {
 	case evt := <-client.Events():
 		assert.Equal(t, "direct_event", evt.Event)
-		data, ok := evt.Data.(map[string]interface{})
+		data, ok := evt.Data.(map[string]any)
 		if ok {
 			assert.Equal(t, "yes", data["targeted"])
 		}

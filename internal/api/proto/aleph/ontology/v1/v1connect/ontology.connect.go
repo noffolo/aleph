@@ -52,12 +52,12 @@ const (
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	ontologyNegotiationServiceServiceDescriptor              = v1.File_aleph_ontology_v1_proto.Services().ByName("OntologyNegotiationService")
-	ontologyNegotiationServiceProposeMethodDescriptor        = ontologyNegotiationServiceServiceDescriptor.Methods().ByName("Propose")
-	ontologyNegotiationServiceAcceptMethodDescriptor         = ontologyNegotiationServiceServiceDescriptor.Methods().ByName("Accept")
-	ontologyNegotiationServiceRejectMethodDescriptor         = ontologyNegotiationServiceServiceDescriptor.Methods().ByName("Reject")
-	ontologyNegotiationServiceModifyMethodDescriptor         = ontologyNegotiationServiceServiceDescriptor.Methods().ByName("Modify")
-	ontologyNegotiationServiceListVersionsMethodDescriptor   = ontologyNegotiationServiceServiceDescriptor.Methods().ByName("ListVersions")
+	ontologyNegotiationServiceServiceDescriptor            = v1.File_aleph_ontology_v1_proto.Services().ByName("OntologyNegotiationService")
+	ontologyNegotiationServiceProposeMethodDescriptor      = ontologyNegotiationServiceServiceDescriptor.Methods().ByName("Propose")
+	ontologyNegotiationServiceAcceptMethodDescriptor       = ontologyNegotiationServiceServiceDescriptor.Methods().ByName("Accept")
+	ontologyNegotiationServiceRejectMethodDescriptor       = ontologyNegotiationServiceServiceDescriptor.Methods().ByName("Reject")
+	ontologyNegotiationServiceModifyMethodDescriptor       = ontologyNegotiationServiceServiceDescriptor.Methods().ByName("Modify")
+	ontologyNegotiationServiceListVersionsMethodDescriptor = ontologyNegotiationServiceServiceDescriptor.Methods().ByName("ListVersions")
 )
 
 // OntologyNegotiationServiceClient is a client for the

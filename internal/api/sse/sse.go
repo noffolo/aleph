@@ -43,7 +43,7 @@ type Event struct {
 	Event string `json:"event,omitempty"`
 
 	// Data is the JSON payload (maps to "data:" line(s)).
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 
 	// ID sets the Last-Event-ID for reconnection resilience (maps to "id:" line).
 	ID string `json:"id,omitempty"`
@@ -85,13 +85,13 @@ func NewBroker(keepalive time.Duration, logger *slog.Logger) *Broker {
 		logger = slog.Default()
 	}
 	b := &Broker{
-		clients:   make(map[string]*Client),
-		register:  make(chan *Client, 16),
+		clients:    make(map[string]*Client),
+		register:   make(chan *Client, 16),
 		unregister: make(chan string, 16),
-		broadcast: make(chan *Event, 256),
-		keepalive: keepalive,
-		logger:    logger,
-		quit:      make(chan struct{}),
+		broadcast:  make(chan *Event, 256),
+		keepalive:  keepalive,
+		logger:     logger,
+		quit:       make(chan struct{}),
 	}
 	go b.run()
 	return b
@@ -169,7 +169,7 @@ func (b *Broker) Unsubscribe(id string) {
 
 // Publish sends an event to all connected clients asynchronously.
 // It assigns a monotonically increasing ID for Last-Event-ID support.
-func (b *Broker) Publish(eventType string, data interface{}) {
+func (b *Broker) Publish(eventType string, data any) {
 	eventID := fmt.Sprintf("evt-%d", b.eventID.Add(1))
 	b.broadcast <- &Event{
 		Event: eventType,
@@ -179,7 +179,7 @@ func (b *Broker) Publish(eventType string, data interface{}) {
 }
 
 // PublishTo sends an event to a specific client by ID.
-func (b *Broker) PublishTo(clientID string, eventType string, data interface{}) {
+func (b *Broker) PublishTo(clientID string, eventType string, data any) {
 	eventID := fmt.Sprintf("evt-%d", b.eventID.Add(1))
 	b.mu.RLock()
 	defer b.mu.RUnlock()

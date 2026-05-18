@@ -81,19 +81,19 @@ type OntologyDiff struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id                string           `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	ProjectId         string           `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	ParentVersionId   string           `protobuf:"bytes,3,opt,name=parent_version_id,json=parentVersionId,proto3" json:"parent_version_id,omitempty"`
-	Status            Status           `protobuf:"varint,4,opt,name=status,proto3,enum=aleph.ontology.v1.Status" json:"status,omitempty"`
-	ObjectsToAdd      []*ObjectAdd     `protobuf:"bytes,5,rep,name=objects_to_add,json=objectsToAdd,proto3" json:"objects_to_add,omitempty"`
-	ObjectsToModify   []*ObjectModify  `protobuf:"bytes,6,rep,name=objects_to_modify,json=objectsToModify,proto3" json:"objects_to_modify,omitempty"`
-	ObjectsToRemove   []*ObjectRemove  `protobuf:"bytes,7,rep,name=objects_to_remove,json=objectsToRemove,proto3" json:"objects_to_remove,omitempty"`
-	RelationsToAdd    []*RelationAdd   `protobuf:"bytes,8,rep,name=relations_to_add,json=relationsToAdd,proto3" json:"relations_to_add,omitempty"`
+	Id                string            `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ProjectId         string            `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	ParentVersionId   string            `protobuf:"bytes,3,opt,name=parent_version_id,json=parentVersionId,proto3" json:"parent_version_id,omitempty"`
+	Status            Status            `protobuf:"varint,4,opt,name=status,proto3,enum=aleph.ontology.v1.Status" json:"status,omitempty"`
+	ObjectsToAdd      []*ObjectAdd      `protobuf:"bytes,5,rep,name=objects_to_add,json=objectsToAdd,proto3" json:"objects_to_add,omitempty"`
+	ObjectsToModify   []*ObjectModify   `protobuf:"bytes,6,rep,name=objects_to_modify,json=objectsToModify,proto3" json:"objects_to_modify,omitempty"`
+	ObjectsToRemove   []*ObjectRemove   `protobuf:"bytes,7,rep,name=objects_to_remove,json=objectsToRemove,proto3" json:"objects_to_remove,omitempty"`
+	RelationsToAdd    []*RelationAdd    `protobuf:"bytes,8,rep,name=relations_to_add,json=relationsToAdd,proto3" json:"relations_to_add,omitempty"`
 	RelationsToModify []*RelationModify `protobuf:"bytes,9,rep,name=relations_to_modify,json=relationsToModify,proto3" json:"relations_to_modify,omitempty"`
 	RelationsToRemove []*RelationRemove `protobuf:"bytes,10,rep,name=relations_to_remove,json=relationsToRemove,proto3" json:"relations_to_remove,omitempty"`
-	Description       string           `protobuf:"bytes,11,opt,name=description,proto3" json:"description,omitempty"`
-	CreatedAt         int64            `protobuf:"varint,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	CreatedBy         string           `protobuf:"bytes,13,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	Description       string            `protobuf:"bytes,11,opt,name=description,proto3" json:"description,omitempty"`
+	CreatedAt         int64             `protobuf:"varint,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedBy         string            `protobuf:"bytes,13,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
 }
 
 func (x *OntologyDiff) Reset() {
@@ -924,7 +924,7 @@ type ModifyRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	DiffId       string       `protobuf:"bytes,1,opt,name=diff_id,json=diffId,proto3" json:"diff_id,omitempty"`
+	DiffId       string        `protobuf:"bytes,1,opt,name=diff_id,json=diffId,proto3" json:"diff_id,omitempty"`
 	ModifiedDiff *OntologyDiff `protobuf:"bytes,2,opt,name=modified_diff,json=modifiedDiff,proto3" json:"modified_diff,omitempty"`
 }
 
@@ -1439,29 +1439,29 @@ var file_aleph_ontology_v1_proto_rawDescOnce = sync.Once{}
 var file_aleph_ontology_v1_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_aleph_ontology_v1_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_aleph_ontology_v1_proto_goTypes = []any{
-	(Status)(0),                   // 0: aleph.ontology.v1.Status
-	(*OntologyDiff)(nil),          // 1: aleph.ontology.v1.OntologyDiff
-	(*ObjectAdd)(nil),             // 2: aleph.ontology.v1.ObjectAdd
-	(*ObjectModify)(nil),          // 3: aleph.ontology.v1.ObjectModify
-	(*ObjectRemove)(nil),          // 4: aleph.ontology.v1.ObjectRemove
-	(*RelationAdd)(nil),           // 5: aleph.ontology.v1.RelationAdd
-	(*RelationModify)(nil),        // 6: aleph.ontology.v1.RelationModify
-	(*RelationRemove)(nil),        // 7: aleph.ontology.v1.RelationRemove
-	(*ProposeRequest)(nil),        // 8: aleph.ontology.v1.ProposeRequest
-	(*ProposeResponse)(nil),       // 9: aleph.ontology.v1.ProposeResponse
-	(*AcceptRequest)(nil),         // 10: aleph.ontology.v1.AcceptRequest
-	(*AcceptResponse)(nil),        // 11: aleph.ontology.v1.AcceptResponse
-	(*RejectRequest)(nil),         // 12: aleph.ontology.v1.RejectRequest
-	(*RejectResponse)(nil),        // 13: aleph.ontology.v1.RejectResponse
-	(*ModifyRequest)(nil),         // 14: aleph.ontology.v1.ModifyRequest
-	(*ModifyResponse)(nil),        // 15: aleph.ontology.v1.ModifyResponse
-	(*ListVersionsRequest)(nil),   // 16: aleph.ontology.v1.ListVersionsRequest
-	(*ListVersionsResponse)(nil),  // 17: aleph.ontology.v1.ListVersionsResponse
-	(*VersionEntry)(nil),          // 18: aleph.ontology.v1.VersionEntry
-	nil,                           // 19: aleph.ontology.v1.ObjectAdd.AttributesEntry
-	nil,                           // 20: aleph.ontology.v1.ObjectModify.AttributesEntry
-	nil,                           // 21: aleph.ontology.v1.RelationAdd.AttributesEntry
-	nil,                           // 22: aleph.ontology.v1.RelationModify.AttributesEntry
+	(Status)(0),                  // 0: aleph.ontology.v1.Status
+	(*OntologyDiff)(nil),         // 1: aleph.ontology.v1.OntologyDiff
+	(*ObjectAdd)(nil),            // 2: aleph.ontology.v1.ObjectAdd
+	(*ObjectModify)(nil),         // 3: aleph.ontology.v1.ObjectModify
+	(*ObjectRemove)(nil),         // 4: aleph.ontology.v1.ObjectRemove
+	(*RelationAdd)(nil),          // 5: aleph.ontology.v1.RelationAdd
+	(*RelationModify)(nil),       // 6: aleph.ontology.v1.RelationModify
+	(*RelationRemove)(nil),       // 7: aleph.ontology.v1.RelationRemove
+	(*ProposeRequest)(nil),       // 8: aleph.ontology.v1.ProposeRequest
+	(*ProposeResponse)(nil),      // 9: aleph.ontology.v1.ProposeResponse
+	(*AcceptRequest)(nil),        // 10: aleph.ontology.v1.AcceptRequest
+	(*AcceptResponse)(nil),       // 11: aleph.ontology.v1.AcceptResponse
+	(*RejectRequest)(nil),        // 12: aleph.ontology.v1.RejectRequest
+	(*RejectResponse)(nil),       // 13: aleph.ontology.v1.RejectResponse
+	(*ModifyRequest)(nil),        // 14: aleph.ontology.v1.ModifyRequest
+	(*ModifyResponse)(nil),       // 15: aleph.ontology.v1.ModifyResponse
+	(*ListVersionsRequest)(nil),  // 16: aleph.ontology.v1.ListVersionsRequest
+	(*ListVersionsResponse)(nil), // 17: aleph.ontology.v1.ListVersionsResponse
+	(*VersionEntry)(nil),         // 18: aleph.ontology.v1.VersionEntry
+	nil,                          // 19: aleph.ontology.v1.ObjectAdd.AttributesEntry
+	nil,                          // 20: aleph.ontology.v1.ObjectModify.AttributesEntry
+	nil,                          // 21: aleph.ontology.v1.RelationAdd.AttributesEntry
+	nil,                          // 22: aleph.ontology.v1.RelationModify.AttributesEntry
 }
 var file_aleph_ontology_v1_proto_depIdxs = []int32{
 	0,  // 0: aleph.ontology.v1.OntologyDiff.status:type_name -> aleph.ontology.v1.Status
