@@ -67,7 +67,7 @@ func (h *NLPHandler) StreamPredictions(
 		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("predictions unavailable: %w", err))
 	}
 
-		for pythonStream.Receive() {
+	for pythonStream.Receive() {
 		if err := stream.Send(pythonStream.Msg()); err != nil {
 			telemetry.RecordNLPRequest("stream_predictions", "error")
 			return fmt.Errorf("streamSend: %w", err)
@@ -94,9 +94,9 @@ func (h *NLPHandler) RecordFeedback(
 	}
 	if h.brierMonitor != nil && req.Msg != nil && req.Msg.IsCorrect {
 		prediction := &nlp.AlephPrediction{
-			EntityId:      req.Msg.EntityId,
-			Probability:    0.5,
-			ModelSource:    "feedback",
+			EntityId:    req.Msg.EntityId,
+			Probability: 0.5,
+			ModelSource: "feedback",
 		}
 		actual := float32(1.0)
 		if !req.Msg.IsCorrect {

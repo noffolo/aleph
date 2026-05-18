@@ -9,9 +9,9 @@ import (
 	"connectrpc.com/connect"
 	v1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/registry"
+	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/marcboeker/go-duckdb"
 )
 
 // setupRegistryBackend creates a :memory: DuckDB with the components table

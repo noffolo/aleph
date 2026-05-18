@@ -19,8 +19,8 @@ func TestNewNotificationHandler(t *testing.T) {
 
 func TestNotificationHandler_SendWebhook_RequestFields(t *testing.T) {
 	req := connect.NewRequest(&v1.SendWebhookRequest{
-		Url:        "https://hooks.example.com/webhook",
-		Secret:     "whsec-abc123",
+		Url:         "https://hooks.example.com/webhook",
+		Secret:      "whsec-abc123",
 		PayloadJson: `{"event":"test"}`,
 	})
 	assert.Equal(t, "https://hooks.example.com/webhook", req.Msg.Url)
@@ -30,8 +30,8 @@ func TestNotificationHandler_SendWebhook_RequestFields(t *testing.T) {
 
 func TestNotificationHandler_SendWebhook_NoSecret(t *testing.T) {
 	req := connect.NewRequest(&v1.SendWebhookRequest{
-		Url:        "https://hooks.example.com/webhook",
-		Secret:     "",
+		Url:         "https://hooks.example.com/webhook",
+		Secret:      "",
 		PayloadJson: `{"event":"test"}`,
 	})
 	assert.Empty(t, req.Msg.Secret)

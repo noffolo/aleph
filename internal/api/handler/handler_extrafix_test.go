@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
-	v1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	nlpv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
+	v1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -120,7 +120,7 @@ func TestSkillHandler_DeleteSkill_NotFoundV2(t *testing.T) {
 
 func TestToolExecutor_ExecuteTool_UnknownV2(t *testing.T) {
 	e := &toolExecutor{}
-	result, needsConf, err := e.ExecuteTool(context.Background(), "unknown_tool", map[string]interface{}{}, "p1", "a1")
+	result, needsConf, err := e.ExecuteTool(context.Background(), "unknown_tool", map[string]any{}, "p1", "a1")
 	assert.NoError(t, err)
 	assert.True(t, needsConf)
 	assert.Contains(t, result, "unknown_tool")
@@ -132,7 +132,7 @@ func TestToolExecutor_ExecuteSearchData_MissingObject(t *testing.T) {
 			return connect.NewResponse(&v1.ExecuteQueryResponse{}), nil
 		},
 	}
-	_, _, err := e.executeSearchData(context.Background(), map[string]interface{}{}, "p1")
+	_, _, err := e.executeSearchData(context.Background(), map[string]any{}, "p1")
 	require.Error(t, err)
 }
 

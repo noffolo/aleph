@@ -11,9 +11,9 @@ import (
 	"github.com/ff3300/aleph-v2/internal/registry"
 	"github.com/ff3300/aleph-v2/internal/repository"
 	"github.com/ff3300/aleph-v2/internal/sandbox"
+	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/marcboeker/go-duckdb"
 )
 
 func TestRegistryHelpers(t *testing.T) {
@@ -136,10 +136,10 @@ func TestSkillHandler(t *testing.T) {
 
 type mockSandboxMgr struct{}
 
-func (m *mockSandboxMgr) ExecuteTool(ctx context.Context, toolID string, input map[string]interface{}) (sandbox.ExecutionResult, error) {
+func (m *mockSandboxMgr) ExecuteTool(ctx context.Context, toolID string, input map[string]any) (sandbox.ExecutionResult, error) {
 	return sandbox.ExecutionResult{Stdout: "out", ExitCode: 0}, nil
 }
-func (m *mockSandboxMgr) RunSkill(ctx context.Context, skillID string, input map[string]interface{}) (sandbox.ExecutionResult, error) {
+func (m *mockSandboxMgr) RunSkill(ctx context.Context, skillID string, input map[string]any) (sandbox.ExecutionResult, error) {
 	return sandbox.ExecutionResult{Stdout: "skill-out", ExitCode: 0}, nil
 }
 

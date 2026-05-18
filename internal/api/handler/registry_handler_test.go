@@ -46,16 +46,16 @@ func TestDerefFloat(t *testing.T) {
 func TestProtoFromMeta_BasicFields(t *testing.T) {
 	now := time.Now().UTC()
 	meta := registry.ComponentMetadata{
-		ID:                "comp-1",
-		Name:              "test-component",
-		Description:       "A test component",
-		Version:           "1.0.0",
-		Type:              "tool",
-		Category:          "finance",
-		Source:            "internal",
-		Status:            "active",
-		ApprovalStatus:    "approved",
-		CreationTimestamp: now,
+		ID:                   "comp-1",
+		Name:                 "test-component",
+		Description:          "A test component",
+		Version:              "1.0.0",
+		Type:                 "tool",
+		Category:             "finance",
+		Source:               "internal",
+		Status:               "active",
+		ApprovalStatus:       "approved",
+		CreationTimestamp:    now,
 		LastUpdatedTimestamp: now,
 	}
 
@@ -110,21 +110,21 @@ func TestProtoFromMeta_NilFields(t *testing.T) {
 func TestProtoFromMeta_WithOptionalFields(t *testing.T) {
 	now := time.Now().UTC()
 	meta := registry.ComponentMetadata{
-		ID:               "comp-full",
-		Name:             "full",
-		ConfigSchemaJSON: `{"type":"object"}`,
-		InputSchemaJSON:  `{"properties":{}}`,
-		OutputSchemaJSON: `{"result":"string"}`,
-		DependenciesJSON: `["dep1"]`,
-		PromptTemplate:   "You are {{name}}",
-		AvgCpuUsage:      0.75,
-		AvgMemoryMb:      128.0,
-		AvgExecTimeMs:    42.0,
-		AvgBrierScore:    0.15,
-		AvgLatencyMs:     200.0,
-		TrustScore:       0.95,
-		CreatedByAgentId: "agent-42",
-		CreationTimestamp: now,
+		ID:                   "comp-full",
+		Name:                 "full",
+		ConfigSchemaJSON:     `{"type":"object"}`,
+		InputSchemaJSON:      `{"properties":{}}`,
+		OutputSchemaJSON:     `{"result":"string"}`,
+		DependenciesJSON:     `["dep1"]`,
+		PromptTemplate:       "You are {{name}}",
+		AvgCpuUsage:          0.75,
+		AvgMemoryMb:          128.0,
+		AvgExecTimeMs:        42.0,
+		AvgBrierScore:        0.15,
+		AvgLatencyMs:         200.0,
+		TrustScore:           0.95,
+		CreatedByAgentId:     "agent-42",
+		CreationTimestamp:    now,
 		LastUpdatedTimestamp: now,
 	}
 

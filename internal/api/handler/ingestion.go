@@ -46,7 +46,9 @@ func (h *IngestionHandler) ListTasks(
 ) (*connect.Response[v1.ListTasksResponse], error) {
 	projectID := req.Msg.ProjectId
 	tasks, err := h.metaRepo.ListTasks(projectID)
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	var result []*v1.IngestionTask
 	for _, t := range tasks {
@@ -76,7 +78,9 @@ func (h *IngestionHandler) CreateTask(
 		SourceType: task.SourceType, ConfigJSON: task.ConfigJson,
 		Schedule: task.Schedule, Status: "idle", Progress: 0,
 	})
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	return connect.NewResponse(&v1.CreateTaskResponse{Task: task}), nil
 }
@@ -120,9 +124,13 @@ func (h *IngestionHandler) GetTaskLogs(
 	projectID := req.Msg.ProjectId
 	taskID := req.Msg.TaskId
 	logPath, err := sanitizePath(h.projectsRoot, projectID, "logs", taskID+".log")
-	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	data, err := os.ReadFile(logPath)
-	if err != nil { return connect.NewResponse(&v1.GetTaskLogsResponse{Logs: "No logs found."}), nil }
+	if err != nil {
+		return connect.NewResponse(&v1.GetTaskLogsResponse{Logs: "No logs found."}), nil
+	}
 	return connect.NewResponse(&v1.GetTaskLogsResponse{Logs: string(data)}), nil
 }
 
@@ -131,6 +139,8 @@ func (h *IngestionHandler) DeleteTask(
 	req *connect.Request[v1.DeleteTaskRequest],
 ) (*connect.Response[v1.DeleteTaskResponse], error) {
 	err := h.metaRepo.DeleteTask(req.Msg.Id, req.Msg.ProjectId)
-	if err != nil { return nil, connect.NewError(connect.CodeInternal, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&v1.DeleteTaskResponse{Success: true}), nil
 }

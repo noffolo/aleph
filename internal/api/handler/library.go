@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/jung-kurt/gofpdf"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
+	"github.com/jung-kurt/gofpdf"
 )
 
 type LibraryHandler struct {
@@ -58,7 +58,9 @@ func (h *LibraryHandler) GetAssetContent(
 	projectID := req.Msg.ProjectId
 	assetID := req.Msg.AssetId
 	path, err := sanitizePath(h.projectsRoot, projectID, "library", assetID)
-	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -75,7 +77,9 @@ func (h *LibraryHandler) DeleteAsset(
 	projectID := req.Msg.ProjectId
 	assetID := req.Msg.Id
 	path, err := sanitizePath(h.projectsRoot, projectID, "library", assetID)
-	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	if err := os.Remove(path); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -91,7 +95,9 @@ func (h *LibraryHandler) GeneratePdf(
 	projectID := req.Msg.ProjectId
 	assetID := req.Msg.AssetId
 	path, err := sanitizePath(h.projectsRoot, projectID, "library", assetID)
-	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -159,7 +165,9 @@ func (h *LibraryHandler) UploadAsset(
 	safeName := filepath.Base(filename)
 
 	safeDestPath, perr := sanitizePath(h.projectsRoot, projectID, "library", safeName)
-	if perr != nil { return nil, connect.NewError(connect.CodeInvalidArgument, perr) }
+	if perr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, perr)
+	}
 
 	if err := os.WriteFile(safeDestPath, content, 0644); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to write asset: %v", err))

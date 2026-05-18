@@ -15,9 +15,9 @@ import (
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/repository"
 	"github.com/ff3300/aleph-v2/internal/storage"
+	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/marcboeker/go-duckdb"
 )
 
 func setupProjectHandler(t *testing.T) (*ProjectHandler, string) {
@@ -137,14 +137,14 @@ func TestNegotiateFlow(t *testing.T) {
 	ontoRepo := setupOntologyRepo(t)
 	h.SetOntologyRepository(ontoRepo)
 
-	proposeBody := map[string]interface{}{
-		"project_id":          "test-proj",
-		"parent_version_id":   "",
-		"aleph_definition":    "object User\n  from dataset users\n  id id\n  property name type text from name\n",
-		"diff_json":           `{"add_object":"User","parent_hash":"base"}`,
-		"source_description":  "test emergence",
-		"rationale":           "adding User entity",
-		"confidence":          0.95,
+	proposeBody := map[string]any{
+		"project_id":         "test-proj",
+		"parent_version_id":  "",
+		"aleph_definition":   "object User\n  from dataset users\n  id id\n  property name type text from name\n",
+		"diff_json":          `{"add_object":"User","parent_hash":"base"}`,
+		"source_description": "test emergence",
+		"rationale":          "adding User entity",
+		"confidence":         0.95,
 	}
 	proposeJSON, err := json.Marshal(proposeBody)
 	require.NoError(t, err)
@@ -156,7 +156,7 @@ func TestNegotiateFlow(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, proposeRR.Code, "propose should succeed")
 
-	var proposeResp map[string]interface{}
+	var proposeResp map[string]any
 	require.NoError(t, json.Unmarshal(proposeRR.Body.Bytes(), &proposeResp))
 
 	versionID, ok := proposeResp["version_id"].(string)
@@ -174,7 +174,7 @@ func TestNegotiateFlow(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, acceptRR.Code, "accept should succeed")
 
-	var acceptResp map[string]interface{}
+	var acceptResp map[string]any
 	require.NoError(t, json.Unmarshal(acceptRR.Body.Bytes(), &acceptResp))
 	assert.Equal(t, "accepted", acceptResp["status"], "status should be accepted")
 	assert.Equal(t, versionID, acceptResp["version_id"], "version_id should match")
@@ -185,14 +185,14 @@ func TestNegotiateFlow(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, listRR.Code, "list should succeed")
 
-	var listResp map[string]interface{}
+	var listResp map[string]any
 	require.NoError(t, json.Unmarshal(listRR.Body.Bytes(), &listResp))
 
-	versions, ok := listResp["versions"].([]interface{})
+	versions, ok := listResp["versions"].([]any)
 	require.True(t, ok, "versions should be an array")
 	require.Len(t, versions, 1, "should have exactly one version")
 
-	versionMap, ok := versions[0].(map[string]interface{})
+	versionMap, ok := versions[0].(map[string]any)
 	require.True(t, ok)
 
 	assert.Equal(t, versionID, versionMap["version_id"], "version_id should match")
@@ -476,19 +476,19 @@ func TestProjectHandler_NegotiateReject_Flow(t *testing.T) {
 	ontoRepo := setupOntologyRepo(t)
 	h.SetOntologyRepository(ontoRepo)
 
-	proposeBody, _ := json.Marshal(map[string]interface{}{
-		"project_id":        "reject-test",
-		"aleph_definition":  "object X\n id id",
-		"diff_json":         "{}",
-		"source_description":"test",
-		"rationale":         "reason",
+	proposeBody, _ := json.Marshal(map[string]any{
+		"project_id":         "reject-test",
+		"aleph_definition":   "object X\n id id",
+		"diff_json":          "{}",
+		"source_description": "test",
+		"rationale":          "reason",
 	})
 	proposeReq := httptest.NewRequest(http.MethodPost, "/api/v1/ontology/propose", bytes.NewReader(proposeBody))
 	proposeReq.Header.Set("Content-Type", "application/json")
 	proposeW := httptest.NewRecorder()
 	h.NegotiatePropose(proposeW, proposeReq)
 
-	var proposeResp map[string]interface{}
+	var proposeResp map[string]any
 	json.Unmarshal(proposeW.Body.Bytes(), &proposeResp)
 	versionID := proposeResp["version_id"].(string)
 

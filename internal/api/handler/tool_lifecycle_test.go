@@ -197,7 +197,7 @@ type ToolLifecycleRunner struct {
 // RunToolInstall executes the full lifecycle for a /tool install <category> command.
 func (r *ToolLifecycleRunner) RunToolInstall(ctx context.Context, category string) *ToolInstallResult {
 	res := &ToolInstallResult{
-		Category: category,
+		Category:  category,
 		AllPassed: true,
 	}
 
@@ -301,11 +301,11 @@ func (r *ToolLifecycleRunner) RunToolInstall(ctx context.Context, category strin
 
 func TestParseToolInstallCommand(t *testing.T) {
 	tests := []struct {
-		name           string
-		msg            string
-		wantCategory   string
-		wantExtra      string
-		wantOK         bool
+		name         string
+		msg          string
+		wantCategory string
+		wantExtra    string
+		wantOK       bool
 	}{
 		{
 			name:         "simple category",
@@ -366,10 +366,10 @@ func TestToolLifecycle_InstallFinance(t *testing.T) {
 		Description: "Financial analysis tool",
 		Version:     "1.0.0",
 		Category:    "finance",
-		InputSchema: map[string]interface{}{
+		InputSchema: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"ticker": map[string]interface{}{"type": "string"},
+			"properties": map[string]any{
+				"ticker": map[string]any{"type": "string"},
 			},
 		},
 	}
@@ -589,9 +589,9 @@ func TestToolLifecycle_InstallFinance(t *testing.T) {
 
 func TestToolInstallResult_FormatOutput(t *testing.T) {
 	tests := []struct {
-		name     string
-		result   *ToolInstallResult
-		wantOut  string
+		name    string
+		result  *ToolInstallResult
+		wantOut string
 	}{
 		{
 			name: "all pass",

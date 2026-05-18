@@ -13,9 +13,9 @@ import (
 	"github.com/ff3300/aleph-v2/internal/mcp"
 	"github.com/ff3300/aleph-v2/internal/repository"
 	"github.com/ff3300/aleph-v2/internal/tools/adaptation"
+	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/marcboeker/go-duckdb"
 )
 
 func setupDiscoveryEngine(t *testing.T) *mcp.DiscoveryEngine {

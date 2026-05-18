@@ -19,9 +19,9 @@ import (
 	"github.com/ff3300/aleph-v2/internal/repository"
 	"github.com/ff3300/aleph-v2/internal/service/notification"
 	"github.com/ff3300/aleph-v2/internal/tools/adaptation"
+	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/marcboeker/go-duckdb"
 	"log/slog"
 )
 
@@ -505,7 +505,7 @@ func TestNotificationHandler_SendWebhook_Success(t *testing.T) {
 	h := &NotificationHandler{svc: svc}
 
 	resp, err := h.SendWebhook(context.Background(), connect.NewRequest(&v1.SendWebhookRequest{
-		Url:        "https://example.com/webhook",
+		Url:         "https://example.com/webhook",
 		PayloadJson: `{"key":"value"}`,
 	}))
 	require.NoError(t, err)
@@ -897,7 +897,7 @@ func TestSSEHandler_Stream_MethodNotAllowed(t *testing.T) {
 
 func TestSSEHandler_isAuthenticatedForSSE_NoCookieNoHeader(t *testing.T) {
 	logger := slog.Default()
-	broker := 	sse.NewBroker(30*time.Second, logger)
+	broker := sse.NewBroker(30*time.Second, logger)
 	h := NewSSEHandler(broker, logger)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/events", nil)
@@ -906,7 +906,7 @@ func TestSSEHandler_isAuthenticatedForSSE_NoCookieNoHeader(t *testing.T) {
 
 func TestSSEHandler_isAuthenticatedForSSE_NilMetaRepo(t *testing.T) {
 	logger := slog.Default()
-	broker := 	sse.NewBroker(30*time.Second, logger)
+	broker := sse.NewBroker(30*time.Second, logger)
 	h := NewSSEHandler(broker, logger)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/events", nil)
@@ -917,7 +917,7 @@ func TestSSEHandler_isAuthenticatedForSSE_NilMetaRepo(t *testing.T) {
 func TestSSEHandler_WithMetaRepoV2(t *testing.T) {
 	repo := setupMetaRepoExtended(t)
 	logger := slog.Default()
-	broker := 	sse.NewBroker(30*time.Second, logger)
+	broker := sse.NewBroker(30*time.Second, logger)
 	h := NewSSEHandler(broker, logger).WithMetaRepo(repo)
 
 	assert.Equal(t, repo, h.metaRepo)
@@ -925,7 +925,7 @@ func TestSSEHandler_WithMetaRepoV2(t *testing.T) {
 
 func TestSSEHandler_WithJWTSecretV2(t *testing.T) {
 	logger := slog.Default()
-	broker := 	sse.NewBroker(30*time.Second, logger)
+	broker := sse.NewBroker(30*time.Second, logger)
 	secret := []byte("test-secret")
 	h := NewSSEHandler(broker, logger).WithJWTSecret(secret)
 
@@ -1169,7 +1169,7 @@ func TestProjectHandler_NegotiateAccept_Coverage(t *testing.T) {
 	h.NegotiatePropose(propW, propReq)
 	require.Equal(t, http.StatusOK, propW.Code)
 
-	var propResp map[string]interface{}
+	var propResp map[string]any
 	require.NoError(t, json.Unmarshal(propW.Body.Bytes(), &propResp))
 	versionID := propResp["version_id"].(string)
 
@@ -1196,7 +1196,7 @@ func TestProjectHandler_NegotiateReject_Coverage(t *testing.T) {
 	h.NegotiatePropose(propW, propReq)
 	require.Equal(t, http.StatusOK, propW.Code)
 
-	var propResp map[string]interface{}
+	var propResp map[string]any
 	require.NoError(t, json.Unmarshal(propW.Body.Bytes(), &propResp))
 	versionID := propResp["version_id"].(string)
 
@@ -1269,4 +1269,3 @@ func TestSanitizePdfString(t *testing.T) {
 }
 
 // ─── Pagination Tests ──────────────────────────────────────────────────────
-

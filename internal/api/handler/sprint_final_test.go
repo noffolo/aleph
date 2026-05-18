@@ -18,9 +18,9 @@ import (
 	"unsafe"
 
 	"connectrpc.com/connect"
-	v1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	nlp "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1/nlpconnect"
+	v1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/auth"
 	"github.com/ff3300/aleph-v2/internal/dsl"
 	"github.com/ff3300/aleph-v2/internal/mcp"
@@ -29,9 +29,9 @@ import (
 	"github.com/ff3300/aleph-v2/internal/ssrf"
 	"github.com/ff3300/aleph-v2/internal/storage"
 	"github.com/ff3300/aleph-v2/internal/tools/adaptation"
+	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/marcboeker/go-duckdb"
 )
 
 var _ nlpconnect.NLPServiceClient = (*mockNLPClient)(nil)
@@ -41,13 +41,13 @@ type streamConn struct {
 	sends int
 }
 
-func (s *streamConn) Send(msg any) error             { s.sends++; return nil }
-func (s *streamConn) Receive(any) error               { return nil }
-func (s *streamConn) RequestHeader() http.Header      { return http.Header{} }
-func (s *streamConn) ResponseHeader() http.Header     { return http.Header{} }
-func (s *streamConn) ResponseTrailer() http.Header     { return http.Header{} }
-func (s *streamConn) Spec() connect.Spec              { return connect.Spec{} }
-func (s *streamConn) Peer() connect.Peer              { return connect.Peer{} }
+func (s *streamConn) Send(msg any) error           { s.sends++; return nil }
+func (s *streamConn) Receive(any) error            { return nil }
+func (s *streamConn) RequestHeader() http.Header   { return http.Header{} }
+func (s *streamConn) ResponseHeader() http.Header  { return http.Header{} }
+func (s *streamConn) ResponseTrailer() http.Header { return http.Header{} }
+func (s *streamConn) Spec() connect.Spec           { return connect.Spec{} }
+func (s *streamConn) Peer() connect.Peer           { return connect.Peer{} }
 
 // unsafeSetStreamConn sets the unexported conn field of a ServerStream using unsafe pointer arithmetic.
 // This is required because connect.ServerStream has no public constructor for testing.
@@ -290,17 +290,17 @@ func TestBuildMinimalToolsMap_WithTools(t *testing.T) {
 	result := buildMinimalToolsMap(context.Background(), metaRepo)
 	require.Len(t, result, 2)
 	assert.Equal(t, "function", result[0]["type"])
-	fn0 := result[0]["function"].(map[string]interface{})
+	fn0 := result[0]["function"].(map[string]any)
 	assert.Equal(t, "tool_with_params", fn0["name"])
 	assert.NotNil(t, fn0["parameters"])
 
-	fn1 := result[1]["function"].(map[string]interface{})
+	fn1 := result[1]["function"].(map[string]any)
 	assert.Equal(t, "bare_tool", fn1["name"])
 	assert.Nil(t, fn1["parameters"])
 }
 
 func TestLastUserMessage(t *testing.T) {
-	cs := &ChatSession{chatMessages: []map[string]interface{}{
+	cs := &ChatSession{chatMessages: []map[string]any{
 		{"role": "system", "content": "sys"},
 		{"role": "user", "content": "first"},
 		{"role": "assistant", "content": "reply"},
@@ -311,7 +311,7 @@ func TestLastUserMessage(t *testing.T) {
 
 func TestLastUserMessage_None(t *testing.T) {
 	assert.Empty(t, (&ChatSession{}).lastUserMessage())
-	cs := &ChatSession{chatMessages: []map[string]interface{}{
+	cs := &ChatSession{chatMessages: []map[string]any{
 		{"role": "system", "content": "sys"},
 	}}
 	assert.Empty(t, cs.lastUserMessage())
@@ -390,7 +390,7 @@ func TestEmergePrompt_NoRels_Sprint(t *testing.T) {
 func TestToolExecutor_AnalyzeSentiment_NilNLP(t *testing.T) {
 	exec := NewHandlerToolExecutor(nil, nil, nil).(*toolExecutor)
 	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "analyze_sentiment",
-		map[string]interface{}{"text": "hello"}, "", "")
+		map[string]any{"text": "hello"}, "", "")
 	require.NoError(t, err)
 	assert.False(t, needsConfirm)
 	assert.Contains(t, result, "unavailable")
@@ -404,11 +404,11 @@ func TestToolExecutor_GetTrustScore_WithRegistry_Sprint(t *testing.T) {
 
 	exec := NewHandlerToolExecutor(nil, nil, reg).(*toolExecutor)
 	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "get_trust_score",
-		map[string]interface{}{"entity_id": id}, "", "")
+		map[string]any{"entity_id": id}, "", "")
 	require.NoError(t, err)
 	assert.False(t, needsConfirm)
 
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	json.Unmarshal([]byte(result), &parsed)
 	assert.Equal(t, id, parsed["entity_id"])
 }
@@ -418,14 +418,14 @@ func TestToolExecutor_GetTrustScore_EntityNotFound(t *testing.T) {
 
 	exec := NewHandlerToolExecutor(nil, nil, reg).(*toolExecutor)
 	_, _, err := exec.ExecuteTool(context.Background(), "get_trust_score",
-		map[string]interface{}{"entity_id": "nonexistent"}, "", "")
+		map[string]any{"entity_id": "nonexistent"}, "", "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
 
 func TestToolExecutor_UnknownTool(t *testing.T) {
 	exec := NewHandlerToolExecutor(nil, nil, nil).(*toolExecutor)
-	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "unknown", map[string]interface{}{}, "p", "a")
+	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "unknown", map[string]any{}, "p", "a")
 	require.NoError(t, err)
 	assert.True(t, needsConfirm)
 	assert.Contains(t, result, "conferma")
@@ -1283,7 +1283,7 @@ func TestToolHandler_HandleHealth(t *testing.T) {
 	h.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Result().StatusCode)
 
-	var results []map[string]interface{}
+	var results []map[string]any
 	require.NoError(t, json.NewDecoder(w.Result().Body).Decode(&results))
 	assert.Len(t, results, 2)
 }
@@ -1452,7 +1452,7 @@ func TestToolHandler_HandleHealthHistory_Post(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.HandleHealthHistory(w, req)
 	assert.Equal(t, http.StatusOK, w.Result().StatusCode)
-	var resp map[string]interface{}
+	var resp map[string]any
 	require.NoError(t, json.NewDecoder(w.Result().Body).Decode(&resp))
 	assert.Equal(t, "hh1", resp["tool_id"])
 	assert.Equal(t, "degraded", resp["health_status"])
@@ -1464,8 +1464,8 @@ func TestToolHandler_HandleHealthHistory_Post(t *testing.T) {
 
 // mockNLPClient implements nlpconnect.NLPServiceClient for testing NLPHandler.
 type mockNLPClient struct {
-	analyzeFunc       func(context.Context, *connect.Request[nlp.AnalyzeSentimentRequest]) (*connect.Response[nlp.AnalyzeSentimentResponse], error)
-	streamFunc        func(context.Context, *connect.Request[nlp.StreamPredictionsRequest]) (*connect.ServerStreamForClient[nlp.StreamPredictionsResponse], error)
+	analyzeFunc        func(context.Context, *connect.Request[nlp.AnalyzeSentimentRequest]) (*connect.Response[nlp.AnalyzeSentimentResponse], error)
+	streamFunc         func(context.Context, *connect.Request[nlp.StreamPredictionsRequest]) (*connect.ServerStreamForClient[nlp.StreamPredictionsResponse], error)
 	recordFeedbackFunc func(context.Context, *connect.Request[nlp.RecordFeedbackRequest]) (*connect.Response[nlp.RecordFeedbackResponse], error)
 }
 
@@ -1493,7 +1493,7 @@ func (m *mockNLPClient) RecordFeedback(ctx context.Context, req *connect.Request
 func TestNLPHandler_AnalyzeSentiment_Success(t *testing.T) {
 	mock := &mockNLPClient{
 		analyzeFunc: func(ctx context.Context, req *connect.Request[nlp.AnalyzeSentimentRequest]) (*connect.Response[nlp.AnalyzeSentimentResponse], error) {
-		return connect.NewResponse(&nlp.AnalyzeSentimentResponse{
+			return connect.NewResponse(&nlp.AnalyzeSentimentResponse{
 				Label: "positive",
 				Score: 0.85,
 			}), nil
@@ -2036,7 +2036,7 @@ func TestQueryHandler_GetDataStats_DuckDB(t *testing.T) {
 
 	h := &QueryHandler{
 		db: duck, projectsRoot: projDir,
-		programs:  newProgramCache(),
+		programs:   newProgramCache(),
 		httpClient: ssrf.NewClient(),
 	}
 	// If DSL compilation fails (no parquet), we just verify the handler doesn't panic
@@ -2065,7 +2065,7 @@ func TestToolExecutor_AnalyzeSentiment_WithWorkingNLP_Sprint(t *testing.T) {
 	nlpHandler := &NLPHandler{logger: slog.Default(), nlpClient: cb, breakerClient: cb}
 	exec := NewHandlerToolExecutor(nil, nlpHandler, nil).(*toolExecutor)
 	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "analyze_sentiment",
-		map[string]interface{}{"text": "hello world"}, "", "")
+		map[string]any{"text": "hello world"}, "", "")
 	require.NoError(t, err)
 	assert.False(t, needsConfirm)
 	assert.Contains(t, result, `"score":0.5`)
@@ -2220,7 +2220,7 @@ func TestNLPHandler_RecordFeedback_WithBrierMonitor_Sprint(t *testing.T) {
 func TestToolExecutor_AnalyzeSentiment_NilNLP_Sprint(t *testing.T) {
 	exec := NewHandlerToolExecutor(nil, nil, nil).(*toolExecutor)
 	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "analyze_sentiment",
-		map[string]interface{}{"text": "hello"}, "", "")
+		map[string]any{"text": "hello"}, "", "")
 	require.NoError(t, err)
 	assert.False(t, needsConfirm)
 	assert.Contains(t, result, "unavailable")
@@ -2229,7 +2229,7 @@ func TestToolExecutor_AnalyzeSentiment_NilNLP_Sprint(t *testing.T) {
 func TestToolExecutor_AnalyzeSentiment_EmptyText_Sprint(t *testing.T) {
 	exec := NewHandlerToolExecutor(nil, nil, nil).(*toolExecutor)
 	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "analyze_sentiment",
-		map[string]interface{}{}, "", "")
+		map[string]any{}, "", "")
 	require.Error(t, err)
 	assert.False(t, needsConfirm)
 	assert.Empty(t, result)
@@ -2238,7 +2238,7 @@ func TestToolExecutor_AnalyzeSentiment_EmptyText_Sprint(t *testing.T) {
 func TestToolExecutor_GetTrustScore_NilRegistry_Sprint(t *testing.T) {
 	exec := NewHandlerToolExecutor(nil, nil, nil).(*toolExecutor)
 	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "get_trust_score",
-		map[string]interface{}{"entity_id": "e1"}, "", "")
+		map[string]any{"entity_id": "e1"}, "", "")
 	require.NoError(t, err)
 	assert.False(t, needsConfirm)
 	assert.Contains(t, result, "unavailable")
@@ -2247,7 +2247,7 @@ func TestToolExecutor_GetTrustScore_NilRegistry_Sprint(t *testing.T) {
 func TestToolExecutor_GetTrustScore_EmptyEntity_Sprint(t *testing.T) {
 	exec := NewHandlerToolExecutor(nil, nil, nil).(*toolExecutor)
 	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "get_trust_score",
-		map[string]interface{}{}, "", "")
+		map[string]any{}, "", "")
 	require.Error(t, err)
 	assert.False(t, needsConfirm)
 	assert.Empty(t, result)
@@ -2327,7 +2327,7 @@ func TestQueryHandler_GetDataLineage_WithValidTable(t *testing.T) {
 }
 
 // =============================================================================
-// 46. BREAKER: StreamPredictions via NLP client 
+// 46. BREAKER: StreamPredictions via NLP client
 // =============================================================================
 
 func TestBreakerClient_StreamPredictions_OpenState_Sprint(t *testing.T) {

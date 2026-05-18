@@ -20,10 +20,10 @@ import (
 type ToolSuggestHandler struct {
 	discoveryEngine *mcp.DiscoveryEngine
 	pipeline        *adaptation.Pipeline
-	mcpServerURIs  []string
-	mu             sync.Mutex
-	pending        map[string]*pendingSuggestion
-	nextID         atomic.Int64
+	mcpServerURIs   []string
+	mu              sync.Mutex
+	pending         map[string]*pendingSuggestion
+	nextID          atomic.Int64
 }
 
 type pendingSuggestion struct {
@@ -42,8 +42,8 @@ func NewToolSuggestHandler(
 	return &ToolSuggestHandler{
 		discoveryEngine: discoveryEngine,
 		pipeline:        pipeline,
-		mcpServerURIs:  mcpServerURIs,
-		pending:        make(map[string]*pendingSuggestion),
+		mcpServerURIs:   mcpServerURIs,
+		pending:         make(map[string]*pendingSuggestion),
 	}
 }
 
@@ -77,15 +77,15 @@ type analysisJSON struct {
 }
 
 type suggestResponse struct {
-	SuggestionID string         `json:"suggestion_id,omitempty"`
-	Name         string         `json:"name"`
-	Description  string         `json:"description,omitempty"`
-	Version      string         `json:"version"`
+	SuggestionID string            `json:"suggestion_id,omitempty"`
+	Name         string            `json:"name"`
+	Description  string            `json:"description,omitempty"`
+	Version      string            `json:"version"`
 	Stages       []stageResultJSON `json:"stages,omitempty"`
-	Analysis     *analysisJSON  `json:"analysis,omitempty"`
-	AdaptedCode  string         `json:"adapted_code,omitempty"`
-	Approved     bool           `json:"approved"`
-	Error        string         `json:"error,omitempty"`
+	Analysis     *analysisJSON     `json:"analysis,omitempty"`
+	AdaptedCode  string            `json:"adapted_code,omitempty"`
+	Approved     bool              `json:"approved"`
+	Error        string            `json:"error,omitempty"`
 }
 
 type approveResponse struct {
@@ -158,9 +158,9 @@ func (h *ToolSuggestHandler) HandleSuggest(w http.ResponseWriter, r *http.Reques
 	for _, s := range result.Stages {
 		if !s.Passed {
 			writeJSON(w, http.StatusUnprocessableEntity, suggestResponse{
-				Name:    toolDef.Name,
-				Error:   fmt.Sprintf("stage %s failed: %s", s.Name, s.Message),
-				Stages:  toStageResultJSON(result.Stages),
+				Name:   toolDef.Name,
+				Error:  fmt.Sprintf("stage %s failed: %s", s.Name, s.Message),
+				Stages: toStageResultJSON(result.Stages),
 			})
 			return
 		}

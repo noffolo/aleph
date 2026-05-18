@@ -71,7 +71,7 @@ type detectedRelationship struct {
 	FromColumn string `json:"from_column"`
 	ToObject   string `json:"to_object"`
 	ToColumn   string `json:"to_column"`
-	Type       string `json:"type"` // "fk", "name_match"
+	Type       string `json:"type"`       // "fk", "name_match"
 	Confidence string `json:"confidence"` // "high", "medium", "low"
 }
 
@@ -181,8 +181,10 @@ func (h *ProjectHandler) GetOntology(
 ) (*connect.Response[v1.GetOntologyResponse], error) {
 	projectID := req.Msg.ProjectId
 	ontPath, err := sanitizePath(h.projectsRoot, projectID, "ontologies", "core.aleph")
-	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
-	
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
 	content, err := os.ReadFile(ontPath)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, err)
@@ -224,8 +226,10 @@ func (h *ProjectHandler) SaveOntology(
 ) (*connect.Response[v1.SaveOntologyResponse], error) {
 	projectID := req.Msg.ProjectId
 	ontPath, err := sanitizePath(h.projectsRoot, projectID, "ontologies", "core.aleph")
-	if err != nil { return nil, connect.NewError(connect.CodeInvalidArgument, err) }
-	
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
 	// Atomic Backup
 	if _, err := os.Stat(ontPath); err == nil {
 		bakPath := ontPath + "." + fmt.Sprintf("%d", time.Now().Unix()) + ".bak"
@@ -419,7 +423,7 @@ func (h *ProjectHandler) EmergeOntology(
 	if h.llm != nil {
 		resp, llmErr := h.llm.Complete(ctx, llm.CompletionRequest{
 			Model: "llama3.2",
-			Messages: []map[string]interface{}{
+			Messages: []map[string]any{
 				{"role": "user", "content": h.emergePrompt(schemas, rels)},
 			},
 		})
@@ -476,13 +480,13 @@ func (h *ProjectHandler) NegotiatePropose(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var req struct {
-		ProjectID        string `json:"project_id"`
-		ParentVersionID  string `json:"parent_version_id"`
-		AlephDefinition  string `json:"aleph_definition"`
-		DiffJSON         string `json:"diff_json"`
-		SourceDescription string `json:"source_description"`
-		Rationale        string `json:"rationale"`
-		Confidence       float64 `json:"confidence"`
+		ProjectID         string  `json:"project_id"`
+		ParentVersionID   string  `json:"parent_version_id"`
+		AlephDefinition   string  `json:"aleph_definition"`
+		DiffJSON          string  `json:"diff_json"`
+		SourceDescription string  `json:"source_description"`
+		Rationale         string  `json:"rationale"`
+		Confidence        float64 `json:"confidence"`
 	}
 	if err := json.Unmarshal(body, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"invalid JSON: %s"}`, err.Error()), http.StatusBadRequest)
@@ -500,7 +504,7 @@ func (h *ProjectHandler) NegotiatePropose(w http.ResponseWriter, r *http.Request
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"version_id": versionID,
 		"preview":    req.AlephDefinition,
 		"warnings":   []string{},
@@ -577,23 +581,23 @@ func (h *ProjectHandler) NegotiateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type versionEntry struct {
-		VersionID        string `json:"version_id"`
-		ParentVersionID  string `json:"parent_version_id,omitempty"`
-		CreatedAt        string `json:"created_at"`
-		Status           string `json:"status"`
-		SourceDescription string `json:"source_description,omitempty"`
-		Rationale        string `json:"rationale,omitempty"`
-		Confidence       float64 `json:"confidence,omitempty"`
+		VersionID         string  `json:"version_id"`
+		ParentVersionID   string  `json:"parent_version_id,omitempty"`
+		CreatedAt         string  `json:"created_at"`
+		Status            string  `json:"status"`
+		SourceDescription string  `json:"source_description,omitempty"`
+		Rationale         string  `json:"rationale,omitempty"`
+		Confidence        float64 `json:"confidence,omitempty"`
 	}
 	var entries []versionEntry
 	for _, v := range versions {
 		e := versionEntry{
-			VersionID:        v.VersionID,
-			CreatedAt:        v.CreatedAt.Format(time.RFC3339),
-			Status:           v.Status,
+			VersionID:         v.VersionID,
+			CreatedAt:         v.CreatedAt.Format(time.RFC3339),
+			Status:            v.Status,
 			SourceDescription: v.SourceDescription.String,
-			Rationale:        v.Rationale.String,
-			Confidence:       v.Confidence.Float64,
+			Rationale:         v.Rationale.String,
+			Confidence:        v.Confidence.Float64,
 		}
 		if v.ParentVersionID.Valid {
 			e.ParentVersionID = v.ParentVersionID.String
@@ -601,5 +605,5 @@ func (h *ProjectHandler) NegotiateList(w http.ResponseWriter, r *http.Request) {
 		entries = append(entries, e)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"versions": entries})
+	json.NewEncoder(w).Encode(map[string]any{"versions": entries})
 }
