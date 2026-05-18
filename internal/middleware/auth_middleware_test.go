@@ -11,9 +11,9 @@ import (
 
 	"github.com/ff3300/aleph-v2/internal/auth"
 	"github.com/ff3300/aleph-v2/internal/repository"
+	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/marcboeker/go-duckdb"
 )
 
 func TestNewAuthInterceptor(t *testing.T) {
@@ -125,8 +125,8 @@ func TestIsAdmin(t *testing.T) {
 
 func TestRBACEnforcement(t *testing.T) {
 	cases := []struct {
-		procedure    string
-		role         Role
+		procedure   string
+		role        Role
 		shouldAllow bool
 	}{
 		{"/aleph.v1.AuthService/CreateApiKey", RoleAdmin, true},

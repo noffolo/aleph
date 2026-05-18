@@ -132,7 +132,7 @@ func TestRetry_MaxRetriesExceeded(t *testing.T) {
 }
 
 func TestRetry_NonRetryableError(t *testing.T) {
-  callCount := 0
+	callCount := 0
 	result, err := Retry(context.Background(), DefaultRetryConfig, func(ctx context.Context) (int, error) {
 		callCount++
 		return 0, connect.NewError(connect.CodeInvalidArgument, errors.New("client error - no retry"))
@@ -219,8 +219,7 @@ func TestRetryInterceptor_CustomConfig(t *testing.T) {
 	elapsed := time.Since(start)
 
 	require.NoError(t, err)
-  assert.Equal(t, 2, callCount)
-  assert.GreaterOrEqual(t, elapsed, 100*time.Millisecond, "should have waited at least initial delay")
-  assert.Less(t, elapsed, 300*time.Millisecond, "should have waited less than max delay + margin")
+	assert.Equal(t, 2, callCount)
+	assert.GreaterOrEqual(t, elapsed, 100*time.Millisecond, "should have waited at least initial delay")
+	assert.Less(t, elapsed, 300*time.Millisecond, "should have waited less than max delay + margin")
 }
-

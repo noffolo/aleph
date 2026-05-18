@@ -34,12 +34,12 @@ var DefaultRateLimitConfig = RateLimitConfig{
 }
 
 type multiKeyLimiter struct {
-	mu       sync.Mutex
-	ipLimits map[string]*rate.Limiter
+	mu        sync.Mutex
+	ipLimits  map[string]*rate.Limiter
 	keyLimits map[string]*rate.Limiter
-	lastSeen map[string]time.Time
-	config   RateLimitConfig
-	stopCh   chan struct{}
+	lastSeen  map[string]time.Time
+	config    RateLimitConfig
+	stopCh    chan struct{}
 }
 
 func newMultiKeyLimiter(config RateLimitConfig) *multiKeyLimiter {
@@ -215,13 +215,13 @@ func writeRateLimitResponse(w http.ResponseWriter, limit rate.Limit) {
 // AuthRateLimitConfig defines per-endpoint rate limits for auth endpoints using sliding window algorithm.
 type AuthRateLimitConfig struct {
 	SessionCreateLimit  int           // 5 req/min per IP — POST /api/v1/auth/session
-	SessionCreateWindow  time.Duration // window duration
-	ApiKeyCreateLimit    int           // 10 req/min per IP — CreateApiKey RPC
-	ApiKeyCreateWindow   time.Duration
-	ApiKeyRevokeLimit    int           // 10 req/min per IP — RevokeApiKey/DeleteApiKey RPC
-	ApiKeyRevokeWindow   time.Duration
-	ApiKeyListLimit      int           // 30 req/min per IP — ListApiKeys RPC
-	ApiKeyListWindow     time.Duration
+	SessionCreateWindow time.Duration // window duration
+	ApiKeyCreateLimit   int           // 10 req/min per IP — CreateApiKey RPC
+	ApiKeyCreateWindow  time.Duration
+	ApiKeyRevokeLimit   int // 10 req/min per IP — RevokeApiKey/DeleteApiKey RPC
+	ApiKeyRevokeWindow  time.Duration
+	ApiKeyListLimit     int // 30 req/min per IP — ListApiKeys RPC
+	ApiKeyListWindow    time.Duration
 }
 
 var DefaultAuthRateLimitConfig = AuthRateLimitConfig{
@@ -244,6 +244,9 @@ type RateLimitStore interface {
 type slidingWindowEntry struct {
 	timestamps []time.Time
 }
+
+// Compile-time assertion: memoryRateLimitStore implements RateLimitStore.
+var _ RateLimitStore = (*memoryRateLimitStore)(nil)
 
 type memoryRateLimitStore struct {
 	mu      sync.RWMutex
@@ -403,10 +406,10 @@ func (rl *AuthRateLimiter) CheckHTTP(r *http.Request, endpoint string) (bool, ti
 }
 
 var AuthRateLimitProcedureMap = map[string]string{
-	"/aleph.v1.AuthService/CreateApiKey":  "apikey_create",
-	"/aleph.v1.AuthService/DeleteApiKey":   "apikey_revoke",
-	"/aleph.v1.AuthService/RevokeApiKey":  "apikey_revoke",
-	"/aleph.v1.AuthService/ListApiKeys":    "apikey_list",
+	"/aleph.v1.AuthService/CreateApiKey": "apikey_create",
+	"/aleph.v1.AuthService/DeleteApiKey": "apikey_revoke",
+	"/aleph.v1.AuthService/RevokeApiKey": "apikey_revoke",
+	"/aleph.v1.AuthService/ListApiKeys":  "apikey_list",
 }
 
 func (rl *AuthRateLimiter) RateLimitInterceptor() connect.UnaryInterceptorFunc {
@@ -414,8 +417,8 @@ func (rl *AuthRateLimiter) RateLimitInterceptor() connect.UnaryInterceptorFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 			procedure := req.Spec().Procedure
 			endpoint, needsLimit := AuthRateLimitProcedureMap[procedure]
-		if needsLimit {
-			ip := extractClientIPFromHeaders(req.Header(), req.Peer().Query)
+			if needsLimit {
+				ip := extractClientIPFromHeaders(req.Header(), req.Peer().Query)
 				allowed, retryAfter := rl.checkLimit(ip, endpoint)
 				if !allowed {
 					retryAfterSec := int(retryAfter.Seconds())

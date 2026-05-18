@@ -67,7 +67,7 @@ func TestTimeoutInterceptor_WrapUnary(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			interceptor := NewTimeoutInterceptor(customConfig)
-			
+
 			// sleep must exceed the procedure timeout so context expires first.
 			sleepDur := tt.wantMaxDur + 200*time.Millisecond
 
@@ -99,7 +99,7 @@ func TestTimeoutInterceptor_WrapUnary(t *testing.T) {
 
 func TestTimeoutFromContext(t *testing.T) {
 	interceptor := NewTimeoutInterceptor(nil)
-	
+
 	handler := interceptor.WrapUnary(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		timeout := TimeoutFromContext(ctx)
 		assert.Equal(t, 10*time.Second, timeout, "QueryService should have DB timeout")
@@ -142,9 +142,9 @@ func TestCustomTimeoutConfig(t *testing.T) {
 		ExternalHTTPTimeout: 4 * time.Second,
 		DefaultTimeout:      5 * time.Second,
 	}
-	
+
 	interceptor := NewTimeoutInterceptor(customConfig)
-	
+
 	handler := interceptor.WrapUnary(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		select {
 		case <-time.After(1500 * time.Millisecond): // Exceeds 1s DB timeout
@@ -162,4 +162,3 @@ func TestCustomTimeoutConfig(t *testing.T) {
 	assert.Contains(t, err.Error(), "context deadline exceeded")
 	assert.Less(t, elapsed, 2*time.Second, "should have timed out before 2 seconds")
 }
-

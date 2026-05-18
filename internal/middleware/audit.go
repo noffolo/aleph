@@ -26,12 +26,12 @@ func NewAuditInterceptor(auditRepo *repository.AuditRepository, logger *slog.Log
 func (a *AuditInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		resp, err := next(ctx, req)
-		
+
 		// Only audit after successful mutating operations
 		if err == nil && isMutatingOperation(req.Spec().Procedure) {
 			go a.logAuditEvent(ctx, req, resp)
 		}
-		
+
 		return resp, err
 	}
 }
@@ -116,9 +116,9 @@ func extractAuditInfo(procedure string, req connect.AnyRequest, resp connect.Any
 	if len(parts) < 3 {
 		return "", "", ""
 	}
-	
+
 	methodName := parts[len(parts)-1]
-	
+
 	// Determine action from method name
 	switch {
 	case strings.HasPrefix(methodName, "Create"):
@@ -130,7 +130,7 @@ func extractAuditInfo(procedure string, req connect.AnyRequest, resp connect.Any
 	default:
 		action = "modify"
 	}
-	
+
 	// Determine resource type from service name
 	serviceName := parts[len(parts)-2]
 	switch {
@@ -153,7 +153,7 @@ func extractAuditInfo(procedure string, req connect.AnyRequest, resp connect.Any
 	default:
 		resourceType = "unknown"
 	}
-	
+
 	// Try to extract resource ID from request
 	if req != nil {
 		if reqMsg, ok := req.Any().(interface{ GetId() string }); ok {

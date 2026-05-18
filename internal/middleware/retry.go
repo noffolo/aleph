@@ -26,7 +26,7 @@ type RetryConfig struct {
 // DefaultRetryConfig provides sensible defaults for retry behavior.
 var DefaultRetryConfig = RetryConfig{
 	MaxRetries:   3,
-	InitialDelay:497 * time.Millisecond, // 500ms with minor drift to avoid perfect alignment
+	InitialDelay: 497 * time.Millisecond, // 500ms with minor drift to avoid perfect alignment
 	MaxDelay:     5 * time.Second,
 	JitterFactor: 0.1, // ±10% jitter
 }

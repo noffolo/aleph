@@ -16,23 +16,23 @@ import (
 var authSkipSet = map[string]bool{}
 
 type AuthInterceptor struct {
-	metaRepo     *repository.MetadataRepository
-	jwtSecret    []byte
+	metaRepo        *repository.MetadataRepository
+	jwtSecret       []byte
 	revocationStore *TokenRevocationStore
 }
 
 func NewAuthInterceptor(metaRepo *repository.MetadataRepository, jwtSecret []byte) *AuthInterceptor {
 	return &AuthInterceptor{
-		metaRepo:     metaRepo,
-		jwtSecret:    jwtSecret,
-		revocationStore: NewTokenRevocationStore(1*time.Hour),
+		metaRepo:        metaRepo,
+		jwtSecret:       jwtSecret,
+		revocationStore: NewTokenRevocationStore(1 * time.Hour),
 	}
 }
 
 func NewAuthInterceptorWithRevocation(metaRepo *repository.MetadataRepository, jwtSecret []byte, revocationStore *TokenRevocationStore) *AuthInterceptor {
 	return &AuthInterceptor{
-		metaRepo:     metaRepo,
-		jwtSecret:    jwtSecret,
+		metaRepo:        metaRepo,
+		jwtSecret:       jwtSecret,
 		revocationStore: revocationStore,
 	}
 }
@@ -47,65 +47,65 @@ type procedureRole struct {
 }
 
 var procedureRBAC = map[string]procedureRole{
-	"/aleph.v1.AuthService/CreateApiKey":   {adminOnly: true},
-	"/aleph.v1.AuthService/ListApiKeys":    {adminOnly: true},
-	"/aleph.v1.AuthService/DeleteApiKey":   {adminOnly: true},
+	"/aleph.v1.AuthService/CreateApiKey": {adminOnly: true},
+	"/aleph.v1.AuthService/ListApiKeys":  {adminOnly: true},
+	"/aleph.v1.AuthService/DeleteApiKey": {adminOnly: true},
 
-	"/aleph.v1.ProjectService/CreateProject":   {minRole: RoleUser},
-	"/aleph.v1.ProjectService/DeleteProject":   {adminOnly: true},
-	"/aleph.v1.ProjectService/ListProjects":    {},
-	"/aleph.v1.ProjectService/EmergeOntology":  {minRole: RoleUser},
-	"/aleph.v1.ProjectService/GetOntology":     {},
-	"/aleph.v1.ProjectService/SaveOntology":    {minRole: RoleUser},
+	"/aleph.v1.ProjectService/CreateProject":  {minRole: RoleUser},
+	"/aleph.v1.ProjectService/DeleteProject":  {adminOnly: true},
+	"/aleph.v1.ProjectService/ListProjects":   {},
+	"/aleph.v1.ProjectService/EmergeOntology": {minRole: RoleUser},
+	"/aleph.v1.ProjectService/GetOntology":    {},
+	"/aleph.v1.ProjectService/SaveOntology":   {minRole: RoleUser},
 
-	"/aleph.v1.AgentService/CreateAgent":   {minRole: RoleUser},
-	"/aleph.v1.AgentService/UpdateAgent":   {minRole: RoleUser},
-	"/aleph.v1.AgentService/DeleteAgent":   {minRole: RoleUser},
-	"/aleph.v1.AgentService/ListAgents":    {},
-	"/aleph.v1.AgentService/ListModels":    {},
+	"/aleph.v1.AgentService/CreateAgent": {minRole: RoleUser},
+	"/aleph.v1.AgentService/UpdateAgent": {minRole: RoleUser},
+	"/aleph.v1.AgentService/DeleteAgent": {minRole: RoleUser},
+	"/aleph.v1.AgentService/ListAgents":  {},
+	"/aleph.v1.AgentService/ListModels":  {},
 
-	"/aleph.v1.SkillService/ListSkills":   {},
-	"/aleph.v1.SkillService/CreateSkill":  {minRole: RoleUser},
-	"/aleph.v1.SkillService/UpdateSkill":  {minRole: RoleUser},
-	"/aleph.v1.SkillService/DeleteSkill":  {minRole: RoleUser},
+	"/aleph.v1.SkillService/ListSkills":  {},
+	"/aleph.v1.SkillService/CreateSkill": {minRole: RoleUser},
+	"/aleph.v1.SkillService/UpdateSkill": {minRole: RoleUser},
+	"/aleph.v1.SkillService/DeleteSkill": {minRole: RoleUser},
 
-	"/aleph.v1.ToolService/ListTools":   {},
-	"/aleph.v1.ToolService/CreateTool":  {minRole: RoleUser},
-	"/aleph.v1.ToolService/UpdateTool":  {minRole: RoleUser},
-	"/aleph.v1.ToolService/DeleteTool":  {minRole: RoleUser},
+	"/aleph.v1.ToolService/ListTools":  {},
+	"/aleph.v1.ToolService/CreateTool": {minRole: RoleUser},
+	"/aleph.v1.ToolService/UpdateTool": {minRole: RoleUser},
+	"/aleph.v1.ToolService/DeleteTool": {minRole: RoleUser},
 
-	"/aleph.v1.LibraryService/ListAssets":          {},
-	"/aleph.v1.LibraryService/GetAssetContent":    {},
-	"/aleph.v1.LibraryService/DeleteAsset":         {minRole: RoleUser},
-	"/aleph.v1.LibraryService/GeneratePdf":         {},
-	"/aleph.v1.LibraryService/UploadAsset":         {minRole: RoleUser},
+	"/aleph.v1.LibraryService/ListAssets":      {},
+	"/aleph.v1.LibraryService/GetAssetContent": {},
+	"/aleph.v1.LibraryService/DeleteAsset":     {minRole: RoleUser},
+	"/aleph.v1.LibraryService/GeneratePdf":     {},
+	"/aleph.v1.LibraryService/UploadAsset":     {minRole: RoleUser},
 
-	"/aleph.v1.QueryService/ExecuteQuery":     {},
-	"/aleph.v1.QueryService/Chat":              {},
-	"/aleph.v1.QueryService/GetChatHistory":   {},
-	"/aleph.v1.QueryService/GetDataStats":      {},
-	"/aleph.v1.QueryService/ConfirmAction":     {minRole: RoleUser},
-	"/aleph.v1.QueryService/GlobalQuery":       {},
-	"/aleph.v1.QueryService/GetDataLineage":    {},
-	"/aleph.v1.QueryService/GetChecksum":       {},
+	"/aleph.v1.QueryService/ExecuteQuery":   {},
+	"/aleph.v1.QueryService/Chat":           {},
+	"/aleph.v1.QueryService/GetChatHistory": {},
+	"/aleph.v1.QueryService/GetDataStats":   {},
+	"/aleph.v1.QueryService/ConfirmAction":  {minRole: RoleUser},
+	"/aleph.v1.QueryService/GlobalQuery":    {},
+	"/aleph.v1.QueryService/GetDataLineage": {},
+	"/aleph.v1.QueryService/GetChecksum":    {},
 
-	"/aleph.v1.IngestionService/RunTask":      {minRole: RoleUser},
-	"/aleph.v1.IngestionService/CreateTask":    {minRole: RoleUser},
-	"/aleph.v1.IngestionService/DeleteTask":    {minRole: RoleUser},
-	"/aleph.v1.IngestionService/ListTasks":      {},
-	"/aleph.v1.IngestionService/GetTaskLogs":   {},
-	"/aleph.v1.IngestionService/GetProgress":    {},
+	"/aleph.v1.IngestionService/RunTask":     {minRole: RoleUser},
+	"/aleph.v1.IngestionService/CreateTask":  {minRole: RoleUser},
+	"/aleph.v1.IngestionService/DeleteTask":  {minRole: RoleUser},
+	"/aleph.v1.IngestionService/ListTasks":   {},
+	"/aleph.v1.IngestionService/GetTaskLogs": {},
+	"/aleph.v1.IngestionService/GetProgress": {},
 
-	"/aleph.v1.NotificationService/ListChannels":    {},
-	"/aleph.v1.NotificationService/SendWebhook":    {minRole: RoleUser},
+	"/aleph.v1.NotificationService/ListChannels": {},
+	"/aleph.v1.NotificationService/SendWebhook":  {minRole: RoleUser},
 
-	"/aleph.registry.v1.RegistryService/RegisterComponent":       {minRole: RoleUser},
-	"/aleph.registry.v1.RegistryService/GetComponent":           {},
-	"/aleph.registry.v1.RegistryService/ListComponents":          {},
-	"/aleph.registry.v1.RegistryService/UpdateComponentStatus":  {minRole: RoleUser},
+	"/aleph.registry.v1.RegistryService/RegisterComponent":     {minRole: RoleUser},
+	"/aleph.registry.v1.RegistryService/GetComponent":          {},
+	"/aleph.registry.v1.RegistryService/ListComponents":        {},
+	"/aleph.registry.v1.RegistryService/UpdateComponentStatus": {minRole: RoleUser},
 
-	"/aleph.tool.v1.SandboxService/ExecuteTool":  {minRole: RoleUser},
-	"/aleph.tool.v1.SandboxService/RunSkill":     {minRole: RoleUser},
+	"/aleph.tool.v1.SandboxService/ExecuteTool": {minRole: RoleUser},
+	"/aleph.tool.v1.SandboxService/RunSkill":    {minRole: RoleUser},
 
 	"/aleph.nlp.v1.NLPService/AnalyzeSentiment": {minRole: RoleUser},
 	"/aleph.nlp.v1.NLPService/ExtractEntities":  {minRole: RoleUser},
@@ -254,10 +254,10 @@ func validateAPIKey(metaRepo *repository.MetadataRepository, apiKey string) (str
 }
 
 type TokenRevocationStore struct {
-	mu       sync.RWMutex
-	revoked  map[string]time.Time
-	ttl      time.Duration
-	stopCh   chan struct{}
+	mu      sync.RWMutex
+	revoked map[string]time.Time
+	ttl     time.Duration
+	stopCh  chan struct{}
 }
 
 func NewTokenRevocationStore(ttl time.Duration) *TokenRevocationStore {

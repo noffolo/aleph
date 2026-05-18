@@ -69,8 +69,8 @@ func TestErrorHandlerInterceptor_wrapConnectError(t *testing.T) {
 	interceptor := &ErrorHandlerInterceptor{}
 
 	tests := []struct {
-		name        string
-		code        connect.Code
+		name         string
+		code         connect.Code
 		expectedCode connect.Code
 	}{
 		{"InvalidArgument", connect.CodeInvalidArgument, connect.CodeInvalidArgument},
@@ -106,7 +106,7 @@ func TestErrorHandlerInterceptor_apiErrorCodeToConnectCode(t *testing.T) {
 	interceptor := &ErrorHandlerInterceptor{}
 
 	tests := []struct {
-		apiCode string
+		apiCode  string
 		connCode connect.Code
 	}{
 		{apierrors.ErrNotFound, connect.CodeNotFound},

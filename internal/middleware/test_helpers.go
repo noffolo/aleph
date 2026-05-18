@@ -35,11 +35,11 @@ func (m *mockStreamingHandlerConn) RequestHeader() http.Header {
 	return http.Header{}
 }
 
-func (m *mockStreamingHandlerConn) Send(interface{}) error {
+func (m *mockStreamingHandlerConn) Send(any) error {
 	return nil
 }
 
-func (m *mockStreamingHandlerConn) Receive(interface{}) error {
+func (m *mockStreamingHandlerConn) Receive(any) error {
 	return nil
 }
 

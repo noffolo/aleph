@@ -32,9 +32,9 @@ func TestAuditInterceptor_IsMutatingOperation(t *testing.T) {
 
 func TestAuditInterceptor_ExtractAuditInfo(t *testing.T) {
 	tests := []struct {
-		procedure          string
-		expectedAction     string
-		expectedResource   string
+		procedure        string
+		expectedAction   string
+		expectedResource string
 	}{
 		{"aleph.v1.AgentService.CreateAgent", "create", "agent"},
 		{"aleph.v1.ToolService.UpdateTool", "update", "tool"},

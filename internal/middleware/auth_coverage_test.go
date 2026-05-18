@@ -141,10 +141,10 @@ func TestRequireProjectRole(t *testing.T) {
 	mw := RequireProjectRole()(handler)
 
 	cases := []struct {
-		name         string
+		name          string
 		authProjectID string
-		urlProject   string
-		wantStatus   int
+		urlProject    string
+		wantStatus    int
 	}{
 		{"matching projects", "proj1", "proj1", http.StatusOK},
 		{"no auth project - passes", "", "proj1", http.StatusOK},
@@ -199,7 +199,7 @@ func TestRequireProjectRole_QueryParam(t *testing.T) {
 func TestRoleFromContext_WrongType(t *testing.T) {
 	t.Parallel()
 	ctx := context.WithValue(context.Background(), authCtxRole, 12345) // wrong type
-	assert.Equal(t, RoleUser, RoleFromContext(ctx)) // safe default
+	assert.Equal(t, RoleUser, RoleFromContext(ctx))                    // safe default
 }
 
 // ─── RequireRole edge cases ──────────────────────────────────────────────────
@@ -223,7 +223,7 @@ func TestRequireRole_MultipleAllowed(t *testing.T) {
 
 func TestIsAdmin_EdgeCases(t *testing.T) {
 	t.Parallel()
-	assert.False(t, IsAdmin(context.Background()))      // empty context
+	assert.False(t, IsAdmin(context.Background())) // empty context
 	assert.False(t, IsAdmin(projectIDToContext(context.Background(), "p", RoleReadOnly)))
 	assert.True(t, IsAdmin(projectIDToContext(context.Background(), "p", RoleAdmin)))
 }

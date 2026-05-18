@@ -106,7 +106,7 @@ func TestAuthRateLimit_SlidingWindowAllowsWithinLimit(t *testing.T) {
 		SessionCreateLimit:  5,
 		SessionCreateWindow: time.Minute,
 		ApiKeyCreateLimit:   10,
-		ApiKeyCreateWindow: time.Minute,
+		ApiKeyCreateWindow:  time.Minute,
 		ApiKeyRevokeLimit:   10,
 		ApiKeyRevokeWindow:  time.Minute,
 		ApiKeyListLimit:     30,
@@ -302,9 +302,9 @@ func TestAuthRateLimit_ProcedureMap(t *testing.T) {
 		ApiKeyCreateLimit:  10,
 		ApiKeyCreateWindow: time.Minute,
 		ApiKeyRevokeLimit:  10,
-		ApiKeyRevokeWindow:  time.Minute,
-		ApiKeyListLimit:     30,
-		ApiKeyListWindow:    time.Minute,
+		ApiKeyRevokeWindow: time.Minute,
+		ApiKeyListLimit:    30,
+		ApiKeyListWindow:   time.Minute,
 	}
 	rl := NewAuthRateLimiter(store, cfg)
 

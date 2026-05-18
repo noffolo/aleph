@@ -22,16 +22,16 @@ const (
 var ErrCircuitOpen = errors.New("circuit breaker: open")
 
 // CircuitBreaker protects a subsystem from cascading failures.
-// TODO: Wire into HTTP client chain (currently standalone; handler/breaker.go
-// and shadowbroker.go use their own inline implementations instead).
+// NOTE: handler/breaker.go and shadowbroker.go use their own inline
+// implementations instead — this type exists as a reusable primitive.
 type CircuitBreaker struct {
 	mu              sync.Mutex
 	state           State
 	failureCount    int
 	lastFailureTime time.Time
 
-	threshold       int           // failures before opening
-	cooldown        time.Duration // time before half-open retry
+	threshold int           // failures before opening
+	cooldown  time.Duration // time before half-open retry
 }
 
 // NewCircuitBreaker creates a circuit breaker.

@@ -32,12 +32,12 @@ type bulkheadKey struct{}
 
 // BulkheadInterceptor implements Connect RPC interceptors with bulkhead pattern.
 type BulkheadInterceptor struct {
-	config         BulkheadConfig
-	queryPool      *semaphore.Weighted
-	ingestionPool  *semaphore.Weighted
-	chatPool       *semaphore.Weighted
-	poolsByDomain  map[string]*semaphore.Weighted
-	mu             sync.RWMutex
+	config        BulkheadConfig
+	queryPool     *semaphore.Weighted
+	ingestionPool *semaphore.Weighted
+	chatPool      *semaphore.Weighted
+	poolsByDomain map[string]*semaphore.Weighted
+	mu            sync.RWMutex
 }
 
 // NewBulkheadInterceptor creates a new bulkhead interceptor with the given config.
