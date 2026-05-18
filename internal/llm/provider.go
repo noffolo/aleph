@@ -14,8 +14,8 @@ type Provider interface {
 
 type CompletionRequest struct {
 	Model        string
-	Messages     []map[string]interface{}
-	Tools        []map[string]interface{}
+	Messages     []map[string]any
+	Tools        []map[string]any
 	SystemPrompt string
 	ApiKey       string
 	BaseURL      string
@@ -28,7 +28,7 @@ type CompletionResponse struct {
 
 type ToolCall struct {
 	Name      string
-	Arguments map[string]interface{}
+	Arguments map[string]any
 }
 
 // OllamaPort is the default Ollama port used for provider auto-detection.

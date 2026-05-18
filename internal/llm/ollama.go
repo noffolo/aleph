@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// Compile-time assertion: OllamaProvider implements Provider.
+var _ Provider = (*OllamaProvider)(nil)
+
 type OllamaProvider struct {
 	client  *http.Client
 	timeout time.Duration
@@ -27,13 +30,13 @@ func (p *OllamaProvider) Complete(ctx context.Context, req CompletionRequest) (*
 	tools := req.Tools
 
 	if req.SystemPrompt != "" {
-		messages = append([]map[string]interface{}{{
+		messages = append([]map[string]any{{
 			"role":    "system",
 			"content": req.SystemPrompt,
 		}}, messages...)
 	}
 
-	requestBody := map[string]interface{}{
+	requestBody := map[string]any{
 		"model":    req.Model,
 		"messages": messages,
 		"stream":   false,
@@ -73,8 +76,8 @@ func (p *OllamaProvider) Complete(ctx context.Context, req CompletionRequest) (*
 			Content   string `json:"content"`
 			ToolCalls []struct {
 				Function struct {
-					Name      string                 `json:"name"`
-					Arguments map[string]interface{} `json:"arguments"`
+					Name      string         `json:"name"`
+					Arguments map[string]any `json:"arguments"`
 				} `json:"function"`
 			} `json:"tool_calls"`
 		} `json:"message"`

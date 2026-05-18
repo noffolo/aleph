@@ -22,7 +22,7 @@ func TestNewProvider_AllProviders(t *testing.T) {
 		name     string
 		provider string
 		baseURL  string
-		want     interface{}
+		want     any
 	}{
 		{"ollama explicit", "ollama", "http://localhost:11434", &OllamaProvider{}},
 		{"openai explicit", "openai", "https://api.openai.com", &OpenAIProvider{}},
@@ -98,8 +98,8 @@ func TestNewProvider_WithCustomHTTPClient(t *testing.T) {
 func TestCompletionRequest_Fields(t *testing.T) {
 	req := CompletionRequest{
 		Model:        "gpt-4",
-		Messages:     []map[string]interface{}{{"role": "user", "content": "test"}},
-		Tools:        []map[string]interface{}{{"name": "calculator"}},
+		Messages:     []map[string]any{{"role": "user", "content": "test"}},
+		Tools:        []map[string]any{{"name": "calculator"}},
 		SystemPrompt: "you are helpful",
 		ApiKey:       "sk-test",
 		BaseURL:      "https://api.openai.com",
@@ -116,7 +116,7 @@ func TestCompletionResponse_Fields(t *testing.T) {
 	resp := CompletionResponse{
 		Content: "hello world",
 		ToolCalls: []ToolCall{
-			{Name: "search", Arguments: map[string]interface{}{"query": "test"}},
+			{Name: "search", Arguments: map[string]any{"query": "test"}},
 		},
 	}
 	assert.Equal(t, "hello world", resp.Content)
@@ -127,7 +127,7 @@ func TestCompletionResponse_Fields(t *testing.T) {
 func TestToolCall_Fields(t *testing.T) {
 	tc := ToolCall{
 		Name:      "execute",
-		Arguments: map[string]interface{}{"cmd": "ls"},
+		Arguments: map[string]any{"cmd": "ls"},
 	}
 	assert.Equal(t, "execute", tc.Name)
 	assert.NotNil(t, tc.Arguments)
@@ -141,20 +141,20 @@ func newMockServer(handler http.HandlerFunc) *httptest.Server {
 
 // --- Ollama mock response helper ---
 
-func ollamaSuccessResponse(content string) map[string]interface{} {
-	return map[string]interface{}{
-		"message": map[string]interface{}{
+func ollamaSuccessResponse(content string) map[string]any {
+	return map[string]any{
+		"message": map[string]any{
 			"role":    "assistant",
 			"content": content,
 		},
 	}
 }
 
-func ollamaSuccessWithToolCalls(content string, toolCalls []map[string]interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"message": map[string]interface{}{
-			"role":      "assistant",
-			"content":   content,
+func ollamaSuccessWithToolCalls(content string, toolCalls []map[string]any) map[string]any {
+	return map[string]any{
+		"message": map[string]any{
+			"role":       "assistant",
+			"content":    content,
 			"tool_calls": toolCalls,
 		},
 	}
@@ -162,11 +162,11 @@ func ollamaSuccessWithToolCalls(content string, toolCalls []map[string]interface
 
 // --- OpenAI mock response helper ---
 
-func openaiSuccessResponse(content string) map[string]interface{} {
-	return map[string]interface{}{
-		"choices": []map[string]interface{}{
+func openaiSuccessResponse(content string) map[string]any {
+	return map[string]any{
+		"choices": []map[string]any{
 			{
-				"message": map[string]interface{}{
+				"message": map[string]any{
 					"role":    "assistant",
 					"content": content,
 				},
@@ -175,13 +175,13 @@ func openaiSuccessResponse(content string) map[string]interface{} {
 	}
 }
 
-func openaiSuccessWithToolCalls(content string, toolCalls []map[string]interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"choices": []map[string]interface{}{
+func openaiSuccessWithToolCalls(content string, toolCalls []map[string]any) map[string]any {
+	return map[string]any{
+		"choices": []map[string]any{
 			{
-				"message": map[string]interface{}{
-					"role":      "assistant",
-					"content":   content,
+				"message": map[string]any{
+					"role":       "assistant",
+					"content":    content,
 					"tool_calls": toolCalls,
 				},
 			},
@@ -191,24 +191,24 @@ func openaiSuccessWithToolCalls(content string, toolCalls []map[string]interface
 
 // --- Anthropic mock response helper ---
 
-func anthropicSuccessResponse(content string) map[string]interface{} {
-	return map[string]interface{}{
-		"content": []map[string]interface{}{
+func anthropicSuccessResponse(content string) map[string]any {
+	return map[string]any{
+		"content": []map[string]any{
 			{"type": "text", "text": content},
 		},
 		"stop_reason": "end_turn",
 	}
 }
 
-func anthropicSuccessWithToolCalls(textContent string, toolCalls []map[string]interface{}) map[string]interface{} {
-	content := []map[string]interface{}{}
+func anthropicSuccessWithToolCalls(textContent string, toolCalls []map[string]any) map[string]any {
+	content := []map[string]any{}
 	if textContent != "" {
-		content = append(content, map[string]interface{}{"type": "text", "text": textContent})
+		content = append(content, map[string]any{"type": "text", "text": textContent})
 	}
 	for _, tc := range toolCalls {
 		content = append(content, tc)
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"content":     content,
 		"stop_reason": "end_turn",
 	}
@@ -223,7 +223,7 @@ func TestOllamaProvider_Complete_Success(t *testing.T) {
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		// Verify request body structure
-		var body map[string]interface{}
+		var body map[string]any
 		err := json.NewDecoder(r.Body).Decode(&body)
 		require.NoError(t, err)
 		assert.Equal(t, "llama3", body["model"])
@@ -237,7 +237,7 @@ func TestOllamaProvider_Complete_Success(t *testing.T) {
 	resp, err := provider.Complete(context.Background(), CompletionRequest{
 		Model:   "llama3",
 		BaseURL: server.URL,
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "Hello"},
 		},
 	})
@@ -247,10 +247,10 @@ func TestOllamaProvider_Complete_Success(t *testing.T) {
 }
 
 func TestOllamaProvider_Complete_WithSystemPrompt(t *testing.T) {
-	var receivedMessages []map[string]interface{}
+	var receivedMessages []map[string]any
 
 	server := newMockServer(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
+		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
 		receivedMessages = toMessages(body["messages"])
 
@@ -263,7 +263,7 @@ func TestOllamaProvider_Complete_WithSystemPrompt(t *testing.T) {
 		Model:        "llama3",
 		BaseURL:      server.URL,
 		SystemPrompt: "You are a helpful assistant",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "hi"},
 		},
 	})
@@ -277,11 +277,11 @@ func TestOllamaProvider_Complete_WithSystemPrompt(t *testing.T) {
 
 func TestOllamaProvider_Complete_WithToolCalls(t *testing.T) {
 	server := newMockServer(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(ollamaSuccessWithToolCalls("calculating", []map[string]interface{}{
+		json.NewEncoder(w).Encode(ollamaSuccessWithToolCalls("calculating", []map[string]any{
 			{
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":      "calculator",
-					"arguments": map[string]interface{}{"expr": "2+2"},
+					"arguments": map[string]any{"expr": "2+2"},
 				},
 			},
 		}))
@@ -292,7 +292,7 @@ func TestOllamaProvider_Complete_WithToolCalls(t *testing.T) {
 	resp, err := provider.Complete(context.Background(), CompletionRequest{
 		Model:   "llama3",
 		BaseURL: server.URL,
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "what is 2+2?"},
 		},
 	})
@@ -329,7 +329,7 @@ func TestOllamaProvider_Complete_HTTPError(t *testing.T) {
 			_, err := provider.Complete(context.Background(), CompletionRequest{
 				Model:   "llama3",
 				BaseURL: server.URL,
-				Messages: []map[string]interface{}{
+				Messages: []map[string]any{
 					{"role": "user", "content": "test"},
 				},
 			})
@@ -346,7 +346,7 @@ func TestOllamaProvider_Complete_ConnectionError(t *testing.T) {
 	_, err := provider.Complete(context.Background(), CompletionRequest{
 		Model:   "llama3",
 		BaseURL: "http://localhost:1",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -368,7 +368,7 @@ func TestOllamaProvider_Complete_Timeout(t *testing.T) {
 	_, err := provider.Complete(ctx, CompletionRequest{
 		Model:   "llama3",
 		BaseURL: server.URL,
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -388,7 +388,7 @@ func TestOllamaProvider_Complete_ContextCancelled(t *testing.T) {
 	_, err := provider.Complete(ctx, CompletionRequest{
 		Model:   "llama3",
 		BaseURL: server.URL,
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -406,7 +406,7 @@ func TestOllamaProvider_Complete_InvalidResponseJSON(t *testing.T) {
 	_, err := provider.Complete(context.Background(), CompletionRequest{
 		Model:   "llama3",
 		BaseURL: server.URL,
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -427,7 +427,7 @@ func TestOllamaProvider_Complete_BaseURLTrimming(t *testing.T) {
 	_, err := provider.Complete(context.Background(), CompletionRequest{
 		Model:   "llama3",
 		BaseURL: server.URL + "/",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -453,7 +453,7 @@ func TestOpenAIProvider_Complete_Success(t *testing.T) {
 		Model:   "gpt-4",
 		BaseURL: server.URL,
 		ApiKey:  "sk-test-key",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "Hello"},
 		},
 	})
@@ -475,16 +475,16 @@ func TestOpenAIProvider_Complete_NoAPIKey(t *testing.T) {
 		Model:    "gpt-4",
 		BaseURL:  server.URL,
 		ApiKey:   "",
-		Messages: []map[string]interface{}{{"role": "user", "content": "test"}},
+		Messages: []map[string]any{{"role": "user", "content": "test"}},
 	})
 	require.NoError(t, err)
 }
 
 func TestOpenAIProvider_Complete_WithSystemPrompt(t *testing.T) {
-	var receivedMessages []map[string]interface{}
+	var receivedMessages []map[string]any
 
 	server := newMockServer(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
+		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
 		receivedMessages = toMessages(body["messages"])
 		json.NewEncoder(w).Encode(openaiSuccessResponse("ok"))
@@ -496,7 +496,7 @@ func TestOpenAIProvider_Complete_WithSystemPrompt(t *testing.T) {
 		Model:        "gpt-4",
 		BaseURL:      server.URL,
 		SystemPrompt: "You are helpful",
-		Messages:     []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Messages:     []map[string]any{{"role": "user", "content": "hi"}},
 		ApiKey:       "sk-test",
 	})
 
@@ -508,11 +508,11 @@ func TestOpenAIProvider_Complete_WithSystemPrompt(t *testing.T) {
 
 func TestOpenAIProvider_Complete_WithToolCalls(t *testing.T) {
 	server := newMockServer(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(openaiSuccessWithToolCalls("calling tool", []map[string]interface{}{
+		json.NewEncoder(w).Encode(openaiSuccessWithToolCalls("calling tool", []map[string]any{
 			{
 				"id":   "call_123",
 				"type": "function",
-				"function": map[string]interface{}{
+				"function": map[string]any{
 					"name":      "get_weather",
 					"arguments": `{"city": "Berlin"}`,
 				},
@@ -526,7 +526,7 @@ func TestOpenAIProvider_Complete_WithToolCalls(t *testing.T) {
 		Model:   "gpt-4",
 		BaseURL: server.URL,
 		ApiKey:  "sk-test",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "weather in Berlin?"},
 		},
 	})
@@ -563,7 +563,7 @@ func TestOpenAIProvider_Complete_HTTPErrors(t *testing.T) {
 				Model:   "gpt-4",
 				BaseURL: server.URL,
 				ApiKey:  "sk-test",
-				Messages: []map[string]interface{}{
+				Messages: []map[string]any{
 					{"role": "user", "content": "test"},
 				},
 			})
@@ -576,8 +576,8 @@ func TestOpenAIProvider_Complete_HTTPErrors(t *testing.T) {
 
 func TestOpenAIProvider_Complete_EmptyChoices(t *testing.T) {
 	server := newMockServer(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"choices": []map[string]interface{}{},
+		json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{},
 		})
 	})
 	defer server.Close()
@@ -587,7 +587,7 @@ func TestOpenAIProvider_Complete_EmptyChoices(t *testing.T) {
 		Model:   "gpt-4",
 		BaseURL: server.URL,
 		ApiKey:  "sk-test",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -597,17 +597,17 @@ func TestOpenAIProvider_Complete_EmptyChoices(t *testing.T) {
 
 func TestOpenAIProvider_Complete_InvalidToolCallArguments(t *testing.T) {
 	server := newMockServer(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"choices": []map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
 				{
-					"message": map[string]interface{}{
+					"message": map[string]any{
 						"role":    "assistant",
 						"content": "using tool",
-						"tool_calls": []map[string]interface{}{
+						"tool_calls": []map[string]any{
 							{
 								"id":   "call_bad",
 								"type": "function",
-								"function": map[string]interface{}{
+								"function": map[string]any{
 									"name":      "bad_tool",
 									"arguments": `{invalid json`,
 								},
@@ -625,7 +625,7 @@ func TestOpenAIProvider_Complete_InvalidToolCallArguments(t *testing.T) {
 		Model:   "gpt-4",
 		BaseURL: server.URL,
 		ApiKey:  "sk-test",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -647,7 +647,7 @@ func TestOpenAIProvider_Complete_CustomEndpoint(t *testing.T) {
 		Model:    "gpt-4",
 		BaseURL:  server.URL + "/completions",
 		ApiKey:   "sk-test",
-		Messages: []map[string]interface{}{{"role": "user", "content": "test"}},
+		Messages: []map[string]any{{"role": "user", "content": "test"}},
 	})
 	require.NoError(t, err)
 	// Should use the base URL directly when it ends with /completions
@@ -673,7 +673,7 @@ func TestAnthropicProvider_Complete_Success(t *testing.T) {
 		Model:   "claude-3-sonnet",
 		BaseURL: server.URL,
 		ApiKey:  "sk-ant-test",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "Hello"},
 		},
 	})
@@ -683,7 +683,7 @@ func TestAnthropicProvider_Complete_Success(t *testing.T) {
 }
 
 func TestAnthropicProvider_Complete_WithSystemPrompt(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := newMockServer(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&receivedBody)
 		json.NewEncoder(w).Encode(anthropicSuccessResponse("ok"))
@@ -696,7 +696,7 @@ func TestAnthropicProvider_Complete_WithSystemPrompt(t *testing.T) {
 		BaseURL:      server.URL,
 		ApiKey:       "sk-ant-test",
 		SystemPrompt: "You are a coding assistant",
-		Messages:     []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Messages:     []map[string]any{{"role": "user", "content": "hi"}},
 	})
 
 	require.NoError(t, err)
@@ -706,12 +706,12 @@ func TestAnthropicProvider_Complete_WithSystemPrompt(t *testing.T) {
 
 func TestAnthropicProvider_Complete_WithToolCalls(t *testing.T) {
 	server := newMockServer(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(anthropicSuccessWithToolCalls("result text", []map[string]interface{}{
+		json.NewEncoder(w).Encode(anthropicSuccessWithToolCalls("result text", []map[string]any{
 			{
 				"type": "tool_use",
 				"id":   "toolu_123",
 				"name": "search_web",
-				"input": map[string]interface{}{
+				"input": map[string]any{
 					"query": "golang testing",
 				},
 			},
@@ -724,7 +724,7 @@ func TestAnthropicProvider_Complete_WithToolCalls(t *testing.T) {
 		Model:   "claude-3-sonnet",
 		BaseURL: server.URL,
 		ApiKey:  "sk-ant-test",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "search for golang testing"},
 		},
 	})
@@ -738,12 +738,12 @@ func TestAnthropicProvider_Complete_WithToolCalls(t *testing.T) {
 
 func TestAnthropicProvider_Complete_ToolUseWithEmptyInput(t *testing.T) {
 	server := newMockServer(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"content": []map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"content": []map[string]any{
 				{
-					"type": "tool_use",
-					"id":   "toolu_456",
-					"name": "ping",
+					"type":  "tool_use",
+					"id":    "toolu_456",
+					"name":  "ping",
 					"input": nil,
 				},
 			},
@@ -757,7 +757,7 @@ func TestAnthropicProvider_Complete_ToolUseWithEmptyInput(t *testing.T) {
 		Model:    "claude-3-sonnet",
 		BaseURL:  server.URL,
 		ApiKey:   "sk-ant-test",
-		Messages: []map[string]interface{}{{"role": "user", "content": "ping"}},
+		Messages: []map[string]any{{"role": "user", "content": "ping"}},
 	})
 
 	require.NoError(t, err)
@@ -793,7 +793,7 @@ func TestAnthropicProvider_Complete_HTTPErrors(t *testing.T) {
 				Model:    "claude-3-sonnet",
 				BaseURL:  server.URL,
 				ApiKey:   "sk-ant-test",
-				Messages: []map[string]interface{}{{"role": "user", "content": "test"}},
+				Messages: []map[string]any{{"role": "user", "content": "test"}},
 			})
 
 			require.Error(t, err)
@@ -814,7 +814,7 @@ func TestAnthropicProvider_Complete_InvalidJSON(t *testing.T) {
 		Model:    "claude-3-sonnet",
 		BaseURL:  server.URL,
 		ApiKey:   "sk-ant-test",
-		Messages: []map[string]interface{}{{"role": "user", "content": "test"}},
+		Messages: []map[string]any{{"role": "user", "content": "test"}},
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to unmarshal response")
@@ -822,8 +822,8 @@ func TestAnthropicProvider_Complete_InvalidJSON(t *testing.T) {
 
 func TestAnthropicProvider_Complete_MultipleContentBlocks(t *testing.T) {
 	server := newMockServer(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"content": []map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"content": []map[string]any{
 				{"type": "text", "text": "First part. "},
 				{"type": "text", "text": "Second part."},
 			},
@@ -837,7 +837,7 @@ func TestAnthropicProvider_Complete_MultipleContentBlocks(t *testing.T) {
 		Model:    "claude-3-sonnet",
 		BaseURL:  server.URL,
 		ApiKey:   "sk-ant-test",
-		Messages: []map[string]interface{}{{"role": "user", "content": "test"}},
+		Messages: []map[string]any{{"role": "user", "content": "test"}},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "First part. Second part.", resp.Content)
@@ -856,7 +856,7 @@ func TestAnthropicProvider_Complete_BaseURLTrimming(t *testing.T) {
 		Model:    "claude-3-sonnet",
 		BaseURL:  server.URL + "/",
 		ApiKey:   "sk-ant-test",
-		Messages: []map[string]interface{}{{"role": "user", "content": "test"}},
+		Messages: []map[string]any{{"role": "user", "content": "test"}},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "/v1/messages", receivedPath)
@@ -868,7 +868,7 @@ func TestAnthropicProvider_Complete_ConnectionError(t *testing.T) {
 		Model:    "claude-3-sonnet",
 		BaseURL:  "http://localhost:1",
 		ApiKey:   "sk-ant-test",
-		Messages: []map[string]interface{}{{"role": "user", "content": "test"}},
+		Messages: []map[string]any{{"role": "user", "content": "test"}},
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "HTTP request failed")
@@ -893,7 +893,7 @@ func TestRetryProvider_SuccessFirstTry(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := rp.Complete(context.Background(), CompletionRequest{
-		Model: "test", Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Model: "test", Messages: []map[string]any{{"role": "user", "content": "hi"}},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "ok", resp.Content)
@@ -914,7 +914,7 @@ func TestRetryProvider_SuccessAfterRetry(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := rp.Complete(context.Background(), CompletionRequest{
-		Model: "test", Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Model: "test", Messages: []map[string]any{{"role": "user", "content": "hi"}},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "recovered", resp.Content)
@@ -930,7 +930,7 @@ func TestRetryProvider_MaxRetriesExceeded(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = rp.Complete(context.Background(), CompletionRequest{
-		Model: "test", Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Model: "test", Messages: []map[string]any{{"role": "user", "content": "hi"}},
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed after 2 retries")
@@ -947,7 +947,7 @@ func TestRetryProvider_ZeroMaxRetries(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := rp.Complete(context.Background(), CompletionRequest{
-		Model: "test", Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Model: "test", Messages: []map[string]any{{"role": "user", "content": "hi"}},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "ok", resp.Content)
@@ -966,7 +966,7 @@ func TestRetryProvider_ContextCancelledDuringBackoff(t *testing.T) {
 	cancel()
 
 	_, err = rp.Complete(ctx, CompletionRequest{
-		Model: "test", Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Model: "test", Messages: []map[string]any{{"role": "user", "content": "hi"}},
 	})
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
@@ -983,7 +983,7 @@ func TestRetryProvider_CircuitBreaker_TripsOpen(t *testing.T) {
 	require.NoError(t, err)
 
 	req := CompletionRequest{
-		Model: "test", Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Model: "test", Messages: []map[string]any{{"role": "user", "content": "hi"}},
 	}
 
 	cbThreshold := 5
@@ -1008,7 +1008,7 @@ func TestRetryProvider_Cache_Hit(t *testing.T) {
 	require.NoError(t, err)
 
 	req := CompletionRequest{
-		Model: "test", Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Model: "test", Messages: []map[string]any{{"role": "user", "content": "hi"}},
 	}
 
 	resp1, err := rp.Complete(context.Background(), req)
@@ -1033,7 +1033,7 @@ func TestRetryProvider_Cache_Disabled(t *testing.T) {
 	require.NoError(t, err)
 
 	req := CompletionRequest{
-		Model: "test", Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Model: "test", Messages: []map[string]any{{"role": "user", "content": "hi"}},
 	}
 
 	for i := 0; i < 3; i++ {
@@ -1055,7 +1055,7 @@ func TestRetryProvider_Cache_Expired(t *testing.T) {
 	require.NoError(t, err)
 
 	req := CompletionRequest{
-		Model: "test", Messages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+		Model: "test", Messages: []map[string]any{{"role": "user", "content": "hi"}},
 	}
 
 	_, err = rp.Complete(context.Background(), req)
@@ -1076,7 +1076,7 @@ func TestOpenAIProvider_Complete_ConnectionError(t *testing.T) {
 		Model:   "gpt-4",
 		BaseURL: "http://localhost:1",
 		ApiKey:  "sk-test",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -1098,7 +1098,7 @@ func TestOpenAIProvider_Complete_ContextCancelled(t *testing.T) {
 		Model:   "gpt-4",
 		BaseURL: server.URL,
 		ApiKey:  "sk-test",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -1120,7 +1120,7 @@ func TestOpenAIProvider_Complete_Timeout(t *testing.T) {
 		Model:   "gpt-4",
 		BaseURL: server.URL,
 		ApiKey:  "sk-test",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -1140,7 +1140,7 @@ func TestOpenAIProvider_Complete_BasePathConstruction(t *testing.T) {
 		Model:   "gpt-4",
 		BaseURL: server.URL,
 		ApiKey:  "sk-test",
-		Messages: []map[string]interface{}{
+		Messages: []map[string]any{
 			{"role": "user", "content": "test"},
 		},
 	})
@@ -1165,7 +1165,7 @@ func TestAnthropicProvider_Complete_Timeout(t *testing.T) {
 		Model:    "claude-3-sonnet",
 		BaseURL:  server.URL,
 		ApiKey:   "sk-ant-test",
-		Messages: []map[string]interface{}{{"role": "user", "content": "test"}},
+		Messages: []map[string]any{{"role": "user", "content": "test"}},
 	})
 	require.Error(t, err)
 }
@@ -1184,24 +1184,24 @@ func TestAnthropicProvider_Complete_ContextCancelled(t *testing.T) {
 		Model:    "claude-3-sonnet",
 		BaseURL:  server.URL,
 		ApiKey:   "sk-ant-test",
-		Messages: []map[string]interface{}{{"role": "user", "content": "test"}},
+		Messages: []map[string]any{{"role": "user", "content": "test"}},
 	})
 	require.Error(t, err)
 }
 
 // --- helper ---
 
-func toMessages(raw interface{}) []map[string]interface{} {
+func toMessages(raw any) []map[string]any {
 	if raw == nil {
 		return nil
 	}
-	slice, ok := raw.([]interface{})
+	slice, ok := raw.([]any)
 	if !ok {
 		return nil
 	}
-	result := make([]map[string]interface{}, len(slice))
+	result := make([]map[string]any, len(slice))
 	for i, v := range slice {
-		result[i], _ = v.(map[string]interface{})
+		result[i], _ = v.(map[string]any)
 	}
 	return result
 }

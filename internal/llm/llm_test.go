@@ -58,8 +58,8 @@ func TestNewRetryProvider_NilInner(t *testing.T) {
 func TestCompletionRequest_Struct(t *testing.T) {
 	req := CompletionRequest{
 		Model:        "test-model",
-		Messages:     []map[string]interface{}{{"role": "user", "content": "hello"}},
-		Tools:        []map[string]interface{}{{"name": "test"}},
+		Messages:     []map[string]any{{"role": "user", "content": "hello"}},
+		Tools:        []map[string]any{{"name": "test"}},
 		SystemPrompt: "system prompt",
 		ApiKey:       "api-key",
 		BaseURL:      "http://localhost",
@@ -77,7 +77,7 @@ func TestCompletionResponse_Struct(t *testing.T) {
 	resp := CompletionResponse{
 		Content: "response content",
 		ToolCalls: []ToolCall{
-			{Name: "tool1", Arguments: map[string]interface{}{"arg": "val"}},
+			{Name: "tool1", Arguments: map[string]any{"arg": "val"}},
 		},
 	}
 
@@ -89,7 +89,7 @@ func TestCompletionResponse_Struct(t *testing.T) {
 func TestToolCall_Struct(t *testing.T) {
 	tc := ToolCall{
 		Name:      "test-tool",
-		Arguments: map[string]interface{}{"key": "value"},
+		Arguments: map[string]any{"key": "value"},
 	}
 	assert.Equal(t, "test-tool", tc.Name)
 	assert.NotNil(t, tc.Arguments)

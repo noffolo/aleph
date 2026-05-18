@@ -17,8 +17,8 @@ import (
 // Circuit breaker states
 const (
 	stateClosed   = iota
-	stateHalfOpen        // probing — max 1 concurrent request
-	stateOpen            // fast-failing
+	stateHalfOpen // probing — max 1 concurrent request
+	stateOpen     // fast-failing
 )
 
 type retryProvider struct {
@@ -51,11 +51,11 @@ func NewRetryProvider(inner Provider, maxRetries int, ttl time.Duration) (Provid
 		return nil, fmt.Errorf("llm: cannot wrap nil provider")
 	}
 	return &retryProvider{
-		inner:      inner,
-		maxRetries: maxRetries,
-		cache:      make(map[string]*cacheEntry),
-		ttl:        ttl,
-		cbState:    stateClosed,
+		inner:       inner,
+		maxRetries:  maxRetries,
+		cache:       make(map[string]*cacheEntry),
+		ttl:         ttl,
+		cbState:     stateClosed,
 		cbThreshold: 5,
 		cbTimeout:   30 * time.Second,
 	}, nil

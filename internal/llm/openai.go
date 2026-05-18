@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// Compile-time assertion: OpenAIProvider implements Provider.
+var _ Provider = (*OpenAIProvider)(nil)
+
 type OpenAIProvider struct {
 	client  *http.Client
 	timeout time.Duration
@@ -28,7 +31,7 @@ func (p *OpenAIProvider) Complete(ctx context.Context, req CompletionRequest) (*
 		endpoint = req.BaseURL
 	}
 
-	requestBody := map[string]interface{}{
+	requestBody := map[string]any{
 		"model":    req.Model,
 		"messages": req.Messages,
 		"stream":   false,
@@ -36,11 +39,11 @@ func (p *OpenAIProvider) Complete(ctx context.Context, req CompletionRequest) (*
 	}
 
 	if req.SystemPrompt != "" {
-		systemMsg := map[string]interface{}{
+		systemMsg := map[string]any{
 			"role":    "system",
 			"content": req.SystemPrompt,
 		}
-		messages := make([]map[string]interface{}, 0, len(req.Messages)+1)
+		messages := make([]map[string]any, 0, len(req.Messages)+1)
 		messages = append(messages, systemMsg)
 		messages = append(messages, req.Messages...)
 		requestBody["messages"] = messages
@@ -104,7 +107,7 @@ func (p *OpenAIProvider) Complete(ctx context.Context, req CompletionRequest) (*
 
 	var toolCalls []ToolCall
 	for _, tc := range openaiResp.Choices[0].Message.ToolCalls {
-		var args map[string]interface{}
+		var args map[string]any
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal tool arguments: %w", err)
 		}

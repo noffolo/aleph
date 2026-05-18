@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// Compile-time assertion: AnthropicProvider implements Provider.
+var _ Provider = (*AnthropicProvider)(nil)
+
 type AnthropicProvider struct {
 	client  *http.Client
 	timeout time.Duration
@@ -23,9 +26,9 @@ func (p *AnthropicProvider) Complete(ctx context.Context, req CompletionRequest)
 		defer cancel()
 	}
 
-	requestBody := map[string]interface{}{
+	requestBody := map[string]any{
 		"model":      req.Model,
-		"max_tokens":  4096,
+		"max_tokens": 4096,
 		"system":     req.SystemPrompt,
 		"messages":   req.Messages,
 		"tools":      req.Tools,
@@ -90,14 +93,14 @@ func (p *AnthropicProvider) Complete(ctx context.Context, req CompletionRequest)
 				contentText.WriteString(item.Text)
 			}
 		case "tool_use":
-			var args map[string]interface{}
+			var args map[string]any
 			if len(item.Input) > 0 && string(item.Input) != "null" {
 				if err := json.Unmarshal(item.Input, &args); err != nil {
 					return nil, fmt.Errorf("failed to unmarshal tool input: %w", err)
 				}
 			}
 			if args == nil {
-				args = make(map[string]interface{})
+				args = make(map[string]any)
 			}
 			toolCalls = append(toolCalls, ToolCall{
 				Name:      item.Name,
