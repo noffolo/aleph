@@ -26,16 +26,16 @@ func TestNewHandlerToolExecutor(t *testing.T) {
 
 func TestToolExecutor_ExecuteTool(t *testing.T) {
 	tests := []struct {
-		name      string
-		toolName  string
-		args      map[string]interface{}
-		wantErr   bool
-		wantCfm   bool
+		name     string
+		toolName string
+		args     map[string]any
+		wantErr  bool
+		wantCfm  bool
 	}{
-		{name: "unknown tool requires confirmation", toolName: "unknown_tool", args: map[string]interface{}{}, wantErr: false, wantCfm: true},
-		{name: "search_data missing param", toolName: "search_data", args: map[string]interface{}{}, wantErr: true},
-		{name: "analyze_sentiment missing param", toolName: "analyze_sentiment", args: map[string]interface{}{}, wantErr: true},
-		{name: "get_trust_score missing param", toolName: "get_trust_score", args: map[string]interface{}{}, wantErr: true},
+		{name: "unknown tool requires confirmation", toolName: "unknown_tool", args: map[string]any{}, wantErr: false, wantCfm: true},
+		{name: "search_data missing param", toolName: "search_data", args: map[string]any{}, wantErr: true},
+		{name: "analyze_sentiment missing param", toolName: "analyze_sentiment", args: map[string]any{}, wantErr: true},
+		{name: "get_trust_score missing param", toolName: "get_trust_score", args: map[string]any{}, wantErr: true},
 	}
 
 	for _, tt := range tests {
@@ -61,7 +61,7 @@ func TestToolExecutor_ExecuteSearchData(t *testing.T) {
 	})
 	exec := NewHandlerToolExecutor(mockExecuteQuery(mockResp, nil), nil, nil).(*toolExecutor)
 
-	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "search_data", map[string]interface{}{
+	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "search_data", map[string]any{
 		"object_name": "users",
 		"limit":       float64(5),
 	}, "proj-1", "agent-1")
@@ -74,7 +74,7 @@ func TestToolExecutor_ExecuteSearchData(t *testing.T) {
 func TestToolExecutor_ExecuteSearchData_QueryError(t *testing.T) {
 	exec := NewHandlerToolExecutor(mockExecuteQuery(nil, assert.AnError), nil, nil).(*toolExecutor)
 
-	_, _, err := exec.ExecuteTool(context.Background(), "search_data", map[string]interface{}{
+	_, _, err := exec.ExecuteTool(context.Background(), "search_data", map[string]any{
 		"object_name": "users",
 	}, "proj-1", "agent-1")
 
@@ -85,7 +85,7 @@ func TestToolExecutor_ExecuteSearchData_QueryError(t *testing.T) {
 func TestToolExecutor_ExecuteAnalyzeSentiment_NilNLP(t *testing.T) {
 	exec := NewHandlerToolExecutor(nil, nil, nil).(*toolExecutor)
 
-	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "analyze_sentiment", map[string]interface{}{
+	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "analyze_sentiment", map[string]any{
 		"text": "test message",
 	}, "", "")
 
@@ -97,7 +97,7 @@ func TestToolExecutor_ExecuteAnalyzeSentiment_NilNLP(t *testing.T) {
 func TestToolExecutor_ExecuteGetTrustScore_NilReg(t *testing.T) {
 	exec := NewHandlerToolExecutor(nil, nil, nil).(*toolExecutor)
 
-	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "get_trust_score", map[string]interface{}{
+	result, needsConfirm, err := exec.ExecuteTool(context.Background(), "get_trust_score", map[string]any{
 		"entity_id": "entity-1",
 	}, "", "")
 
@@ -118,7 +118,7 @@ func TestToolExecutor_ResultTruncation(t *testing.T) {
 	})
 	exec := NewHandlerToolExecutor(mockExecuteQuery(mockResp, nil), nil, nil).(*toolExecutor)
 
-	result, _, err := exec.ExecuteTool(context.Background(), "search_data", map[string]interface{}{
+	result, _, err := exec.ExecuteTool(context.Background(), "search_data", map[string]any{
 		"object_name": "test",
 	}, "", "")
 	require.NoError(t, err)
@@ -131,4 +131,3 @@ func TestToolExecutor_InterfaceCompliance(t *testing.T) {
 	var _ decision.ToolExecutor = exec
 	assert.NotNil(t, exec)
 }
-

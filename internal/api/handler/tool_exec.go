@@ -225,7 +225,8 @@ func (h *ToolExecuteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // HandleCallTool executes a tool by qualified name (e.g. "finance.prophet_forecast").
 // POST /api/v1/tools/call
 // Body: {"tool": "category.name", "params": {...}}
-//   or: {"category": "finance", "name": "prophet_forecast", "params": {...}}
+//
+//	or: {"category": "finance", "name": "prophet_forecast", "params": {...}}
 func (h *ToolExecuteHandler) HandleCallTool(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, "method not allowed", http.StatusMethodNotAllowed)

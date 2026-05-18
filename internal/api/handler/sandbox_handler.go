@@ -5,9 +5,9 @@ import (
 	"log/slog"
 
 	"connectrpc.com/connect"
+	v1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/errors"
 	"github.com/ff3300/aleph-v2/internal/sandbox"
-	v1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 )
 
 type SandboxServiceHandler struct {
@@ -21,11 +21,11 @@ func NewSandboxServiceHandler(sbMgr sandbox.SandboxManager, logger *slog.Logger)
 
 func (h *SandboxServiceHandler) ExecuteTool(ctx context.Context, req *connect.Request[v1.ExecuteToolRequest]) (*connect.Response[v1.ExecuteToolResponse], error) {
 	toolID := req.Msg.GetToolId()
-	var inputMap map[string]interface{}
+	var inputMap map[string]any
 	if ip := req.Msg.GetInputParams(); ip != nil {
 		inputMap = ip.AsMap()
 	} else {
-		inputMap = map[string]interface{}{}
+		inputMap = map[string]any{}
 	}
 
 	result, err := h.sandboxMgr.ExecuteTool(ctx, toolID, inputMap)
@@ -55,11 +55,11 @@ func (h *SandboxServiceHandler) ExecuteTool(ctx context.Context, req *connect.Re
 
 func (h *SandboxServiceHandler) RunSkill(ctx context.Context, req *connect.Request[v1.RunSkillRequest]) (*connect.Response[v1.RunSkillResponse], error) {
 	skillID := req.Msg.GetSkillId()
-	var inputMap map[string]interface{}
+	var inputMap map[string]any
 	if ip := req.Msg.GetInputParams(); ip != nil {
 		inputMap = ip.AsMap()
 	} else {
-		inputMap = map[string]interface{}{}
+		inputMap = map[string]any{}
 	}
 
 	result, err := h.sandboxMgr.RunSkill(ctx, skillID, inputMap)

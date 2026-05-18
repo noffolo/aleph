@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"connectrpc.com/connect"
-	alephv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	nlpv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/nlp/v1"
+	alephv1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/decision"
 	"github.com/ff3300/aleph-v2/internal/registry"
 )
@@ -25,7 +25,7 @@ var _ decision.ToolExecutor = (*toolExecutor)(nil)
 
 // ExecuteTool dispatches a tool call by name, mirroring the original Chat() switch.
 // The bool return indicates whether the tool requires user confirmation.
-func (e *toolExecutor) ExecuteTool(ctx context.Context, toolName string, args map[string]interface{}, projectID string, agentID string) (string, bool, error) {
+func (e *toolExecutor) ExecuteTool(ctx context.Context, toolName string, args map[string]any, projectID string, agentID string) (string, bool, error) {
 	switch toolName {
 	case "search_data":
 		return e.executeSearchData(ctx, args, projectID)
@@ -39,7 +39,7 @@ func (e *toolExecutor) ExecuteTool(ctx context.Context, toolName string, args ma
 	}
 }
 
-func (e *toolExecutor) executeSearchData(ctx context.Context, args map[string]interface{}, projectID string) (string, bool, error) {
+func (e *toolExecutor) executeSearchData(ctx context.Context, args map[string]any, projectID string) (string, bool, error) {
 	objName, _ := args["object_name"].(string)
 	if objName == "" {
 		return "", false, fmt.Errorf("Error: object_name parameter missing")
@@ -67,7 +67,7 @@ func (e *toolExecutor) executeSearchData(ctx context.Context, args map[string]in
 	return resultStr, false, nil
 }
 
-func (e *toolExecutor) executeAnalyzeSentiment(ctx context.Context, args map[string]interface{}) (string, bool, error) {
+func (e *toolExecutor) executeAnalyzeSentiment(ctx context.Context, args map[string]any) (string, bool, error) {
 	text, _ := args["text"].(string)
 	if text == "" {
 		return "", false, fmt.Errorf("Error: text parameter missing for analyze_sentiment")
@@ -78,7 +78,7 @@ func (e *toolExecutor) executeAnalyzeSentiment(ctx context.Context, args map[str
 		if err != nil {
 			return "", false, fmt.Errorf("Sentiment analysis error: %v", err)
 		}
-		result := map[string]interface{}{
+		result := map[string]any{
 			"score": resp.Msg.Score,
 			"label": resp.Msg.Label,
 		}
@@ -88,7 +88,7 @@ func (e *toolExecutor) executeAnalyzeSentiment(ctx context.Context, args map[str
 	return `{"error": "sentiment service unavailable"}`, false, nil
 }
 
-func (e *toolExecutor) executeGetTrustScore(ctx context.Context, args map[string]interface{}) (string, bool, error) {
+func (e *toolExecutor) executeGetTrustScore(ctx context.Context, args map[string]any) (string, bool, error) {
 	entityID, _ := args["entity_id"].(string)
 	if entityID == "" {
 		return "", false, fmt.Errorf("Error: entity_id parameter missing for get_trust_score")
@@ -99,7 +99,7 @@ func (e *toolExecutor) executeGetTrustScore(ctx context.Context, args map[string
 		if err != nil || comp == nil {
 			return "", false, fmt.Errorf(`{"error": "entity %s not found"}`, entityID)
 		}
-		result := map[string]interface{}{
+		result := map[string]any{
 			"entity_id":       entityID,
 			"avg_brier_score": comp.AvgBrierScore,
 			"trust_score":     comp.TrustScore,
@@ -122,5 +122,3 @@ func NewHandlerToolExecutor(
 		reg:          reg,
 	}
 }
-
-

@@ -24,19 +24,19 @@ type ChatSession struct {
 	projectID        string
 	agentID          string
 	fullSystemPrompt string
-	chatMessages     []map[string]interface{}
-	tools            []map[string]interface{}
+	chatMessages     []map[string]any
+	tools            []map[string]any
 	agent            AgentInfo
 	baseURL          string
 	needsPlanning    bool
 
 	// Decision loop state
-	engine        decision.DecisionEngine
-	plan          *decision.PlanResult
-	observations  []decision.Observation
-	actResults    []*decision.ActResult
-	maxAttempts   int
-	replanState   string // "" = normal, "partial" = use correction steps, "full" = regenerate plan
+	engine       decision.DecisionEngine
+	plan         *decision.PlanResult
+	observations []decision.Observation
+	actResults   []*decision.ActResult
+	maxAttempts  int
+	replanState  string // "" = normal, "partial" = use correction steps, "full" = regenerate plan
 }
 
 // AgentInfo holds the resolved agent configuration for a session.
@@ -60,7 +60,7 @@ func NewChatSession(
 	ontContent []byte,
 	fullSystemPrompt string,
 ) *ChatSession {
-	chatMessages := []map[string]interface{}{
+	chatMessages := []map[string]any{
 		{"role": "system", "content": fullSystemPrompt},
 	}
 
@@ -69,16 +69,16 @@ func NewChatSession(
 	if histErr == nil {
 		for _, m := range history {
 			if m.Role == "user" {
-				chatMessages = append(chatMessages, map[string]interface{}{"role": "user", "content": m.Content})
+				chatMessages = append(chatMessages, map[string]any{"role": "user", "content": m.Content})
 			} else if m.Role == "assistant" && m.ToolCall == "" {
-				chatMessages = append(chatMessages, map[string]interface{}{"role": "assistant", "content": m.Content})
+				chatMessages = append(chatMessages, map[string]any{"role": "assistant", "content": m.Content})
 			}
 		}
 	}
-	chatMessages = append(chatMessages, map[string]interface{}{"role": "user", "content": msg})
+	chatMessages = append(chatMessages, map[string]any{"role": "user", "content": msg})
 
 	// Build tool definitions
-	var tools []map[string]interface{}
+	var tools []map[string]any
 	if h.engine != nil {
 		tools = h.engine.BuildToolsMap(ctx)
 	} else {
@@ -474,15 +474,15 @@ func (s *ChatSession) executeAndStreamTool(tc llm.ToolCall, iteration int) error
 
 // appendToolCallToMessages adds the assistant's tool call message to the chat history.
 func (s *ChatSession) appendToolCallToMessages(toolCalls []llm.ToolCall, responseContent string, iteration int) {
-	assistantMsg := map[string]interface{}{"role": "assistant", "content": responseContent}
+	assistantMsg := map[string]any{"role": "assistant", "content": responseContent}
 
-	var apiToolCalls []map[string]interface{}
+	var apiToolCalls []map[string]any
 	for j, tc := range toolCalls {
 		argsJSON, _ := json.Marshal(tc.Arguments)
-		apiToolCalls = append(apiToolCalls, map[string]interface{}{
+		apiToolCalls = append(apiToolCalls, map[string]any{
 			"id":   fmt.Sprintf("call_%d_%d", iteration, j),
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name":      tc.Name,
 				"arguments": string(argsJSON),
 			},
@@ -494,7 +494,7 @@ func (s *ChatSession) appendToolCallToMessages(toolCalls []llm.ToolCall, respons
 
 // appendToolResult adds the tool execution result to the message history.
 func (s *ChatSession) appendToolResult(iteration int, resultStr string) {
-	s.chatMessages = append(s.chatMessages, map[string]interface{}{
+	s.chatMessages = append(s.chatMessages, map[string]any{
 		"role":         "tool",
 		"content":      resultStr,
 		"tool_call_id": fmt.Sprintf("call_%d_tools_0", iteration),
@@ -515,7 +515,7 @@ func (s *ChatSession) lastUserMessage() string {
 
 // buildMinimalToolsMap creates a minimal tool definition map from registered tools only.
 // Used in degraded mode when no engine is available.
-func buildMinimalToolsMap(ctx context.Context, metaRepo *repository.MetadataRepository) []map[string]interface{} {
+func buildMinimalToolsMap(ctx context.Context, metaRepo *repository.MetadataRepository) []map[string]any {
 	if metaRepo == nil {
 		return nil
 	}
@@ -523,19 +523,19 @@ func buildMinimalToolsMap(ctx context.Context, metaRepo *repository.MetadataRepo
 	if err != nil {
 		return nil
 	}
-	result := make([]map[string]interface{}, 0, len(tools))
+	result := make([]map[string]any, 0, len(tools))
 	for _, t := range tools {
-		toolDef := map[string]interface{}{
+		toolDef := map[string]any{
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name":        t.Name,
 				"description": t.Description,
 			},
 		}
 		if t.Code != "" {
-			var params map[string]interface{}
+			var params map[string]any
 			if json.Unmarshal([]byte(t.Code), &params) == nil {
-				toolDef["function"].(map[string]interface{})["parameters"] = params
+				toolDef["function"].(map[string]any)["parameters"] = params
 			}
 		}
 		result = append(result, toolDef)

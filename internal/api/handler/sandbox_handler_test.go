@@ -8,24 +8,24 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
-	"github.com/ff3300/aleph-v2/internal/sandbox"
 	v1 "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
+	"github.com/ff3300/aleph-v2/internal/sandbox"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // mockSandboxManager implements sandbox.SandboxManager for testing.
 type mockSandboxManager struct {
-	executeResult sandbox.ExecutionResult
-	executeErr    error
+	executeResult  sandbox.ExecutionResult
+	executeErr     error
 	runSkillResult sandbox.ExecutionResult
 	runSkillErr    error
 }
 
-func (m *mockSandboxManager) ExecuteTool(ctx context.Context, toolID string, input map[string]interface{}) (sandbox.ExecutionResult, error) {
+func (m *mockSandboxManager) ExecuteTool(ctx context.Context, toolID string, input map[string]any) (sandbox.ExecutionResult, error) {
 	return m.executeResult, m.executeErr
 }
 
-func (m *mockSandboxManager) RunSkill(ctx context.Context, skillID string, input map[string]interface{}) (sandbox.ExecutionResult, error) {
+func (m *mockSandboxManager) RunSkill(ctx context.Context, skillID string, input map[string]any) (sandbox.ExecutionResult, error) {
 	return m.runSkillResult, m.runSkillErr
 }
 
@@ -50,7 +50,7 @@ func TestExecuteTool_Success(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	h := NewSandboxServiceHandler(mock, logger)
 
-	params, _ := structpb.NewStruct(map[string]interface{}{"arg1": "val1"})
+	params, _ := structpb.NewStruct(map[string]any{"arg1": "val1"})
 	req := connect.NewRequest(&v1.ExecuteToolRequest{
 		ToolId:      "test-tool",
 		InputParams: params,
@@ -150,7 +150,7 @@ func TestRunSkill_Success(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	h := NewSandboxServiceHandler(mock, logger)
 
-	params, _ := structpb.NewStruct(map[string]interface{}{"x": 1})
+	params, _ := structpb.NewStruct(map[string]any{"x": 1})
 	req := connect.NewRequest(&v1.RunSkillRequest{
 		SkillId:     "skill-1",
 		InputParams: params,

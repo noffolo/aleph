@@ -84,39 +84,39 @@ func (h *SSEHandler) Broker() *sse.Broker {
 // Event types published via SSE. These are the "event:" field values
 // that the frontend EventSource addEventListener listens for.
 const (
-	EventToolStatus         = "tool_status"
-	EventNotification       = "notification"
-	EventIngestionProgress  = "ingestion_progress"
-	EventSystemAlert        = "system_alert"
-	EventHealthChange       = "health_change"
+	EventToolStatus        = "tool_status"
+	EventNotification      = "notification"
+	EventIngestionProgress = "ingestion_progress"
+	EventSystemAlert       = "system_alert"
+	EventHealthChange      = "health_change"
 )
 
 // ToolStatusPayload is published via SSE when a tool execution status changes.
 type ToolStatusPayload struct {
-	ToolID     string      `json:"tool_id"`
-	ToolName   string      `json:"tool_name"`
-	Status     string      `json:"status"` // started, running, completed, failed
-	Progress   float64     `json:"progress,omitempty"`
-	Result     interface{} `json:"result,omitempty"`
-	Error      string      `json:"error,omitempty"`
-	DurationMs int64       `json:"duration_ms,omitempty"`
+	ToolID     string  `json:"tool_id"`
+	ToolName   string  `json:"tool_name"`
+	Status     string  `json:"status"` // started, running, completed, failed
+	Progress   float64 `json:"progress,omitempty"`
+	Result     any     `json:"result,omitempty"`
+	Error      string  `json:"error,omitempty"`
+	DurationMs int64   `json:"duration_ms,omitempty"`
 }
 
 // NotificationPayload is published via SSE for general notifications.
 type NotificationPayload struct {
-	Title   string      `json:"title"`
-	Message string      `json:"message"`
-	Type    string      `json:"type"` // info, success, warning, error
-	Link    string      `json:"link,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
+	Title   string `json:"title"`
+	Message string `json:"message"`
+	Type    string `json:"type"` // info, success, warning, error
+	Link    string `json:"link,omitempty"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // IngestionProgressPayload is published via SSE when an ingestion task progresses.
 type IngestionProgressPayload struct {
 	TaskID      string  `json:"task_id"`
 	TaskName    string  `json:"task_name"`
-	Progress    float64 `json:"progress"`       // 0.0-1.0
-	Phase       string  `json:"phase"`          // e.g. "downloading", "parsing", "importing"
+	Progress    float64 `json:"progress"` // 0.0-1.0
+	Phase       string  `json:"phase"`    // e.g. "downloading", "parsing", "importing"
 	RowsProcess int64   `json:"rows_processed"`
 	TotalRows   int64   `json:"total_rows,omitempty"`
 }

@@ -10,8 +10,8 @@ import (
 )
 
 type SessionHandler struct {
-	metaRepo       *repository.MetadataRepository
-	jwtSecret      []byte
+	metaRepo        *repository.MetadataRepository
+	jwtSecret       []byte
 	revocationStore *middleware.TokenRevocationStore
 }
 

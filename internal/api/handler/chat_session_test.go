@@ -22,14 +22,14 @@ import (
 // ─── Mock LLM HTTP Server ───────────────────────────────────────────────────
 
 type mockLLMServer struct {
-	server   *httptest.Server
+	server    *httptest.Server
 	callCount atomic.Int32
 }
 
 type ollamaToolCall struct {
 	Function struct {
-		Name      string                 `json:"name"`
-		Arguments map[string]interface{} `json:"arguments"`
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments"`
 	} `json:"function"`
 }
 
@@ -80,7 +80,7 @@ func ollamaTextResponse(text string) ollamaResponse {
 
 func ollamaToolResponse(text string, tools []struct {
 	Name      string
-	Arguments map[string]interface{}
+	Arguments map[string]any
 }) ollamaResponse {
 	resp := ollamaResponse{
 		Message: ollamaMessage{Role: "assistant", Content: text},
@@ -97,14 +97,14 @@ func ollamaToolResponse(text string, tools []struct {
 // ─── Mock DecisionEngine ────────────────────────────────────────────────────
 
 type mockEngine struct {
-	planFunc            func(ctx context.Context, msg, projectID, agentID string, ontContent []byte, agent *v1.Agent) (*decision.PlanResult, error)
-	planWithProvFunc    func(ctx context.Context, msg, projectID, agentID string, ontContent []byte, agent *v1.Agent, provider llm.Provider) (*decision.PlanResult, error)
-	actFunc             func(ctx context.Context, step decision.PlannedStep, projectID string) (*decision.ActResult, error)
-	observeFunc         func(ctx context.Context, step decision.PlannedStep, result *decision.ActResult) (*decision.Observation, error)
-	reflectFunc         func(ctx context.Context, plan *decision.PlanResult, observations []decision.Observation) (*decision.PlanResult, error)
-	admitFunc           func(ctx context.Context, results []*decision.ActResult, maxAttempts int) (bool, error)
-	buildToolsFunc      func(ctx context.Context) []map[string]interface{}
-	shouldAutoSkipFunc  func(step decision.PlannedStep) bool
+	planFunc           func(ctx context.Context, msg, projectID, agentID string, ontContent []byte, agent *v1.Agent) (*decision.PlanResult, error)
+	planWithProvFunc   func(ctx context.Context, msg, projectID, agentID string, ontContent []byte, agent *v1.Agent, provider llm.Provider) (*decision.PlanResult, error)
+	actFunc            func(ctx context.Context, step decision.PlannedStep, projectID string) (*decision.ActResult, error)
+	observeFunc        func(ctx context.Context, step decision.PlannedStep, result *decision.ActResult) (*decision.Observation, error)
+	reflectFunc        func(ctx context.Context, plan *decision.PlanResult, observations []decision.Observation) (*decision.PlanResult, error)
+	admitFunc          func(ctx context.Context, results []*decision.ActResult, maxAttempts int) (bool, error)
+	buildToolsFunc     func(ctx context.Context) []map[string]any
+	shouldAutoSkipFunc func(step decision.PlannedStep) bool
 }
 
 func (m *mockEngine) Plan(ctx context.Context, msg, projectID, agentID string, ontContent []byte, agent *v1.Agent) (*decision.PlanResult, error) {
@@ -149,14 +149,14 @@ func (m *mockEngine) Admit(ctx context.Context, results []*decision.ActResult, m
 	return true, nil
 }
 
-func (m *mockEngine) BuildToolsMap(ctx context.Context) []map[string]interface{} {
+func (m *mockEngine) BuildToolsMap(ctx context.Context) []map[string]any {
 	if m.buildToolsFunc != nil {
 		return m.buildToolsFunc(ctx)
 	}
-	return []map[string]interface{}{
+	return []map[string]any{
 		{
 			"type": "function",
-			"function": map[string]interface{}{
+			"function": map[string]any{
 				"name":        "search_data",
 				"description": "Search data objects",
 			},
@@ -174,10 +174,10 @@ func (m *mockEngine) ShouldAutoSkip(step decision.PlannedStep) bool {
 // ─── Mock ToolExecutor ──────────────────────────────────────────────────────
 
 type mockToolExecutor struct {
-	execFunc func(ctx context.Context, toolName string, args map[string]interface{}, projectID, agentID string) (string, bool, error)
+	execFunc func(ctx context.Context, toolName string, args map[string]any, projectID, agentID string) (string, bool, error)
 }
 
-func (m *mockToolExecutor) ExecuteTool(ctx context.Context, toolName string, args map[string]interface{}, projectID, agentID string) (string, bool, error) {
+func (m *mockToolExecutor) ExecuteTool(ctx context.Context, toolName string, args map[string]any, projectID, agentID string) (string, bool, error) {
 	if m.execFunc != nil {
 		return m.execFunc(ctx, toolName, args, projectID, agentID)
 	}
@@ -257,9 +257,9 @@ func TestChatSession_PAORACycle(t *testing.T) {
 	responses := []ollamaResponse{
 		ollamaToolResponse("I'll search the data for you.", []struct {
 			Name      string
-			Arguments map[string]interface{}
+			Arguments map[string]any
 		}{
-			{Name: "search_data", Arguments: map[string]interface{}{"object_name": "items", "limit": float64(10)}},
+			{Name: "search_data", Arguments: map[string]any{"object_name": "items", "limit": float64(10)}},
 		}),
 		ollamaTextResponse("Here are the results: found 42 items."),
 	}
@@ -324,7 +324,7 @@ func TestChatSession_DegradedMode(t *testing.T) {
 		ollamaTextResponse("Hello! I am operating in degraded mode."),
 	}
 	exec := &mockToolExecutor{
-		execFunc: func(ctx context.Context, toolName string, args map[string]interface{}, projectID, agentID string) (string, bool, error) {
+		execFunc: func(ctx context.Context, toolName string, args map[string]any, projectID, agentID string) (string, bool, error) {
 			return "executor result", false, nil
 		},
 	}
@@ -349,9 +349,9 @@ func TestChatSession_ToolExecution(t *testing.T) {
 	responses := []ollamaResponse{
 		ollamaToolResponse("", []struct {
 			Name      string
-			Arguments map[string]interface{}
+			Arguments map[string]any
 		}{
-			{Name: "search_data", Arguments: map[string]interface{}{"object_name": "items", "limit": float64(5)}},
+			{Name: "search_data", Arguments: map[string]any{"object_name": "items", "limit": float64(5)}},
 		}),
 		ollamaTextResponse("Found 5 items matching your criteria."),
 	}
@@ -494,13 +494,13 @@ func TestBuildMinimalToolsMap_WithToolsAndParams(t *testing.T) {
 	result := buildMinimalToolsMap(context.Background(), repo)
 	require.Len(t, result, 2)
 
-	fn1, ok := result[0]["function"].(map[string]interface{})
+	fn1, ok := result[0]["function"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "search_data", fn1["name"])
-	params1, _ := fn1["parameters"].(map[string]interface{})
+	params1, _ := fn1["parameters"].(map[string]any)
 	assert.NotNil(t, params1)
 
-	fn2, ok := result[1]["function"].(map[string]interface{})
+	fn2, ok := result[1]["function"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "execute_code", fn2["name"])
 }
@@ -514,7 +514,7 @@ func TestBuildMinimalToolsMap_BadJSONCode(t *testing.T) {
 	})
 	result := buildMinimalToolsMap(context.Background(), repo)
 	require.Len(t, result, 1)
-	fn := result[0]["function"].(map[string]interface{})
+	fn := result[0]["function"].(map[string]any)
 	_, hasParams := fn["parameters"]
 	assert.False(t, hasParams)
 }
@@ -522,13 +522,13 @@ func TestBuildMinimalToolsMap_BadJSONCode(t *testing.T) {
 func TestChatSession_LastUserMessage_Empty(t *testing.T) {
 	s := &ChatSession{chatMessages: nil}
 	assert.Equal(t, "", s.lastUserMessage())
-	s2 := &ChatSession{chatMessages: []map[string]interface{}{}}
+	s2 := &ChatSession{chatMessages: []map[string]any{}}
 	assert.Equal(t, "", s2.lastUserMessage())
 }
 
 func TestChatSession_LastUserMessage_FindsLast(t *testing.T) {
 	s := &ChatSession{
-		chatMessages: []map[string]interface{}{
+		chatMessages: []map[string]any{
 			{"role": "system", "content": "prompt"},
 			{"role": "user", "content": "first"},
 			{"role": "assistant", "content": "response"},
@@ -539,7 +539,7 @@ func TestChatSession_LastUserMessage_FindsLast(t *testing.T) {
 }
 
 func TestChatSession_LastUserMessage_OnlyAssistant(t *testing.T) {
-	s := &ChatSession{chatMessages: []map[string]interface{}{
+	s := &ChatSession{chatMessages: []map[string]any{
 		{"role": "assistant", "content": "only"},
 	}}
 	assert.Equal(t, "", s.lastUserMessage())
@@ -547,10 +547,10 @@ func TestChatSession_LastUserMessage_OnlyAssistant(t *testing.T) {
 
 func TestChatSession_AppendToolCallAndResult(t *testing.T) {
 	s := &ChatSession{
-		chatMessages: []map[string]interface{}{{"role": "user", "content": "go"}},
+		chatMessages: []map[string]any{{"role": "user", "content": "go"}},
 	}
 	s.appendToolCallToMessages([]llm.ToolCall{
-		{Name: "search", Arguments: map[string]interface{}{"q": "x"}},
+		{Name: "search", Arguments: map[string]any{"q": "x"}},
 	}, "calling", 0)
 	require.Len(t, s.chatMessages, 2)
 	assert.Equal(t, "assistant", s.chatMessages[1]["role"])
@@ -563,12 +563,12 @@ func TestChatSession_AppendToolCallAndResult(t *testing.T) {
 
 func TestChatSession_AppendToolCallToMessages_EmptyCalls(t *testing.T) {
 	s := &ChatSession{
-		chatMessages: []map[string]interface{}{{"role": "user", "content": "hi"}},
+		chatMessages: []map[string]any{{"role": "user", "content": "hi"}},
 	}
 	s.appendToolCallToMessages([]llm.ToolCall{}, "no tools", 0)
 	require.Len(t, s.chatMessages, 2)
 	msg := s.chatMessages[1]
-	toolCalls := msg["tool_calls"].([]map[string]interface{})
+	toolCalls := msg["tool_calls"].([]map[string]any)
 	assert.Len(t, toolCalls, 0)
 }
 
