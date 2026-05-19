@@ -1,7 +1,8 @@
+version: "2"
 run:
   timeout: 5m
-
 linters:
+  default: none
   enable:
     - govet
     - errcheck
@@ -9,19 +10,15 @@ linters:
     - unused
     - gosimple
     - ineffassign
-    - typecheck
     - gocritic
     - gosec
-
-linters:
   settings:
     gosec:
-      excludes:
-        - G104  # error not checked — too many in codebase
-        - G404  # weak rand — used for non-crypto
-        - G301  # file permissions — DuckDB operations
-        - G307  # defer file close
-
+      exclude:
+        - G104
+        - G404
+        - G301
+        - G307
 issues:
   exclude-rules:
     - path: "_test\\.go$"
