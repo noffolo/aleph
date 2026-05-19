@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
@@ -12,10 +13,26 @@ import (
 )
 
 type mockRunner struct {
-	runTaskFn func(ctx context.Context, projectID string, task *v1.IngestionTask) error
+	sync.Mutex // embedded for test assertions
+	runTaskFn  func(ctx context.Context, projectID string, task *v1.IngestionTask) error
+	called     chan struct{}
+	lastTask   *v1.IngestionTask
+	lastProjID string
 }
 
 func (m *mockRunner) RunTask(ctx context.Context, projectID string, task *v1.IngestionTask) error {
+	m.Lock()
+	m.lastTask = task
+	m.lastProjID = projectID
+	m.Unlock()
+
+	if m.called != nil {
+		select {
+		case m.called <- struct{}{}:
+		default:
+		}
+	}
+
 	if m.runTaskFn != nil {
 		return m.runTaskFn(ctx, projectID, task)
 	}
