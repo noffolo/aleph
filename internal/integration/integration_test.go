@@ -74,6 +74,37 @@ func newTestServer(t *testing.T) *testServer {
 
 	createMetaTables(t, metaDB)
 
+	// Create the components table in the DuckDB that the registry uses.
+	// DuckDBRegistry queries the storage DuckDB (db), not metaDB.
+	_, err = db.DB().Exec(`CREATE TABLE IF NOT EXISTS components (
+		id VARCHAR PRIMARY KEY,
+		name VARCHAR,
+		description VARCHAR,
+		version VARCHAR,
+		type VARCHAR,
+		category VARCHAR,
+		source VARCHAR,
+		status VARCHAR,
+		approval_status VARCHAR,
+		config_schema_json VARCHAR,
+		execution_command VARCHAR,
+		dependencies_json VARCHAR,
+		input_schema_json VARCHAR,
+		output_schema_json VARCHAR,
+		prompt_template VARCHAR,
+		tool_ids_json VARCHAR,
+		avg_cpu_usage DOUBLE DEFAULT 0,
+		avg_memory_mb DOUBLE DEFAULT 0,
+		avg_exec_time_ms DOUBLE DEFAULT 0,
+		avg_brier_score DOUBLE DEFAULT 0,
+		avg_latency_ms DOUBLE DEFAULT 0,
+		trust_score DOUBLE DEFAULT 0,
+		created_by_agent_id VARCHAR,
+		creation_timestamp TIMESTAMP,
+		last_updated_timestamp TIMESTAMP
+	)`)
+	require.NoError(t, err)
+
 	// Create a temporary projects directory
 	projectsDir := t.TempDir()
 
@@ -257,6 +288,13 @@ func createMetaTables(t *testing.T, db *sql.DB) {
 			tool_call TEXT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS system_chat_sessions (
+			id TEXT PRIMARY KEY,
+			project_id TEXT NOT NULL,
+			agent_id TEXT,
+			title TEXT DEFAULT '',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
 		`CREATE TABLE IF NOT EXISTS system_notification_channels (
 			id TEXT PRIMARY KEY,
 			project_id TEXT,
@@ -273,6 +311,33 @@ func createMetaTables(t *testing.T, db *sql.DB) {
 			resource_id VARCHAR NOT NULL,
 			timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			diff VARCHAR
+		)`,
+		`CREATE TABLE IF NOT EXISTS components (
+			id VARCHAR PRIMARY KEY,
+			name VARCHAR,
+			description VARCHAR,
+			version VARCHAR,
+			type VARCHAR,
+			category VARCHAR,
+			source VARCHAR,
+			status VARCHAR,
+			approval_status VARCHAR,
+			config_schema_json VARCHAR,
+			execution_command VARCHAR,
+			dependencies_json VARCHAR,
+			input_schema_json VARCHAR,
+			output_schema_json VARCHAR,
+			prompt_template VARCHAR,
+			tool_ids_json VARCHAR,
+			avg_cpu_usage DOUBLE DEFAULT 0,
+			avg_memory_mb DOUBLE DEFAULT 0,
+			avg_exec_time_ms DOUBLE DEFAULT 0,
+			avg_brier_score DOUBLE DEFAULT 0,
+			avg_latency_ms DOUBLE DEFAULT 0,
+			trust_score DOUBLE DEFAULT 0,
+			created_by_agent_id VARCHAR,
+			creation_timestamp TIMESTAMP,
+			last_updated_timestamp TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS ontology_versions (
 			version_id TEXT PRIMARY KEY,

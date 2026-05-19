@@ -137,12 +137,12 @@ func TestIntegration_RegistryHandlers_ConnectRPC(t *testing.T) {
 		Metadata: &v1.ComponentMetadata{Name: "test-comp", Type: "tool", Version: "1.0"},
 	}
 	raw, _ := json.Marshal(registerReq)
-	resp := ts.postConnectRPC("/aleph.v1.RegistryService/RegisterComponent", raw, []*http.Cookie{jwtCookie})
+	resp := ts.postConnectRPC("/aleph.registry.v1.RegistryService/RegisterComponent", raw, []*http.Cookie{jwtCookie})
 	requireStatus(t, resp, http.StatusOK)
 
 	listReq := &v1.ListComponentsRequest{}
 	raw, _ = json.Marshal(listReq)
-	resp = ts.postConnectRPC("/aleph.v1.RegistryService/ListComponents", raw, []*http.Cookie{jwtCookie})
+	resp = ts.postConnectRPC("/aleph.registry.v1.RegistryService/ListComponents", raw, []*http.Cookie{jwtCookie})
 	requireStatus(t, resp, http.StatusOK)
 	assert.Contains(t, readBody(t, resp), "test-comp")
 }
