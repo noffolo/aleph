@@ -216,8 +216,6 @@ func TestEngine_RunURLFetch_HTTPError(t *testing.T) {
 }
 
 func TestEngine_InsertJSONArray_Success(t *testing.T) {
-	t.Skip("production bug: insertJSONArray CREATE TABLE missing column types in DuckDB")
-
 	eng, projectsRoot := setupTestEngine(t)
 	createTestProject(t, projectsRoot, "httptest-proj")
 	eng.projectsRoot = projectsRoot

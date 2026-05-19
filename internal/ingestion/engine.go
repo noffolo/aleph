@@ -640,6 +640,18 @@ func (e *Engine) insertJSONArray(ctx context.Context, tableName string, arr []an
 		escapedCols[i] = safeident.QuoteIdentifier(c) // safe: c validated via safeident.ValidateColumnName
 	}
 
+	colDefs := make([]string, len(columns))
+	for i, c := range columns {
+		typeName := "VARCHAR"
+		switch first[c].(type) {
+		case float64:
+			typeName = "DOUBLE"
+		case bool:
+			typeName = "BOOLEAN"
+		}
+		colDefs[i] = escapedCols[i] + " " + typeName
+	}
+
 	values := make([]string, 0, len(arr))
 	params := make([]any, 0)
 	for _, item := range arr {
@@ -660,7 +672,7 @@ func (e *Engine) insertJSONArray(ctx context.Context, tableName string, arr []an
 		values = append(values, "("+strings.Join(placeholders, ",")+")")
 	}
 
-	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " (" + strings.Join(escapedCols, ", ") + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; escapedCols via safeident.ValidateColumnName
+	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " (" + strings.Join(colDefs, ", ") + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; colDefs use escapedCols (validated) + type names
 	if _, err := e.db.Exec(ctx, createSQL); err != nil {
 		return fmt.Errorf("table creation failed: %w", err)
 	}
