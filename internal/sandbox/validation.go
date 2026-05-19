@@ -364,7 +364,7 @@ func stripComments(source string) string {
 // test-like functions and assertions exist in the same file.
 func estimateCoverage(source string) float64 {
 	noComments := stripComments(source)
-	if !strings.Contains(noComments, "func Test") && !strings.Contains(noComments, "func Test") {
+	if !strings.Contains(noComments, "func Test") && !strings.Contains(noComments, "func Benchmark") {
 		return 0.0
 	}
 
