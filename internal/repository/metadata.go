@@ -758,8 +758,7 @@ var safeTables = []validatedTable{
 	{"system_notification_channels"},
 	{"system_chat_history"},
 	{"system_chat_sessions"},
-	{"system_ontology_versions"},
-	{"system_projects"},
+	{"ontology_versions"},
 }
 
 // DeleteProjectCascade removes all PostgreSQL metadata records for a project
@@ -780,6 +779,11 @@ func (r *MetadataRepository) DeleteProjectCascade(projectID string) error {
 		if _, err := tx.Exec(q, projectID); err != nil {
 			return fmt.Errorf("deleteProjectCascade cleanup %s: %w", table.tableName, err)
 		}
+	}
+
+	// Delete the project record itself (system_projects.id, not project_id)
+	if _, err := tx.Exec("DELETE FROM system_projects WHERE id = $1", projectID); err != nil {
+		return fmt.Errorf("deleteProjectCascade cleanup system_projects: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
