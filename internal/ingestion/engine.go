@@ -92,6 +92,7 @@ type Engine struct {
 	sitemapIngester *sources.SitemapIngester
 	jsonapiIngester *sources.JSONAPIIngester
 	sheetsIngester  *sources.SheetsIngester
+	scraperIngester *sources.ScrapeIngester
 
 	// Probe runner for auto-detection (lazy-init)
 	probeRunner *ProbeRunner
@@ -190,6 +191,8 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 		taskErr = e.runJSONAPISource(taskCtx, f, projectID, task)
 	case "sheets":
 		taskErr = e.runSheetsSource(taskCtx, f, projectID, task)
+	case "scrape":
+		taskErr = e.runScrapeSource(taskCtx, f, projectID, task)
 	default:
 		taskErr = fmt.Errorf("unknown source type: %s", task.SourceType)
 	}
@@ -1407,6 +1410,16 @@ func (e *Engine) getOrCreateSheetsIngester(task *v1.IngestionTask) *sources.Shee
 	return e.sheetsIngester
 }
 
+func (e *Engine) getOrCreateScrapeIngester() *sources.ScrapeIngester {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.scraperIngester != nil {
+		return e.scraperIngester
+	}
+	e.scraperIngester = sources.NewScrapeIngester()
+	return e.scraperIngester
+}
+
 func (e *Engine) getOrCreateProbeRunner() *ProbeRunner {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -1748,4 +1761,66 @@ func containsColon(s string) bool {
 		}
 	}
 	return false
+}
+
+// =============================================================================
+// Scrape source ingestion
+// =============================================================================
+
+func (e *Engine) runScrapeSource(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
+	var config sources.ScrapeConfig
+	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
+		return fmt.Errorf("scrape config JSON invalid: %w", err)
+	}
+	if config.URL == "" {
+		return fmt.Errorf("scrape config requires url")
+	}
+	if config.ArticleSelector == "" {
+		return fmt.Errorf("scrape config requires article_selector")
+	}
+	if config.TitleSelector == "" {
+		return fmt.Errorf("scrape config requires title_selector")
+	}
+
+	fmt.Fprintf(w, "Scrape: extracting from %s\n", config.URL)
+	e.updateProgress(task.Id, 10, "running")
+
+	ingester := e.getOrCreateScrapeIngester()
+	results, err := ingester.Scrape(ctx, &config)
+	if err != nil {
+		return fmt.Errorf("scrape %s: %w", config.URL, err)
+	}
+
+	fmt.Fprintf(w, "Found %d articles\n", len(results))
+
+	tableName, err := resolveTableName(task)
+	if err != nil {
+		return fmt.Errorf("scrape resolveTableName: %w", err)
+	}
+
+	jsonData, err := json.Marshal(results)
+	if err != nil {
+		return fmt.Errorf("scrape marshal results: %w", err)
+	}
+
+	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
+	os.MkdirAll(projectPath, 0755)
+
+	jsonPath := filepath.Join(projectPath, tableName+".json")
+	if err := os.WriteFile(jsonPath, jsonData, 0644); err != nil {
+		return fmt.Errorf("scrape JSON write failed: %w", err)
+	}
+
+	if err := safeident.SanitizeFilePath(jsonPath); err != nil {
+		return fmt.Errorf("unsafe scrape JSON path: %w", err)
+	}
+
+	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via resolveTableName -> stripAndValidateName -> safeident.ValidateIdentifier; filePath via safeident.SanitizeFilePath
+	if _, err := e.db.Exec(ctx, createSQL); err != nil {
+		return fmt.Errorf("scrape table creation failed: %w", err)
+	}
+
+	e.updateProgress(task.Id, 100, "completed")
+	fmt.Fprintf(w, "Scrape ingestion complete. Table \"%s\" (%d articles)\n", tableName, len(results))
+	return nil
 }
