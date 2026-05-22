@@ -96,6 +96,8 @@ type Engine struct {
 
 	// Probe runner for auto-detection (lazy-init)
 	probeRunner *ProbeRunner
+
+	scheduler *Scheduler
 }
 
 // NLPAnalyzer abstracts sentiment analysis for ingestion enrichment.
@@ -113,13 +115,19 @@ func init() {
 }
 
 func NewEngine(projectsRoot string, metaRepo *repository.MetadataRepository, db *storage.DuckDB, nlp NLPAnalyzer) *Engine {
-	return &Engine{
+	e := &Engine{
 		projectsRoot: projectsRoot,
 		metaRepo:     metaRepo,
 		db:           db,
 		nlpHandler:   nlp,
 		tasks:        make(map[string]*v1.IngestionTask),
 	}
+	e.scheduler = NewScheduler(e, metaRepo)
+	return e
+}
+
+func (e *Engine) Scheduler() *Scheduler {
+	return e.scheduler
 }
 
 // client returns the Engine's injected httpClient, falling back to the
@@ -382,6 +390,7 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 
 func (e *Engine) Close() error {
 	log.Println("[Engine] Closing ingestion engine...")
+	e.scheduler.Stop()
 	e.wg.Wait()
 	return nil
 }

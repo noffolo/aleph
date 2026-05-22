@@ -259,6 +259,8 @@ func (a *AlephApp) Serve(port int) error {
 	// Security scanner — runs once at startup to audit tool code
 	go a.runSecurityScan()
 
+	go a.eng.Scheduler().Start(a.ctx)
+
 	// ── Handlers ─────────────────────────────────────────────────────────────
 	registryMgr, _ := registry.NewDuckDBRegistryFromDuckDB(a.db, a.logger)
 	queryHandler := handler.NewQueryHandler(a.db, projectsRoot, a.metaRepo, a.nlpHandler, registryMgr, time.Duration(a.cfg.LLMTimeoutSeconds)*time.Second)
