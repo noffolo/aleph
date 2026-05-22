@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/ff3300/aleph-v2/internal/ssrf"
 )
 
 // ScrapeConfig defines how to extract structured data from an HTML page.
@@ -140,10 +139,10 @@ func (s *ScrapeIngester) Scrape(ctx context.Context, config *ScrapeConfig) ([]Sc
 	return results, nil
 }
 
-// fetchHTML downloads HTML content from a URL.
+// fetchHTML downloads HTML content from a URL, rate-limited via the ingester's client.
 func (s *ScrapeIngester) fetchHTML(ctx context.Context, urlStr string) ([]byte, error) {
-	client := ssrf.NewClient()
-	client.Timeout = 30 * time.Second
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlStr, nil)
 	if err != nil {
@@ -152,7 +151,7 @@ func (s *ScrapeIngester) fetchHTML(ctx context.Context, urlStr string) ([]byte, 
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,*/*")
 	req.Header.Set("User-Agent", "Aleph-Scraper/1.0")
 
-	resp, err := client.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, err
 	}

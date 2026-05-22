@@ -1807,12 +1807,11 @@ func (e *Engine) runScrapeSource(ctx context.Context, w *os.File, projectID stri
 	os.MkdirAll(projectPath, 0755)
 
 	jsonPath := filepath.Join(projectPath, tableName+".json")
-	if err := os.WriteFile(jsonPath, jsonData, 0644); err != nil {
-		return fmt.Errorf("scrape JSON write failed: %w", err)
-	}
-
 	if err := safeident.SanitizeFilePath(jsonPath); err != nil {
 		return fmt.Errorf("unsafe scrape JSON path: %w", err)
+	}
+	if err := os.WriteFile(jsonPath, jsonData, 0644); err != nil {
+		return fmt.Errorf("scrape JSON write failed: %w", err)
 	}
 
 	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via resolveTableName -> stripAndValidateName -> safeident.ValidateIdentifier; filePath via safeident.SanitizeFilePath
