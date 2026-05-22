@@ -33,7 +33,16 @@ export const DataHealthView: React.FC<DataHealthViewProps> = React.memo(({ stats
           return (
             <div key={s.columnName} className="bg-surface p-8 rounded-lg border border-border shadow-sm hover:shadow-lg shadow-primary/5 transition-all">
                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center space-x-3">
+                   <div className="flex items-center space-x-3">
+                      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                        toNum(s.uniqueCount) > 0 ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]' 
+                        : toNum(s.count) > 0 ? 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]' 
+                        : 'bg-gray-500'
+                      }`} title={
+                        toNum(s.uniqueCount) > 0 ? 'Healthy' 
+                        : toNum(s.count) > 0 ? 'Failed' 
+                        : 'Idle'
+                      } />
                      <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Hash size={20} /></div>
                      <h3 className="font-bold text-text truncate max-w-[150px]">{s.columnName}</h3>
                   </div>

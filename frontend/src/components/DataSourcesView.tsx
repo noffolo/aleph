@@ -59,7 +59,13 @@ export const DataSourcesView: React.FC<DataSourcesViewProps> = React.memo(({
                 <div className="flex-1">
                    <div className="flex items-center space-x-3 mb-1">
                       <h3 className="font-bold text-xl">{task.name}</h3>
-                      <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded uppercase font-bold tracking-widest">{task.sourceType}</span>
+                       <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded uppercase font-bold tracking-widest">{task.sourceType}</span>
+                       {task.sourceType === 'scrape' && (
+                         <span className="text-[10px] font-mono bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded uppercase font-bold tracking-widest flex items-center gap-1">
+                           <Globe size={10} />
+                           Scraper
+                         </span>
+                       )}
                    </div>
                    <div className="flex items-center space-x-4">
                       <div className="flex-1 bg-border h-2 rounded-full overflow-hidden max-w-md">

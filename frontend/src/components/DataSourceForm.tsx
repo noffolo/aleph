@@ -9,7 +9,7 @@ interface DataSourceFormProps {
   title?: string
 }
 
-type Mode = 'file' | 'api' | 'db'
+type Mode = 'file' | 'api' | 'db' | 'scrape'
 
 export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps) {
   const [mode, setMode] = useState<Mode>('file')
@@ -34,6 +34,9 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
     } else if (mode === 'db') {
       defaultType = 'database'
       defaultConfig = JSON.stringify({ connectionString: '', query: '', type: 'postgresql' }, null, 2)
+    } else if (mode === 'scrape') {
+      defaultType = 'scrape'
+      defaultConfig = JSON.stringify({ article_selector: '', title_selector: '', link_selector: '', date_selector: '', author_selector: '', max_articles: 50 }, null, 2)
     }
 
     setFormData(prev => ({ ...prev, sourceType: defaultType, configJson: defaultConfig }))
@@ -117,7 +120,7 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
 
         <div>
           <label htmlFor="datasource-mode" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Modalità Sorgente</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => setMode('file')}
               className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
@@ -145,8 +148,85 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
               <Database size={20} className="mb-2" />
               <span className="text-[10px] font-bold uppercase">DB</span>
             </button>
+            <button
+              onClick={() => setMode('scrape')}
+              className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                mode === 'scrape' ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background text-textDim hover:bg-surface-alt'
+              }`}
+            >
+              <Globe size={20} className="mb-2" />
+              <span className="text-[10px] font-bold uppercase">Scrape</span>
+            </button>
           </div>
         </div>
+
+        {mode === 'scrape' && (
+          <div className="space-y-3">
+            <div>
+              <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">CSS Selectors</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={JSON.parse(formData.configJson || '{}').article_selector || ''}
+                  onChange={(e) => {
+                    const config = JSON.parse(formData.configJson || '{}')
+                    setFormData({ ...formData, configJson: JSON.stringify({ ...config, article_selector: e.target.value }, null, 2) })
+                  }}
+                  className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                  placeholder="Article selector"
+                />
+                <input
+                  value={JSON.parse(formData.configJson || '{}').title_selector || ''}
+                  onChange={(e) => {
+                    const config = JSON.parse(formData.configJson || '{}')
+                    setFormData({ ...formData, configJson: JSON.stringify({ ...config, title_selector: e.target.value }, null, 2) })
+                  }}
+                  className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                  placeholder="Title selector"
+                />
+                <input
+                  value={JSON.parse(formData.configJson || '{}').link_selector || ''}
+                  onChange={(e) => {
+                    const config = JSON.parse(formData.configJson || '{}')
+                    setFormData({ ...formData, configJson: JSON.stringify({ ...config, link_selector: e.target.value }, null, 2) })
+                  }}
+                  className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                  placeholder="Link selector"
+                />
+                <input
+                  value={JSON.parse(formData.configJson || '{}').date_selector || ''}
+                  onChange={(e) => {
+                    const config = JSON.parse(formData.configJson || '{}')
+                    setFormData({ ...formData, configJson: JSON.stringify({ ...config, date_selector: e.target.value }, null, 2) })
+                  }}
+                  className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                  placeholder="Date selector"
+                />
+                <input
+                  value={JSON.parse(formData.configJson || '{}').author_selector || ''}
+                  onChange={(e) => {
+                    const config = JSON.parse(formData.configJson || '{}')
+                    setFormData({ ...formData, configJson: JSON.stringify({ ...config, author_selector: e.target.value }, null, 2) })
+                  }}
+                  className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                  placeholder="Author selector"
+                />
+                <div>
+                  <label className="text-[9px] font-bold text-textDim uppercase mb-1 block">Max Articles</label>
+                  <input
+                    type="number"
+                    value={JSON.parse(formData.configJson || '{}').max_articles ?? 50}
+                    onChange={(e) => {
+                      const config = JSON.parse(formData.configJson || '{}')
+                      setFormData({ ...formData, configJson: JSON.stringify({ ...config, max_articles: parseInt(e.target.value) || 0 }, null, 2) })
+                    }}
+                    className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                    min={1}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {mode === 'file' && (
           <div>
