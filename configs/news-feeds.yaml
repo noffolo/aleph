@@ -1,0 +1,95 @@
+feeds:
+  - name: "ANSA Politica"
+    url: "https://www.ansa.it/sito/ansait_rss/ansait_rss.xml"
+    category: "politica"
+
+  - name: "ANSA Top News"
+    url: "https://www.ansa.it/sito/notizie/topnews/topnews_rss.xml"
+    category: "generale"
+
+  - name: "ANSA Economia"
+    url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml"
+    category: "economia"
+
+  - name: "ANSA Mondo"
+    url: "https://www.ansa.it/sito/notizie/mondo/mondo_rss.xml"
+    category: "esteri"
+
+  - name: "La Repubblica Politica"
+    url: "https://www.repubblica.it/rss/politica/rss2.0.xml"
+    category: "politica"
+
+  - name: "La Repubblica Home"
+    url: "https://www.repubblica.it/rss/homepage/rss2.0.xml"
+    category: "generale"
+
+  - name: "La Stampa"
+    url: "http://www.lastampa.it/rss.xml"
+    category: "generale"
+
+  - name: "Il Fatto Quotidiano"
+    url: "https://www.ilfattoquotidiano.it/feed/"
+    category: "politica"
+
+  - name: "Il Fatto Politica"
+    url: "https://www.ilfattoquotidiano.it/politica/feed/"
+    category: "politica"
+
+  - name: "Il Fatto Economia"
+    url: "https://www.ilfattoquotidiano.it/economia/feed/"
+    category: "economia"
+
+  - name: "Fanpage"
+    url: "https://www.fanpage.it/feed/"
+    category: "generale"
+
+  - name: "Fanpage Politica"
+    url: "https://www.fanpage.it/politica/feed/"
+    category: "politica"
+
+  - name: "Open"
+    url: "https://www.open.online/feed/"
+    category: "politica"
+
+  - name: "Linkiesta"
+    url: "https://www.linkiesta.it/feed/"
+    category: "politica"
+
+  - name: "Start Magazine"
+    url: "https://www.startmag.it/feed/"
+    category: "economia"
+
+  - name: "Formiche"
+    url: "https://formiche.net/feed/"
+    category: "politica"
+
+  - name: "InsideOver"
+    url: "https://it.insideover.com/feed/"
+    category: "esteri"
+
+  - name: "YouTrend"
+    url: "https://www.youtrend.it/feed/"
+    category: "politica"
+
+  - name: "Termometro Politico"
+    url: "https://www.termometropolitico.it/feed/"
+    category: "politica"
+
+  - name: "ISPI"
+    url: "https://www.ispionline.it/it/rss"
+    category: "esteri"
+
+  - name: "Governo Italiano"
+    url: "https://www.governo.it/it/articoli/feed"
+    category: "istituzioni"
+
+  - name: "DAGOSPIA"
+    url: "https://www.dagospia.com/"
+    category: "politica"
+    source: "scrape"
+    config:
+      article_selector: "article, .article-item, .news-item, div[class*=\"article\"]"
+      title_selector: "h2, h3, .title, a"
+      link_selector: "a"
+      date_selector: "time, .date, .data"
+      max_articles: 30
