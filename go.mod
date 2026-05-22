@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	connectrpc.com/connect v1.19.1
+	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/alecthomas/participle/v2 v2.1.4
 	github.com/bilustek/gosecrets v0.4.0
 	github.com/elastic/go-seccomp-bpf v1.6.0
@@ -32,7 +33,10 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-require github.com/goccy/go-yaml v1.19.2 // indirect
+require (
+	github.com/andybalholm/cascadia v1.3.3 // indirect
+	github.com/goccy/go-yaml v1.19.2 // indirect
+)
 
 require (
 	github.com/apache/arrow-go/v18 v18.1.0 // indirect
