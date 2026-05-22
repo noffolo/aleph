@@ -390,8 +390,13 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 
 func (e *Engine) Close() error {
 	log.Println("[Engine] Closing ingestion engine...")
-	e.scheduler.Stop()
+	shutdownCtx := e.scheduler.Stop()
 	e.wg.Wait()
+	select {
+	case <-shutdownCtx.Done():
+	case <-time.After(30 * time.Second):
+		log.Println("[Engine] Timed out waiting for scheduler jobs to finish")
+	}
 	return nil
 }
 

@@ -17,12 +17,18 @@ import (
 // Tasks with a non-empty Schedule field in system_tasks are loaded
 // and executed on the cron schedule. Refresh() reconciles the in-memory
 // cron entries with the database after CreateTask/DeleteTask.
+//
+// The Schedule field uses 6-field cron syntax (seconds, minutes, hours,
+// day of month, month, day of week) because WithSeconds() is enabled.
+// Example: "0 */30 * * * *" = every 30 minutes, "0 0 * * * *" = hourly.
+// Standard 5-field expressions (without seconds) will produce parse errors.
 type Scheduler struct {
-	cron    *cron.Cron
-	engine  *Engine
+	cron     *cron.Cron
+	engine   *Engine
 	metaRepo *repository.MetadataRepository
-	entries map[string]cron.EntryID // taskID → cron entry ID for targeted removal
-	mu      sync.Mutex
+	entries  map[string]cron.EntryID // taskID → cron entry ID for targeted removal
+	baseCtx  context.Context         // lifecycle context from Start(), used for cron job contexts
+	mu       sync.Mutex
 }
 
 // NewScheduler creates a Scheduler for the given Engine.
@@ -43,6 +49,7 @@ func NewScheduler(engine *Engine, metaRepo *repository.MetadataRepository) *Sche
 
 // Start begins the cron scheduler in the background.
 func (s *Scheduler) Start(ctx context.Context) {
+	s.baseCtx = ctx
 	s.cron.Start()
 	if err := s.Refresh(ctx); err != nil {
 		log.Printf("[scheduler] initial refresh failed: %v", err)
@@ -66,9 +73,11 @@ func (s *Scheduler) Start(ctx context.Context) {
 	}()
 }
 
-// Stop stops the cron scheduler. Pending jobs are cancelled.
-func (s *Scheduler) Stop() {
-	s.cron.Stop()
+// Stop stops the cron scheduler and waits for any running jobs to complete.
+// The returned context is cancelled when all running jobs finish.
+// Callers should use this for graceful shutdown coordination.
+func (s *Scheduler) Stop() context.Context {
+	return s.cron.Stop()
 }
 
 // Refresh loads all tasks with non-empty schedules from the database
@@ -160,7 +169,7 @@ func (s *Scheduler) registerEntry(ctx context.Context, record *repository.Ingest
 		runID := uuid.NewString()
 		log.Printf("[scheduler] executing task %s (run %s) on schedule %q", record.ID, runID, spec)
 
-		runCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		runCtx, cancel := context.WithTimeout(s.baseCtx, 15*time.Minute)
 		defer cancel()
 
 		if err := s.engine.RunTask(runCtx, record.ProjectID, v1Task); err != nil {

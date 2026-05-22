@@ -98,12 +98,28 @@ func dedupKey(title, link string) string {
 	return fmt.Sprintf("%x", h.Sum([]byte(title)))[:16]
 }
 
-func newHTTPClient(timeout time.Duration) *http.Client {
+type originTransport struct {
+	http.RoundTripper
+	jwt string
+}
+
+func (t *originTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.Header.Set("Origin", "http://localhost:5173")
+	if t.jwt != "" {
+		req.AddCookie(&http.Cookie{Name: "aleph_jwt", Value: t.jwt})
+	}
+	return t.RoundTripper.RoundTrip(req)
+}
+
+func newHTTPClient(timeout time.Duration, jwt string) *http.Client {
 	return &http.Client{
 		Timeout: timeout,
-		Transport: &http.Transport{
-			MaxIdleConns:    10,
-			IdleConnTimeout: 30 * time.Second,
+		Transport: &originTransport{
+			jwt: jwt,
+			RoundTripper: &http.Transport{
+				MaxIdleConns:    10,
+				IdleConnTimeout: 30 * time.Second,
+			},
 		},
 	}
 }
@@ -347,6 +363,7 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "fetch and parse feeds but do not ingest")
 	sourceType := flag.String("source", "", "filter feeds by source type (rss or scrape)")
 	feedsFilter := flag.String("feeds", "", "comma-separated feed names to process (empty = all)")
+	jwtToken := flag.String("jwt", "", "Aleph JWT for authentication (set aleph_jwt cookie)")
 	flag.Parse()
 
 	if *projectID == "" {
@@ -400,13 +417,14 @@ func main() {
 		log.Fatalf("failed to load dedup state: %v", err)
 	}
 
-	httpClient := newHTTPClient(30 * time.Second)
+	httpClient := newHTTPClient(30*time.Second, *jwtToken)
 
 	var ingestionClient v1connect.IngestionServiceClient
 	if !*dryRun {
 		ingestionClient = v1connect.NewIngestionServiceClient(
 			httpClient,
 			*serverAddr,
+			connect.WithGRPCWeb(),
 		)
 	}
 

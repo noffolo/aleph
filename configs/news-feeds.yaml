@@ -1,6 +1,6 @@
 feeds:
   - name: "ANSA Politica"
-    url: "https://www.ansa.it/sito/ansait_rss/ansait_rss.xml"
+    url: "https://www.ansa.it/sito/notizie/politica/politica_rss.xml"
     category: "politica"
 
   - name: "ANSA Top News"
@@ -24,7 +24,7 @@ feeds:
     category: "generale"
 
   - name: "La Stampa"
-    url: "http://www.lastampa.it/rss.xml"
+    url: "https://www.lastampa.it/rss"
     category: "generale"
 
   - name: "Il Fatto Quotidiano"
@@ -80,7 +80,7 @@ feeds:
     category: "esteri"
 
   - name: "Governo Italiano"
-    url: "https://www.governo.it/it/articoli/feed"
+    url: "https://www.governo.it/it/rss.xml"
     category: "istituzioni"
 
   - name: "DAGOSPIA"
@@ -93,3 +93,51 @@ feeds:
       link_selector: "a"
       date_selector: "time, .date, .data"
       max_articles: 30
+
+  - name: "Il Post"
+    url: "https://www.ilpost.it/feed/"
+    category: "generale"
+
+  - name: "Avvenire"
+    url: "https://www.avvenire.it/feed/"
+    category: "generale"
+
+  - name: "Italia Oggi"
+    url: "https://www.italiaoggi.it/feed.rss"
+    category: "economia"
+
+  - name: "Libero"
+    url: "https://www.liberoquotidiano.it/feed/"
+    category: "generale"
+
+  - name: "Giornalettismo"
+    url: "https://www.giornalettismo.com/feed/"
+    category: "generale"
+
+  - name: "Valigia Blu"
+    url: "https://www.valigiablu.it/feed/"
+    category: "approfondimento"
+
+  - name: "BiDiMedia Sondaggi"
+    url: "https://www.sondaggibidimedia.com/feed/"
+    category: "sondaggi"
+
+  - name: "Istat"
+    url: "https://www.istat.it/it/feed"
+    category: "dati"
+
+  - name: "Politico Europe Italy"
+    url: "https://www.politico.eu/feed/italy/"
+    category: "esteri"
+
+  - name: "The Local Italy"
+    url: "https://www.thelocal.it/feed/"
+    category: "esteri"
+
+  - name: "Finanze Governo"
+    url: "https://www.mef.gov.it/feed/rss.xml"
+    category: "economia"
+
+  - name: "Il Messaggero"
+    url: "https://www.ilmessaggero.it/rss/home.xml"
+    category: "generale"

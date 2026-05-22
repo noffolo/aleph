@@ -1,0 +1,14 @@
+#!/bin/bash
+export JWT_SECRET="test-jwt-secret-for-local-dev"
+export KEY_ENCRYPTION_KEY="abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+export DUCKDB_PATH="/tmp/opencode/aleph/data/aleph-test.duckdb"
+export POSTGRES_DSN="postgres://postgres:postgres@localhost:5432/aleph?sslmode=disable"
+export NLP_ADDR="http://localhost:8001"
+export PORT="9999"
+export APP_ENV="development"
+export GOSECRETS_ENV="ci"
+export ALLOW_LOCALHOST_SSRF="true"
+export LLM_TIMEOUT_SECONDS="120"
+export LOG_LEVEL="debug"
+
+cd /tmp/opencode/aleph && exec ./aleph-server "$@"

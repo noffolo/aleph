@@ -45,11 +45,13 @@ func NewProvider(provider string, baseURL string, httpClient *http.Client, timeo
 	switch provider {
 	case "ollama":
 		return &OllamaProvider{client: httpClient, timeout: timeout}, nil
+	case "ollama-cloud":
+		return &OllamaCloudProvider{client: httpClient, timeout: timeout}, nil
 	case "anthropic":
 		return &AnthropicProvider{client: httpClient, timeout: timeout}, nil
 	case "openai":
 		return &OpenAIProvider{client: httpClient, timeout: timeout}, nil
 	default:
-		return nil, fmt.Errorf("unsupported LLM provider: %q (supported: ollama, openai, anthropic)", provider)
+		return nil, fmt.Errorf("unsupported LLM provider: %q (supported: ollama, ollama-cloud, openai, anthropic)", provider)
 	}
 }
