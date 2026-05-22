@@ -150,7 +150,7 @@ func (s *ScrapeIngester) fetchHTML(ctx context.Context, urlStr string) ([]byte, 
 		return nil, err
 	}
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,*/*")
-	req.Header.Set("User-Agent", "Aleph-Scraper/1.0 (news ingestion bot)")
+	req.Header.Set("User-Agent", "Aleph-Scraper/1.0")
 
 	resp, err := client.Do(req)
 	if err != nil {
