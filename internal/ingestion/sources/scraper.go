@@ -21,6 +21,7 @@ type ScrapeConfig struct {
 	TitleSelector   string `json:"title_selector"`
 	LinkSelector    string `json:"link_selector"`
 	DateSelector    string `json:"date_selector"`
+	DateFormat      string `json:"date_format"`
 	AuthorSelector  string `json:"author_selector"`
 	ContentSelector string `json:"content_selector"`
 	MaxArticles     int    `json:"max_articles"`
