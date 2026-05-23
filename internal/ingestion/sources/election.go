@@ -184,6 +184,11 @@ func normalizePartyName(raw string) string {
 	return strings.TrimSpace(strings.ToUpper(raw))
 }
 
+// ErrElectionUnavailable is returned when the Eligendo API returns HTTP 403,
+// indicating the election data is not available (typically historical elections
+// that predate the current API dataset).
+var ErrElectionUnavailable = errors.New("election data not available from Eligendo API")
+
 // ElectionFetcher wraps HTTP requests to the Eligendo API with rate limiting.
 type ElectionFetcher struct {
 	baseURL     string
@@ -374,6 +379,11 @@ func (f *ElectionFetcher) doGet(ctx context.Context, url string) (*http.Response
 		return nil, fmt.Errorf("http get: %w", err)
 	}
 
+	if resp.StatusCode == http.StatusForbidden {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		return nil, ErrElectionUnavailable
+	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
@@ -492,6 +502,9 @@ func RunElection(ctx context.Context, db *sql.DB, baseURL string, cfg ElectionCo
 
 	entities, err := fetcher.GetEntities(ctx, cfg)
 	if err != nil {
+		if errors.Is(err, ErrElectionUnavailable) {
+			slog.Warn("election unavailable via Eligendo API", "type", cfg.ElectionType, "year", cfg.Year, "date", cfg.ElectionDate)
+		}
 		return nil, fmt.Errorf("getenti: %w", err)
 	}
 
@@ -559,14 +572,26 @@ func RunElection(ctx context.Context, db *sql.DB, baseURL string, cfg ElectionCo
 				slog.Debug("skipping entity with short ISTAT code", "cod", ent.Cod, "desc", ent.Desc)
 				continue
 			}
-
+			// 10-digit codes have a leading region digit that represents
+			// the constituency for europee (RRRPPPCCCC not RRPPPCCCC).
+			var reg, prv, com string
+			if len(ent.Cod) >= 10 {
+				reg = ent.Cod[:3]
+				prv = ent.Cod[3:6]
+				com = ent.Cod[6:]
+			} else {
+				reg = ent.Cod[:2]
+				prv = ent.Cod[2:5]
+				com = ent.Cod[5:]
+			}
+			if len(reg) < 2 || len(prv) < 2 || len(com) < 2 {
+				slog.Debug("skipping entity with unparseable ISTAT code", "cod", ent.Cod, "desc", ent.Desc)
+				continue
+			}
 			if err := fetcher.rateLimiter.Wait(); err != nil {
 				return nil, fmt.Errorf("rate limiter wait: %w", err)
 			}
 
-			reg := ent.Cod[:2]
-			prv := ent.Cod[2:5]
-			com := ent.Cod[5:]
 			url := fmt.Sprintf("%s/scrutini%s/DE/%s/TE/%s/RE/%s/PR/%s/CM/%s", baseURL, cfg.endpointSuffix(), cfg.ElectionDate, cfg.teCode(), reg, prv, com)
 			resp, err := fetcher.doGet(ctx, url)
 			if err != nil {

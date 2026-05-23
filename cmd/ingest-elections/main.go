@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -59,12 +60,16 @@ func main() {
 			}
 
 			slog.Info("processing election", "type", et, "year", year, "date", dateStr)
-			results, err := sources.RunElection(context.Background(), db, *baseURL, cfg, mapper, *rawDir)
-			if err != nil {
+		results, err := sources.RunElection(context.Background(), db, *baseURL, cfg, mapper, *rawDir)
+		if err != nil {
+			if errors.Is(err, sources.ErrElectionUnavailable) {
+				slog.Warn("election unavailable via Eligendo API", "type", et, "year", year, "date", dateStr)
+			} else {
 				slog.Error("election failed", "type", et, "year", year, "error", err)
-				time.Sleep(5 * time.Second)
-				continue
 			}
+			time.Sleep(5 * time.Second)
+			continue
+		}
 			slog.Info("election complete", "type", et, "year", year, "results", len(results))
 		}
 	}

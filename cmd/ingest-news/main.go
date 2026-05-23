@@ -82,6 +82,23 @@ type Item struct {
 	PubDate     string `xml:"pubDate"`
 }
 
+type AtomFeed struct {
+	XMLName xml.Name    `xml:"feed"`
+	Entries []AtomEntry `xml:"entry"`
+}
+
+type AtomEntry struct {
+	Title     string `xml:"title"`
+	Link      AtomLink `xml:"link"`
+	Published string `xml:"published"`
+	Updated   string `xml:"updated"`
+	Summary   string `xml:"summary"`
+}
+
+type AtomLink struct {
+	Href string `xml:"href,attr"`
+}
+
 type FeedConfig struct {
 	Name     string                 `yaml:"name"`
 	URL      string                 `yaml:"url"`
@@ -246,7 +263,6 @@ func parseRSS(data []byte) ([]Item, error) {
 	data = sanitizeXML(data)
 
 	var rss RSS
-
 	if err := xml.Unmarshal(data, &rss); err == nil {
 		return rss.Channel.Items, nil
 	}
@@ -277,7 +293,25 @@ func parseRSS(data []byte) ([]Item, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("XML parse failed: %w", xml.Unmarshal(data, &rss))
+	var atom AtomFeed
+	if err := xml.Unmarshal(data, &atom); err == nil && len(atom.Entries) > 0 {
+		items := make([]Item, len(atom.Entries))
+		for i, e := range atom.Entries {
+			pubDate := e.Published
+			if pubDate == "" {
+				pubDate = e.Updated
+			}
+			items[i] = Item{
+				Title:       e.Title,
+				Link:        e.Link.Href,
+				Description: e.Summary,
+				PubDate:     pubDate,
+			}
+		}
+		return items, nil
+	}
+
+	return nil, fmt.Errorf("XML parse failed: not RSS 2.0, ISO-8859-1 RSS, or Atom")
 }
 
 type FeedResult struct {
