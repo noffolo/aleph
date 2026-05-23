@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Activity, X, Trash2, Database, Globe, FileText, Link, Play, Mail, Rss, Github, Terminal } from 'lucide-react';
+import { Plus, Activity, X, Trash2, Database, Globe, FileText, Link, Play, Mail, Rss, Github, Terminal, Calendar, ChevronDown } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { t } from '../i18n';
 import { SkeletonLoader } from './SkeletonLoader';
@@ -16,7 +16,7 @@ interface IngestionTask {
 interface DataSourcesViewProps {
   tasks: IngestionTask[];
   onAddSource: (config: { name: string; sourceType: string; configJson: string }) => void;
-  onRunTask: (id: string) => void;
+  onRunTask: (id: string, configOverrides?: string) => void;
   onViewLogs: (id: string) => void;
   onDeleteTask: (id: string) => void;
   taskLogs: string;
@@ -29,8 +29,31 @@ interface DataSourcesViewProps {
 export const DataSourcesView: React.FC<DataSourcesViewProps> = React.memo(({
   tasks, onAddSource, onRunTask, onViewLogs, onDeleteTask, taskLogs, setTaskLogs, inline = false, isLoading, error
 }) => {
+  const [runConfiguring, setRunConfiguring] = useState<string | null>(null);
+  const [runStartDate, setRunStartDate] = useState('');
+  const [runEndDate, setRunEndDate] = useState('');
+
   const openForm = () => {
     useStore.getState().setSlideOverContent({ type: 'datasource-form', title: t('datasources.title'), data: undefined });
+  };
+
+  const handleRunClick = (id: string) => {
+    setRunConfiguring(id);
+    setRunStartDate('');
+    setRunEndDate('');
+  };
+
+  const handleConfirmRun = () => {
+    if (!runConfiguring) return;
+    let overrides: string | undefined;
+    if (runStartDate || runEndDate) {
+      const obj: Record<string, string> = {};
+      if (runStartDate) obj.start_date = runStartDate;
+      if (runEndDate) obj.end_date = runEndDate;
+      overrides = JSON.stringify(obj);
+    }
+    onRunTask(runConfiguring, overrides);
+    setRunConfiguring(null);
   };
 
   if (isLoading) return <SkeletonLoader />;
@@ -77,13 +100,13 @@ export const DataSourcesView: React.FC<DataSourcesViewProps> = React.memo(({
              </div>
              <div className="flex items-center space-x-3 ml-8 border-l pl-8 border-border">
                 <button onClick={() => onViewLogs(task.id)} className="px-5 py-2.5 text-sm font-bold text-textMuted hover:bg-surface-alt rounded-lg transition-colors focus:ring-2 focus:ring-primary" aria-label={`View logs for ${task.name}`}>Logs</button>
-                <button 
-                    onClick={() => onRunTask(task.id)} 
-                    disabled={task.status === 'running' || task.status === 'esecuzione'} 
-                      className={`px-8 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center space-x-2 focus:ring-2 focus:ring-primary ${(task.status === 'running' || task.status === 'esecuzione') ? 'bg-border text-textMuted' : 'bg-surface-alt text-text hover:bg-border shadow-lg'}`}
+                 <button 
+                     onClick={() => handleRunClick(task.id)} 
+                     disabled={task.status === 'running' || task.status === 'esecuzione'} 
+                       className={`px-8 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center space-x-2 focus:ring-2 focus:ring-primary ${(task.status === 'running' || task.status === 'esecuzione') ? 'bg-border text-textMuted' : 'bg-surface-alt text-text hover:bg-border shadow-lg'}`}
                  >
-                    <Play size={14} />
-                    <span>{(task.status === 'running' || task.status === 'esecuzione') ? t('datasources.status.running') : task.status === 'completato' || task.status === 'completed' ? t('datasources.status.completed') : task.status === 'fallito' || task.status === 'failed' ? t('datasources.status.failed') : t('datasources.status.execute')}</span>
+                     <Play size={14} />
+                     <span>{(task.status === 'running' || task.status === 'esecuzione') ? t('datasources.status.running') : task.status === 'completato' || task.status === 'completed' ? t('datasources.status.completed') : task.status === 'fallito' || task.status === 'failed' ? t('datasources.status.failed') : t('datasources.status.execute')}</span>
                 </button>
 <button 
                      onClick={(e) => { e.stopPropagation(); if (confirm(t('datasources.confirmDelete'))) onDeleteTask(task.id); }}
@@ -95,15 +118,43 @@ export const DataSourcesView: React.FC<DataSourcesViewProps> = React.memo(({
              </div>
           </div>
         ))}
-        {tasks.length === 0 && (
-           <div className="py-20 bg-surface border-2 border-dashed border-border rounded-lg text-center">
-              <Database size={48} className="mx-auto text-textDim mb-4" />
-              <p className="text-textDim font-bold uppercase text-xs tracking-[0.2em] mb-2">{t('datasources.noPipeline')}</p>
-                <p className="text-textMuted text-sm">{t('datasources.empty')}</p>
-                <button onClick={openForm} className="mt-6 px-6 py-3 bg-primary text-background rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg focus:ring-2 focus:ring-primary" aria-label="Add data source">{t('datasources.create')}</button>
-           </div>
-        )}
-      </div>
+         {tasks.length === 0 && (
+            <div className="py-20 bg-surface border-2 border-dashed border-border rounded-lg text-center">
+               <Database size={48} className="mx-auto text-textDim mb-4" />
+               <p className="text-textDim font-bold uppercase text-xs tracking-[0.2em] mb-2">{t('datasources.noPipeline')}</p>
+                 <p className="text-textMuted text-sm">{t('datasources.empty')}</p>
+                 <button onClick={openForm} className="mt-6 px-6 py-3 bg-primary text-background rounded-lg font-bold hover:bg-primary/90 transition-all shadow-lg focus:ring-2 focus:ring-primary" aria-label="Add data source">{t('datasources.create')}</button>
+            </div>
+         )}
+       </div>
+
+      {runConfiguring && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setRunConfiguring(null)}>
+          <div className="bg-surface rounded-xl p-6 shadow-2xl border border-border max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-lg mb-4">Intervallo temporale (opzionale)</h3>
+            <p className="text-textMuted text-xs mb-4">Lascia vuoto per ingerire tutto il contenuto disponibile.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-textMuted uppercase tracking-wider block mb-1">Data inizio</label>
+                <input type="date" value={runStartDate} onChange={(e) => setRunStartDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-textMuted uppercase tracking-wider block mb-1">Data fine</label>
+                <input type="date" value={runEndDate} onChange={(e) => setRunEndDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setRunConfiguring(null)} className="px-4 py-2 text-sm font-bold text-textMuted hover:bg-surface-alt rounded-lg transition-colors">Annulla</button>
+              <button onClick={handleConfirmRun} className="px-6 py-2 bg-primary text-background rounded-lg text-sm font-bold hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2">
+                <Play size={14} />
+                Esegui
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {taskLogs && (
         <div className="mt-8 bg-background rounded-3xl overflow-hidden shadow-2xl border border-border">

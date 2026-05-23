@@ -118,6 +118,45 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
           {errors.name && <p className="text-danger text-[10px] mt-1">{errors.name}</p>}
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="datasource-start-date" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Data Inizio (opzionale)</label>
+            <input
+              id="datasource-start-date"
+              type="date"
+              value={(() => { try { return JSON.parse(formData.configJson).start_date || '' } catch { return '' } })()}
+              onChange={(e) => {
+                const config = JSON.parse(formData.configJson || '{}')
+                if (e.target.value) {
+                  config.start_date = e.target.value
+                } else {
+                  delete config.start_date
+                }
+                setFormData({ ...formData, configJson: JSON.stringify(config, null, 2) })
+              }}
+              className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+            />
+          </div>
+          <div>
+            <label htmlFor="datasource-end-date" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Data Fine (opzionale)</label>
+            <input
+              id="datasource-end-date"
+              type="date"
+              value={(() => { try { return JSON.parse(formData.configJson).end_date || '' } catch { return '' } })()}
+              onChange={(e) => {
+                const config = JSON.parse(formData.configJson || '{}')
+                if (e.target.value) {
+                  config.end_date = e.target.value
+                } else {
+                  delete config.end_date
+                }
+                setFormData({ ...formData, configJson: JSON.stringify(config, null, 2) })
+              }}
+              className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+            />
+          </div>
+        </div>
+
         <div>
           <label htmlFor="datasource-mode" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Modalità Sorgente</label>
           <div className="grid grid-cols-4 gap-2">

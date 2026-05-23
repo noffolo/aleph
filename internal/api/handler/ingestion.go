@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -106,7 +107,16 @@ func (h *IngestionHandler) RunTask(
 				slog.Error("ingestion RunTask goroutine panic", "projectID", projectID, "taskID", t.ID, "recover", r)
 			}
 		}()
-		v1Task := &v1.IngestionTask{Id: t.ID, Name: t.Name, SourceType: t.SourceType, ConfigJson: t.ConfigJSON}
+		configJSON := t.ConfigJSON
+		if overrides := req.Msg.ConfigOverrides; overrides != nil && *overrides != "" {
+			merged, err := mergeConfigOverrides(t.ConfigJSON, *overrides)
+			if err != nil {
+				slog.Error("failed to merge config_overrides", "taskID", t.ID, "error", err)
+			} else {
+				configJSON = merged
+			}
+		}
+		v1Task := &v1.IngestionTask{Id: t.ID, Name: t.Name, SourceType: t.SourceType, ConfigJson: configJSON}
 		taskCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 		defer cancel()
 		if err := h.engine.RunTask(taskCtx, projectID, v1Task); err != nil {
@@ -143,4 +153,25 @@ func (h *IngestionHandler) DeleteTask(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&v1.DeleteTaskResponse{Success: true}), nil
+}
+
+// mergeConfigOverrides shallow-merges the overrides JSON into the base config JSON.
+// overrides fields replace base fields at the top level. Returns the merged JSON string.
+func mergeConfigOverrides(baseJSON, overridesJSON string) (string, error) {
+	var base map[string]any
+	if err := json.Unmarshal([]byte(baseJSON), &base); err != nil {
+		return baseJSON, fmt.Errorf("unmarshal base config: %w", err)
+	}
+	var overrides map[string]any
+	if err := json.Unmarshal([]byte(overridesJSON), &overrides); err != nil {
+		return baseJSON, fmt.Errorf("unmarshal config_overrides: %w", err)
+	}
+	for k, v := range overrides {
+		base[k] = v
+	}
+	merged, err := json.Marshal(base)
+	if err != nil {
+		return baseJSON, fmt.Errorf("marshal merged config: %w", err)
+	}
+	return string(merged), nil
 }

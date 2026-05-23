@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -12,10 +13,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
-
-	"strings"
 
 	"connectrpc.com/connect"
 	"gopkg.in/yaml.v3"
@@ -23,6 +23,47 @@ import (
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1"
 	"github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1/v1connect"
 )
+
+var rssDateFormats = []string{
+	time.RFC1123Z,
+	time.RFC1123,
+	time.RFC822Z,
+	time.RFC822,
+	time.RFC3339,
+	"2006-01-02T15:04:05-07:00",
+	"2006-01-02T15:04:05Z",
+	"2006-01-02 15:04:05",
+	"2006-01-02",
+	"Mon, 02 Jan 2006 15:04:05 -0700",
+	"Mon, 2 Jan 2006 15:04:05 -0700",
+	"Mon, 2 Jan 2006 15:04:05 MST",
+	"2 Jan 2006 15:04:05 -0700",
+	"2006-01-02T15:04:05",
+}
+
+func parseItemDate(pubDate string) (time.Time, error) {
+	for _, f := range rssDateFormats {
+		if t, err := time.Parse(f, strings.TrimSpace(pubDate)); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unable to parse date: %s", pubDate)
+}
+
+func isItemInRange(pubDate string, startDate, endDate time.Time) bool {
+	t, err := parseItemDate(pubDate)
+	if err != nil || t.IsZero() {
+		// Can't determine the date — include the item (meglio dati in più che in meno)
+		return true
+	}
+	if !startDate.IsZero() && t.Before(startDate) {
+		return false
+	}
+	if !endDate.IsZero() && t.After(endDate) {
+		return false
+	}
+	return true
+}
 
 type RSS struct {
 	XMLName xml.Name `xml:"rss"`
@@ -100,7 +141,8 @@ func dedupKey(title, link string) string {
 
 type originTransport struct {
 	http.RoundTripper
-	jwt string
+	jwt    string
+	apiKey string
 }
 
 func (t *originTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -108,14 +150,18 @@ func (t *originTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.jwt != "" {
 		req.AddCookie(&http.Cookie{Name: "aleph_jwt", Value: t.jwt})
 	}
+	if t.apiKey != "" {
+		req.Header.Set("X-Aleph-Api-Key", t.apiKey)
+	}
 	return t.RoundTripper.RoundTrip(req)
 }
 
-func newHTTPClient(timeout time.Duration, jwt string) *http.Client {
+func newHTTPClient(timeout time.Duration, jwt, apiKey string) *http.Client {
 	return &http.Client{
 		Timeout: timeout,
 		Transport: &originTransport{
-			jwt: jwt,
+			jwt:    jwt,
+			apiKey: apiKey,
 			RoundTripper: &http.Transport{
 				MaxIdleConns:    10,
 				IdleConnTimeout: 30 * time.Second,
@@ -173,12 +219,65 @@ func fetchRSS(ctx context.Context, client *http.Client, url string) ([]byte, err
 	return nil, lastErr
 }
 
-func parseRSS(data []byte) ([]Item, error) {
-	var rss RSS
-	if err := xml.Unmarshal(data, &rss); err != nil {
-		return nil, fmt.Errorf("XML parse failed: %w", err)
+func sanitizeXML(data []byte) []byte {
+	var buf []byte
+	for _, b := range data {
+		if b >= 0x20 || b == 0x09 || b == 0x0A || b == 0x0D {
+			buf = append(buf, b)
+		}
 	}
-	return rss.Channel.Items, nil
+	return buf
+}
+
+type xmlDecoderWithCharset struct {
+	data []byte
+}
+
+func (d *xmlDecoderWithCharset) Read(p []byte) (n int, err error) {
+	if len(d.data) == 0 {
+		return 0, io.EOF
+	}
+	n = copy(p, d.data)
+	d.data = d.data[n:]
+	return n, nil
+}
+
+func parseRSS(data []byte) ([]Item, error) {
+	data = sanitizeXML(data)
+
+	var rss RSS
+
+	if err := xml.Unmarshal(data, &rss); err == nil {
+		return rss.Channel.Items, nil
+	}
+
+	if bytes.Contains(data, []byte("ISO-8859-1")) || bytes.Contains(data, []byte("iso-8859-1")) {
+		decoder := &xmlDecoderWithCharset{data: data}
+		dec := xml.NewDecoder(decoder)
+		dec.CharsetReader = func(charset string, input io.Reader) (io.Reader, error) {
+			if charset == "ISO-8859-1" || charset == "iso-8859-1" {
+				raw, err := io.ReadAll(input)
+				if err != nil {
+					return nil, err
+				}
+				utf8 := make([]byte, 0, len(raw)*2)
+				for _, b := range raw {
+					if b < 128 {
+						utf8 = append(utf8, b)
+					} else {
+						utf8 = append(utf8, 0xC0|byte(b>>6), 0x80|byte(b&0x3F))
+					}
+				}
+				return bytes.NewReader(utf8), nil
+			}
+			return nil, fmt.Errorf("unsupported charset: %s", charset)
+		}
+		if err := dec.Decode(&rss); err == nil {
+			return rss.Channel.Items, nil
+		}
+	}
+
+	return nil, fmt.Errorf("XML parse failed: %w", xml.Unmarshal(data, &rss))
 }
 
 type FeedResult struct {
@@ -192,7 +291,7 @@ type FeedResult struct {
 	Error        string
 }
 
-func processRSSFeed(ctx context.Context, feed FeedConfig, result FeedResult, projectID string, dryRun bool, statePath string, ingestionClient v1connect.IngestionServiceClient, httpClient *http.Client, dedupState *DedupState) FeedResult {
+func processRSSFeed(ctx context.Context, feed FeedConfig, result FeedResult, projectID string, dryRun bool, statePath string, ingestionClient v1connect.IngestionServiceClient, httpClient *http.Client, dedupState *DedupState, startDate, endDate time.Time) FeedResult {
 	body, err := fetchRSS(ctx, httpClient, feed.URL)
 	if err != nil {
 		result.Error = err.Error()
@@ -225,12 +324,20 @@ func processRSSFeed(ctx context.Context, feed FeedConfig, result FeedResult, pro
 			continue
 		}
 
+		// Date range filtering
+		if !isItemInRange(item.PubDate, startDate, endDate) {
+			result.SkippedItems++
+			continue
+		}
+
 		result.NewItems++
 
 		if dryRun {
 			dedupState.Processed[key] = now
 			continue
 		}
+
+		time.Sleep(1200 * time.Millisecond)
 
 		configJSON, err := json.Marshal(map[string]string{"url": item.Link})
 		if err != nil {
@@ -364,10 +471,39 @@ func main() {
 	sourceType := flag.String("source", "", "filter feeds by source type (rss or scrape)")
 	feedsFilter := flag.String("feeds", "", "comma-separated feed names to process (empty = all)")
 	jwtToken := flag.String("jwt", "", "Aleph JWT for authentication (set aleph_jwt cookie)")
+	apiKey := flag.String("api-key", "", "Aleph API key for authentication (X-Aleph-Api-Key header)")
+	startDateStr := flag.String("start-date", "", "filter items after this date (RFC3339 or YYYY-MM-DD)")
+	endDateStr := flag.String("end-date", "", "filter items before this date (RFC3339 or YYYY-MM-DD)")
 	flag.Parse()
 
 	if *projectID == "" {
 		log.Fatal("project ID is required (-project)")
+	}
+
+	var startDate, endDate time.Time
+	if *startDateStr != "" {
+		var err error
+		startDate, err = time.Parse(time.RFC3339, *startDateStr)
+		if err != nil {
+			startDate, err = time.Parse("2006-01-02", *startDateStr)
+			if err != nil {
+				log.Fatalf("invalid -start-date %q: expected RFC3339 or YYYY-MM-DD", *startDateStr)
+			}
+		}
+	}
+	if *endDateStr != "" {
+		var err error
+		endDate, err = time.Parse(time.RFC3339, *endDateStr)
+		if err != nil {
+			endDate, err = time.Parse("2006-01-02", *endDateStr)
+			if err != nil {
+				log.Fatalf("invalid -end-date %q: expected RFC3339 or YYYY-MM-DD", *endDateStr)
+			}
+		}
+		// Set to end of day for date-only inputs
+		if endDate.Hour() == 0 && endDate.Minute() == 0 && endDate.Second() == 0 {
+			endDate = endDate.Add(24*time.Hour - time.Second)
+		}
 	}
 
 	configData, err := os.ReadFile(*configPath)
@@ -417,12 +553,13 @@ func main() {
 		log.Fatalf("failed to load dedup state: %v", err)
 	}
 
-	httpClient := newHTTPClient(30*time.Second, *jwtToken)
+	httpClient := newHTTPClient(300*time.Second, *jwtToken, *apiKey)
 
 	var ingestionClient v1connect.IngestionServiceClient
 	if !*dryRun {
+		customHTTPClient := newHTTPClient(120*time.Second, *jwtToken, *apiKey)
 		ingestionClient = v1connect.NewIngestionServiceClient(
-			httpClient,
+			customHTTPClient,
 			*serverAddr,
 			connect.WithGRPCWeb(),
 		)
@@ -451,7 +588,7 @@ func main() {
 		if source == "scrape" {
 			result = processScrapeFeed(ctx, feed, result, *projectID, *dryRun, ingestionClient)
 		} else {
-			result = processRSSFeed(ctx, feed, result, *projectID, *dryRun, *statePath, ingestionClient, httpClient, dedupState)
+			result = processRSSFeed(ctx, feed, result, *projectID, *dryRun, *statePath, ingestionClient, httpClient, dedupState, startDate, endDate)
 		}
 
 		mu.Lock()

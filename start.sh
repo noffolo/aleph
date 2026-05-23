@@ -8,6 +8,7 @@ export PORT="9999"
 export APP_ENV="development"
 export GOSECRETS_ENV="ci"
 export ALLOW_LOCALHOST_SSRF="true"
+export RATE_LIMIT_DEFAULT="100"
 export LLM_TIMEOUT_SECONDS="120"
 export LOG_LEVEL="debug"
 

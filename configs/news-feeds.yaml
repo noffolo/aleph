@@ -94,22 +94,6 @@ feeds:
       date_selector: "time, .date, .data"
       max_articles: 30
 
-  - name: "Il Post"
-    url: "https://www.ilpost.it/feed/"
-    category: "generale"
-
-  - name: "Avvenire"
-    url: "https://www.avvenire.it/feed/"
-    category: "generale"
-
-  - name: "Italia Oggi"
-    url: "https://www.italiaoggi.it/feed.rss"
-    category: "economia"
-
-  - name: "Libero"
-    url: "https://www.liberoquotidiano.it/feed/"
-    category: "generale"
-
   - name: "Giornalettismo"
     url: "https://www.giornalettismo.com/feed/"
     category: "generale"
@@ -122,21 +106,9 @@ feeds:
     url: "https://www.sondaggibidimedia.com/feed/"
     category: "sondaggi"
 
-  - name: "Istat"
-    url: "https://www.istat.it/it/feed"
-    category: "dati"
-
   - name: "Politico Europe Italy"
-    url: "https://www.politico.eu/feed/italy/"
+    url: "https://www.politico.eu/feed/"
     category: "esteri"
-
-  - name: "The Local Italy"
-    url: "https://www.thelocal.it/feed/"
-    category: "esteri"
-
-  - name: "Finanze Governo"
-    url: "https://www.mef.gov.it/feed/rss.xml"
-    category: "economia"
 
   - name: "Il Messaggero"
     url: "https://www.ilmessaggero.it/rss/home.xml"

@@ -267,6 +267,45 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
               </div>
             )}
 
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="so-ds-start-date" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Data Inizio (opzionale)</label>
+                <input
+                  id="so-ds-start-date"
+                  type="date"
+                  value={(() => { try { return JSON.parse(configJson).start_date || '' } catch { return '' } })()}
+                  onChange={(e) => {
+                    const config = JSON.parse(configJson || '{}')
+                    if (e.target.value) {
+                      config.start_date = e.target.value
+                    } else {
+                      delete config.start_date
+                    }
+                    setConfigJson(JSON.stringify(config, null, 2))
+                  }}
+                  className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                />
+              </div>
+              <div>
+                <label htmlFor="so-ds-end-date" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Data Fine (opzionale)</label>
+                <input
+                  id="so-ds-end-date"
+                  type="date"
+                  value={(() => { try { return JSON.parse(configJson).end_date || '' } catch { return '' } })()}
+                  onChange={(e) => {
+                    const config = JSON.parse(configJson || '{}')
+                    if (e.target.value) {
+                      config.end_date = e.target.value
+                    } else {
+                      delete config.end_date
+                    }
+                    setConfigJson(JSON.stringify(config, null, 2))
+                  }}
+                  className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                />
+              </div>
+            </div>
+
             <div>
             <label htmlFor="so-ds-advanced-config" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Configurazione Avanzata (JSON)</label>
             <textarea

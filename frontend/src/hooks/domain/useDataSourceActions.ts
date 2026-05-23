@@ -22,12 +22,12 @@ export function useDataSourceActions(loadProjectData: () => void) {
         .then(() => loadProjectData())
         .catch((e: unknown) => handleError(e, 'createTask'))
     }, [projectID, loadProjectData]),
-    onRunTask: useCallback((id: string) => {
+    onRunTask: useCallback((id: string, configOverrides?: string) => {
       abortRef.current?.abort()
       const ac = new AbortController()
       abortRef.current = ac
 
-      ingestionClient.runTask({ projectId: projectID, taskId: id })
+      ingestionClient.runTask({ projectId: projectID, taskId: id, configOverrides: configOverrides || undefined })
         .then(() => {
           const poll = () => {
             if (ac.signal.aborted) return
