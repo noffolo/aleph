@@ -31,6 +31,8 @@ func NewTokenBucketRateLimiter(ratePerSecond float64, burst int) *TokenBucketRat
 	}
 }
 
+// refill adds tokens based on elapsed time since last refill.
+// Must be called with rl.mu held.
 func (rl *TokenBucketRateLimiter) refill() {
 	now := time.Now()
 	elapsed := now.Sub(rl.lastRefill).Seconds()
@@ -49,12 +51,24 @@ func (rl *TokenBucketRateLimiter) Wait() error {
 		rl.mu.Unlock()
 		return nil
 	}
-	waitTime := time.Duration((1-rl.tokens)/rl.rate*1000) * time.Millisecond
+	// Calculate how long until we have 1 token
+	needed := 1 - rl.tokens
+	waitDuration := time.Duration(needed / rl.rate * float64(time.Second))
 	rl.mu.Unlock()
-	time.Sleep(waitTime)
+
+	time.Sleep(waitDuration)
+
+	// After sleep, re-acquire lock and properly refill from current state.
+	// This is safe: refill() recalculates from current state, accounting for
+	// any tokens consumed by goroutines that woke up before this one.
 	rl.mu.Lock()
-	rl.lastRefill = time.Now()
-	rl.tokens = float64(rl.burst) - 1
+	rl.refill()
+	if rl.tokens >= 1 {
+		rl.tokens--
+	} else {
+		// Shouldn't happen if sleep was accurate, but handle edge case
+		rl.tokens = 0
+	}
 	rl.mu.Unlock()
 	return nil
 }
