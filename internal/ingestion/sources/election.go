@@ -30,6 +30,7 @@ var partyAliasesRaw []byte
 // ElectionConfig holds the parameters used to identify a specific election to process.
 type ElectionConfig struct {
 	ElectionType string `json:"election_type"`
+	ElectionDate string `json:"election_date"` // YYYYMMDD format, used for path-based API URLs
 	Level        string `json:"level"`
 	Year         int    `json:"year"`
 }
@@ -274,9 +275,9 @@ type getentiFIResponse struct {
 // teCode returns the TE code for the election type in this config.
 func (c ElectionConfig) teCode() string {
 	switch c.ElectionType {
-	case "politiche":
+	case "politiche", "camera":
 		return "TE01"
-	case "europee":
+	case "europee", "senato":
 		return "TE02"
 	case "regionali":
 		return "TE03"
@@ -297,7 +298,7 @@ func (f *ElectionFetcher) GetEntities(ctx context.Context, cfg ElectionConfig) (
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/getentiFI?te=%s&liv=%s", f.baseURL, cfg.teCode(), cfg.Level)
+	url := fmt.Sprintf("%s/getentiFI/DE/%s/TE/%s", f.baseURL, cfg.ElectionDate, cfg.teCode())
 	resp, err := f.doGet(ctx, url)
 	if err != nil {
 		return nil, err
@@ -318,7 +319,9 @@ func (f *ElectionFetcher) doGet(ctx context.Context, url string) (*http.Response
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "Aleph/1.0 (data-ingestion)")
+	req.Header.Set("Origin", "https://elezioni.interno.gov.it")
+	req.Header.Set("Referer", "https://elezioni.interno.gov.it/")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Aleph/1.0; +https://github.com/ff3300/aleph-v2)")
 
 	resp, err := f.httpClient.Do(req)
 	if err != nil {
@@ -404,7 +407,10 @@ func RunElection(ctx context.Context, db *sql.DB, baseURL string, cfg ElectionCo
 			return nil, fmt.Errorf("rate limiter wait: %w", err)
 		}
 
-		url := fmt.Sprintf("%s/scrutiniFI?te=%s&cod=%s", baseURL, cfg.teCode(), ent.Cod)
+		reg := ent.Cod[:2]
+		prv := ent.Cod[2:5]
+		com := ent.Cod[5:]
+		url := fmt.Sprintf("%s/scrutiniFI/DE/%s/TE/%s/RE/%s/PR/%s/CM/%s", baseURL, cfg.ElectionDate, cfg.teCode(), reg, prv, com)
 		resp, err := fetcher.doGet(ctx, url)
 		if err != nil {
 			slog.Error("scrutini fetch failed", "entity", ent.Cod, "error", err)

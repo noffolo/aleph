@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -89,7 +90,7 @@ func TestElectionFetcherRateLimit(t *testing.T) {
 	defer srv.Close()
 
 	fetcher := NewElectionFetcher(srv.URL, 1.0)
-	cfg := ElectionConfig{ElectionType: "politiche", Level: "comune", Year: 2022}
+	cfg := ElectionConfig{ElectionType: "politiche", ElectionDate: "20220925", Level: "comune", Year: 2022}
 	ctx := context.Background()
 
 	// First call should be fast (token available immediately)
@@ -116,7 +117,7 @@ func TestElectionFetcherTEMapping(t *testing.T) {
 	defer srv.Close()
 
 	fetcher := NewElectionFetcher(srv.URL, 5.0)
-	cfg := ElectionConfig{ElectionType: "politiche", Level: "comune", Year: 2022}
+	cfg := ElectionConfig{ElectionType: "politiche", ElectionDate: "20220925", Level: "comune", Year: 2022}
 	ctx := context.Background()
 
 	entities, err := fetcher.GetEntities(ctx, cfg)
@@ -143,7 +144,7 @@ func TestRunElectionFullPipeline(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount.Add(1)
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path == "/getentiFI" {
+		if strings.Contains(r.URL.Path, "/getentiFI/") {
 			w.Write([]byte(getentiBody))
 			return
 		}
@@ -156,7 +157,7 @@ func TestRunElectionFullPipeline(t *testing.T) {
 	mapper.AddAlias("PARTITO DEMOCRATICO", "partito-democratico")
 
 	rawDir := t.TempDir()
-	cfg := ElectionConfig{ElectionType: "politiche", Level: "comune", Year: 2022}
+	cfg := ElectionConfig{ElectionType: "politiche", ElectionDate: "20220925", Level: "comune", Year: 2022}
 	ctx := context.Background()
 
 	results, err := RunElection(ctx, db, srv.URL, cfg, mapper, rawDir)
