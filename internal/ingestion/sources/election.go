@@ -481,29 +481,34 @@ func RunElection(ctx context.Context, db *sql.DB, baseURL string, cfg ElectionCo
 		slog.Warn("failed to save getenti raw", "error", err)
 	}
 
-	// Filter to only CM (comune) entities — only comuni have scrutini data
-	var comuni []EligendoEntity
-	for _, ent := range entities {
-		if len(ent.Cod) < 6 {
-			slog.Debug("skipping entity with short ISTAT code", "cod", ent.Cod, "desc", ent.Desc)
-			continue
-		}
-		comuni = append(comuni, ent)
-	}
-
 	// Increase rate limit for batch ingestion (100 req/s instead of 1)
 	fetcher.rateLimiter = newTokenBucketLimiter(100.0, 10)
 
 	var results []ElectionResult
-	for _, ent := range comuni {
+	for _, ent := range entities {
+		codLen := len(ent.Cod)
+
+		var url string
+		switch {
+		case cfg.ElectionType == "europee" && codLen == 10 && strings.HasSuffix(ent.Cod, "0000"):
+			// EU endpoint: PR-level entities (province), 10-digit codes ending in 0000
+			reg := ent.Cod[:3]
+			prv := ent.Cod[3:6]
+			url = fmt.Sprintf("%s/scrutini%s/DE/%s/TE/%s/RE/%s/PR/%s", baseURL, cfg.endpointSuffix(), cfg.ElectionDate, cfg.teCode(), reg, prv)
+		case codLen >= 6 && cfg.ElectionType != "europee":
+			// FI/CI/SI/R: 9-digit codes with full CM level
+			reg := ent.Cod[:2]
+			prv := ent.Cod[2:5]
+			com := ent.Cod[5:]
+			url = fmt.Sprintf("%s/scrutini%s/DE/%s/TE/%s/RE/%s/PR/%s/CM/%s", baseURL, cfg.endpointSuffix(), cfg.ElectionDate, cfg.teCode(), reg, prv, com)
+		default:
+			slog.Debug("skipping entity", "cod", ent.Cod, "desc", ent.Desc, "reason", "unexpected code format")
+			continue
+		}
+
 		if err := fetcher.rateLimiter.Wait(); err != nil {
 			return nil, fmt.Errorf("rate limiter wait: %w", err)
 		}
-
-		reg := ent.Cod[:2]
-		prv := ent.Cod[2:5]
-		com := ent.Cod[5:]
-		url := fmt.Sprintf("%s/scrutini%s/DE/%s/TE/%s/RE/%s/PR/%s/CM/%s", baseURL, cfg.endpointSuffix(), cfg.ElectionDate, cfg.teCode(), reg, prv, com)
 		resp, err := fetcher.doGet(ctx, url)
 		if err != nil {
 			slog.Error("scrutini fetch failed", "entity", ent.Cod, "error", err)
