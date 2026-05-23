@@ -272,23 +272,49 @@ type getentiFIResponse struct {
 	} `json:"enti"`
 }
 
-// teCode returns the TE code for the election type in this config.
+// teCode returns the TE code (numeric only) for the election type in this config.
+// Used in path-based API URLs: /getentiFI/DE/{date}/TE/{code}
 func (c ElectionConfig) teCode() string {
 	switch c.ElectionType {
 	case "politiche", "camera":
-		return "TE01"
+		return "01"
 	case "europee", "senato":
-		return "TE02"
+		return "02"
 	case "regionali":
-		return "TE03"
+		return "03"
 	case "provinciali":
-		return "TE04"
+		return "04"
 	case "comunali":
-		return "TE05"
+		return "05"
 	case "referendum":
-		return "TE09"
+		return "09"
 	default:
-		return "TE01"
+		return "01"
+	}
+}
+
+// endpointSuffix returns the API endpoint suffix for this election type.
+// Different election types use different endpoint identifiers:
+//   FI = nazionale/referendum, CI = camera, SI = senato,
+//   EI = europee, R = regionali
+func (c ElectionConfig) endpointSuffix() string {
+	switch c.ElectionType {
+	case "politiche":
+		return "FI"
+	case "camera":
+		return "CI"
+	case "senato":
+		return "SI"
+	case "europee":
+		return "EI"
+	case "regionali":
+		return "R"
+	case "comunali", "provinciali":
+		return "FI"
+	case "referendum":
+		return "FI"
+	default:
+		return "FI"
 	}
 }
 
@@ -298,7 +324,7 @@ func (f *ElectionFetcher) GetEntities(ctx context.Context, cfg ElectionConfig) (
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/getentiFI/DE/%s/TE/%s", f.baseURL, cfg.ElectionDate, cfg.teCode())
+	url := fmt.Sprintf("%s/getenti%s/DE/%s/TE/%s", f.baseURL, cfg.endpointSuffix(), cfg.ElectionDate, cfg.teCode())
 	resp, err := f.doGet(ctx, url)
 	if err != nil {
 		return nil, err
@@ -415,7 +441,7 @@ func RunElection(ctx context.Context, db *sql.DB, baseURL string, cfg ElectionCo
 		reg := ent.Cod[:2]
 		prv := ent.Cod[2:5]
 		com := ent.Cod[5:]
-		url := fmt.Sprintf("%s/scrutiniFI/DE/%s/TE/%s/RE/%s/PR/%s/CM/%s", baseURL, cfg.ElectionDate, cfg.teCode(), reg, prv, com)
+		url := fmt.Sprintf("%s/scrutini%s/DE/%s/TE/%s/RE/%s/PR/%s/CM/%s", baseURL, cfg.endpointSuffix(), cfg.ElectionDate, cfg.teCode(), reg, prv, com)
 		resp, err := fetcher.doGet(ctx, url)
 		if err != nil {
 			slog.Error("scrutini fetch failed", "entity", ent.Cod, "error", err)
