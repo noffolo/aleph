@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -410,11 +411,34 @@ func (s *ElectionSource) Validate() error {
 type scrutiniParty struct {
 	Desc string  `json:"desc"`
 	Voti int64   `json:"voti"`
-	Perc float64 `json:"perc"`
+	Perc float64 `json:"-"`
 	Seggi int    `json:"seggi"`
-	// Flat format (EI: europee) uses desc_lis/voti/perc; aliased via JSON tags
 	DescLis string  `json:"desc_lis,omitempty"`
 	VotiRaw float64 `json:"voti,omitempty"`
+	// percRaw handles Italian locale (comma decimal) and standard float formats
+	percRaw percString `json:"perc"`
+}
+
+// percString handles JSON unmarshaling of percentage values that may be
+// in Italian locale format (e.g. "28,81") or standard numeric format.
+type percString float64
+
+func (p *percString) UnmarshalJSON(data []byte) error {
+	s := string(data)
+	if s == "null" || s == `""` {
+		*p = 0
+		return nil
+	}
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		s = s[1 : len(s)-1]
+	}
+	s = strings.ReplaceAll(s, ",", ".")
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return fmt.Errorf("parse perc %q: %w", s, err)
+	}
+	*p = percString(v)
+	return nil
 }
 
 // scrutiniFIResponse is the Eligendo API response for the FI (nazionale) endpoint.
@@ -440,14 +464,13 @@ type scrutiniFlatResponse struct {
 
 // extractParties extracts parties from a scrutini response, handling both nested and flat formats.
 func extractParties(body []byte) ([]scrutiniParty, error) {
-	// Try flat format first: liste is a flat array
 	var flat scrutiniFlatResponse
 	if err := json.Unmarshal(body, &flat); err == nil && len(flat.Liste) > 0 {
-		// Normalize flat format fields to standard
 		for i := range flat.Liste {
 			if flat.Liste[i].Desc == "" && flat.Liste[i].DescLis != "" {
 				flat.Liste[i].Desc = flat.Liste[i].DescLis
 			}
+			flat.Liste[i].Perc = float64(flat.Liste[i].percRaw)
 		}
 		return flat.Liste, nil
 	}
@@ -456,6 +479,9 @@ func extractParties(body []byte) ([]scrutiniParty, error) {
 	var nested scrutiniFIResponse
 	if err := json.Unmarshal(body, &nested); err != nil {
 		return nil, fmt.Errorf("decode scrutini response: %w", err)
+	}
+	for i := range nested.Liste.Lista {
+		nested.Liste.Lista[i].Perc = float64(nested.Liste.Lista[i].percRaw)
 	}
 	return nested.Liste.Lista, nil
 }
@@ -485,75 +511,107 @@ func RunElection(ctx context.Context, db *sql.DB, baseURL string, cfg ElectionCo
 	fetcher.rateLimiter = newTokenBucketLimiter(100.0, 10)
 
 	var results []ElectionResult
-	for _, ent := range entities {
-		codLen := len(ent.Cod)
 
-		var url string
-		switch {
-		case cfg.ElectionType == "europee" && codLen == 10 && strings.HasSuffix(ent.Cod, "0000"):
-			// EU endpoint: PR-level entities (province), 10-digit codes ending in 0000
-			reg := ent.Cod[:3]
-			prv := ent.Cod[3:6]
-			url = fmt.Sprintf("%s/scrutini%s/DE/%s/TE/%s/RE/%s/PR/%s", baseURL, cfg.endpointSuffix(), cfg.ElectionDate, cfg.teCode(), reg, prv)
-		case codLen >= 6 && cfg.ElectionType != "europee":
-			// FI/CI/SI/R: 9-digit codes with full CM level
-			reg := ent.Cod[:2]
-			prv := ent.Cod[2:5]
-			com := ent.Cod[5:]
-			url = fmt.Sprintf("%s/scrutini%s/DE/%s/TE/%s/RE/%s/PR/%s/CM/%s", baseURL, cfg.endpointSuffix(), cfg.ElectionDate, cfg.teCode(), reg, prv, com)
-		default:
-			slog.Debug("skipping entity", "cod", ent.Cod, "desc", ent.Desc, "reason", "unexpected code format")
-			continue
-		}
-
+	// Europee endpoint returns all province data in a single call at TE level
+	if cfg.ElectionType == "europee" {
+		url := fmt.Sprintf("%s/scrutini%s/DE/%s/TE/%s", baseURL, cfg.endpointSuffix(), cfg.ElectionDate, cfg.teCode())
 		if err := fetcher.rateLimiter.Wait(); err != nil {
 			return nil, fmt.Errorf("rate limiter wait: %w", err)
 		}
 		resp, err := fetcher.doGet(ctx, url)
 		if err != nil {
-			slog.Error("scrutini fetch failed", "entity", ent.Cod, "error", err)
-			continue
+			return nil, fmt.Errorf("europee scrutini fetch: %w", err)
 		}
-
-		// Read full body for raw save before parsing
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			slog.Error("scrutini read body failed", "entity", ent.Cod, "error", err)
-			continue
+			return nil, fmt.Errorf("europee scrutini read body: %w", err)
 		}
-
-		// Save raw JSON first (intatto)
-		rawName := fmt.Sprintf("scrutini_%s.json", ent.Cod)
-		if err := os.WriteFile(filepath.Join(rawPath, rawName), body, 0644); err != nil {
-			slog.Warn("failed to save scrutini raw", "entity", ent.Cod, "error", err)
+		if err := os.WriteFile(filepath.Join(rawPath, "scrutini_all.json"), body, 0644); err != nil {
+			slog.Warn("failed to save europee scrutini raw", "error", err)
 		}
-
 		parties, err := extractParties(body)
 		if err != nil {
-			slog.Error("scrutini party extraction failed", "entity", ent.Cod, "error", err)
-			continue
+			slog.Warn("europee party extraction failed", "error", err)
+		} else {
+			for _, lista := range parties {
+				canon, found := mapper.Lookup(lista.Desc)
+				if !found {
+					slog.Info("unmapped party", "raw", lista.Desc)
+				}
+				results = append(results, ElectionResult{
+					ElectionType:   cfg.ElectionType,
+					Level:          cfg.Level,
+					Year:           cfg.Year,
+					Comune:         "ITALIA",
+					ComuneISTAT:    "1000000000",
+					Lista:          lista.Desc,
+					PartyCanonical: canon,
+					Voti:           lista.Voti,
+					Percentuale:    lista.Perc,
+					Seggi:          lista.Seggi,
+				})
+			}
 		}
-
-		for _, lista := range parties {
-			canonical, found := mapper.Lookup(lista.Desc)
-			if !found {
-				canonical = ""
-				slog.Info("unmapped party", "raw", lista.Desc, "entity", ent.Cod, "entity_name", ent.Desc)
+	} else {
+		for _, ent := range entities {
+			if len(ent.Cod) < 6 {
+				slog.Debug("skipping entity with short ISTAT code", "cod", ent.Cod, "desc", ent.Desc)
+				continue
 			}
 
-			results = append(results, ElectionResult{
-				ElectionType:   cfg.ElectionType,
-				Level:          cfg.Level,
-				Year:           cfg.Year,
-				Comune:         ent.Desc,
-				ComuneISTAT:    ent.Cod,
-				Lista:          lista.Desc,
-				PartyCanonical: canonical,
-				Voti:           lista.Voti,
-				Percentuale:    lista.Perc,
-				Seggi:          lista.Seggi,
-			})
+			if err := fetcher.rateLimiter.Wait(); err != nil {
+				return nil, fmt.Errorf("rate limiter wait: %w", err)
+			}
+
+			reg := ent.Cod[:2]
+			prv := ent.Cod[2:5]
+			com := ent.Cod[5:]
+			url := fmt.Sprintf("%s/scrutini%s/DE/%s/TE/%s/RE/%s/PR/%s/CM/%s", baseURL, cfg.endpointSuffix(), cfg.ElectionDate, cfg.teCode(), reg, prv, com)
+			resp, err := fetcher.doGet(ctx, url)
+			if err != nil {
+				slog.Error("scrutini fetch failed", "entity", ent.Cod, "error", err)
+				continue
+			}
+
+			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				slog.Error("scrutini read body failed", "entity", ent.Cod, "error", err)
+				continue
+			}
+
+			rawName := fmt.Sprintf("scrutini_%s.json", ent.Cod)
+			if err := os.WriteFile(filepath.Join(rawPath, rawName), body, 0644); err != nil {
+				slog.Warn("failed to save scrutini raw", "entity", ent.Cod, "error", err)
+			}
+
+			parties, err := extractParties(body)
+			if err != nil {
+				slog.Error("scrutini party extraction failed", "entity", ent.Cod, "error", err)
+				continue
+			}
+
+			for _, lista := range parties {
+				canonical, found := mapper.Lookup(lista.Desc)
+				if !found {
+					canonical = ""
+					slog.Info("unmapped party", "raw", lista.Desc, "entity", ent.Cod, "entity_name", ent.Desc)
+				}
+
+				results = append(results, ElectionResult{
+					ElectionType:   cfg.ElectionType,
+					Level:          cfg.Level,
+					Year:           cfg.Year,
+					Comune:         ent.Desc,
+					ComuneISTAT:    ent.Cod,
+					Lista:          lista.Desc,
+					PartyCanonical: canonical,
+					Voti:           lista.Voti,
+					Percentuale:    lista.Perc,
+					Seggi:          lista.Seggi,
+				})
+			}
 		}
 	}
 
