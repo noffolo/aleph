@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -439,12 +440,19 @@ func (e *Engine) registerViews(ctx context.Context, projectID string) error {
 
 func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
 	var config struct {
-		URL   string `json:"url"`
-		Repo  string `json:"repo"`
-		Token string `json:"token"`
+		URL       string `json:"url"`
+		Repo      string `json:"repo"`
+		Token     string `json:"token"`
+		StartDate string `json:"start_date"`
+		EndDate   string `json:"end_date"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
 		return fmt.Errorf("invalid JSON config: %w", err)
+	}
+
+	dr, err := sources.ParseDateRangeFromConfig([]byte(task.ConfigJson))
+	if err != nil {
+		fmt.Fprintf(w, "Warning: date range config parse error (ignoring): %v\n", err)
 	}
 
 	urlToFetch := config.URL
@@ -492,6 +500,57 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 	contentType := resp.Header.Get("Content-Type")
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	os.MkdirAll(filepath.Join(projectPath, "raw"), 0755)
+
+	dateFilterActive := sourceDrIsActive(dr)
+	isRSSXML := isRSSXMLContentType(contentType) || isRSSXMLBody(bodyBytes)
+
+	if dateFilterActive && isRSSXML {
+		e.updateProgress(task.Id, 80, "running")
+		fmt.Fprintf(w, "RSS/Atom feed detected with date filter — filtering items by date range\n")
+
+		items, feedErr := parseRSSItems(bodyBytes)
+		if feedErr != nil {
+			fmt.Fprintf(w, "Warning: RSS parse error (falling back to raw storage): %v\n", feedErr)
+		} else {
+			var filtered []rssItem
+			var skipped int
+			for _, item := range items {
+				itemDate, dateErr := sources.ExtractItemDate(item.Attrs)
+				if dateErr != nil {
+					fmt.Fprintf(w, "Warning: unparseable date for item %q: %v\n", item.Title, dateErr)
+				}
+				if dr.IsInRange(itemDate) {
+					filtered = append(filtered, item)
+				} else {
+					skipped++
+				}
+			}
+			fmt.Fprintf(w, "Date filter: %d items in range, %d skipped\n", len(filtered), skipped)
+
+			for _, item := range filtered {
+				fmt.Fprintf(w, "  - %s (%s)\n", item.Title, item.Link)
+			}
+
+			jsonData, err := json.Marshal(filtered)
+			if err != nil {
+				return fmt.Errorf("filtered RSS JSON marshal: %w", err)
+			}
+			tmpFile := filepath.Join(projectPath, "raw", tableName+".json")
+			if err := os.WriteFile(tmpFile, jsonData, 0644); err != nil {
+				return fmt.Errorf("filtered RSS file write: %w", err)
+			}
+			if err := safeident.SanitizeFilePath(tmpFile); err != nil {
+				return fmt.Errorf("unsafe file path: %w", err)
+			}
+			createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(tmpFile) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
+			if _, err := e.db.Exec(ctx, createSQL); err != nil {
+				return fmt.Errorf("RSS filtered view creation failed: %w", err)
+			}
+			e.updateProgress(task.Id, 100, "completed")
+			fmt.Fprintf(w, "Completed: view \"%s\" created from filtered RSS feed %s\n", tableName, urlToFetch)
+			return nil
+		}
+	}
 
 	if strings.Contains(contentType, "json") || strings.Contains(contentType, "javascript") {
 		tmpFile := filepath.Join(projectPath, "raw", tableName+".json")
@@ -1847,3 +1906,136 @@ func (e *Engine) runScrapeSource(ctx context.Context, w *os.File, projectID stri
 	fmt.Fprintf(w, "Scrape ingestion complete. Table \"%s\" (%d articles)\n", tableName, len(results))
 	return nil
 }
+
+// =============================================================================
+// RSS/Atom date filtering helpers
+// =============================================================================
+
+type rssItem struct {
+	Title string            `json:"title"`
+	Link  string            `json:"link"`
+	Attrs map[string]string `json:"attrs"`
+}
+
+type rssChannel struct {
+	XMLName xml.Name   `xml:"rss"`
+	Channel rssCh      `xml:"channel"`
+	Items   []rssItemRaw `xml:"-"`
+}
+
+type rssCh struct {
+	Items []rssItemRaw `xml:"item"`
+}
+
+type rssItemRaw struct {
+	Title       string `xml:"title"`
+	Link        string `xml:"link"`
+	PubDate     string `xml:"pubDate"`
+	Description string `xml:"description"`
+}
+
+type atomFeed struct {
+	XMLName xml.Name    `xml:"feed"`
+	Entries []atomEntry `xml:"entry"`
+}
+
+type atomEntry struct {
+	Title     string `xml:"title"`
+	Link      atomLink `xml:"link"`
+	Updated   string `xml:"updated"`
+	Published string `xml:"published"`
+}
+
+type atomLink struct {
+	Href string `xml:"href,attr"`
+}
+
+// sourceDrIsActive returns true if the DateRangeConfig has any filter bounds.
+func sourceDrIsActive(dr sources.DateRangeConfig) bool {
+	return dr.StartDate != nil || dr.EndDate != nil
+}
+
+// isRSSXMLContentType checks if a content-type header indicates RSS/Atom XML.
+func isRSSXMLContentType(ct string) bool {
+	ct = strings.ToLower(ct)
+	return strings.Contains(ct, "rss") ||
+		strings.Contains(ct, "atom") ||
+		strings.Contains(ct, "xml")
+}
+
+// isRSSXMLBody checks if the body starts with an RSS or Atom XML root element.
+func isRSSXMLBody(body []byte) bool {
+	trimmed := strings.TrimLeft(string(body), " \t\r\n\x00")
+	return strings.HasPrefix(trimmed, "<?xml") ||
+		strings.HasPrefix(trimmed, "<rss") ||
+		strings.HasPrefix(trimmed, "<feed")
+}
+
+// parseRSSItems parses RSS 2.0 or Atom feed bytes returning a flat list of items.
+func parseRSSItems(body []byte) ([]rssItem, error) {
+	trimmed := strings.TrimLeft(string(body), " \t\r\n\x00")
+
+	if strings.HasPrefix(trimmed, "<rss") {
+		var ch rssCh
+		decoder := xml.NewDecoder(strings.NewReader(string(body)))
+		inChannel := false
+		for {
+			token, err := decoder.Token()
+			if err != nil {
+				break
+			}
+			switch tok := token.(type) {
+			case xml.StartElement:
+				if tok.Name.Local == "channel" {
+					inChannel = true
+				}
+				if inChannel && tok.Name.Local == "item" {
+					var raw rssItemRaw
+					if err := decoder.DecodeElement(&raw, &tok); err != nil {
+						continue
+					}
+					ch.Items = append(ch.Items, raw)
+				}
+			}
+		}
+		items := make([]rssItem, 0, len(ch.Items))
+		for _, raw := range ch.Items {
+			attrs := make(map[string]string)
+			if raw.PubDate != "" {
+				attrs["pubDate"] = raw.PubDate
+			}
+			items = append(items, rssItem{
+				Title: raw.Title,
+				Link:  raw.Link,
+				Attrs: attrs,
+			})
+		}
+		return items, nil
+	}
+
+	if strings.HasPrefix(trimmed, "<feed") || strings.HasPrefix(trimmed, "<?xml") {
+		var feed atomFeed
+		if err := xml.Unmarshal(body, &feed); err != nil {
+			return nil, fmt.Errorf("atom feed parse: %w", err)
+		}
+		items := make([]rssItem, 0, len(feed.Entries))
+		for _, entry := range feed.Entries {
+			attrs := make(map[string]string)
+			if entry.Updated != "" {
+				attrs["updated"] = entry.Updated
+			}
+			if entry.Published != "" {
+				attrs["published"] = entry.Published
+			}
+			items = append(items, rssItem{
+				Title: entry.Title,
+				Link:  entry.Link.Href,
+				Attrs: attrs,
+			})
+		}
+		return items, nil
+	}
+
+	return nil, fmt.Errorf("unrecognized XML root — not RSS or Atom")
+}
+
