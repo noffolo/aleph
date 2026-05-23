@@ -57,17 +57,19 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
       if (step === 1) {
         if (!name.trim()) newErrors.name = 'Il nome è obbligatorio'
       } else if (step === 3) {
+        let config: Record<string, unknown> | null = null
         try {
-          JSON.parse(configJson)
+          config = JSON.parse(configJson)
         } catch {
           newErrors.configJson = 'Il JSON di configurazione non è valido'
         }
 
-        const config = JSON.parse(configJson || '{}')
-        if (mode === 'api' && config.url && !/^https?:\/\/.+/.test(config.url)) {
+        if (!config) return false
+
+        if (mode === 'api' && config.url && !/^https?:\/\/.+/.test(config.url as string)) {
           newErrors.url = 'L\'URL deve iniziare con http o https'
         }
-        if (mode === 'db' && (!config.connectionString || !config.connectionString.trim())) {
+        if (mode === 'db' && (!config.connectionString || !(config.connectionString as string).trim())) {
           newErrors.connectionString = 'La stringa di connessione è obbligatoria'
         }
       }
@@ -200,6 +202,25 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
                 </div>
               </div>
             )}
+
+            <div className="border-t border-border pt-4 mt-2">
+              <h4 className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-2">Tipo Sorgente Personalizzato</h4>
+              <select
+                value={sourceType}
+                onChange={(e) => setSourceType(e.target.value)}
+                className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+              >
+                <option value="csv">— Nessuno (usa modalità sopra) —</option>
+                <optgroup label="Politica Italiana">
+                  <option value="election">Elezioni (Eligendo)</option>
+                  <option value="pep">PEP (OpenSanctions)</option>
+                  <option value="public_contracts">Appalti Pubblici (ANAC)</option>
+                  <option value="party_funding">Finanziamenti Partiti</option>
+                  <option value="opdm">OpenData Municipale (OPDM)</option>
+                  <option value="parliament">Parlamento (SPARQL)</option>
+                </optgroup>
+              </select>
+            </div>
           </div>
         )}
 
@@ -264,6 +285,175 @@ export function DataSourceFormSlideOver({ title }: DataSourceFormSlideOverProps)
                   aria-invalid={errors.connectionString ? true : undefined}
                 />
                 {errors.connectionString && <p id={errorId('conn-string')} role="alert" className="text-danger text-[10px] mt-1">{errors.connectionString}</p>}
+              </div>
+            )}
+
+            {sourceType === 'election' && (
+              <div className="border-t border-border pt-4 space-y-3">
+                <h4 className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1">Campi Elezioni</h4>
+                <div>
+                  <label htmlFor="so-ds-election-type" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo Elezione</label>
+                  <select
+                    id="so-ds-election-type"
+                    value={(() => { try { return JSON.parse(configJson).election_type || '' } catch { return '' } })()}
+                    onChange={(e) => updateConfig('election_type', e.target.value)}
+                    className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                  >
+                    <option value="">Seleziona...</option>
+                    <option value="politiche">Politiche (Camera/Senato)</option>
+                    <option value="europee">Europee</option>
+                    <option value="regionali">Regionali</option>
+                    <option value="comunali">Comunali</option>
+                    <option value="provinciali">Provinciali</option>
+                    <option value="referendum">Referendum</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="so-ds-election-level" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Livello Territoriale</label>
+                  <select
+                    id="so-ds-election-level"
+                    value={(() => { try { return JSON.parse(configJson).level || 'comune' } catch { return 'comune' } })()}
+                    onChange={(e) => updateConfig('level', e.target.value)}
+                    className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                  >
+                    <option value="comune">Comune</option>
+                    <option value="provincia">Provincia</option>
+                    <option value="regione">Regione</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="so-ds-election-year" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Anno</label>
+                  <input
+                    id="so-ds-election-year"
+                    type="number"
+                    min={2000}
+                    max={new Date().getFullYear()}
+                    value={(() => { try { return JSON.parse(configJson).year || '' } catch { return '' } })()}
+                    onChange={(e) => updateConfig('year', e.target.value)}
+                    className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                    placeholder="es. 2024"
+                  />
+                </div>
+              </div>
+            )}
+
+            {sourceType === 'pep' && (
+              <div className="border-t border-border pt-4 space-y-3">
+                <h4 className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1">Campi PEP (OpenSanctions)</h4>
+                <div>
+                  <label htmlFor="so-ds-pep-dataset" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Dataset</label>
+                  <select
+                    id="so-ds-pep-dataset"
+                    value={(() => { try { return JSON.parse(configJson).dataset || '' } catch { return '' } })()}
+                    onChange={(e) => updateConfig('dataset', e.target.value)}
+                    className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                  >
+                    <option value="">Seleziona...</option>
+                    <option value="it_deputies">Deputati</option>
+                    <option value="it_senate">Senatori</option>
+                    <option value="it_peps">PEP (Persone Politicamente Esposte)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {sourceType === 'public_contracts' && (
+              <div className="border-t border-border pt-4 space-y-3">
+                <h4 className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1">Campi ANAC</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="so-ds-anac-year" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Anno</label>
+                    <input
+                      id="so-ds-anac-year"
+                      type="number"
+                      min={2008}
+                      max={new Date().getFullYear()}
+                      value={(() => { try { return JSON.parse(configJson).year || '' } catch { return '' } })()}
+                      onChange={(e) => updateConfig('year', e.target.value)}
+                      className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                      placeholder="es. 2024"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="so-ds-anac-type" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo Dataset</label>
+                    <select
+                      id="so-ds-anac-type"
+                      value={(() => { try { return JSON.parse(configJson).contract_type || 'CIG' } catch { return 'CIG' } })()}
+                      onChange={(e) => updateConfig('contract_type', e.target.value)}
+                      className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                    >
+                      <option value="CIG">CIG</option>
+                      <option value="partecipanti">Partecipanti</option>
+                      <option value="aggiudicatari">Aggiudicatari</option>
+                      <option value="subappalti">Subappalti</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {sourceType === 'opdm' && (
+              <div className="border-t border-border pt-4 space-y-3">
+                <h4 className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1">Campi OPDM</h4>
+                <div>
+                  <label htmlFor="so-ds-opdm-entity" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Entity Type</label>
+                  <select
+                    id="so-ds-opdm-entity"
+                    value={(() => { try { return JSON.parse(configJson).entity_type || 'memberships' } catch { return 'memberships' } })()}
+                    onChange={(e) => updateConfig('entity_type', e.target.value)}
+                    className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                  >
+                    <option value="memberships">Memberships</option>
+                    <option value="persons">Persons</option>
+                    <option value="organizations">Organizations</option>
+                    <option value="properties">Properties</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="so-ds-opdm-apikey" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">API Key</label>
+                  <input
+                    id="so-ds-opdm-apikey"
+                    type="password"
+                    value={(() => { try { return JSON.parse(configJson).api_key || '' } catch { return '' } })()}
+                    onChange={(e) => updateConfig('api_key', e.target.value)}
+                    className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                    placeholder="Inserisci API key"
+                  />
+                </div>
+              </div>
+            )}
+
+            {sourceType === 'parliament' && (
+              <div className="border-t border-border pt-4 space-y-3">
+                <h4 className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1">Campi Parlamento (SPARQL)</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="so-ds-parl-chamber" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Camera</label>
+                    <select
+                      id="so-ds-parl-chamber"
+                      value={(() => { try { return JSON.parse(configJson).chamber || 'camera' } catch { return 'camera' } })()}
+                      onChange={(e) => updateConfig('chamber', e.target.value)}
+                      className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                    >
+                      <option value="camera">Camera dei Deputati</option>
+                      <option value="senato">Senato della Repubblica</option>
+                      <option value="both">Entrambe</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="so-ds-parl-leg" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Legislatura</label>
+                    <input
+                      id="so-ds-parl-leg"
+                      type="number"
+                      min={13}
+                      max={20}
+                      value={(() => { try { return JSON.parse(configJson).legislatura || '' } catch { return '' } })()}
+                      onChange={(e) => updateConfig('legislatura', e.target.value)}
+                      className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                      placeholder="es. 19"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 

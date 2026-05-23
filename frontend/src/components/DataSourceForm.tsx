@@ -326,6 +326,79 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
           </div>
         )}
 
+        <div className="border-t border-border pt-4">
+          <h4 className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-3">Campi Elezioni (opzionale)</h4>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label htmlFor="datasource-election-type" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo Elezione</label>
+              <select
+                id="datasource-election-type"
+                value={(() => { try { return JSON.parse(formData.configJson).election_type || '' } catch { return '' } })()}
+                onChange={(e) => {
+                  const config = JSON.parse(formData.configJson || '{}')
+                  if (e.target.value) {
+                    config.election_type = e.target.value
+                  } else {
+                    delete config.election_type
+                  }
+                  setFormData({ ...formData, configJson: JSON.stringify(config, null, 2) })
+                }}
+                className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+              >
+                <option value="">Seleziona...</option>
+                <option value="politiche">Politiche</option>
+                <option value="europee">Europee</option>
+                <option value="regionali">Regionali</option>
+                <option value="comunali">Comunali</option>
+                <option value="provinciali">Provinciali</option>
+                <option value="referendum">Referendum</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="datasource-election-level" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Livello Territoriale</label>
+              <select
+                id="datasource-election-level"
+                value={(() => { try { return JSON.parse(formData.configJson).level || 'comune' } catch { return 'comune' } })()}
+                onChange={(e) => {
+                  const config = JSON.parse(formData.configJson || '{}')
+                  if (e.target.value) {
+                    config.level = e.target.value
+                  } else {
+                    delete config.level
+                  }
+                  setFormData({ ...formData, configJson: JSON.stringify(config, null, 2) })
+                }}
+                className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+              >
+                <option value="comune">Comune</option>
+                <option value="provincia">Provincia</option>
+                <option value="regione">Regione</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="datasource-election-year" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Anno</label>
+              <input
+                id="datasource-election-year"
+                type="number"
+                min={2000}
+                max={new Date().getFullYear()}
+                value={(() => { try { return JSON.parse(formData.configJson).year || '' } catch { return '' } })()}
+                onChange={(e) => {
+                  const config = JSON.parse(formData.configJson || '{}')
+                  if (e.target.value) {
+                    config.year = parseInt(e.target.value) || ''
+                  } else {
+                    delete config.year
+                  }
+                  setFormData({ ...formData, configJson: JSON.stringify(config, null, 2) })
+                }}
+                className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                placeholder="es. 2024"
+              />
+            </div>
+          </div>
+        </div>
+
         <div>
           <label htmlFor="datasource-config" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Configurazione Avanzata (JSON)</label>
           <textarea
