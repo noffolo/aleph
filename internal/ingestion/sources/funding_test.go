@@ -23,8 +23,8 @@ func (m *mockFundingWM) Set(sourceName string, lastRun time.Time, cursor string,
 }
 
 func TestPartyFundingCSV(t *testing.T) {
-	csvData := "donation_amount,donation_year,recipient_party,donor_type,donor_name,source_name\r\n" +
-		"50000,2023,Partito Democratico,Persona Fisica,Mario Rossi,Bilancio Camera 2023\r\n"
+	csvData := "declaration_id,donation_amount,donation_year,recipient_party,donor_type,donor_name_01,donor_name_02,source_name\r\n" +
+		"1,50000,2023,Partito Democratico,Persona Fisica,Mario Rossi,,Bilancio Camera 2023\r\n"
 
 	tmpFile := filepath.Join(t.TempDir(), "political_finance.csv")
 	os.WriteFile(tmpFile, []byte(csvData), 0644)
@@ -49,9 +49,9 @@ func TestPartyFundingCSV(t *testing.T) {
 }
 
 func TestPartyFundingCSV_MultipleRows(t *testing.T) {
-	csvData := "donation_amount,donation_year,recipient_party,donor_type,donor_name,source_name\r\n" +
-		"50000,2023,Partito Democratico,Persona Fisica,Mario Rossi,Bilancio 2023\r\n" +
-		"25000,2022,Lega,Persona Fisica,Luigi Verdi,Bilancio 2022\r\n"
+	csvData := "declaration_id,donation_amount,donation_year,recipient_party,donor_type,donor_name_01,donor_name_02,source_name\r\n" +
+		"1,50000,2023,Partito Democratico,Persona Fisica,Mario Rossi,,Bilancio 2023\r\n" +
+		"2,25000,2022,Lega,Persona Fisica,Luigi Verdi,,Bilancio 2022\r\n"
 
 	tmpFile := filepath.Join(t.TempDir(), "political_finance.csv")
 	os.WriteFile(tmpFile, []byte(csvData), 0644)
@@ -70,7 +70,7 @@ func TestPartyFundingCSV_MultipleRows(t *testing.T) {
 }
 
 func TestPartyFundingCSV_EmptyRows(t *testing.T) {
-	csvData := "donation_amount,donation_year,recipient_party,donor_type,donor_name,source_name\r\n"
+	csvData := "declaration_id,donation_amount,donation_year,recipient_party,donor_type,donor_name_01,donor_name_02,source_name\r\n"
 	tmpFile := filepath.Join(t.TempDir(), "political_finance.csv")
 	os.WriteFile(tmpFile, []byte(csvData), 0644)
 

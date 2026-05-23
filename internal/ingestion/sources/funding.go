@@ -12,9 +12,6 @@ import (
 
 const fundingSourceType = "party_funding"
 
-// ImportFundingCSV imports a party funding CSV into DuckDB.
-// The CSV must have columns: donation_amount, donation_year, recipient_party,
-// donor_type, donor_name, source_name.
 func ImportFundingCSV(ctx context.Context, db *sql.DB, wm WatermarkSetter, csvPath string, rawDir string) error {
 	slog.Info("importing party funding CSV", "path", csvPath)
 
@@ -30,7 +27,8 @@ func ImportFundingCSV(ctx context.Context, db *sql.DB, wm WatermarkSetter, csvPa
 		slog.Warn("failed to save raw funding CSV", "error", err)
 	}
 
-	if _, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS party_funding (
+	if _, err = db.ExecContext(ctx, `CREATE OR REPLACE TABLE party_funding (
+		declaration_id TEXT,
 		donation_amount REAL,
 		donation_year INTEGER,
 		recipient_party TEXT,
@@ -42,8 +40,14 @@ func ImportFundingCSV(ctx context.Context, db *sql.DB, wm WatermarkSetter, csvPa
 		return fmt.Errorf("create party_funding table: %w", err)
 	}
 
-	query := fmt.Sprintf(`INSERT INTO party_funding (donation_amount, donation_year, recipient_party, donor_type, donor_name, source_name)
-		SELECT CAST(donation_amount AS REAL), CAST(donation_year AS INTEGER), recipient_party, donor_type, donor_name, source_name
+	query := fmt.Sprintf(`INSERT INTO party_funding (declaration_id, donation_amount, donation_year, recipient_party, donor_type, donor_name, source_name)
+		SELECT declaration_id,
+		       CAST(donation_amount AS REAL),
+		       CAST(donation_year AS INTEGER),
+		       recipient_party,
+		       donor_type,
+		       COALESCE(donor_name_01, donor_name_02, ''),
+		       source_name
 		FROM read_csv_auto('%s', header=true, all_varchar=true)`, csvPath)
 	if _, err = db.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("import funding CSV into DuckDB: %w", err)
