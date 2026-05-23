@@ -188,11 +188,16 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 			e.updateProgress(task.Id, 0, "failed")
 			return fmt.Errorf("source validation failed: %w", err)
 		}
-		// Source type recognized by registry but actual execution not yet implemented.
-		// Each source type will add its execution in subsequent tasks.
 		slog.Info("registry source type validated but execution not yet implemented",
 			"source_type", task.SourceType)
-		taskErr = fmt.Errorf("source type %s recognized but execution not yet implemented", task.SourceType)
+		switch task.SourceType {
+		case "election":
+			taskErr = fmt.Errorf("use cmd/ingest-elections CLI tool for election ingestion")
+		case "party_funding":
+			taskErr = fmt.Errorf("use cmd/ingest-funding CLI tool for party funding ingestion")
+		default:
+			taskErr = fmt.Errorf("source type %s recognized but execution not yet implemented", task.SourceType)
+		}
 	} else {
 		// Legacy switch for backward compat
 		switch task.SourceType {
