@@ -1,13 +1,18 @@
 package sources
 
 import (
+	"compress/gzip"
 	"context"
+	"database/sql"
 	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -326,4 +331,200 @@ func (f *ElectionFetcher) doGet(ctx context.Context, url string) (*http.Response
 		return nil, fmt.Errorf("eligendo api returned %d: %s", resp.StatusCode, string(body))
 	}
 	return resp, nil
+}
+
+// --- ElectionSource ---
+//
+// Registration with GlobalRegistry is handled externally (in engine adapter) to
+// avoid an import cycle between the sources and ingestion packages.
+
+const electionSourceType = "election"
+
+type ElectionSource struct {
+	sourceType string
+	config     ElectionConfig
+	db         *sql.DB
+	dataDir    string
+	mapper     *PartyMapper
+}
+
+// SourceType returns the source type identifier.
+func (s *ElectionSource) SourceType() string {
+	return s.sourceType
+}
+
+// Validate checks that the source's election configuration is valid.
+func (s *ElectionSource) Validate() error {
+	return s.config.Validate()
+}
+
+// scrutiniFIResponse is the Eligendo API response envelope for the scrutiniFI endpoint.
+type scrutiniFIResponse struct {
+	Intestazione struct {
+		Cod string `json:"cod"`
+	} `json:"intestazione"`
+	Liste struct {
+		Lista []struct {
+			Desc  string  `json:"desc"`
+			Voti  int64   `json:"voti"`
+			Perc  float64 `json:"perc"`
+			Seggi int     `json:"seggi"`
+		} `json:"lista"`
+	} `json:"liste"`
+	DatiGenerali struct {
+		Elettori int64 `json:"elettori"`
+		Votanti  int64 `json:"votanti"`
+	} `json:"datiGenerali"`
+}
+
+// RunElection executes the full pipeline: getenti → scrutini per ente → raw gzip save → normalize party → write DuckDB.
+func RunElection(ctx context.Context, db *sql.DB, baseURL string, cfg ElectionConfig, mapper *PartyMapper, rawDir string) ([]ElectionResult, error) {
+	fetcher := NewElectionFetcher(baseURL, 1.0)
+
+	entities, err := fetcher.GetEntities(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("getenti: %w", err)
+	}
+
+	rawPath := filepath.Join(rawDir, electionSourceType, fmt.Sprintf("%d-%s-%s", cfg.Year, cfg.ElectionType, cfg.Level))
+	if err := os.MkdirAll(rawPath, 0755); err != nil {
+		return nil, fmt.Errorf("create raw dir: %w", err)
+	}
+
+	entiPayload := map[string]interface{}{
+		"enti": entities,
+	}
+	if err := saveRawJSON(filepath.Join(rawPath, "getenti.json"), entiPayload); err != nil {
+		slog.Warn("failed to save getenti raw", "error", err)
+	}
+
+	var results []ElectionResult
+	for _, ent := range entities {
+		if err := fetcher.rateLimiter.Wait(); err != nil {
+			return nil, fmt.Errorf("rate limiter wait: %w", err)
+		}
+
+		url := fmt.Sprintf("%s/scrutiniFI?te=%s&cod=%s", baseURL, cfg.teCode(), ent.Cod)
+		resp, err := fetcher.doGet(ctx, url)
+		if err != nil {
+			slog.Error("scrutini fetch failed", "entity", ent.Cod, "error", err)
+			continue
+		}
+
+		var parsed scrutiniFIResponse
+		if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+			resp.Body.Close()
+			slog.Error("scrutini decode failed", "entity", ent.Cod, "error", err)
+			continue
+		}
+		resp.Body.Close()
+
+		if err := saveRawJSON(filepath.Join(rawPath, fmt.Sprintf("scrutini_%s.json", ent.Cod)), parsed); err != nil {
+			slog.Warn("failed to save scrutini raw", "entity", ent.Cod, "error", err)
+		}
+
+		for _, lista := range parsed.Liste.Lista {
+			canonical, found := mapper.Lookup(lista.Desc)
+			if !found {
+				canonical = ""
+				slog.Info("unmapped party", "raw", lista.Desc, "entity", ent.Cod, "entity_name", ent.Desc)
+			}
+
+			results = append(results, ElectionResult{
+				ElectionType:   cfg.ElectionType,
+				Level:          cfg.Level,
+				Year:           cfg.Year,
+				Comune:         ent.Desc,
+				ComuneISTAT:    ent.Cod,
+				Lista:          lista.Desc,
+				PartyCanonical: canonical,
+				Voti:           lista.Voti,
+				Percentuale:    lista.Perc,
+				Seggi:          lista.Seggi,
+				Elettori:       parsed.DatiGenerali.Elettori,
+				Votanti:        parsed.DatiGenerali.Votanti,
+			})
+		}
+	}
+
+	if err := writeElectionResults(db, results); err != nil {
+		return results, fmt.Errorf("write results: %w", err)
+	}
+
+	slog.Info("election pipeline complete",
+		"election_type", cfg.ElectionType,
+		"entities", len(entities),
+		"results", len(results),
+		"raw_dir", rawPath,
+	)
+
+	return results, nil
+}
+
+// writeElectionResults inserts or replaces election results into DuckDB.
+func writeElectionResults(db *sql.DB, results []ElectionResult) error {
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS election_results (
+			election_type   TEXT,
+			level           TEXT,
+			year            INTEGER,
+			comune          TEXT,
+			comune_istat    TEXT,
+			lista           TEXT,
+			party_canonical TEXT,
+			voti            INTEGER,
+			percentuale     REAL,
+			seggi           INTEGER,
+			elettori        INTEGER,
+			votanti         INTEGER,
+			ingested_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(election_type, level, year, comune_istat, lista)
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("create election_results table: %w", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO election_results
+			(election_type, level, year, comune, comune_istat, lista, party_canonical, voti, percentuale, seggi, elettori, votanti)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return fmt.Errorf("prepare insert: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, r := range results {
+		_, err := stmt.Exec(
+			r.ElectionType, r.Level, r.Year, r.Comune, r.ComuneISTAT,
+			r.Lista, r.PartyCanonical, r.Voti, r.Percentuale, r.Seggi,
+			r.Elettori, r.Votanti,
+		)
+		if err != nil {
+			return fmt.Errorf("insert row: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// saveRawJSON writes data as gzip-compressed JSON to the given path.
+func saveRawJSON(path string, data interface{}) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	gz := gzip.NewWriter(f)
+	defer gz.Close()
+
+	return json.NewEncoder(gz).Encode(data)
 }

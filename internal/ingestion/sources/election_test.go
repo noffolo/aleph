@@ -2,11 +2,16 @@ package sources
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -119,4 +124,54 @@ func TestElectionFetcherTEMapping(t *testing.T) {
 	assert.Len(t, entities, 1)
 	assert.Equal(t, "058091", entities[0].Cod)
 	assert.Equal(t, "ROMA", entities[0].Desc)
+}
+
+func setupTestDuckDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("duckdb", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+	return db
+}
+
+func TestRunElectionFullPipeline(t *testing.T) {
+	var callCount atomic.Int64
+
+	getentiBody := `{"intestazione":{"te":"TE01"},"enti":{"ente":[{"cod":"058091","desc":"ROMA"},{"cod":"015146","desc":"MILANO"}]}}`
+	scrutiniBody := `{"intestazione":{"cod":"058091"},"liste":{"lista":[{"desc":"PARTITO DEMOCRATICO","voti":50000,"perc":30.5,"seggi":10}]},"datiGenerali":{"elettori":200000,"votanti":165000}}`
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/getentiFI" {
+			w.Write([]byte(getentiBody))
+			return
+		}
+		w.Write([]byte(scrutiniBody))
+	}))
+	defer srv.Close()
+
+	db := setupTestDuckDB(t)
+	mapper := NewPartyMapper()
+	mapper.AddAlias("PARTITO DEMOCRATICO", "partito-democratico")
+
+	rawDir := t.TempDir()
+	cfg := ElectionConfig{ElectionType: "politiche", Level: "comune", Year: 2022}
+	ctx := context.Background()
+
+	results, err := RunElection(ctx, db, srv.URL, cfg, mapper, rawDir)
+	require.NoError(t, err)
+	require.NotEmpty(t, results)
+	assert.GreaterOrEqual(t, callCount.Load(), int64(3))
+
+	_, statErr := os.Stat(filepath.Join(rawDir, "election", "2022-politiche-comune", "getenti.json"))
+	assert.NoError(t, statErr)
+
+	var rowCount int
+	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM election_results WHERE year = 2022").Scan(&rowCount))
+	assert.Greater(t, rowCount, 0)
+
+	var canonical string
+	require.NoError(t, db.QueryRow("SELECT party_canonical FROM election_results WHERE lista = 'PARTITO DEMOCRATICO' LIMIT 1").Scan(&canonical))
+	assert.Equal(t, "partito-democratico", canonical)
 }
