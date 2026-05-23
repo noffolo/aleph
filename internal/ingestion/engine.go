@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"database/sql"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
@@ -15,6 +16,7 @@ import (
 	"go/token"
 	"io"
 	"log"
+	"log/slog"
 	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
@@ -177,6 +179,20 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	fmt.Fprintf(f, "\n--- Task Start: %s at %s ---\n", task.Id, time.Now().Format(time.RFC3339))
 
 	var taskErr error
+
+	// Registry-based dispatch takes priority for new source types
+	fetcher, registryErr := GlobalRegistry.Create(task.SourceType)
+	if registryErr == nil {
+		if err := fetcher.Validate(); err != nil {
+			slog.Error("source validation failed", "source_type", task.SourceType, "error", err)
+			e.updateProgress(task.Id, 0, "failed")
+			return fmt.Errorf("source validation failed: %w", err)
+		}
+		slog.Info("registry source type dispatched", "source_type", task.SourceType)
+		// TODO: actual execution will be implemented per source type
+	}
+
+	// Legacy switch for backward compat
 	switch task.SourceType {
 	case "rss", "rest":
 		taskErr = e.runPrecompiled(taskCtx, f, projectID, task)
@@ -203,7 +219,9 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	case "scrape":
 		taskErr = e.runScrapeSource(taskCtx, f, projectID, task)
 	default:
-		taskErr = fmt.Errorf("unknown source type: %s", task.SourceType)
+		if registryErr != nil {
+			taskErr = fmt.Errorf("unknown source type: %s", task.SourceType)
+		}
 	}
 
 	if taskErr != nil {
@@ -2311,5 +2329,11 @@ func parseRSSItems(body []byte) ([]rssItem, error) {
 	}
 
 	return nil, fmt.Errorf("unrecognized XML root — not RSS or Atom")
+}
+
+func RunMigrations(db *sql.DB) error {
+	mm := NewMigrationManager(db)
+	mm.Register(Migration{Version: 1, Name: "create_watermark_table", Up: "CREATE TABLE IF NOT EXISTS ingestion_watermark (source_name TEXT PRIMARY KEY, last_run TIMESTAMP, cursor TEXT, metadata TEXT)"})
+	return mm.Up()
 }
 
