@@ -188,38 +188,39 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 			e.updateProgress(task.Id, 0, "failed")
 			return fmt.Errorf("source validation failed: %w", err)
 		}
-		slog.Info("registry source type dispatched", "source_type", task.SourceType)
-		// TODO: actual execution will be implemented per source type
-	}
-
-	// Legacy switch for backward compat
-	switch task.SourceType {
-	case "rss", "rest":
-		taskErr = e.runPrecompiled(taskCtx, f, projectID, task)
-	case "url":
-		taskErr = e.runURLFetch(taskCtx, f, projectID, task)
-	case "csv":
-		taskErr = e.runCSVLoad(taskCtx, f, projectID, task)
-	case "postgres":
-		taskErr = e.runPostgresLoad(taskCtx, f, projectID, task)
-	case "copy":
-		taskErr = e.runCopy(taskCtx, f, projectID, task)
-	case "email":
-		taskErr = e.runEmailFetch(taskCtx, f, projectID, task)
-	case "custom_code":
-		taskErr = e.runDynamic(taskCtx, f, projectID, task)
-	case "github":
-		taskErr = e.runGitHubSource(taskCtx, f, projectID, task)
-	case "sitemap":
-		taskErr = e.runSitemapSource(taskCtx, f, projectID, task)
-	case "jsonapi":
-		taskErr = e.runJSONAPISource(taskCtx, f, projectID, task)
-	case "sheets":
-		taskErr = e.runSheetsSource(taskCtx, f, projectID, task)
-	case "scrape":
-		taskErr = e.runScrapeSource(taskCtx, f, projectID, task)
-	default:
-		if registryErr != nil {
+		// Source type recognized by registry but actual execution not yet implemented.
+		// Each source type will add its execution in subsequent tasks.
+		slog.Info("registry source type validated but execution not yet implemented",
+			"source_type", task.SourceType)
+		taskErr = fmt.Errorf("source type %s recognized but execution not yet implemented", task.SourceType)
+	} else {
+		// Legacy switch for backward compat
+		switch task.SourceType {
+		case "rss", "rest":
+			taskErr = e.runPrecompiled(taskCtx, f, projectID, task)
+		case "url":
+			taskErr = e.runURLFetch(taskCtx, f, projectID, task)
+		case "csv":
+			taskErr = e.runCSVLoad(taskCtx, f, projectID, task)
+		case "postgres":
+			taskErr = e.runPostgresLoad(taskCtx, f, projectID, task)
+		case "copy":
+			taskErr = e.runCopy(taskCtx, f, projectID, task)
+		case "email":
+			taskErr = e.runEmailFetch(taskCtx, f, projectID, task)
+		case "custom_code":
+			taskErr = e.runDynamic(taskCtx, f, projectID, task)
+		case "github":
+			taskErr = e.runGitHubSource(taskCtx, f, projectID, task)
+		case "sitemap":
+			taskErr = e.runSitemapSource(taskCtx, f, projectID, task)
+		case "jsonapi":
+			taskErr = e.runJSONAPISource(taskCtx, f, projectID, task)
+		case "sheets":
+			taskErr = e.runSheetsSource(taskCtx, f, projectID, task)
+		case "scrape":
+			taskErr = e.runScrapeSource(taskCtx, f, projectID, task)
+		default:
 			taskErr = fmt.Errorf("unknown source type: %s", task.SourceType)
 		}
 	}
