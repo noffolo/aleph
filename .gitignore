@@ -7,6 +7,11 @@ venv/
 /aleph
 
 # Compiled binaries
+analyze-political
+build-graph
+export-data
+export_data/
+ingest-elections
 aleph-server
 aleph-server-new
 main
@@ -85,4 +90,7 @@ secrets/*.txt
 
 # AI reading surface filter
 .opencode-ignore
+
+# Raw data downloads
+raw/
 .opencode/
