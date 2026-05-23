@@ -67,16 +67,16 @@ func TestPartyMappingManualOverride(t *testing.T) {
 }
 
 func TestElectionConfigValidation(t *testing.T) {
-	valid := ElectionConfig{ElectionType: "politiche", Level: "comune", Year: 2022}
+	valid := ElectionConfig{ElectionType: "politiche", ElectionDate: "20220925", Level: "comune", Year: 2022}
 	assert.NoError(t, valid.Validate())
 
-	invalidType := ElectionConfig{ElectionType: "fantasia", Level: "comune", Year: 2022}
+	invalidType := ElectionConfig{ElectionType: "fantasia", ElectionDate: "20220925", Level: "comune", Year: 2022}
 	assert.ErrorContains(t, invalidType.Validate(), "invalid election_type")
 
-	invalidLevel := ElectionConfig{ElectionType: "politiche", Level: "quartiere", Year: 2022}
+	invalidLevel := ElectionConfig{ElectionType: "politiche", ElectionDate: "20220925", Level: "quartiere", Year: 2022}
 	assert.ErrorContains(t, invalidLevel.Validate(), "invalid level")
 
-	invalidYear := ElectionConfig{ElectionType: "politiche", Level: "comune", Year: 1990}
+	invalidYear := ElectionConfig{ElectionType: "politiche", ElectionDate: "20220925", Level: "comune", Year: 1990}
 	assert.ErrorContains(t, invalidYear.Validate(), "year before 2000")
 }
 

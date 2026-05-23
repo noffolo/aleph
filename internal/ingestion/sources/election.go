@@ -403,6 +403,11 @@ func RunElection(ctx context.Context, db *sql.DB, baseURL string, cfg ElectionCo
 
 	var results []ElectionResult
 	for _, ent := range entities {
+		if len(ent.Cod) < 6 {
+			slog.Warn("skipping entity with short ISTAT code", "cod", ent.Cod, "desc", ent.Desc)
+			continue
+		}
+
 		if err := fetcher.rateLimiter.Wait(); err != nil {
 			return nil, fmt.Errorf("rate limiter wait: %w", err)
 		}
