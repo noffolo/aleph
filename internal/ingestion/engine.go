@@ -1528,6 +1528,12 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 	fmt.Fprintf(w, "Sitemap: crawling %s\n", config.URL)
 	e.updateProgress(task.Id, 10, "running")
 
+	// Parse date range from config
+	dr, err := sources.ParseDateRangeFromConfig([]byte(task.ConfigJson))
+	if err != nil {
+		return fmt.Errorf("sitemap date range config: %w", err)
+	}
+
 	ingester := e.getOrCreateSitemapIngester()
 	crawlResult, err := ingester.CrawlSitemap(ctx, config.URL)
 	if err != nil {
@@ -1535,6 +1541,10 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 	}
 
 	fmt.Fprintf(w, "Found %d pages\n", len(crawlResult.URLs))
+
+	// Apply date filter
+	pages := sources.FilterPageResults(crawlResult.URLs, dr)
+	fmt.Fprintf(w, "%d pages after date filter\n", len(pages))
 
 	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
 	os.MkdirAll(projectPath, 0755)
@@ -1546,8 +1556,8 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 		Content string `json:"content"`
 	}
 
-	rows := make([]pageRow, 0, len(crawlResult.URLs))
-	for _, p := range crawlResult.URLs {
+	rows := make([]pageRow, 0, len(pages))
+	for _, p := range pages {
 		contentStr := ""
 		if p.Content != nil {
 			contentStr = string(p.Content)

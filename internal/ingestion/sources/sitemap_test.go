@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -487,14 +488,147 @@ func TestCrawlResult_Struct_New(t *testing.T) {
 }
 
 func TestPageResult_Struct_New(t *testing.T) {
+	now := time.Now()
 	result := PageResult{
-		URL:     "https://example.com/page",
-		Content: []byte("content"),
-		Size:    100,
-		Status:  200,
-		Err:     nil,
+		URL:        "https://example.com/page",
+		Content:    []byte("content"),
+		Size:       100,
+		Status:     200,
+		Err:        nil,
+		ParsedDate: &now,
 	}
 	assert.Equal(t, "https://example.com/page", result.URL)
 	assert.Equal(t, int64(100), result.Size)
 	assert.Equal(t, 200, result.Status)
+	assert.Equal(t, now, *result.ParsedDate)
+}
+
+// ─── FilterPageResults ────────────────────────────────────────────────────────
+
+func TestFilterPageResults_ByDateRange(t *testing.T) {
+	now := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
+	old := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+	pages := []PageResult{
+		{URL: "/old", Status: 200, Content: []byte("old"), Size: 3, ParsedDate: &old},
+		{URL: "/new", Status: 200, Content: []byte("new"), Size: 3, ParsedDate: &now},
+		{URL: "/nodate", Status: 200, Content: []byte("nodate"), Size: 6, ParsedDate: nil},
+	}
+
+	start := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	dr := DateRangeConfig{StartDate: &start}
+
+	filtered := FilterPageResults(pages, dr)
+	require.Len(t, filtered, 2)
+	assert.Equal(t, "/new", filtered[0].URL)
+	assert.Equal(t, "/nodate", filtered[1].URL)
+}
+
+func TestFilterPageResults_NoFilter(t *testing.T) {
+	pages := []PageResult{
+		{URL: "/a", ParsedDate: ptr(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))},
+		{URL: "/b", ParsedDate: nil},
+	}
+	filtered := FilterPageResults(pages, DateRangeConfig{})
+	assert.Len(t, filtered, 2)
+}
+
+func TestFilterPageResults_EndDateOnly(t *testing.T) {
+	old := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+	mid := time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
+	newer := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+	pages := []PageResult{
+		{URL: "/old", ParsedDate: &old},
+		{URL: "/mid", ParsedDate: &mid},
+		{URL: "/newer", ParsedDate: &newer},
+		{URL: "/nodate", ParsedDate: nil},
+	}
+
+	end := time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)
+	dr := DateRangeConfig{EndDate: &end}
+
+	filtered := FilterPageResults(pages, dr)
+	require.Len(t, filtered, 3)
+	assert.Equal(t, "/old", filtered[0].URL)
+	assert.Equal(t, "/mid", filtered[1].URL)
+	assert.Equal(t, "/nodate", filtered[2].URL)
+}
+
+func TestFilterPageResults_BothBounds(t *testing.T) {
+	start := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)
+	dr := DateRangeConfig{StartDate: &start, EndDate: &end}
+
+	pages := []PageResult{
+		{URL: "/old", ParsedDate: ptr(time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC))},
+		{URL: "/mid", ParsedDate: ptr(time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC))},
+		{URL: "/late", ParsedDate: ptr(time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC))},
+		{URL: "/nodate", ParsedDate: nil},
+	}
+
+	filtered := FilterPageResults(pages, dr)
+	require.Len(t, filtered, 2)
+	assert.Equal(t, "/mid", filtered[0].URL)
+	assert.Equal(t, "/nodate", filtered[1].URL)
+}
+
+func TestFilterPageResults_EmptySlice(t *testing.T) {
+	dr := DateRangeConfig{StartDate: ptr(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))}
+	filtered := FilterPageResults(nil, dr)
+	assert.Empty(t, filtered)
+}
+
+// ─── parseSitemapDate ─────────────────────────────────────────────────────────
+
+func TestParseSitemapDate_ISO8601(t *testing.T) {
+	got, err := parseSitemapDate("2025-01-02T15:04:05Z")
+	require.NoError(t, err)
+	assert.Equal(t, 2025, got.Year())
+	assert.Equal(t, time.January, got.Month())
+	assert.Equal(t, 2, got.Day())
+	assert.Equal(t, 15, got.Hour())
+}
+
+func TestParseSitemapDate_ISO8601WithOffset(t *testing.T) {
+	got, err := parseSitemapDate("2025-01-02T15:04:05+05:00")
+	require.NoError(t, err)
+	assert.True(t, got.Equal(time.Date(2025, 1, 2, 10, 4, 5, 0, time.UTC)))
+}
+
+func TestParseSitemapDate_DateOnly(t *testing.T) {
+	got, err := parseSitemapDate("2025-01-02")
+	require.NoError(t, err)
+	assert.Equal(t, 2025, got.Year())
+	assert.Equal(t, time.January, got.Month())
+	assert.Equal(t, 2, got.Day())
+}
+
+func TestParseSitemapDate_NoTimezone(t *testing.T) {
+	got, err := parseSitemapDate("2025-01-02T15:04:05")
+	require.NoError(t, err)
+	assert.Equal(t, 15, got.Hour())
+	assert.Equal(t, time.UTC, got.Location())
+}
+
+func TestParseSitemapDate_Invalid(t *testing.T) {
+	_, err := parseSitemapDate("not-a-date")
+	assert.Error(t, err)
+}
+
+func TestParseSitemapDate_Empty(t *testing.T) {
+	_, err := parseSitemapDate("")
+	assert.Error(t, err)
+}
+
+func TestParseSitemapDate_Trimmed(t *testing.T) {
+	got, err := parseSitemapDate("  2025-01-02T15:04:05Z  ")
+	require.NoError(t, err)
+	assert.Equal(t, 2025, got.Year())
+}
+
+func TestParseSitemapDate_RFC3339Nano(t *testing.T) {
+	// W3C allows fractional seconds
+	got, err := parseSitemapDate("2025-01-02T15:04:05.123456Z")
+	require.NoError(t, err)
+	assert.Equal(t, 2025, got.Year())
+	assert.Equal(t, 15, got.Hour())
 }
