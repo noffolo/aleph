@@ -17,6 +17,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type stubTransport struct {
+	err error
+}
+
+func (s *stubTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, s.err
+}
+
 // ===== runPrecompiled non-200 =====
 
 func TestRunPrecompiled_HTTP404(t *testing.T) {
