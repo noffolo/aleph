@@ -1,7 +1,11 @@
 package sources
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,4 +72,51 @@ func TestElectionConfigValidation(t *testing.T) {
 
 	invalidYear := ElectionConfig{ElectionType: "politiche", Level: "comune", Year: 1990}
 	assert.ErrorContains(t, invalidYear.Validate(), "year before 2000")
+}
+
+func TestElectionFetcherRateLimit(t *testing.T) {
+	var gotAcceptHeader string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAcceptHeader = r.Header.Get("Accept")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"intestazione":{},"enti":{"ente":[]}}`))
+	}))
+	defer srv.Close()
+
+	fetcher := NewElectionFetcher(srv.URL, 1.0)
+	cfg := ElectionConfig{ElectionType: "politiche", Level: "comune", Year: 2022}
+	ctx := context.Background()
+
+	// First call should be fast (token available immediately)
+	start := time.Now()
+	_, err := fetcher.GetEntities(ctx, cfg)
+	firstDuration := time.Since(start)
+	require.NoError(t, err)
+	assert.Equal(t, "application/json", gotAcceptHeader)
+	assert.Less(t, firstDuration, 200*time.Millisecond, "first call should return immediately")
+
+	// Second call should wait (rate limited: 1 req/s, burst=1)
+	start = time.Now()
+	_, err = fetcher.GetEntities(ctx, cfg)
+	secondDuration := time.Since(start)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, secondDuration, 800*time.Millisecond, "second call should be rate-limited")
+}
+
+func TestElectionFetcherTEMapping(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"intestazione":{"te":"TE01"},"enti":{"ente":[{"cod":"058091","desc":"ROMA"}]}}`))
+	}))
+	defer srv.Close()
+
+	fetcher := NewElectionFetcher(srv.URL, 5.0)
+	cfg := ElectionConfig{ElectionType: "politiche", Level: "comune", Year: 2022}
+	ctx := context.Background()
+
+	entities, err := fetcher.GetEntities(ctx, cfg)
+	require.NoError(t, err)
+	assert.Len(t, entities, 1)
+	assert.Equal(t, "058091", entities[0].Cod)
+	assert.Equal(t, "ROMA", entities[0].Desc)
 }

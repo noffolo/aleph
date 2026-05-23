@@ -1,12 +1,16 @@
 package sources
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 //go:embed electiondata/eligendo_codes.json
@@ -171,4 +175,155 @@ func (pm *PartyMapper) AllOverrides() map[string]string {
 
 func normalizePartyName(raw string) string {
 	return strings.TrimSpace(strings.ToUpper(raw))
+}
+
+// ElectionFetcher wraps HTTP requests to the Eligendo API with rate limiting.
+type ElectionFetcher struct {
+	baseURL     string
+	rateLimiter *tokenBucketLimiter
+	httpClient  *http.Client
+}
+
+type tokenBucketLimiter struct {
+	rate       float64
+	burst      int
+	tokens     float64
+	lastRefill time.Time
+	mu         sync.Mutex
+}
+
+func newTokenBucketLimiter(ratePerSecond float64, burst int) *tokenBucketLimiter {
+	return &tokenBucketLimiter{
+		rate:       ratePerSecond,
+		burst:      burst,
+		tokens:     float64(burst),
+		lastRefill: time.Now(),
+	}
+}
+
+func (rl *tokenBucketLimiter) Wait() error {
+	rl.mu.Lock()
+	now := time.Now()
+	elapsed := now.Sub(rl.lastRefill).Seconds()
+	rl.tokens += elapsed * rl.rate
+	if rl.tokens > float64(rl.burst) {
+		rl.tokens = float64(rl.burst)
+	}
+	rl.lastRefill = now
+
+	if rl.tokens >= 1 {
+		rl.tokens--
+		rl.mu.Unlock()
+		return nil
+	}
+	needed := 1 - rl.tokens
+	waitDuration := time.Duration(needed / rl.rate * float64(time.Second))
+	rl.mu.Unlock()
+
+	time.Sleep(waitDuration)
+
+	rl.mu.Lock()
+	elapsed = time.Since(rl.lastRefill).Seconds()
+	rl.tokens += elapsed * rl.rate
+	if rl.tokens > float64(rl.burst) {
+		rl.tokens = float64(rl.burst)
+	}
+	rl.lastRefill = time.Now()
+
+	if rl.tokens >= 1 {
+		rl.tokens--
+	} else {
+		rl.tokens = 0
+	}
+	rl.mu.Unlock()
+	return nil
+}
+
+// NewElectionFetcher creates an ElectionFetcher with the given base URL and rate limit.
+func NewElectionFetcher(baseURL string, ratePerSecond float64) *ElectionFetcher {
+	return &ElectionFetcher{
+		baseURL:     baseURL,
+		rateLimiter: newTokenBucketLimiter(ratePerSecond, 1),
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+// EligendoEntity represents a single entity (e.g., comune) returned by the Eligendo API.
+type EligendoEntity struct {
+	Cod  string `json:"cod"`
+	Desc string `json:"desc"`
+}
+
+// getentiFIResponse is the response envelope for the getentiFI Eligendo endpoint.
+type getentiFIResponse struct {
+	Intestazione struct {
+		TE string `json:"te"`
+	} `json:"intestazione"`
+	Enti struct {
+		Ente []EligendoEntity `json:"ente"`
+	} `json:"enti"`
+}
+
+// teCode returns the TE code for the election type in this config.
+func (c ElectionConfig) teCode() string {
+	switch c.ElectionType {
+	case "politiche":
+		return "TE01"
+	case "europee":
+		return "TE02"
+	case "regionali":
+		return "TE03"
+	case "provinciali":
+		return "TE04"
+	case "comunali":
+		return "TE05"
+	case "referendum":
+		return "TE09"
+	default:
+		return "TE01"
+	}
+}
+
+// GetEntities fetches entities (comuni, province, etc.) from the Eligendo API.
+func (f *ElectionFetcher) GetEntities(ctx context.Context, cfg ElectionConfig) ([]EligendoEntity, error) {
+	if err := f.rateLimiter.Wait(); err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/getentiFI?te=%s&liv=%s", f.baseURL, cfg.teCode(), cfg.Level)
+	resp, err := f.doGet(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var parsed getentiFIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return nil, fmt.Errorf("decode eligendo response: %w", err)
+	}
+	return parsed.Enti.Ente, nil
+}
+
+// doGet performs an HTTP GET request with standard headers.
+func (f *ElectionFetcher) doGet(ctx context.Context, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "Aleph/1.0 (data-ingestion)")
+
+	resp, err := f.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http get: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, fmt.Errorf("eligendo api returned %d: %s", resp.StatusCode, string(body))
+	}
+	return resp, nil
 }
