@@ -281,6 +281,7 @@ func (a *AlephApp) Serve(port int) error {
 	authHandler := handler.NewAuthHandler(a.metaRepo)
 	sessionHandler := handler.NewSessionHandler(a.metaRepo, a.cfg.JWTSecret).WithRevocationStore(authInterceptor.RevocationStore())
 	ingestionHandler := handler.NewIngestionHandler(projectsRoot, a.eng, a.metaRepo)
+	ingestionHealthHandler := ingestion.NewHealthHandler(a.db.DB())
 	sandboxManager := sandbox.NewContainerSandbox(a.logger, nil, a.metaRepo, sandbox.DefaultContainerConfig(), nil)
 	sandboxHandler := handler.NewSandboxServiceHandler(sandboxManager, a.logger)
 	registryHandler := handler.NewRegistryServiceHandler(registryMgr, a.logger)
@@ -395,6 +396,7 @@ func (a *AlephApp) Serve(port int) error {
 		ToolExecHandler:     toolExecHandler,
 		CodeFlowHandler:     codeFlowHandler,
 		SuggestPipeline:     toolSuggestHandler,
+		IngestionHealthHandler: ingestionHealthHandler,
 		Interceptors:        interceptors,
 		AuthRateLimiter:     authRateLimiter,
 		HealthCheckFunc:     a.metaRepo.Health,

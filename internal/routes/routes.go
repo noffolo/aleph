@@ -64,6 +64,8 @@ type RegisterConfig struct {
 	SessionHandler  *handler.SessionHandler
 	AuthRateLimiter *middleware.AuthRateLimiter
 
+	IngestionHealthHandler http.Handler
+
 	Interceptors []connect.HandlerOption
 
 	// HealthCheckFunc is an optional function for DB-backed liveness/health probes.
@@ -209,6 +211,10 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 
 	// SSE endpoint
 	mux.HandleFunc("/api/v1/events", cfg.SSEHandler.Stream)
+
+	if cfg.IngestionHealthHandler != nil {
+		mux.Handle("/api/health/ingestion", cfg.IngestionHealthHandler)
+	}
 
 	// API Documentation
 	mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, r *http.Request) {
