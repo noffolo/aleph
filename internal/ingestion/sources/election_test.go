@@ -176,3 +176,10 @@ func TestRunElectionFullPipeline(t *testing.T) {
 	require.NoError(t, db.QueryRow("SELECT party_canonical FROM election_results WHERE lista = 'PARTITO DEMOCRATICO' LIMIT 1").Scan(&canonical))
 	assert.Equal(t, "partito-democratico", canonical)
 }
+
+func TestElectionDateMap(t *testing.T) {
+	assert.Equal(t, "20220925", GetElectionDate("politiche", 2022))
+	assert.Equal(t, "", GetElectionDate("politiche", 2000))   // no data
+	assert.Equal(t, "", GetElectionDate("comunali", 2023))    // empty map
+	assert.Equal(t, "", GetElectionDate("fantasia", 2022))    // unknown type
+}
