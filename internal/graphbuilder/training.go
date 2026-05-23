@@ -1,7 +1,11 @@
 package graphbuilder
 
 import (
+	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/ff3300/aleph-v2/internal/gnn"
 )
@@ -58,4 +62,88 @@ func (b *PoliticalGraphBuilder) TrainGNN(embeddingDim, epochs int) (*TrainResult
 		MRR:         mrr,
 		EpochsRun:   trainResult.EpochsRun,
 	}, nil
+}
+
+// StoreEmbeddings persists GNN node embeddings into a DuckDB memory_store table.
+// Each node's final embedding (from model.Forward()) is stored with its key,
+// node type, embedding vector, and metadata JSON.
+func StoreEmbeddings(db *sql.DB, graph *gnn.Graph, model *gnn.GNNModel) error {
+	if db == nil {
+		return fmt.Errorf("StoreEmbeddings: db is nil")
+	}
+	if graph == nil {
+		return fmt.Errorf("StoreEmbeddings: graph is nil")
+	}
+	if model == nil {
+		return fmt.Errorf("StoreEmbeddings: model is nil")
+	}
+
+	dim := model.Dim
+	_, err := db.ExecContext(context.Background(), "CREATE TABLE IF NOT EXISTS memory_store ("+
+		"key VARCHAR PRIMARY KEY, "+
+		"node_type VARCHAR, "+
+		"metadata JSON, "+
+		"embedding FLOAT["+fmt.Sprintf("%d", dim)+"], "+
+		"stored_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"+
+		")")
+	if err != nil {
+		return fmt.Errorf("StoreEmbeddings: create table: %w", err)
+	}
+
+	if model.NumNodes == 0 {
+		return nil
+	}
+
+	embeddings := model.Forward()
+	if len(embeddings) == 0 {
+		return nil
+	}
+
+	nodeIndex := graph.BuildNodeIndex()
+
+	for nodeID, idx := range nodeIndex {
+		emb := embeddings[idx]
+		embLiteral := floatsToLiteral(emb)
+
+		node := graph.Nodes[nodeID]
+		nodeType := ""
+		if node != nil {
+			nodeType = node.Type
+		}
+		meta := map[string]interface{}{
+			"node_type": nodeType,
+			"node_id":   string(nodeID),
+		}
+		metaBytes, err := json.Marshal(meta)
+		if err != nil {
+			return fmt.Errorf("StoreEmbeddings: marshal metadata for %s: %w", nodeID, err)
+		}
+
+		_, err = db.ExecContext(context.Background(),
+			"DELETE FROM memory_store WHERE key = ?", string(nodeID))
+		if err != nil {
+			return fmt.Errorf("StoreEmbeddings: delete old row for %s: %w", nodeID, err)
+		}
+
+		_, err = db.ExecContext(context.Background(),
+			"INSERT INTO memory_store (key, node_type, metadata, embedding) VALUES (?, ?, ?, "+embLiteral+")",
+			string(nodeID), nodeType, metaBytes)
+		if err != nil {
+			return fmt.Errorf("StoreEmbeddings: insert row for %s: %w", nodeID, err)
+		}
+	}
+
+	return nil
+}
+
+// floatsToLiteral formats a []float64 as a DuckDB array literal, e.g. "[0.1,0.2,0.3]::FLOAT[3]".
+func floatsToLiteral(nums []float64) string {
+	if len(nums) == 0 {
+		return "[]::FLOAT[0]"
+	}
+	parts := make([]string, len(nums))
+	for i, v := range nums {
+		parts[i] = fmt.Sprintf("%.16g", v)
+	}
+	return fmt.Sprintf("[%s]::FLOAT[%d]", strings.Join(parts, ","), len(nums))
 }

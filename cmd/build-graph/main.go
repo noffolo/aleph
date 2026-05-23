@@ -76,6 +76,13 @@ func main() {
 			log.Fatalf("Failed to write predictions.json: %v", err)
 		}
 		log.Printf("Exported %d predictions to %s", len(predictions.Predictions), predPath)
+
+		log.Print("Storing node embeddings to DuckDB memory_store...")
+		if err := graphbuilder.StoreEmbeddings(db, builder.Graph, trainResult.Model); err != nil {
+			log.Printf("Embedding storage failed: %v", err)
+		} else {
+			log.Print("Embeddings stored successfully.")
+		}
 	}
 
 	log.Println("Done.")
