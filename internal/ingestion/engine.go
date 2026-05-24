@@ -115,6 +115,13 @@ var safeHTTPClient = ssrf.NewClient()
 func init() {
 	// safeHTTPClient is now created via ssrf.NewClient() which handles
 	// DNS-resolving SSRF protection at the connection level.
+
+	GlobalRegistry.Register(sources.ParlGovSourceType, func(sourceType string) Fetcher {
+		return sources.NewParlGovFetcher(sourceType)
+	})
+	GlobalRegistry.Register("polymarket", func(sourceType string) Fetcher {
+		return &sources.PolymarketFetcher{}
+	})
 }
 
 func NewEngine(projectsRoot string, metaRepo *repository.MetadataRepository, db *storage.DuckDB, nlp NLPAnalyzer) *Engine {
@@ -195,6 +202,8 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 			taskErr = fmt.Errorf("use cmd/ingest-elections CLI tool for election ingestion")
 		case "party_funding":
 			taskErr = fmt.Errorf("use cmd/ingest-funding CLI tool for party funding ingestion")
+		case "polymarket":
+			taskErr = e.runPolymarketSource(taskCtx, projectID)
 		default:
 			taskErr = fmt.Errorf("source type %s recognized but execution not yet implemented", task.SourceType)
 		}
@@ -2126,6 +2135,14 @@ func containsColon(s string) bool {
 // =============================================================================
 // Scrape source ingestion
 // =============================================================================
+
+func (e *Engine) runPolymarketSource(ctx context.Context, projectID string) error {
+	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
+		return fmt.Errorf("create raw dir: %w", err)
+	}
+	return sources.RunPolymarket(ctx, e.db.DB(), projectPath)
+}
 
 func (e *Engine) runScrapeSource(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
 	var config sources.ScrapeConfig

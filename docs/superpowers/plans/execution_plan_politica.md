@@ -2389,3 +2389,653 @@ go test ./internal/ingestion/ -run TestCrossReference -v -count=1 && git add int
 - ✅ **Momus:** QA scenarios required — OGNI task ha sezione VERIFICA con tool+steps+expected
 
 **Specs collegate:** `docs/superpowers/plans/execution_specs_politica.md`
+
+---
+
+# FASE 3: ISTAT Demographics (Task 12-14)
+
+> **Dipendenze:** Task 0 (infrastruttura watermark + registry) completata.
+> **Goal:** Ingestion dati ISTAT SDMX REST API: popolazione, reddito, occupazione per comune. Join con `election_results` su `comune_istat` per analisi demografico-elettorale.
+
+**API Reference**: `https://esploradati.istat.it/SDMXWS/rest` — no auth, 5 query/min/IP, formati CSV/JSON via `Accept` header.
+
+| Dataflow ID | Nome | Struttura | Livello |
+|---|---|---|---|
+| `22_289` | Popolazione residente al 1° gennaio | `DCIS_POPRES1` | Comune |
+| `30_1008` | Reddito IRPEF per comune (fonte MEF) | `MEF_REDDITIIRPEF_COM` | Comune |
+| `22_293` | Indicatori demografici | `DCIS_INDDEMOG1` | Comune |
+
+### Task 12: ISTAT Demographics Source — Popolazione e Reddito
+
+**Files:**
+- Create: `internal/ingestion/sources/istat.go`
+- Create: `internal/ingestion/sources/istat_test.go`
+
+**Goal:** Source type `istat_demographics`. Fetch da SDMX API:
+- Popolazione residente: `dataflow=22_289`, key `A..JAN.9.TOTAL.99`, `startPeriod=2011`, `endPeriod={anno_corrente_meno_1}` (bug endPeriod restituisce +1)
+- Reddito IRPEF: `dataflow=30_1008`, `lastNObservations=10`
+
+**Schema DuckDB:**
+```sql
+CREATE TABLE IF NOT EXISTS istat_population (
+    comune_istat VARCHAR PRIMARY KEY,
+    comune_nome VARCHAR NOT NULL,
+    year INTEGER NOT NULL,
+    popolazione_residente INTEGER,
+    maschi INTEGER,
+    femmine INTEGER,
+    eta_media DOUBLE,
+    indice_vecchiaia DOUBLE,
+    ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS istat_income (
+    comune_istat VARCHAR,
+    year INTEGER,
+    reddito_medio DOUBLE,
+    reddito_mediano DOUBLE,
+    contribuenti INTEGER,
+    importo_totale DOUBLE,
+    ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (comune_istat, year)
+);
+```
+
+**Implementazione:**
+- `RunISTATDemographics(ctx, db, cfg)` → fetch SDMX CSV, parse, INSERT
+- Rate limit: 5 req/min → usare `RateLimitedClient` con burst=1, interval=12s
+- Gestione bug `endPeriod`: `endPeriod = anno_target - 1`
+- Join key: `comune_istat` (6 cifre) da `election_results`
+
+- [ ] **Step 1: Test istat_test.go** — mock HTTP server con sample CSV SDMX (popolazione + reddito), verifica parsing e insert
+- [ ] **Step 2: Implementa RunISTATDemographics** — SDMX CSV fetch, parse `OBS_VALUE`, upsert per (comune_istat, year)
+- [ ] **Step 3: Registra in registry.go**
+
+**VERIFICA:** `grep 22_289 test_output.json && echo "popolazione presente" && grep 30_1008 test_output.json && echo "reddito presente"` + `go test ./internal/ingestion/sources/ -run TestISTAT -v`
+
+### Task 13: ISTAT Occupazione — "A misura di comune" XLSX
+
+**Files:**
+- Update: `internal/ingestion/sources/istat.go` (aggiungi `RunISTATOccupazione`)
+- Update: `internal/ingestion/sources/istat_test.go`
+
+**Goal:** Scaricare XLSX "A misura di comune" — Lavoro (foglio 4) + Benessere economico (foglio 5). Copre comuni > 5.000 abitanti.
+
+**URLs:**
+- `https://www.istat.it/wp-content/uploads/2025/06/4-Lavoro.xlsx`
+- `https://www.istat.it/wp-content/uploads/2025/06/5-Benessere-economico.xlsx`
+
+**Schema:**
+```sql
+CREATE TABLE IF NOT EXISTS istat_employment (
+    comune_istat VARCHAR,
+    comune_nome VARCHAR,
+    year INTEGER,
+    tasso_occupazione DOUBLE,
+    tasso_disoccupazione DOUBLE,
+    tasso_inattivita DOUBLE,
+    addetti_totali INTEGER,
+    ul_totali INTEGER,  -- unità locali
+    ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (comune_istat, year)
+);
+```
+
+**Implementazione:**
+- `RunISTATOccupazione(ctx, db, cfg)` → scarica XLSX, leggi sheet con `excelize` o Python preprocess, INSERT
+- Frequenza: annuale (ultimo anno disponibile)
+- Limite: solo comuni >= 5.000 abitanti (ARCH.I.M.E.DE)
+
+- [ ] **Step 1: Scarica e valida XLSX** — verifica struttura colonne, mappatura ISTAT
+- [ ] **Step 2: Implementa parsing + insert**
+- [ ] **Step 3: Test with real XLSX sample**
+
+**VERIFICA:** `SELECT COUNT(*) FROM istat_employment WHERE comune_istat IS NOT NULL` → > 0
+
+### Task 14: ISTAT Cross-Reference Views
+
+**Files:**
+- Update: `internal/ingestion/views.go`
+
+**Goal:** Viste che uniscono dati elettorali con demografia per analisi territoriale.
+
+```sql
+CREATE OR REPLACE VIEW v_comune_electoral_demographics AS
+SELECT e.election_type, e.year, e.comune_istat, e.comune,
+       e.party_canonical, SUM(e.voti) as voti_totali,
+       SUM(e.elettori) as elettori_totali, SUM(e.votanti) as votanti_totali,
+       p.popolazione_residente, p.eta_media, p.indice_vecchiaia,
+       i.reddito_medio, i.importo_totale,
+       em.tasso_occupazione, em.tasso_disoccupazione
+FROM election_results e
+LEFT JOIN istat_population p ON e.comune_istat = p.comune_istat AND e.year = p.year
+LEFT JOIN istat_income i ON e.comune_istat = i.comune_istat AND e.year = i.year
+LEFT JOIN istat_employment em ON e.comune_istat = em.comune_istat AND e.year = em.year
+GROUP BY e.election_type, e.year, e.comune_istat, e.comune, e.party_canonical,
+         p.popolazione_residente, p.eta_media, p.indice_vecchiaia,
+         i.reddito_medio, i.importo_totale,
+         em.tasso_occupazione, em.tasso_disoccupazione;
+
+CREATE OR REPLACE VIEW v_party_demographic_profile AS
+SELECT e.party_canonical, e.year, e.election_type,
+       AVG(p.eta_media) as eta_media_elettorato,
+       AVG(p.indice_vecchiaia) as indice_vecchiaia_medio,
+       AVG(i.reddito_medio) as reddito_medio_elettorato,
+       AVG(em.tasso_occupazione) as occupazione_media,
+       SUM(e.voti) as voti_totali,
+       COUNT(DISTINCT e.comune_istat) as comuni_con_dati
+FROM election_results e
+LEFT JOIN istat_population p ON e.comune_istat = p.comune_istat AND e.year = p.year
+LEFT JOIN istat_income i ON e.comune_istat = i.comune_istat AND e.year = i.year
+LEFT JOIN istat_employment em ON e.comune_istat = em.comune_istat AND e.year = em.year
+GROUP BY e.party_canonical, e.year, e.election_type
+ORDER BY e.year DESC, voti_totali DESC;
+```
+
+**VERIFICA:** `SELECT * FROM v_party_demographic_profile WHERE year=2022 LIMIT 5` → FDI profilo demografico
+
+---
+
+# FASE 4: Sentiment Pipeline (Task 15-17)
+
+> **Dipendenze:** Task 0. Schema social già esistente (`posts_x`, `posts_instagram`, `posts_facebook`, `politici`). Crawl scripts già pronti in `scripts/`. Attivare ingestion schedulata.
+
+### Task 15: Social Media Crawl Scheduler
+
+**Files:**
+- Create: `internal/ingestion/sources/social.go`
+- Update: `internal/ingestion/sources/social_schema.go` (già esistente con schema)
+
+**Goal:** Attivare i crawl script esistenti come source type schedulati. Scripts: `crawl_x.py`, `crawl_facebook.py`, `crawl_instagram.py`, `crawl_telegram.py`.
+
+**Schema già pronto** (`social_schema.sql`):
+```sql
+-- posts_x: id, author, content, timestamp, likes, retweets, replies, views, url, hashtags
+-- posts_instagram: id, author, content, timestamp, likes, comments, url, media_type
+-- posts_facebook: id, author, content, timestamp, likes, shares, comments, url
+-- politici: id, name, platform, platform_id, party, bio
+-- v_posts_unified: UNION ALL di tutte e 3 le piattaforme
+```
+
+**Implementazione:**
+- `RunSocialCrawl(ctx, db, cfg)` → esegue script Python come subprocess, importa output in tabelle esistenti
+- `RunSentimentAnalysis(ctx, db, cfg)` → chiama `internal/political/sentiment.go` per analizzare nuovi post
+- Frequenza: ogni 6 ore per X, ogni 24h per Instagram/Facebook
+
+- [ ] **Step 1: Verifica scripts funzionanti** — `python3 scripts/crawl_x.py --help`
+- [ ] **Step 2: Integra subprocess call in social.go**
+- [ ] **Step 3: Collega con sentiment.go** — pipeline: crawl → import → sentiment
+
+**VERIFICA:** `SELECT COUNT(*) FROM posts_x WHERE timestamp > NOW() - INTERVAL '1 day'` → > 0
+
+### Task 16: Sentiment Analysis Enrichment
+
+**Files:**
+- Update: `internal/political/sentiment.go`
+
+**Goal:** Arricchire l'analisi sentiment esistente con:
+- Entity extraction: menzioni di partiti, candidati, temi
+- Trend detection: variazioni sentiment per partito nel tempo
+- Topic modeling: cluster di argomenti discussi
+
+**Schema:**
+```sql
+CREATE TABLE IF NOT EXISTS sentiment_scores (
+    post_id VARCHAR,
+    platform VARCHAR,
+    party_canonical VARCHAR,
+    sentiment_score DOUBLE,        -- -1.0 (negativo) a +1.0 (positivo)
+    confidence DOUBLE,
+    entities JSON,                  -- [{entity: "Meloni", type: "leader"}, ...]
+    topics JSON,                    -- ["economia", "immigrazione", ...]
+    analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (post_id, party_canonical)
+);
+
+CREATE OR REPLACE VIEW v_party_sentiment_timeline AS
+SELECT party_canonical,
+       DATE_TRUNC('day', analyzed_at) as day,
+       AVG(sentiment_score) as avg_sentiment,
+       COUNT(*) as mention_count,
+       SUM(CASE WHEN sentiment_score > 0.3 THEN 1 ELSE 0 END) as positive_mentions,
+       SUM(CASE WHEN sentiment_score < -0.3 THEN 1 ELSE 0 END) as negative_mentions
+FROM sentiment_scores
+GROUP BY party_canonical, DATE_TRUNC('day', analyzed_at)
+ORDER BY day DESC;
+```
+
+- [ ] **Step 1: Entity extractor** — regex + dictionary lookup per partiti/leader nei post
+- [ ] **Step 2: Sentiment enrichment** — aggiorna `StoreSentiment()` con entity+topics
+- [ ] **Step 3: Test** — mock post con contenuto politico, verifica entity extraction
+
+**VERIFICA:** `SELECT * FROM v_party_sentiment_timeline WHERE party_canonical='fratelli-italia' LIMIT 5` → trend sentiment
+
+### Task 17: Social-Electoral Correlation View
+
+**Files:**
+- Update: `internal/ingestion/views.go`
+
+**Goal:** Correlare sentiment social con performance elettorale per comune.
+
+```sql
+CREATE OR REPLACE VIEW v_social_electoral_correlation AS
+-- Questa è una vista placeholder — il vero join richiede geolocalizzazione dei post
+-- Per ora: aggregazione nazionale sentiment vs voti
+SELECT s.party_canonical, s.year,
+       s.avg_sentiment, s.total_mentions,
+       e.total_voti, e.election_type,
+       ROUND(e.total_voti * 1.0 / NULLIF(s.total_mentions, 0), 2) as votes_per_mention
+FROM (
+    SELECT party_canonical, EXTRACT(YEAR FROM analyzed_at) as year,
+           AVG(sentiment_score) as avg_sentiment,
+           COUNT(*) as total_mentions
+    FROM sentiment_scores
+    GROUP BY party_canonical, EXTRACT(YEAR FROM analyzed_at)
+) s
+LEFT JOIN v_election_party_rollup e ON s.party_canonical = e.party_canonical AND s.year = e.year;
+```
+
+**VERIFICA:** `SELECT * FROM v_social_electoral_correlation WHERE year=2024 LIMIT 5`
+
+---
+
+# FASE 5: Sondaggi e Panel (Task 18-19)
+
+> **Dipendenze:** Task 0. Scraper esistente: `ruggsea/llm_italian_poll_scraper` (Selenium + LLM, output JSONL/CSV, 2013-presente).
+
+### Task 18: Poll Scraper Integration
+
+**Files:**
+- Create: `internal/ingestion/sources/polls.go`
+- Create: `internal/ingestion/sources/polls_test.go`
+
+**Goal:** Ingerire i sondaggi italiani dal registro ufficiale PCM (`sondaggipoliticoelettorali.it`) e da aggregatori (`politpro.eu`).
+
+**Fonte primaria:** `ruggsea/llm_italian_poll_scraper` → output CSV:
+```
+date, institute, sample_size, party_1, pct_1, party_2, pct_2, ...
+```
+
+**Schema:**
+```sql
+CREATE TABLE IF NOT EXISTS polls (
+    id INTEGER PRIMARY KEY,
+    institute VARCHAR NOT NULL,
+    poll_date DATE NOT NULL,
+    published_date DATE,
+    sample_size INTEGER,
+    margin_error DOUBLE,
+    methodology VARCHAR,
+    source_url TEXT,
+    ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS poll_results (
+    poll_id INTEGER REFERENCES polls(id),
+    party_canonical VARCHAR NOT NULL,
+    percentage DOUBLE NOT NULL,
+    seats_estimate INTEGER,
+    trend_delta DOUBLE,     -- variazione vs sondaggio precedente stesso istituto
+    PRIMARY KEY (poll_id, party_canonical)
+);
+
+CREATE OR REPLACE VIEW v_poll_trends AS
+SELECT party_canonical,
+       DATE_TRUNC('month', poll_date) as month,
+       AVG(percentage) as avg_pct,
+       MIN(percentage) as min_pct,
+       MAX(percentage) as max_pct,
+       COUNT(*) as n_polls,
+       AVG(trend_delta) as avg_trend
+FROM poll_results pr
+JOIN polls p ON pr.poll_id = p.id
+GROUP BY party_canonical, DATE_TRUNC('month', poll_date)
+ORDER BY month DESC;
+```
+
+**Implementazione:**
+- `RunPolls(ctx, db, cfg)` → clona/aggiorna scraper repo, esegue `archiving_polls.py`, importa CSV
+- `RunPolitPro(ctx, db, cfg)` → scrape HTML tabelle per anno (2018-presente)
+- Rate limit: 1 esecuzione/giorno (i sondaggi cambiano poco)
+
+- [ ] **Step 1: Clona scraper** — `git clone https://github.com/ruggsea/llm_italian_poll_scraper`
+- [ ] **Step 2: Test esecuzione** — `python3 archiving_polls.py` → verifica output CSV
+- [ ] **Step 3: Implementa CSV import** — mappa colonne CSV → `polls` + `poll_results`
+- [ ] **Step 4: Registra in registry**
+
+**VERIFICA:** `SELECT COUNT(*) FROM polls` → > 100 (2013-presente ha migliaia di sondaggi)
+
+### Task 19: Poll vs Election Accuracy View
+
+**Files:**
+- Update: `internal/ingestion/views.go`
+
+**Goal:** Misurare accuratezza dei sondaggi vs risultati reali.
+
+```sql
+CREATE OR REPLACE VIEW v_poll_accuracy AS
+SELECT pr.party_canonical,
+       p.poll_date,
+       p.institute,
+       pr.percentage as poll_pct,
+       e.percentage as actual_pct,
+       ROUND(pr.percentage - e.percentage, 1) as poll_error,
+       ABS(ROUND(pr.percentage - e.percentage, 1)) as abs_error
+FROM poll_results pr
+JOIN polls p ON pr.poll_id = p.id
+JOIN election_results e ON e.party_canonical = pr.party_canonical
+WHERE p.poll_date BETWEEN e.election_date - INTERVAL '30 days' AND e.election_date
+  AND e.level = 'national'
+ORDER BY ABS(ROUND(pr.percentage - e.percentage, 1)) ASC;
+```
+
+**VERIFICA:** `SELECT institute, AVG(abs_error) as mean_error FROM v_poll_accuracy GROUP BY institute ORDER BY mean_error` → classifica accuratezza istituti
+
+---
+
+# FASE 6: Atti Parlamentari e Presenze (Task 20-21)
+
+> **Dipendenze:** Task 0. Task 10 (Parliament SPARQL) già implementato.
+
+### Task 20: Parliamentary Acts Source
+
+**Files:**
+- Create: `internal/ingestion/sources/parliament_acts.go`
+- Create: `internal/ingestion/sources/parliament_acts_test.go`
+
+**Goal:** Ingestion atti parlamentari da `data.camera.it` e `dati.senato.it` (Linked Open Data).
+
+**Fonti:**
+- Camera: `https://dati.camera.it/sparql` — SPARQL endpoint, aggiornato ogni giorno
+- Senato: `https://dati.senato.it/sparql` — LOD con licenza CC BY 3.0
+
+**Schema:**
+```sql
+CREATE TABLE IF NOT EXISTS parliamentary_acts (
+    id VARCHAR PRIMARY KEY,
+    legislature INTEGER NOT NULL,
+    act_type VARCHAR NOT NULL,        -- DDL, mozione, interpellanza, emendamento, etc.
+    title TEXT,
+    presentation_date DATE,
+    status VARCHAR,                   -- presentato, in esame, approvato, respinto
+    status_date DATE,
+    first_signer VARCHAR,             -- primo firmatario
+    party_at_presentation VARCHAR,
+    topics JSON,                      -- ["economia", "giustizia", ...]
+    source VARCHAR,                   -- 'camera' o 'senato'
+    ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS parliamentary_attendance (
+    parliamentarian_name VARCHAR NOT NULL,
+    legislature INTEGER NOT NULL,
+    year INTEGER NOT NULL,
+    total_sessions INTEGER,
+    attended INTEGER,
+    absences INTEGER,
+    attendance_pct DOUBLE,
+    mission_absences INTEGER,
+    group_at_time VARCHAR,
+    source VARCHAR,
+    ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (parliamentarian_name, legislature, year)
+);
+```
+
+**SPARQL queries (Camera):**
+```sparql
+# Atti presentati per legislatura
+SELECT ?atto ?tipo ?titolo ?dataPresentazione ?primoFirmatario
+WHERE {
+  ?atto a ocd:atto .
+  ?atto dc:title ?titolo .
+  ?atto ocd:rif_leg ?legislatura .
+  ?atto dc:date ?dataPresentazione .
+  OPTIONAL { ?atto ocd:primoFirmatario ?primoFirmatario . }
+  FILTER(?legislatura = <http://dati.camera.it/ocd/legislatura.rdf/repubblica_20>)
+} LIMIT 1000
+```
+
+- [ ] **Step 1: Test SPARQL queries** — `curl -H "Accept: application/json" "https://dati.camera.it/sparql?query=..."` 
+- [ ] **Step 2: Implementa RunParliamentActs** — SPARQL fetch, parsing, INSERT
+- [ ] **Step 3: Implementa RunParliamentAttendance** — dati presenze da openparlamento o Senate LOD
+- [ ] **Step 4: Registra in registry**
+
+**VERIFICA:**
+```sql
+SELECT act_type, COUNT(*) FROM parliamentary_acts
+WHERE legislature = 20 GROUP BY act_type ORDER BY COUNT(*) DESC;
+```
+
+### Task 21: Parliamentary Activity Profile
+
+**Files:**
+- Update: `internal/ingestion/views.go`
+
+**Goal:** Profilo attività parlamentare per politico: atti presentati, presenze, incarichi.
+
+```sql
+CREATE OR REPLACE VIEW v_parliamentary_activity_profile AS
+SELECT 
+    COALESCE(a.first_signer, att.parliamentarian_name) as nome,
+    att.parliamentarian_name,
+    att.legislature,
+    att.attendance_pct,
+    att.total_sessions,
+    COUNT(DISTINCT a.id) as atti_presentati,
+    a.party_at_presentation as partito,
+    json_group_array(DISTINCT a.act_type) as tipi_atti
+FROM parliamentary_attendance att
+LEFT JOIN parliamentary_acts a 
+    ON att.parliamentarian_name = a.first_signer 
+    AND att.legislature = a.legislature
+GROUP BY COALESCE(a.first_signer, att.parliamentarian_name), 
+         att.parliamentarian_name, att.legislature,
+         att.attendance_pct, att.total_sessions, a.party_at_presentation;
+
+CREATE OR REPLACE VIEW v_group_discipline AS
+SELECT 
+    v.gruppo,
+    v.legislatura,
+    COUNT(DISTINCT v.deputato) as n_membri,
+    AVG(CASE WHEN v.esito = 'Favorevole' THEN 1 ELSE 0 END) as coesione_media,
+    COUNT(DISTINCT v.votazione_id) as votazioni_totali
+FROM parliament_votes v
+GROUP BY v.gruppo, v.legislatura
+ORDER BY v.legislatura DESC, coesione_media DESC;
+```
+
+**VERIFICA:** `SELECT * FROM v_parliamentary_activity_profile WHERE partito='Fratelli d'Italia' LIMIT 5`
+
+---
+
+# FASE 7: Microtargeting Layer (Task 22-23)
+
+> **Dipendenze:** Task 12-14 (ISTAT demographics), Task 15-17 (sentiment), Task 18-19 (polls), Task 20-21 (parliamentary acts).
+> **Goal:** Viste di microtargeting che uniscono demografia, sentiment, sondaggi, e risultati elettorali per segmentazione dell'elettorato.
+
+### Task 22: Microtargeting Views
+
+**Files:**
+- Create: `internal/ingestion/views_microtargeting.go`
+
+**Goal:** Viste per segmentazione elettorato per comune: profilo demografico, sentiment locale, storico voto.
+
+```sql
+-- Segmentazione demografica dei comuni per partito
+CREATE OR REPLACE VIEW v_comune_party_segments AS
+SELECT 
+    e.comune_istat, e.comune, e.party_canonical,
+    e.year, e.election_type,
+    e.voti, e.votanti,
+    ROUND(e.voti * 100.0 / NULLIF(e.votanti, 0), 1) as pct_voti,
+    p.popolazione_residente,
+    p.eta_media,
+    p.indice_vecchiaia,
+    i.reddito_medio,
+    i.reddito_mediano,
+    em.tasso_occupazione,
+    em.tasso_disoccupazione,
+    CASE 
+        WHEN p.indice_vecchiaia > 200 THEN 'molto anziano'
+        WHEN p.indice_vecchiaia > 150 THEN 'anziano'
+        WHEN p.indice_vecchiaia > 100 THEN 'equilibrato'
+        ELSE 'giovane'
+    END as profilo_demografico,
+    CASE
+        WHEN i.reddito_medio > 25000 THEN 'alto reddito'
+        WHEN i.reddito_medio > 18000 THEN 'medio reddito'
+        WHEN i.reddito_medio IS NOT NULL THEN 'basso reddito'
+        ELSE 'dati mancanti'
+    END as profilo_reddito
+FROM election_results e
+LEFT JOIN istat_population p ON e.comune_istat = p.comune_istat AND e.year = p.year
+LEFT JOIN istat_income i ON e.comune_istat = i.comune_istat AND e.year = i.year
+LEFT JOIN istat_employment em ON e.comune_istat = em.comune_istat AND e.year = em.year;
+
+-- Targetability score: quanto un partito è forte in uno specifico segmento
+CREATE OR REPLACE VIEW v_party_segment_strength AS
+SELECT 
+    party_canonical,
+    profilo_demografico,
+    profilo_reddito,
+    COUNT(DISTINCT comune_istat) as n_comuni,
+    SUM(voti) as voti_totali,
+    ROUND(AVG(pct_voti), 1) as pct_medio,
+    ROUND(AVG(eta_media), 1) as eta_media_segmento,
+    ROUND(AVG(COALESCE(reddito_medio, 0)), 0) as reddito_medio_segmento
+FROM v_comune_party_segments
+WHERE year >= 2022
+GROUP BY party_canonical, profilo_demografico, profilo_reddito
+ORDER BY party_canonical, pct_medio DESC;
+
+-- Swing communes: comuni dove il voto è cambiato di più tra due elezioni
+CREATE OR REPLACE VIEW v_swing_comuni AS
+SELECT 
+    a.comune_istat, a.comune, a.party_canonical,
+    a.year as year_from, b.year as year_to,
+    a.pct_voti as pct_before, b.pct_voti as pct_after,
+    ROUND(b.pct_voti - a.pct_voti, 1) as swing,
+    CASE WHEN b.pct_voti > a.pct_voti THEN 'guadagno' ELSE 'perdita' END as direzione,
+    a.profilo_demografico, a.profilo_reddito,
+    a.reddito_medio, a.eta_media
+FROM v_comune_party_segments a
+JOIN v_comune_party_segments b 
+    ON a.comune_istat = b.comune_istat 
+    AND a.party_canonical = b.party_canonical
+    AND b.year = a.year + 5  -- elezioni politiche ogni ~5 anni
+WHERE ABS(b.pct_voti - a.pct_voti) > 5.0  -- swing significativo (>5pp)
+ORDER BY ABS(b.pct_voti - a.pct_voti) DESC;
+
+-- Cross-source intelligence: unisce tutto per profilo completo
+CREATE OR REPLACE VIEW v_party_intelligence_dashboard AS
+SELECT 
+    e.party_canonical,
+    e.year,
+    -- Elettorale
+    SUM(e.voti) as voti_totali,
+    COUNT(DISTINCT e.comune_istat) as comuni_presenti,
+    -- Demografia (media pesata)
+    ROUND(SUM(e.voti * COALESCE(p.eta_media, 45)) / NULLIF(SUM(e.voti), 0), 1) as eta_media_elettorato,
+    ROUND(SUM(e.voti * COALESCE(p.indice_vecchiaia, 150)) / NULLIF(SUM(e.voti), 0), 0) as indice_vecchiaia_elettorato,
+    ROUND(SUM(e.voti * COALESCE(i.reddito_medio, 20000)) / NULLIF(SUM(e.voti), 0), 0) as reddito_medio_elettorato,
+    -- Sentiment
+    COALESCE(s.avg_sentiment, 0) as sentiment_medio,
+    s.total_mentions as menzioni_social,
+    -- Sondaggi
+    po.avg_pct as sondaggi_medi,
+    po.n_polls as n_sondaggi,
+    -- Parlamento
+    att.atti_presentati,
+    att.attendance_pct_media
+FROM election_results e
+LEFT JOIN istat_population p ON e.comune_istat = p.comune_istat AND e.year = p.year
+LEFT JOIN istat_income i ON e.comune_istat = i.comune_istat AND e.year = i.year
+LEFT JOIN v_party_sentiment_timeline s ON e.party_canonical = s.party_canonical 
+    AND EXTRACT(YEAR FROM s.day) = e.year
+LEFT JOIN v_poll_trends po ON e.party_canonical = po.party_canonical 
+    AND EXTRACT(YEAR FROM po.month) = e.year
+LEFT JOIN (
+    SELECT party_at_presentation as party, legislature,
+           COUNT(*) as atti_presentati
+    FROM parliamentary_acts
+    GROUP BY party_at_presentation, legislature
+) att ON e.party_canonical = att.party
+WHERE e.level = 'comune'
+GROUP BY e.party_canonical, e.year, s.avg_sentiment, s.total_mentions,
+         po.avg_pct, po.n_polls, att.atti_presentati, att.attendance_pct_media
+ORDER BY e.year DESC, voti_totali DESC;
+```
+
+- [ ] **Step 1: Crea viste** — esegui SQL in DuckDB
+- [ ] **Step 2: Verifica ogni vista** — `SELECT COUNT(*) FROM v_swing_comuni` > 0
+- [ ] **Step 3: Integra in views.go** — `RegisterMicrotargetingViews(db)` 
+
+**VERIFICA:**
+```sql
+-- Top 5 partiti per segmento "giovane + medio reddito"
+SELECT * FROM v_party_segment_strength 
+WHERE profilo_demografico='giovane' AND profilo_reddito='medio reddito'
+ORDER BY pct_medio DESC LIMIT 5;
+
+-- Comuni con swing >10pp verso FDI
+SELECT * FROM v_swing_comuni 
+WHERE party_canonical='fratelli-italia' AND direzione='guadagno' AND swing > 10
+ORDER BY swing DESC LIMIT 10;
+```
+
+### Task 23: Manifest Auto-Discovery Update
+
+**Files:**
+- Update: `internal/ingestion/views.go` (register all new views in sidecar)
+- Update: `internal/app/app.go` (add view registration to manifestSidecar)
+
+**Goal:** Il manifest engine sidecar deve scoprire automaticamente le nuove viste e tabelle dopo l'ingestion.
+
+**Implementazione:**
+```go
+// In manifestSidecar, dopo runDiscovery():
+if err := ingestion.RegisterMicrotargetingViews(a.db.DB()); err != nil {
+    slog.Warn("manifest sidecar: microtargeting views failed", "error", err)
+}
+```
+
+**VERIFICA:** `go run ./cmd/discover/ -db ./data/aleph.duckdb` → entities incrementate dopo nuove tabelle
+
+---
+
+## Stato Finale Dopo Task 23
+
+| Fonte | Source Type | Tabelle | Stato |
+|---|---|---|---|
+| Eligendo + Ondata | `election` | `election_results` | ✅ |
+| Party Funding | `party_funding` | `party_funding` | ✅ |
+| Parliament SPARQL | `parliament` | `parliament_votes` | ✅ |
+| OPDM | `opdm` | `opdm_memberships` | ✅ |
+| PEP (OpenSanctions) | `pep` | `pep_entities` | ✅ |
+| ANAC | `public_contracts` | `public_contracts` | ✅ |
+| ParlGov | `parlgov` | `parlgov_parties, _elections, _results, _cabinets` | 🟡 P0 (running) |
+| Polymarket | `polymarket` | `polymarket_markets, _prices, _events` | 🟡 P0 (running) |
+| ISTAT Population | `istat_demographics` | `istat_population` | 📋 Task 12 |
+| ISTAT Income | `istat_demographics` | `istat_income` | 📋 Task 12 |
+| ISTAT Employment | `istat_demographics` | `istat_employment` | 📋 Task 13 |
+| Social Crawl | `social` | `posts_x, posts_ig, posts_fb` | 📋 Task 15 |
+| Sentiment | `sentiment` | `sentiment_scores` | 📋 Task 16 |
+| Polls | `polls` | `polls, poll_results` | 📋 Task 18 |
+| Parliament Acts | `parliament_acts` | `parliamentary_acts, _attendance` | 📋 Task 20 |
+| Microtargeting | — | 7 cross-reference views | 📋 Task 22 |
+
+**Totale complessivo: 23 task, 12 source type, 7 viste microtargeting, 12 viste cross-reference esistenti**
+
+---
+
+## Priorità Esecuzione
+
+```
+NOW:    P0 ParlGov + Polymarket (bg tasks running)
+NEXT:   Task 12-14 (ISTAT Demographics) + Task 15 (Social Crawl Activation)
+THEN:   Task 16-17 (Sentiment Enrichment)
+THEN:   Task 18-19 (Polls)
+THEN:   Task 20-21 (Parliamentary Acts)
+LAST:   Task 22-23 (Microtargeting Views + Manifest Update)
+```
