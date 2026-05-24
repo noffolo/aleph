@@ -35,3 +35,47 @@ func RegisterCrossReferenceViews(db *sql.DB) error {
 	slog.Info("cross-reference views registered")
 	return nil
 }
+
+// RegisterISTATViews creates DuckDB views that join election results with ISTAT
+// demographic and economic data (population, income, employment).
+func RegisterISTATViews(db *sql.DB) error {
+	views := []string{
+		`CREATE OR REPLACE VIEW v_comune_electoral_demographics AS
+		 SELECT e.election_type, e.year, e.comune_istat, e.comune,
+		        e.party_canonical, SUM(e.voti) as voti_totali,
+		        SUM(e.elettori) as elettori_totali, SUM(e.votanti) as votanti_totali,
+		        p.popolazione_residente, p.eta_media, p.indice_vecchiaia,
+		        i.reddito_medio, i.importo_totale,
+		        em.tasso_occupazione, em.tasso_disoccupazione
+		 FROM election_results e
+		 LEFT JOIN istat_population p ON e.comune_istat = p.comune_istat AND e.year = p.year
+		 LEFT JOIN istat_income i ON e.comune_istat = i.comune_istat AND e.year = i.year
+		 LEFT JOIN istat_employment em ON e.comune_istat = em.comune_istat AND e.year = em.year
+		 GROUP BY e.election_type, e.year, e.comune_istat, e.comune, e.party_canonical,
+		          p.popolazione_residente, p.eta_media, p.indice_vecchiaia,
+		          i.reddito_medio, i.importo_totale,
+		          em.tasso_occupazione, em.tasso_disoccupazione`,
+
+		`CREATE OR REPLACE VIEW v_party_demographic_profile AS
+		 SELECT e.party_canonical, e.year, e.election_type,
+		        AVG(p.eta_media) as eta_media_elettorato,
+		        AVG(p.indice_vecchiaia) as indice_vecchiaia_medio,
+		        AVG(i.reddito_medio) as reddito_medio_elettorato,
+		        AVG(em.tasso_occupazione) as occupazione_media,
+		        SUM(e.voti) as voti_totali,
+		        COUNT(DISTINCT e.comune_istat) as comuni_con_dati
+		 FROM election_results e
+		 LEFT JOIN istat_population p ON e.comune_istat = p.comune_istat AND e.year = p.year
+		 LEFT JOIN istat_income i ON e.comune_istat = i.comune_istat AND e.year = i.year
+		 LEFT JOIN istat_employment em ON e.comune_istat = em.comune_istat AND e.year = em.year
+		 GROUP BY e.party_canonical, e.year, e.election_type
+		 ORDER BY e.year DESC, voti_totali DESC`,
+	}
+	for _, v := range views {
+		if _, err := db.Exec(v); err != nil {
+			return fmt.Errorf("create ISTAT view: %w", err)
+		}
+	}
+	slog.Info("ISTAT cross-reference views registered")
+	return nil
+}
