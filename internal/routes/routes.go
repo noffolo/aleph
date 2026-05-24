@@ -54,6 +54,7 @@ type RegisterConfig struct {
 	NotificationHandler *handler.NotificationHandler
 	AuthHandler         *handler.AuthHandler
 	IngestionHandler    *handler.IngestionHandler
+	DiscoveryHandler    *handler.DiscoveryHandler
 	SandboxHandler      *handler.SandboxServiceHandler
 	RegistryHandler     *handler.RegistryServiceHandler
 
@@ -63,6 +64,8 @@ type RegisterConfig struct {
 	SuggestPipeline http.Handler
 	SessionHandler  *handler.SessionHandler
 	AuthRateLimiter *middleware.AuthRateLimiter
+
+	IngestionHealthHandler http.Handler
 
 	Interceptors []connect.HandlerOption
 
@@ -133,6 +136,7 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 	mux.Handle(v1connect.NewIngestionServiceHandler(cfg.IngestionHandler, cfg.Interceptors...))
 	mux.Handle(v1connect.NewSandboxServiceHandler(cfg.SandboxHandler, cfg.Interceptors...))
 	mux.Handle(v1connect.NewRegistryServiceHandler(cfg.RegistryHandler, cfg.Interceptors...))
+	mux.Handle(v1connect.NewDiscoveryServiceHandler(cfg.DiscoveryHandler, cfg.Interceptors...))
 
 	// Session management (unauthenticated — validates credentials then sets cookie)
 	// Rate-limited: 5 req/min per IP to prevent brute-force attacks
@@ -209,6 +213,10 @@ func RegisterRoutes(mux *http.ServeMux, cfg RegisterConfig) {
 
 	// SSE endpoint
 	mux.HandleFunc("/api/v1/events", cfg.SSEHandler.Stream)
+
+	if cfg.IngestionHealthHandler != nil {
+		mux.Handle("/api/health/ingestion", cfg.IngestionHealthHandler)
+	}
 
 	// API Documentation
 	mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, r *http.Request) {

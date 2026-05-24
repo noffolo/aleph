@@ -1,0 +1,5 @@
+duckdb>=1.0
+tweepy>=4.14
+requests>=2.31
+instaloader>=4.12
+telethon>=1.34

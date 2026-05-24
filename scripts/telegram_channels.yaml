@@ -1,0 +1,196 @@
+# Italian Political Telegram Channels — Aleph crawler seed (verified 2026-05-24)
+# Schema: username | title | category | party | priority | status
+# Status: ACTIVE = message in last 30d, INACTIVE = older, NOT_FOUND = doesn't exist
+
+channels:
+  # ── PARTY OFFICIAL ──
+  - username: fdiufficiale
+    title: "Fratelli d'Italia"
+    category: party
+    party: "Fratelli d'Italia"
+    priority: 1
+    status: ACTIVE
+
+  - username: sinistraitaliana
+    title: "Sinistra Italiana (official)"
+    category: party
+    party: "Sinistra Italiana / AVS"
+    priority: 1
+    status: ACTIVE
+
+  - username: piu_europa
+    title: "+Europa"
+    category: party
+    party: "+Europa"
+    priority: 1
+    status: INACTIVE
+
+  - username: radicali_it
+    title: "Radicali"
+    category: party
+    party: "Radicali Italiani"
+    priority: 2
+    status: INACTIVE
+
+  - username: unione_popolare
+    title: "Unione Popolare"
+    category: party
+    party: "Unione Popolare"
+    priority: 2
+    status: INACTIVE
+
+  - username: leganordnews
+    title: "Lega Nord News"
+    category: party
+    party: "Lega"
+    priority: 4
+    status: ACTIVE
+
+  - username: forzadelpopolo
+    title: "Forza del Popolo Canale Ufficiale"
+    category: party
+    party: "Forza del Popolo"
+    priority: 4
+    status: ACTIVE
+
+  - username: notiziepartitodemocratico
+    title: "Notizie Partito Democratico | PD"
+    category: party
+    party: "Partito Democratico"
+    priority: 4
+    status: INACTIVE
+
+  - username: SalviniNews
+    title: "Salvini News"
+    category: party
+    party: "Lega"
+    priority: 4
+    status: ACTIVE
+
+  - username: noimoderati
+    title: "Noi Moderati INFO - Maurizio Lupi"
+    category: party
+    party: "Noi Moderati"
+    priority: 3
+    status: INACTIVE
+
+  - username: alleanzaverdisinistra
+    title: "Alleanza Verdi Sinistra Lazio"
+    category: party
+    party: "Alleanza Verdi e Sinistra"
+    priority: 3
+    status: INACTIVE
+
+  # ── INDIVIDUAL POLITICIANS ──
+  - username: giorgiameloniufficiale
+    title: "Giorgia Meloni"
+    category: politician
+    party: "Fratelli d'Italia"
+    priority: 1
+    status: ACTIVE
+
+  - username: matteorenziufficiale
+    title: "Matteo Renzi"
+    category: politician
+    party: "Italia Viva"
+    priority: 1
+    status: ACTIVE
+
+  - username: salvini
+    title: "Salvini canale ufficiale"
+    category: politician
+    party: "Lega"
+    priority: 1
+    status: ACTIVE
+
+  - username: a_tajani
+    title: "Antonio Tajani"
+    category: politician
+    party: "Forza Italia"
+    priority: 2
+    status: INACTIVE
+
+  - username: giuseppeconteofficial
+    title: "BlackList | GiuseppeConteOfficial"
+    category: politician
+    party: "Movimento 5 Stelle"
+    priority: 2
+    status: INACTIVE
+
+  - username: nicolafratoianni
+    title: "Nicola Fratoianni"
+    category: politician
+    party: "Sinistra Italiana"
+    priority: 2
+    status: ACTIVE
+
+  - username: carlocalenda
+    title: "Carlo Calenda"
+    category: politician
+    party: "Azione"
+    priority: 2
+    status: INACTIVE
+
+  # ── NEWS / POLITICS MEDIA ──
+  - username: lantidiplomatico
+    title: "l'AntiDiplomatico"
+    category: news
+    party: null
+    priority: 1
+    status: ACTIVE
+
+  - username: ilpost_official
+    title: "il Post"
+    category: news
+    party: null
+    priority: 1
+    status: ACTIVE
+
+  - username: repubblica
+    title: "la Repubblica"
+    category: news
+    party: null
+    priority: 1
+    status: ACTIVE
+
+  - username: factanza
+    title: "Factanza"
+    category: news
+    party: null
+    priority: 2
+    status: ACTIVE
+
+  - username: PagellaPolitica
+    title: "Pagella Politica"
+    category: news
+    party: null
+    priority: 2
+    status: ACTIVE
+
+  - username: Politigraph
+    title: "Politigraph"
+    category: news
+    party: null
+    priority: 2
+    status: INACTIVE
+
+  - username: ByobluOfficial
+    title: "Byoblu"
+    category: news
+    party: null
+    priority: 2
+    status: ACTIVE
+
+  - username: notizieansa
+    title: "Notizie ANSA"
+    category: news
+    party: null
+    priority: 3
+    status: ACTIVE
+
+  - username: governonews
+    title: "Governo Italiano"
+    category: institutional
+    party: null
+    priority: 3
+    status: ACTIVE

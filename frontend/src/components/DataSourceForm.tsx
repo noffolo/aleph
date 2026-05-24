@@ -9,7 +9,7 @@ interface DataSourceFormProps {
   title?: string
 }
 
-type Mode = 'file' | 'api' | 'db'
+type Mode = 'file' | 'api' | 'db' | 'scrape'
 
 export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps) {
   const [mode, setMode] = useState<Mode>('file')
@@ -34,6 +34,9 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
     } else if (mode === 'db') {
       defaultType = 'database'
       defaultConfig = JSON.stringify({ connectionString: '', query: '', type: 'postgresql' }, null, 2)
+    } else if (mode === 'scrape') {
+      defaultType = 'scrape'
+      defaultConfig = JSON.stringify({ article_selector: '', title_selector: '', link_selector: '', date_selector: '', author_selector: '', max_articles: 50 }, null, 2)
     }
 
     setFormData(prev => ({ ...prev, sourceType: defaultType, configJson: defaultConfig }))
@@ -115,9 +118,48 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
           {errors.name && <p className="text-danger text-[10px] mt-1">{errors.name}</p>}
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="datasource-start-date" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Data Inizio (opzionale)</label>
+            <input
+              id="datasource-start-date"
+              type="date"
+              value={(() => { try { return JSON.parse(formData.configJson).start_date || '' } catch { return '' } })()}
+              onChange={(e) => {
+                const config = JSON.parse(formData.configJson || '{}')
+                if (e.target.value) {
+                  config.start_date = e.target.value
+                } else {
+                  delete config.start_date
+                }
+                setFormData({ ...formData, configJson: JSON.stringify(config, null, 2) })
+              }}
+              className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+            />
+          </div>
+          <div>
+            <label htmlFor="datasource-end-date" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Data Fine (opzionale)</label>
+            <input
+              id="datasource-end-date"
+              type="date"
+              value={(() => { try { return JSON.parse(formData.configJson).end_date || '' } catch { return '' } })()}
+              onChange={(e) => {
+                const config = JSON.parse(formData.configJson || '{}')
+                if (e.target.value) {
+                  config.end_date = e.target.value
+                } else {
+                  delete config.end_date
+                }
+                setFormData({ ...formData, configJson: JSON.stringify(config, null, 2) })
+              }}
+              className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+            />
+          </div>
+        </div>
+
         <div>
           <label htmlFor="datasource-mode" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Modalità Sorgente</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => setMode('file')}
               className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
@@ -145,8 +187,85 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
               <Database size={20} className="mb-2" />
               <span className="text-[10px] font-bold uppercase">DB</span>
             </button>
+            <button
+              onClick={() => setMode('scrape')}
+              className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                mode === 'scrape' ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background text-textDim hover:bg-surface-alt'
+              }`}
+            >
+              <Globe size={20} className="mb-2" />
+              <span className="text-[10px] font-bold uppercase">Scrape</span>
+            </button>
           </div>
         </div>
+
+        {mode === 'scrape' && (
+          <div className="space-y-3">
+            <div>
+              <label className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">CSS Selectors</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={JSON.parse(formData.configJson || '{}').article_selector || ''}
+                  onChange={(e) => {
+                    const config = JSON.parse(formData.configJson || '{}')
+                    setFormData({ ...formData, configJson: JSON.stringify({ ...config, article_selector: e.target.value }, null, 2) })
+                  }}
+                  className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                  placeholder="Article selector"
+                />
+                <input
+                  value={JSON.parse(formData.configJson || '{}').title_selector || ''}
+                  onChange={(e) => {
+                    const config = JSON.parse(formData.configJson || '{}')
+                    setFormData({ ...formData, configJson: JSON.stringify({ ...config, title_selector: e.target.value }, null, 2) })
+                  }}
+                  className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                  placeholder="Title selector"
+                />
+                <input
+                  value={JSON.parse(formData.configJson || '{}').link_selector || ''}
+                  onChange={(e) => {
+                    const config = JSON.parse(formData.configJson || '{}')
+                    setFormData({ ...formData, configJson: JSON.stringify({ ...config, link_selector: e.target.value }, null, 2) })
+                  }}
+                  className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                  placeholder="Link selector"
+                />
+                <input
+                  value={JSON.parse(formData.configJson || '{}').date_selector || ''}
+                  onChange={(e) => {
+                    const config = JSON.parse(formData.configJson || '{}')
+                    setFormData({ ...formData, configJson: JSON.stringify({ ...config, date_selector: e.target.value }, null, 2) })
+                  }}
+                  className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                  placeholder="Date selector"
+                />
+                <input
+                  value={JSON.parse(formData.configJson || '{}').author_selector || ''}
+                  onChange={(e) => {
+                    const config = JSON.parse(formData.configJson || '{}')
+                    setFormData({ ...formData, configJson: JSON.stringify({ ...config, author_selector: e.target.value }, null, 2) })
+                  }}
+                  className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                  placeholder="Author selector"
+                />
+                <div>
+                  <label className="text-[9px] font-bold text-textDim uppercase mb-1 block">Max Articles</label>
+                  <input
+                    type="number"
+                    value={JSON.parse(formData.configJson || '{}').max_articles ?? 50}
+                    onChange={(e) => {
+                      const config = JSON.parse(formData.configJson || '{}')
+                      setFormData({ ...formData, configJson: JSON.stringify({ ...config, max_articles: parseInt(e.target.value) || 0 }, null, 2) })
+                    }}
+                    className="w-full p-2 bg-background rounded-lg border border-border text-xs focus:outline-none focus:border-primary/50"
+                    min={1}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {mode === 'file' && (
           <div>
@@ -206,6 +325,79 @@ export function DataSourceForm({ onSave, onCancel, title }: DataSourceFormProps)
             />
           </div>
         )}
+
+        <div className="border-t border-border pt-4">
+          <h4 className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-3">Campi Elezioni (opzionale)</h4>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label htmlFor="datasource-election-type" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Tipo Elezione</label>
+              <select
+                id="datasource-election-type"
+                value={(() => { try { return JSON.parse(formData.configJson).election_type || '' } catch { return '' } })()}
+                onChange={(e) => {
+                  const config = JSON.parse(formData.configJson || '{}')
+                  if (e.target.value) {
+                    config.election_type = e.target.value
+                  } else {
+                    delete config.election_type
+                  }
+                  setFormData({ ...formData, configJson: JSON.stringify(config, null, 2) })
+                }}
+                className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+              >
+                <option value="">Seleziona...</option>
+                <option value="politiche">Politiche</option>
+                <option value="europee">Europee</option>
+                <option value="regionali">Regionali</option>
+                <option value="comunali">Comunali</option>
+                <option value="provinciali">Provinciali</option>
+                <option value="referendum">Referendum</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="datasource-election-level" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Livello Territoriale</label>
+              <select
+                id="datasource-election-level"
+                value={(() => { try { return JSON.parse(formData.configJson).level || 'comune' } catch { return 'comune' } })()}
+                onChange={(e) => {
+                  const config = JSON.parse(formData.configJson || '{}')
+                  if (e.target.value) {
+                    config.level = e.target.value
+                  } else {
+                    delete config.level
+                  }
+                  setFormData({ ...formData, configJson: JSON.stringify(config, null, 2) })
+                }}
+                className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+              >
+                <option value="comune">Comune</option>
+                <option value="provincia">Provincia</option>
+                <option value="regione">Regione</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="datasource-election-year" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Anno</label>
+              <input
+                id="datasource-election-year"
+                type="number"
+                min={2000}
+                max={new Date().getFullYear()}
+                value={(() => { try { return JSON.parse(formData.configJson).year || '' } catch { return '' } })()}
+                onChange={(e) => {
+                  const config = JSON.parse(formData.configJson || '{}')
+                  if (e.target.value) {
+                    config.year = parseInt(e.target.value) || ''
+                  } else {
+                    delete config.year
+                  }
+                  setFormData({ ...formData, configJson: JSON.stringify(config, null, 2) })
+                }}
+                className="w-full p-3 bg-background rounded-lg border border-border text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                placeholder="es. 2024"
+              />
+            </div>
+          </div>
+        </div>
 
         <div>
           <label htmlFor="datasource-config" className="text-[10px] font-bold text-textDim uppercase tracking-widest mb-1 block">Configurazione Avanzata (JSON)</label>

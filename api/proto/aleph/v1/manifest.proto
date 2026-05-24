@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package aleph.v1;
+
+option go_package = "github.com/ff3300/aleph-v2/internal/api/proto/aleph/v1";
+
+service DiscoveryService {
+  rpc DiscoverDatabase(DiscoverDatabaseRequest) returns (DiscoverDatabaseResponse);
+  rpc GetManifest(GetManifestRequest) returns (GetManifestResponse);
+  rpc SaveManifest(SaveManifestRequest) returns (SaveManifestResponse);
+}
+
+message DiscoverDatabaseRequest {
+  string project_id = 1;
+  string db_path = 2;           // optional: override default DB path
+  string config_json = 3;        // optional: custom DomainConfig as JSON
+}
+
+message DiscoverDatabaseResponse {
+  string task_id = 1;            // for progress polling via existing GetProgress
+  string status = 2;             // "started"
+}
+
+message GetManifestRequest {
+  string project_id = 1;
+  string manifest_id = 2;
+}
+
+message GetManifestResponse {
+  Manifest manifest = 1;
+}
+
+message Manifest {
+  string id = 1;
+  string project_id = 2;
+  string created_at = 3;
+  repeated Entity entities = 4;
+  repeated Relation relations = 5;
+  repeated Metric metrics = 6;
+  GraphConfig graph = 7;
+}
+
+message SaveManifestRequest {
+  string project_id = 1;
+  Manifest manifest = 2;
+}
+
+message SaveManifestResponse {
+  Manifest manifest = 1;
+}
+
+message Entity {
+  string name = 1;
+  string table = 2;
+  string key_column = 3;
+  string label_column = 4;
+  repeated Property properties = 5;
+}
+
+message Property {
+  string name = 1;
+  string type = 2;
+  string column_class = 3;
+}
+
+message Relation {
+  string source = 1;
+  string target = 2;
+  string via_column = 3;
+  string via_table = 4;
+  string type = 5;
+  double confidence = 6;
+}
+
+message Metric {
+  string name = 1;
+  string source_table = 2;
+  repeated string dimensions = 3;
+  string measure = 4;
+  string temporal_key = 5;
+  string aggregation = 6;        // "SUM", "AVG", "COUNT", "MIN", "MAX"
+}
+
+message GraphConfig {
+  string name = 1;
+  repeated EntityRef entities = 2;
+  repeated Edge edges = 3;
+}
+
+message EntityRef {
+  string name = 1;
+  string key_column = 2;
+  string label_column = 3;
+}
+
+message Edge {
+  string source = 1;
+  string target = 2;
+  string type = 3;
+  string weight_column = 4;
+}

@@ -160,6 +160,23 @@ func (r *MetadataRepository) ListTasks(projectID string) ([]IngestionTaskRecord,
 	return tasks, nil
 }
 
+func (r *MetadataRepository) ListScheduledTasks() ([]IngestionTaskRecord, error) {
+	rows, err := r.db.Query("SELECT id, project_id, name, source_type, config_json, schedule, status, progress FROM system_tasks WHERE schedule != '' AND schedule IS NOT NULL")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var tasks []IngestionTaskRecord
+	for rows.Next() {
+		var t IngestionTaskRecord
+		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Name, &t.SourceType, &t.ConfigJSON, &t.Schedule, &t.Status, &t.Progress); err != nil {
+			continue
+		}
+		tasks = append(tasks, t)
+	}
+	return tasks, nil
+}
+
 func (r *MetadataRepository) CreateTask(t *IngestionTaskRecord) error {
 	_, err := r.db.Exec(
 		"INSERT INTO system_tasks (id, project_id, name, source_type, config_json, schedule, status, progress) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",

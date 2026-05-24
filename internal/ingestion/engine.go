@@ -6,14 +6,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"database/sql"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"go/parser"
 	"go/token"
 	"io"
 	"log"
+	"log/slog"
 	"mime"
 	"mime/multipart"
 	"mime/quotedprintable"
@@ -92,9 +95,12 @@ type Engine struct {
 	sitemapIngester *sources.SitemapIngester
 	jsonapiIngester *sources.JSONAPIIngester
 	sheetsIngester  *sources.SheetsIngester
+	scraperIngester *sources.ScrapeIngester
 
 	// Probe runner for auto-detection (lazy-init)
 	probeRunner *ProbeRunner
+
+	scheduler *Scheduler
 }
 
 // NLPAnalyzer abstracts sentiment analysis for ingestion enrichment.
@@ -109,16 +115,29 @@ var safeHTTPClient = ssrf.NewClient()
 func init() {
 	// safeHTTPClient is now created via ssrf.NewClient() which handles
 	// DNS-resolving SSRF protection at the connection level.
+
+	GlobalRegistry.Register(sources.ParlGovSourceType, func(sourceType string) Fetcher {
+		return sources.NewParlGovFetcher(sourceType)
+	})
+	GlobalRegistry.Register("polymarket", func(sourceType string) Fetcher {
+		return &sources.PolymarketFetcher{}
+	})
 }
 
 func NewEngine(projectsRoot string, metaRepo *repository.MetadataRepository, db *storage.DuckDB, nlp NLPAnalyzer) *Engine {
-	return &Engine{
+	e := &Engine{
 		projectsRoot: projectsRoot,
 		metaRepo:     metaRepo,
 		db:           db,
 		nlpHandler:   nlp,
 		tasks:        make(map[string]*v1.IngestionTask),
 	}
+	e.scheduler = NewScheduler(e, metaRepo)
+	return e
+}
+
+func (e *Engine) Scheduler() *Scheduler {
+	return e.scheduler
 }
 
 // client returns the Engine's injected httpClient, falling back to the
@@ -167,31 +186,57 @@ func (e *Engine) RunTask(ctx context.Context, projectID string, task *v1.Ingesti
 	fmt.Fprintf(f, "\n--- Task Start: %s at %s ---\n", task.Id, time.Now().Format(time.RFC3339))
 
 	var taskErr error
-	switch task.SourceType {
-	case "rss", "rest":
-		taskErr = e.runPrecompiled(taskCtx, f, projectID, task)
-	case "url":
-		taskErr = e.runURLFetch(taskCtx, f, projectID, task)
-	case "csv":
-		taskErr = e.runCSVLoad(taskCtx, f, projectID, task)
-	case "postgres":
-		taskErr = e.runPostgresLoad(taskCtx, f, projectID, task)
-	case "copy":
-		taskErr = e.runCopy(taskCtx, f, projectID, task)
-	case "email":
-		taskErr = e.runEmailFetch(taskCtx, f, projectID, task)
-	case "custom_code":
-		taskErr = e.runDynamic(taskCtx, f, projectID, task)
-	case "github":
-		taskErr = e.runGitHubSource(taskCtx, f, projectID, task)
-	case "sitemap":
-		taskErr = e.runSitemapSource(taskCtx, f, projectID, task)
-	case "jsonapi":
-		taskErr = e.runJSONAPISource(taskCtx, f, projectID, task)
-	case "sheets":
-		taskErr = e.runSheetsSource(taskCtx, f, projectID, task)
-	default:
-		taskErr = fmt.Errorf("unknown source type: %s", task.SourceType)
+
+	// Registry-based dispatch takes priority for new source types
+	fetcher, registryErr := GlobalRegistry.Create(task.SourceType)
+	if registryErr == nil {
+		if err := fetcher.Validate(); err != nil {
+			slog.Error("source validation failed", "source_type", task.SourceType, "error", err)
+			e.updateProgress(task.Id, 0, "failed")
+			return fmt.Errorf("source validation failed: %w", err)
+		}
+		slog.Info("registry source type validated but execution not yet implemented",
+			"source_type", task.SourceType)
+		switch task.SourceType {
+		case "election":
+			taskErr = fmt.Errorf("use cmd/ingest-elections CLI tool for election ingestion")
+		case "party_funding":
+			taskErr = fmt.Errorf("use cmd/ingest-funding CLI tool for party funding ingestion")
+		case "polymarket":
+			taskErr = e.runPolymarketSource(taskCtx, projectID)
+		default:
+			taskErr = fmt.Errorf("source type %s recognized but execution not yet implemented", task.SourceType)
+		}
+	} else {
+		// Legacy switch for backward compat
+		switch task.SourceType {
+		case "rss", "rest":
+			taskErr = e.runPrecompiled(taskCtx, f, projectID, task)
+		case "url":
+			taskErr = e.runURLFetch(taskCtx, f, projectID, task)
+		case "csv":
+			taskErr = e.runCSVLoad(taskCtx, f, projectID, task)
+		case "postgres":
+			taskErr = e.runPostgresLoad(taskCtx, f, projectID, task)
+		case "copy":
+			taskErr = e.runCopy(taskCtx, f, projectID, task)
+		case "email":
+			taskErr = e.runEmailFetch(taskCtx, f, projectID, task)
+		case "custom_code":
+			taskErr = e.runDynamic(taskCtx, f, projectID, task)
+		case "github":
+			taskErr = e.runGitHubSource(taskCtx, f, projectID, task)
+		case "sitemap":
+			taskErr = e.runSitemapSource(taskCtx, f, projectID, task)
+		case "jsonapi":
+			taskErr = e.runJSONAPISource(taskCtx, f, projectID, task)
+		case "sheets":
+			taskErr = e.runSheetsSource(taskCtx, f, projectID, task)
+		case "scrape":
+			taskErr = e.runScrapeSource(taskCtx, f, projectID, task)
+		default:
+			taskErr = fmt.Errorf("unknown source type: %s", task.SourceType)
+		}
 	}
 
 	if taskErr != nil {
@@ -379,7 +424,13 @@ func (e *Engine) enrichPredictiveMetadata(ctx context.Context, projectID, tableN
 
 func (e *Engine) Close() error {
 	log.Println("[Engine] Closing ingestion engine...")
+	shutdownCtx := e.scheduler.Stop()
 	e.wg.Wait()
+	select {
+	case <-shutdownCtx.Done():
+	case <-time.After(30 * time.Second):
+		log.Println("[Engine] Timed out waiting for scheduler jobs to finish")
+	}
 	return nil
 }
 
@@ -422,12 +473,19 @@ func (e *Engine) registerViews(ctx context.Context, projectID string) error {
 
 func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
 	var config struct {
-		URL   string `json:"url"`
-		Repo  string `json:"repo"`
-		Token string `json:"token"`
+		URL       string `json:"url"`
+		Repo      string `json:"repo"`
+		Token     string `json:"token"`
+		StartDate string `json:"start_date"`
+		EndDate   string `json:"end_date"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
 		return fmt.Errorf("invalid JSON config: %w", err)
+	}
+
+	dr, err := sources.ParseDateRangeFromConfig([]byte(task.ConfigJson))
+	if err != nil {
+		fmt.Fprintf(w, "Warning: date range config parse error (ignoring): %v\n", err)
 	}
 
 	urlToFetch := config.URL
@@ -475,6 +533,57 @@ func (e *Engine) runPrecompiled(ctx context.Context, w *os.File, projectID strin
 	contentType := resp.Header.Get("Content-Type")
 	projectPath := filepath.Join(e.projectsRoot, projectID)
 	os.MkdirAll(filepath.Join(projectPath, "raw"), 0755)
+
+	dateFilterActive := sourceDrIsActive(dr)
+	isRSSXML := isRSSXMLContentType(contentType) || isRSSXMLBody(bodyBytes)
+
+	if dateFilterActive && isRSSXML {
+		e.updateProgress(task.Id, 80, "running")
+		fmt.Fprintf(w, "RSS/Atom feed detected with date filter — filtering items by date range\n")
+
+		items, feedErr := parseRSSItems(bodyBytes)
+		if feedErr != nil {
+			fmt.Fprintf(w, "Warning: RSS parse error (falling back to raw storage): %v\n", feedErr)
+		} else {
+			var filtered []rssItem
+			var skipped int
+			for _, item := range items {
+				itemDate, dateErr := sources.ExtractItemDate(item.Attrs)
+				if dateErr != nil {
+					fmt.Fprintf(w, "Warning: unparseable date for item %q: %v\n", item.Title, dateErr)
+				}
+				if dr.IsInRange(itemDate) {
+					filtered = append(filtered, item)
+				} else {
+					skipped++
+				}
+			}
+			fmt.Fprintf(w, "Date filter: %d items in range, %d skipped\n", len(filtered), skipped)
+
+			for _, item := range filtered {
+				fmt.Fprintf(w, "  - %s (%s)\n", item.Title, item.Link)
+			}
+
+			jsonData, err := json.Marshal(filtered)
+			if err != nil {
+				return fmt.Errorf("filtered RSS JSON marshal: %w", err)
+			}
+			tmpFile := filepath.Join(projectPath, "raw", tableName+".json")
+			if err := os.WriteFile(tmpFile, jsonData, 0644); err != nil {
+				return fmt.Errorf("filtered RSS file write: %w", err)
+			}
+			if err := safeident.SanitizeFilePath(tmpFile); err != nil {
+				return fmt.Errorf("unsafe file path: %w", err)
+			}
+			createSQL := "CREATE OR REPLACE VIEW " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(tmpFile) + ")" // safe: tableName validated via safeident.ValidateStrictIdentifier; filePath via safeident.SanitizeFilePath
+			if _, err := e.db.Exec(ctx, createSQL); err != nil {
+				return fmt.Errorf("RSS filtered view creation failed: %w", err)
+			}
+			e.updateProgress(task.Id, 100, "completed")
+			fmt.Fprintf(w, "Completed: view \"%s\" created from filtered RSS feed %s\n", tableName, urlToFetch)
+			return nil
+		}
+	}
 
 	if strings.Contains(contentType, "json") || strings.Contains(contentType, "javascript") {
 		tmpFile := filepath.Join(projectPath, "raw", tableName+".json")
@@ -705,12 +814,19 @@ func (e *Engine) runCSVLoad(ctx context.Context, w *os.File, projectID string, t
 	var config struct {
 		Path      string `json:"path"`
 		TableName string `json:"tableName"`
+		DateColumn string `json:"date_column"`
+		DateFormat string `json:"date_format"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
 		return fmt.Errorf("invalid JSON config: %w", err)
 	}
 	if config.Path == "" {
 		return fmt.Errorf("empty file path in config")
+	}
+
+	dr, err := sources.ParseDateRangeFromConfig([]byte(task.ConfigJson))
+	if err != nil {
+		return fmt.Errorf("csv date range config: %w", err)
 	}
 
 	fmt.Fprintf(w, "Loading CSV/Parquet: %s\n", config.Path)
@@ -745,6 +861,58 @@ func (e *Engine) runCSVLoad(ctx context.Context, w *os.File, projectID string, t
 	data, err := os.ReadFile(config.Path)
 	if err != nil {
 		return fmt.Errorf("file read failed: %w", err)
+	}
+
+	hasDateFilter := dr.StartDate != nil || dr.EndDate != nil
+	if hasDateFilter && config.DateColumn != "" {
+		r := csv.NewReader(bytes.NewReader(data))
+		records, err := r.ReadAll()
+		if err != nil {
+			return fmt.Errorf("csv read for filtering: %w", err)
+		}
+		if len(records) < 2 {
+			if err := os.WriteFile(localPath, data, 0644); err != nil {
+				return fmt.Errorf("local file write failed: %w", err)
+			}
+		} else {
+			header := records[0]
+			colIdx := -1
+			for i, h := range header {
+				if strings.EqualFold(strings.TrimSpace(h), config.DateColumn) {
+					colIdx = i
+					break
+				}
+			}
+			var filtered [][]string
+			filtered = append(filtered, header)
+			kept, total := 0, 0
+			for _, row := range records[1:] {
+				total++
+				if colIdx >= 0 && colIdx < len(row) {
+					dt, _ := parseDateFromString(row[colIdx], config.DateFormat)
+					if !dr.IsInRange(dt) {
+						continue
+					}
+				}
+				filtered = append(filtered, row)
+				kept++
+			}
+			var buf bytes.Buffer
+			w2 := csv.NewWriter(&buf)
+			if err := w2.WriteAll(filtered); err != nil {
+				return fmt.Errorf("csv write filtered: %w", err)
+			}
+			w2.Flush()
+			if err := w2.Error(); err != nil {
+				return fmt.Errorf("csv flush filtered: %w", err)
+			}
+			data = buf.Bytes()
+			if total > 0 {
+				fmt.Fprintf(w, "Date filter: %d items passed, %d filtered out\n", kept, total-kept)
+			}
+		}
+	} else if hasDateFilter && config.DateColumn == "" {
+		fmt.Fprintf(w, "Date filter configured but no date_column set — filtering disabled\n")
 	}
 	if err := os.WriteFile(localPath, data, 0644); err != nil {
 		return fmt.Errorf("local file write failed: %w", err)
@@ -978,6 +1146,73 @@ func validateCode(code string) error {
 	return nil
 }
 
+// parseDateFromString tries multiple formats to parse a date string.
+// If format is non-empty, it is tried first (Go reference time layout).
+func parseDateFromString(s, format string) (*time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+	try := func(layout string) (time.Time, bool) {
+		t, err := time.Parse(layout, s)
+		if err == nil {
+			return t, true
+		}
+		return time.Time{}, false
+	}
+	if format != "" {
+		if t, ok := try(format); ok {
+			return &t, nil
+		}
+	}
+	formats := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02",
+		"2006-01-02T15:04:05",
+		time.RFC1123Z,
+		time.RFC1123,
+		time.RFC822Z,
+		time.RFC822,
+		"Mon, 02 Jan 2006 15:04:05 -0700",
+		"Mon, 02 Jan 2006 15:04:05 -0700 (MST)",
+		"Mon, 2 Jan 2006 15:04:05 -0700",
+		"Mon, 2 Jan 2006 15:04:05 -0700 (MST)",
+		"2 Jan 2006 15:04:05 -0700",
+		"02 Jan 2006 15:04:05 -0700",
+	}
+	for _, f := range formats {
+		if t, ok := try(f); ok {
+			return &t, nil
+		}
+	}
+	// Try Unix milliseconds
+	if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
+		t := time.UnixMilli(n).UTC()
+		return &t, nil
+	}
+	return nil, nil
+}
+
+// getDotPath extracts a nested value from a JSON map using dot notation (e.g. "commit.author.date").
+func getDotPath(m map[string]interface{}, path string) (interface{}, bool) {
+	parts := strings.Split(path, ".")
+	cur := interface{}(m)
+	for _, p := range parts {
+		switch v := cur.(type) {
+		case map[string]interface{}:
+			val, ok := v[p]
+			if !ok {
+				return nil, false
+			}
+			cur = val
+		default:
+			return nil, false
+		}
+	}
+	return cur, true
+}
+
 type emailConfig struct {
 	Host   string `json:"host"`
 	User   string `json:"user"`
@@ -1003,6 +1238,11 @@ func (e *Engine) runEmailFetch(ctx context.Context, w *os.File, projectID string
 	}
 	if config.Folder == "" {
 		config.Folder = "INBOX"
+	}
+
+	dr, err := sources.ParseDateRangeFromConfig([]byte(task.ConfigJson))
+	if err != nil {
+		return fmt.Errorf("email date range config: %w", err)
 	}
 
 	fmt.Fprintf(w, "Connecting to IMAP server: %s\n", config.Host)
@@ -1039,6 +1279,20 @@ mail.login(creds["username"], creds["password"])
 		return fmt.Errorf("IMAP fetch failed: %w", err)
 	}
 	fmt.Fprintf(w, "Fetched %d emails from %s\n", len(rows), config.Folder)
+
+	hasDateFilter := dr.StartDate != nil || dr.EndDate != nil
+	if hasDateFilter && len(rows) > 0 {
+		var filtered []emailRow
+		for _, row := range rows {
+			dt, _ := parseDateFromString(row.Date, "")
+			if !dr.IsInRange(dt) {
+				continue
+			}
+			filtered = append(filtered, row)
+		}
+		fmt.Fprintf(w, "Date filter: %d items passed, %d filtered out\n", len(filtered), len(rows)-len(filtered))
+		rows = filtered
+	}
 
 	if len(rows) == 0 {
 		fmt.Fprintf(w, "No emails found\n")
@@ -1407,6 +1661,16 @@ func (e *Engine) getOrCreateSheetsIngester(task *v1.IngestionTask) *sources.Shee
 	return e.sheetsIngester
 }
 
+func (e *Engine) getOrCreateScrapeIngester() *sources.ScrapeIngester {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.scraperIngester != nil {
+		return e.scraperIngester
+	}
+	e.scraperIngester = sources.NewScrapeIngester()
+	return e.scraperIngester
+}
+
 func (e *Engine) getOrCreateProbeRunner() *ProbeRunner {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -1434,6 +1698,11 @@ func (e *Engine) runGitHubSource(ctx context.Context, w *os.File, projectID stri
 		return fmt.Errorf("github config requires owner and repo")
 	}
 
+	dr, err := sources.ParseDateRangeFromConfig([]byte(task.ConfigJson))
+	if err != nil {
+		return fmt.Errorf("github date range config: %w", err)
+	}
+
 	fmt.Fprintf(w, "GitHub: fetching %s/%s\n", config.Owner, config.Repo)
 	e.updateProgress(task.Id, 10, "running")
 
@@ -1446,11 +1715,66 @@ func (e *Engine) runGitHubSource(ctx context.Context, w *os.File, projectID stri
 	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
 	os.MkdirAll(projectPath, 0755)
 
+	hasDateFilter := dr.StartDate != nil || dr.EndDate != nil
+
+	// date fields per kind: issues/prs have top-level created_at/updated_at,
+	// commits have commit.author.date / commit.committer.date (dot paths)
+	dateFieldsForKind := map[string][]string{
+		"issues":  {"created_at", "updated_at"},
+		"pulls":   {"created_at", "updated_at"},
+		"commits": {"commit.author.date", "commit.committer.date"},
+	}
+
 	for _, kind := range []string{"issues", "pulls", "commits"} {
 		data, ok := results[kind]
 		if !ok || len(data) == 0 {
 			fmt.Fprintf(w, "No data for %s\n", kind)
 			continue
+		}
+
+		if hasDateFilter {
+			var items []json.RawMessage
+			if err := json.Unmarshal(data, &items); err == nil {
+				var filtered []json.RawMessage
+				dateFields := dateFieldsForKind[kind]
+				for _, item := range items {
+					var m map[string]interface{}
+					if err := json.Unmarshal(item, &m); err != nil {
+						filtered = append(filtered, item)
+						continue
+					}
+					include := true
+					foundDate := false
+					for _, f := range dateFields {
+						raw, ok := getDotPath(m, f)
+						if !ok {
+							continue
+						}
+						s, _ := raw.(string)
+						if s == "" {
+							continue
+						}
+						dt, _ := parseDateFromString(s, time.RFC3339)
+						if dt != nil {
+							foundDate = true
+							include = dr.IsInRange(dt)
+						}
+						if !include {
+							break
+						}
+					}
+					if !foundDate || include {
+						filtered = append(filtered, item)
+					}
+				}
+				if len(items) > 0 {
+					fmt.Fprintf(w, "Date filter (%s): %d items passed, %d filtered out\n", kind, len(filtered), len(items)-len(filtered))
+				}
+				data, err = json.Marshal(filtered)
+				if err != nil {
+					return fmt.Errorf("marshal filtered %s: %w", kind, err)
+				}
+			}
 		}
 
 		tableName := task.Id + "_" + kind
@@ -1501,6 +1825,12 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 	fmt.Fprintf(w, "Sitemap: crawling %s\n", config.URL)
 	e.updateProgress(task.Id, 10, "running")
 
+	// Parse date range from config
+	dr, err := sources.ParseDateRangeFromConfig([]byte(task.ConfigJson))
+	if err != nil {
+		return fmt.Errorf("sitemap date range config: %w", err)
+	}
+
 	ingester := e.getOrCreateSitemapIngester()
 	crawlResult, err := ingester.CrawlSitemap(ctx, config.URL)
 	if err != nil {
@@ -1508,6 +1838,10 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 	}
 
 	fmt.Fprintf(w, "Found %d pages\n", len(crawlResult.URLs))
+
+	// Apply date filter
+	pages := sources.FilterPageResults(crawlResult.URLs, dr)
+	fmt.Fprintf(w, "%d pages after date filter\n", len(pages))
 
 	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
 	os.MkdirAll(projectPath, 0755)
@@ -1519,8 +1853,8 @@ func (e *Engine) runSitemapSource(ctx context.Context, w *os.File, projectID str
 		Content string `json:"content"`
 	}
 
-	rows := make([]pageRow, 0, len(crawlResult.URLs))
-	for _, p := range crawlResult.URLs {
+	rows := make([]pageRow, 0, len(pages))
+	for _, p := range pages {
 		contentStr := ""
 		if p.Content != nil {
 			contentStr = string(p.Content)
@@ -1579,12 +1913,19 @@ func (e *Engine) runJSONAPISource(ctx context.Context, w *os.File, projectID str
 		DataPath       string `json:"dataPath"`
 		MaxPages       int    `json:"maxPages"`
 		AutoDetect     bool   `json:"autoDetect"`
+		DateField      string `json:"date_field"`
+		DateFormat     string `json:"date_format"`
 	}
 	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
 		return fmt.Errorf("jsonapi config JSON invalid: %w", err)
 	}
 	if config.URL == "" {
 		return fmt.Errorf("jsonapi config requires url")
+	}
+
+	dr, err := sources.ParseDateRangeFromConfig([]byte(task.ConfigJson))
+	if err != nil {
+		return fmt.Errorf("jsonapi date range config: %w", err)
 	}
 
 	fmt.Fprintf(w, "JSON API: fetching %s\n", config.URL)
@@ -1652,6 +1993,47 @@ func (e *Engine) runJSONAPISource(ctx context.Context, w *os.File, projectID str
 	data, err := ingester.FetchAll(ctx, apiCfg)
 	if err != nil {
 		return fmt.Errorf("jsonapi fetch %s: %w", config.URL, err)
+	}
+
+	// Date range filtering
+	hasDateFilter := dr.StartDate != nil || dr.EndDate != nil
+	if hasDateFilter && config.DateField != "" {
+		var items []json.RawMessage
+		if err := json.Unmarshal(data, &items); err == nil {
+			var filtered []json.RawMessage
+			for _, item := range items {
+				var m map[string]interface{}
+				if err := json.Unmarshal(item, &m); err != nil {
+					filtered = append(filtered, item)
+					continue
+				}
+				raw, ok := getDotPath(m, config.DateField)
+				if !ok {
+					filtered = append(filtered, item)
+					continue
+				}
+				s, ok := raw.(string)
+				if !ok {
+					if n, ok := raw.(float64); ok {
+						s = strconv.FormatInt(int64(n), 10)
+					}
+				}
+				dt, _ := parseDateFromString(s, config.DateFormat)
+				if !dr.IsInRange(dt) {
+					continue
+				}
+				filtered = append(filtered, item)
+			}
+			if len(items) > 0 {
+				fmt.Fprintf(w, "Date filter: %d items passed, %d filtered out\n", len(filtered), len(items)-len(filtered))
+			}
+			data, err = json.Marshal(filtered)
+			if err != nil {
+				return fmt.Errorf("jsonapi marshal filtered: %w", err)
+			}
+		}
+	} else if hasDateFilter && config.DateField == "" {
+		fmt.Fprintf(w, "Date filter configured but no date_field set — filtering disabled\n")
 	}
 
 	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
@@ -1749,3 +2131,232 @@ func containsColon(s string) bool {
 	}
 	return false
 }
+
+// =============================================================================
+// Scrape source ingestion
+// =============================================================================
+
+func (e *Engine) runPolymarketSource(ctx context.Context, projectID string) error {
+	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
+	if err := os.MkdirAll(projectPath, 0755); err != nil {
+		return fmt.Errorf("create raw dir: %w", err)
+	}
+	return sources.RunPolymarket(ctx, e.db.DB(), projectPath)
+}
+
+func (e *Engine) runScrapeSource(ctx context.Context, w *os.File, projectID string, task *v1.IngestionTask) error {
+	var config sources.ScrapeConfig
+	if err := json.Unmarshal([]byte(task.ConfigJson), &config); err != nil {
+		return fmt.Errorf("scrape config JSON invalid: %w", err)
+	}
+	if config.URL == "" {
+		return fmt.Errorf("scrape config requires url")
+	}
+	if config.ArticleSelector == "" {
+		return fmt.Errorf("scrape config requires article_selector")
+	}
+	if config.TitleSelector == "" {
+		return fmt.Errorf("scrape config requires title_selector")
+	}
+
+	dr, err := sources.ParseDateRangeFromConfig([]byte(task.ConfigJson))
+	if err != nil {
+		return fmt.Errorf("scrape date range config: %w", err)
+	}
+
+	fmt.Fprintf(w, "Scrape: extracting from %s\n", config.URL)
+	e.updateProgress(task.Id, 10, "running")
+
+	ingester := e.getOrCreateScrapeIngester()
+	results, err := ingester.Scrape(ctx, &config)
+	if err != nil {
+		return fmt.Errorf("scrape %s: %w", config.URL, err)
+	}
+
+	fmt.Fprintf(w, "Found %d articles\n", len(results))
+
+	hasDateFilter := dr.StartDate != nil || dr.EndDate != nil
+	if hasDateFilter && config.DateSelector != "" {
+		var filtered []sources.ScrapeResult
+		for _, r := range results {
+			dt, _ := parseDateFromString(r.Date, config.DateFormat)
+			if !dr.IsInRange(dt) {
+				continue
+			}
+			filtered = append(filtered, r)
+		}
+		fmt.Fprintf(w, "Date filter: %d items passed, %d filtered out\n", len(filtered), len(results)-len(filtered))
+		results = filtered
+	} else if hasDateFilter && config.DateSelector == "" {
+		fmt.Fprintf(w, "Date filter configured but no date_selector set — filtering disabled\n")
+	}
+
+	tableName, err := resolveTableName(task)
+	if err != nil {
+		return fmt.Errorf("scrape resolveTableName: %w", err)
+	}
+
+	jsonData, err := json.Marshal(results)
+	if err != nil {
+		return fmt.Errorf("scrape marshal results: %w", err)
+	}
+
+	projectPath := filepath.Join(e.projectsRoot, projectID, "raw")
+	os.MkdirAll(projectPath, 0755)
+
+	jsonPath := filepath.Join(projectPath, tableName+".json")
+	if err := safeident.SanitizeFilePath(jsonPath); err != nil {
+		return fmt.Errorf("unsafe scrape JSON path: %w", err)
+	}
+	if err := os.WriteFile(jsonPath, jsonData, 0644); err != nil {
+		return fmt.Errorf("scrape JSON write failed: %w", err)
+	}
+
+	createSQL := "CREATE TABLE IF NOT EXISTS " + safeident.QuoteIdentifier(tableName) + " AS SELECT * FROM read_json_auto(" + safeident.QuoteStringLiteral(jsonPath) + ", ignore_errors=true)" // safe: tableName validated via resolveTableName -> stripAndValidateName -> safeident.ValidateIdentifier; filePath via safeident.SanitizeFilePath
+	if _, err := e.db.Exec(ctx, createSQL); err != nil {
+		return fmt.Errorf("scrape table creation failed: %w", err)
+	}
+
+	e.updateProgress(task.Id, 100, "completed")
+	fmt.Fprintf(w, "Scrape ingestion complete. Table \"%s\" (%d articles)\n", tableName, len(results))
+	return nil
+}
+
+// =============================================================================
+// RSS/Atom date filtering helpers
+// =============================================================================
+
+type rssItem struct {
+	Title string            `json:"title"`
+	Link  string            `json:"link"`
+	Attrs map[string]string `json:"attrs"`
+}
+
+type rssChannel struct {
+	XMLName xml.Name   `xml:"rss"`
+	Channel rssCh      `xml:"channel"`
+	Items   []rssItemRaw `xml:"-"`
+}
+
+type rssCh struct {
+	Items []rssItemRaw `xml:"item"`
+}
+
+type rssItemRaw struct {
+	Title       string `xml:"title"`
+	Link        string `xml:"link"`
+	PubDate     string `xml:"pubDate"`
+	Description string `xml:"description"`
+}
+
+type atomFeed struct {
+	XMLName xml.Name    `xml:"feed"`
+	Entries []atomEntry `xml:"entry"`
+}
+
+type atomEntry struct {
+	Title     string `xml:"title"`
+	Link      atomLink `xml:"link"`
+	Updated   string `xml:"updated"`
+	Published string `xml:"published"`
+}
+
+type atomLink struct {
+	Href string `xml:"href,attr"`
+}
+
+// sourceDrIsActive returns true if the DateRangeConfig has any filter bounds.
+func sourceDrIsActive(dr sources.DateRangeConfig) bool {
+	return dr.StartDate != nil || dr.EndDate != nil
+}
+
+// isRSSXMLContentType checks if a content-type header indicates RSS/Atom XML.
+func isRSSXMLContentType(ct string) bool {
+	ct = strings.ToLower(ct)
+	return strings.Contains(ct, "rss") ||
+		strings.Contains(ct, "atom") ||
+		strings.Contains(ct, "xml")
+}
+
+// isRSSXMLBody checks if the body starts with an RSS or Atom XML root element.
+func isRSSXMLBody(body []byte) bool {
+	trimmed := strings.TrimLeft(string(body), " \t\r\n\x00")
+	return strings.HasPrefix(trimmed, "<?xml") ||
+		strings.HasPrefix(trimmed, "<rss") ||
+		strings.HasPrefix(trimmed, "<feed")
+}
+
+// parseRSSItems parses RSS 2.0 or Atom feed bytes returning a flat list of items.
+func parseRSSItems(body []byte) ([]rssItem, error) {
+	trimmed := strings.TrimLeft(string(body), " \t\r\n\x00")
+
+	if strings.HasPrefix(trimmed, "<rss") {
+		var ch rssCh
+		decoder := xml.NewDecoder(strings.NewReader(string(body)))
+		inChannel := false
+		for {
+			token, err := decoder.Token()
+			if err != nil {
+				break
+			}
+			switch tok := token.(type) {
+			case xml.StartElement:
+				if tok.Name.Local == "channel" {
+					inChannel = true
+				}
+				if inChannel && tok.Name.Local == "item" {
+					var raw rssItemRaw
+					if err := decoder.DecodeElement(&raw, &tok); err != nil {
+						continue
+					}
+					ch.Items = append(ch.Items, raw)
+				}
+			}
+		}
+		items := make([]rssItem, 0, len(ch.Items))
+		for _, raw := range ch.Items {
+			attrs := make(map[string]string)
+			if raw.PubDate != "" {
+				attrs["pubDate"] = raw.PubDate
+			}
+			items = append(items, rssItem{
+				Title: raw.Title,
+				Link:  raw.Link,
+				Attrs: attrs,
+			})
+		}
+		return items, nil
+	}
+
+	if strings.HasPrefix(trimmed, "<feed") || strings.HasPrefix(trimmed, "<?xml") {
+		var feed atomFeed
+		if err := xml.Unmarshal(body, &feed); err != nil {
+			return nil, fmt.Errorf("atom feed parse: %w", err)
+		}
+		items := make([]rssItem, 0, len(feed.Entries))
+		for _, entry := range feed.Entries {
+			attrs := make(map[string]string)
+			if entry.Updated != "" {
+				attrs["updated"] = entry.Updated
+			}
+			if entry.Published != "" {
+				attrs["published"] = entry.Published
+			}
+			items = append(items, rssItem{
+				Title: entry.Title,
+				Link:  entry.Link.Href,
+				Attrs: attrs,
+			})
+		}
+		return items, nil
+	}
+
+	return nil, fmt.Errorf("unrecognized XML root — not RSS or Atom")
+}
+
+func RunMigrations(db *sql.DB) error {
+	mm := NewMigrationManager(db)
+	mm.Register(Migration{Version: 1, Name: "create_watermark_table", Up: "CREATE TABLE IF NOT EXISTS ingestion_watermark (source_name TEXT PRIMARY KEY, last_run TIMESTAMP, cursor TEXT, metadata TEXT)"})
+	return mm.Up()
+}
+

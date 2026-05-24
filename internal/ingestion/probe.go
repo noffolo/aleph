@@ -57,7 +57,7 @@ func (s *SourceProbeResult) Validate() error {
 		return fmt.Errorf("probe result: URL must be non-empty")
 	}
 	switch s.SrcType {
-	case "rest", "rss", "github", "sitemap", "generic_json", "web":
+	case "rest", "rss", "github", "sitemap", "generic_json", "web", "scrape":
 		// valid
 	default:
 		return fmt.Errorf("probe result: unknown source type %q", s.SrcType)

@@ -137,7 +137,7 @@ message ListTasksResponse { repeated IngestionTask tasks = 1; }
 message IngestionTask { string id = 1; string name = 2; string source_type = 3; string config_json = 4; string schedule = 5; string status = 6; int32 progress = 7; }
 message CreateTaskRequest { string project_id = 1; IngestionTask task = 2; }
 message CreateTaskResponse { IngestionTask task = 1; }
-message RunTaskRequest { string project_id = 1; string task_id = 2; }
+message RunTaskRequest { string project_id = 1; string task_id = 2; optional string config_overrides = 3; }
 message RunTaskResponse { string status = 1; }
 message GetTaskLogsRequest { string project_id = 1; string task_id = 2; }
 message GetTaskLogsResponse { string logs = 1; }

@@ -1,0 +1,395 @@
+feeds:
+  # ── AGENZIE ──────────────────────────────────────
+  - name: "ANSA Top News"
+    url: "https://www.ansa.it/sito/notizie/topnews/topnews_rss.xml"
+    category: "generale"
+
+  - name: "ANSA Politica"
+    url: "https://www.ansa.it/sito/notizie/politica/politica_rss.xml"
+    category: "politica"
+
+  - name: "ANSA Cronaca"
+    url: "https://www.ansa.it/sito/notizie/cronaca/cronaca_rss.xml"
+    category: "cronaca"
+
+  - name: "ANSA Mondo"
+    url: "https://www.ansa.it/sito/notizie/mondo/mondo_rss.xml"
+    category: "esteri"
+
+  - name: "ANSA Economia"
+    url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml"
+    category: "economia"
+
+  - name: "ANSA Cultura"
+    url: "https://www.ansa.it/sito/notizie/cultura/cultura_rss.xml"
+    category: "cultura"
+
+  - name: "ANSA Abruzzo"
+    url: "https://www.ansa.it/abruzzo/notizie/abruzzo_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Basilicata"
+    url: "https://www.ansa.it/basilicata/notizie/basilicata_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Calabria"
+    url: "https://www.ansa.it/calabria/notizie/calabria_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Campania"
+    url: "https://www.ansa.it/campania/notizie/campania_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Emilia Romagna"
+    url: "https://www.ansa.it/emiliaromagna/notizie/emiliaromagna_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Friuli Venezia Giulia"
+    url: "https://www.ansa.it/friuliveneziagiulia/notizie/friuliveneziagiulia_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Lazio"
+    url: "https://www.ansa.it/lazio/notizie/lazio_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Liguria"
+    url: "https://www.ansa.it/liguria/notizie/liguria_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Lombardia"
+    url: "https://www.ansa.it/lombardia/notizie/lombardia_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Marche"
+    url: "https://www.ansa.it/marche/notizie/marche_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Molise"
+    url: "https://www.ansa.it/molise/notizie/molise_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Piemonte"
+    url: "https://www.ansa.it/piemonte/notizie/piemonte_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Puglia"
+    url: "https://www.ansa.it/puglia/notizie/puglia_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Sardegna"
+    url: "https://www.ansa.it/sardegna/notizie/sardegna_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Sicilia"
+    url: "https://www.ansa.it/sicilia/notizie/sicilia_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Toscana"
+    url: "https://www.ansa.it/toscana/notizie/toscana_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Trentino"
+    url: "https://www.ansa.it/trentino/notizie/trentino_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Umbria"
+    url: "https://www.ansa.it/umbria/notizie/umbria_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Valle d'Aosta"
+    url: "https://www.ansa.it/valledaosta/notizie/valledaosta_rss.xml"
+    category: "regionale"
+
+  - name: "ANSA Veneto"
+    url: "https://www.ansa.it/veneto/notizie/veneto_rss.xml"
+    category: "regionale"
+
+  # ── NAZIONALI ────────────────────────────────────
+  - name: "Corriere della Sera Home"
+    url: "https://xml2.corriereobjects.it/rss/homepage.xml"
+    category: "generale"
+
+  - name: "Corriere della Sera Politica"
+    url: "https://www.corriere.it/dynamic-feed/rss/politica.xml"
+    category: "politica"
+
+  - name: "Corriere della Sera Cronache"
+    url: "https://www.corriere.it/dynamic-feed/rss/cronache.xml"
+    category: "cronaca"
+
+  - name: "Corriere della Sera Esteri"
+    url: "https://www.corriere.it/dynamic-feed/rss/esteri.xml"
+    category: "esteri"
+
+  - name: "Corriere della Sera Economia"
+    url: "https://www.corriere.it/dynamic-feed/rss/economia.xml"
+    category: "economia"
+
+  - name: "La Repubblica Home"
+    url: "https://www.repubblica.it/rss/homepage/rss2.0.xml"
+    category: "generale"
+
+  - name: "La Repubblica Politica"
+    url: "https://www.repubblica.it/rss/politica/rss2.0.xml"
+    category: "politica"
+
+  - name: "La Repubblica Cronaca"
+    url: "https://www.repubblica.it/rss/cronaca/rss2.0.xml"
+    category: "cronaca"
+
+  - name: "La Repubblica Economia"
+    url: "https://www.repubblica.it/rss/economia/rss2.0.xml"
+    category: "economia"
+
+  - name: "La Repubblica Esteri"
+    url: "https://www.repubblica.it/rss/esteri/rss2.0.xml"
+    category: "esteri"
+
+  - name: "Il Sole 24 Ore Italia"
+    url: "https://www.ilsole24ore.com/rss/italia.xml"
+    category: "economia"
+
+  - name: "Il Sole 24 Ore Mondo"
+    url: "https://www.ilsole24ore.com/rss/mondo.xml"
+    category: "economia"
+
+  - name: "Il Sole 24 Ore Economia"
+    url: "https://www.ilsole24ore.com/rss/economia.xml"
+    category: "economia"
+
+  - name: "Il Sole 24 Ore Finanza"
+    url: "https://www.ilsole24ore.com/rss/finanza.xml"
+    category: "economia"
+
+  - name: "Il Sole 24 Ore Commenti"
+    url: "https://www.ilsole24ore.com/rss/commenti.xml"
+    category: "economia"
+
+  - name: "Il Sole 24 Ore Tecnologia"
+    url: "https://www.ilsole24ore.com/rss/tecnologia.xml"
+    category: "tecnologia"
+
+  - name: "Il Sole 24 Ore Cultura"
+    url: "https://www.ilsole24ore.com/rss/cultura.xml"
+    category: "cultura"
+
+  - name: "Il Fatto Quotidiano Home"
+    url: "https://www.ilfattoquotidiano.it/feed/"
+    category: "generale"
+
+  - name: "Il Fatto Quotidiano Politica"
+    url: "https://www.ilfattoquotidiano.it/politica/feed/"
+    category: "politica"
+
+  - name: "Il Fatto Quotidiano Economia"
+    url: "https://www.ilfattoquotidiano.it/economia/feed/"
+    category: "economia"
+
+  - name: "Il Fatto Quotidiano Mondo"
+    url: "https://www.ilfattoquotidiano.it/mondo/feed/"
+    category: "esteri"
+
+  - name: "La Stampa"
+    url: "https://www.lastampa.it/rss"
+    category: "generale"
+
+  - name: "Il Foglio Ultime"
+    url: "https://naxos.ilfoglio.it/api/v5/rss/stories/latest"
+    category: "politica"
+
+  - name: "Il Foglio Home"
+    url: "https://naxos.ilfoglio.it/api/v5/rss/stories/page/home"
+    category: "politica"
+
+  - name: "Il Foglio Politica"
+    url: "https://naxos.ilfoglio.it/api/v5/rss/stories/politica"
+    category: "politica"
+
+  - name: "Il Foglio Cronaca"
+    url: "https://naxos.ilfoglio.it/api/v5/rss/stories/cronaca"
+    category: "cronaca"
+
+  - name: "Il Foglio Economia"
+    url: "https://naxos.ilfoglio.it/api/v5/rss/stories/economia"
+    category: "economia"
+
+  - name: "Il Foglio Esteri"
+    url: "https://naxos.ilfoglio.it/api/v5/rss/stories/esteri"
+    category: "esteri"
+
+  - name: "Il Foglio Cultura"
+    url: "https://naxos.ilfoglio.it/api/v5/rss/stories/cultura"
+    category: "cultura"
+
+  - name: "Il Messaggero"
+    url: "https://www.ilmessaggero.it/rss/home.xml"
+    category: "generale"
+
+  - name: "Il Tempo"
+    url: "https://www.iltempo.it/rss.jsp?sezione=108"
+    category: "generale"
+
+  - name: "Avvenire"
+    url: "https://rss.draghetti.it/avvenire.xml"
+    category: "generale"
+
+  - name: "Il Manifesto"
+    url: "https://ilmanifesto.it/feed/"
+    category: "politica"
+
+  - name: "Libero Quotidiano"
+    url: "https://www.liberoquotidiano.it/rss.xml"
+    category: "generale"
+
+  - name: "Il Giornale"
+    url: "https://www.ilgiornale.it/rss"
+    category: "generale"
+
+  # ── POLITICA / ANALISI ───────────────────────────
+  - name: "Il Post"
+    url: "https://rss.draghetti.it/ilpost.xml"
+    category: "politica"
+
+  - name: "HuffPost Italia"
+    url: "https://www.huffingtonpost.it/feed/"
+    category: "politica"
+
+  - name: "Fanpage"
+    url: "https://www.fanpage.it/feed/"
+    category: "generale"
+
+  - name: "Fanpage Politica"
+    url: "https://www.fanpage.it/politica/feed/"
+    category: "politica"
+
+  - name: "Open"
+    url: "https://www.open.online/feed/"
+    category: "politica"
+
+  - name: "Linkiesta"
+    url: "https://www.linkiesta.it/feed/"
+    category: "politica"
+
+  - name: "Formiche"
+    url: "https://formiche.net/feed/"
+    category: "politica"
+
+  - name: "YouTrend"
+    url: "https://www.youtrend.it/feed/"
+    category: "politica"
+
+  - name: "Termometro Politico"
+    url: "https://www.termometropolitico.it/feed/"
+    category: "politica"
+
+  - name: "Affaritaliani"
+    url: "https://www.affaritaliani.it/rss"
+    category: "politica"
+
+  - name: "LaVoce.info"
+    url: "https://www.lavoce.info/feed/"
+    category: "politica"
+
+  - name: "Pagella Politica"
+    url: "https://pagellapolitica.it/feed/"
+    category: "politica"
+
+  - name: "Valigia Blu"
+    url: "https://www.valigiablu.it/feed/"
+    category: "approfondimento"
+
+  - name: "Start Magazine"
+    url: "https://www.startmag.it/feed/"
+    category: "economia"
+
+  - name: "InsideOver"
+    url: "https://it.insideover.com/feed/"
+    category: "esteri"
+
+  - name: "ISPI"
+    url: "https://www.ispionline.it/it/rss"
+    category: "esteri"
+
+  - name: "Giornalettismo"
+    url: "https://www.giornalettismo.com/feed/"
+    category: "generale"
+
+  - name: "Politico Europe Italy"
+    url: "https://www.politico.eu/feed/"
+    category: "esteri"
+
+  - name: "BiDiMedia Sondaggi"
+    url: "https://www.sondaggibidimedia.com/feed/"
+    category: "sondaggi"
+
+  # ── MAGAZINE ─────────────────────────────────────
+  - name: "Internazionale"
+    url: "https://www.internazionale.it/feed/"
+    category: "approfondimento"
+
+  - name: "Panorama"
+    url: "https://www.panorama.it/feed/"
+    category: "approfondimento"
+
+  - name: "Forbes Italia"
+    url: "https://forbes.it/feed/"
+    category: "economia"
+
+  # ── TV NEWS ──────────────────────────────────────
+  - name: "TGcom24"
+    url: "https://www.tgcom24.mediaset.it/rss"
+    category: "generale"
+
+  - name: "Rai News"
+    url: "https://www.rainews.it/rss.xml"
+    category: "generale"
+
+  # ── REGIONALI ────────────────────────────────────
+  - name: "Il Gazzettino"
+    url: "https://www.ilgazzettino.it/rss"
+    category: "regionale"
+
+  - name: "Il Piccolo Trieste"
+    url: "https://ilpiccolo.gelocal.it/rss/home"
+    category: "regionale"
+
+  - name: "Il Secolo XIX"
+    url: "https://www.ilsecoloxix.it/rss"
+    category: "regionale"
+
+  - name: "Alto Adige"
+    url: "https://www.altoadige.it/feed-rss"
+    category: "regionale"
+
+  - name: "La Nuova Sardegna"
+    url: "https://www.lanuovasardegna.it/rss/home"
+    category: "regionale"
+
+  - name: "Giornale di Sicilia"
+    url: "https://feedpress.me/gds_hp_sicilia"
+    category: "regionale"
+
+  - name: "La Sicilia"
+    url: "https://www.lasicilia.it/rss.jsp"
+    category: "regionale"
+
+  - name: "Il Centro"
+    url: "https://www.ilcentro.it/rss/home"
+    category: "regionale"
+
+  # ── GOVERNATIVI / ISTITUZIONALI ──────────────────
+  - name: "Governo Italiano"
+    url: "https://www.governo.it/it/rss.xml"
+    category: "istituzioni"
+
+  # ── SCRAPE (siti senza RSS nativo) ───────────────
+  - name: "DAGOSPIA"
+    url: "https://www.dagospia.com/"
+    category: "politica"
+    source: "scrape"
+    config:
+      article_selector: "article, .article-item, .news-item, div[class*=\"article\"]"
+      title_selector: "h2, h3, .title, a"
+      link_selector: "a"
+      date_selector: "time, .date, .data"
+      max_articles: 30

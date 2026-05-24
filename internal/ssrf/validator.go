@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,7 +35,7 @@ import (
 // Use this everywhere you would use a plain &http.Client{}.
 func NewClient() *http.Client {
 	return &http.Client{
-		Timeout: 60 * time.Second,
+		Timeout: 300 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
@@ -116,6 +117,9 @@ func dialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 			return nil, fmt.Errorf("SSRF check failed: %w", err)
 		}
 		if private {
+			if os.Getenv("ALLOW_LOCALHOST_SSRF") == "true" && ip.IP.IsLoopback() {
+				continue
+			}
 			return nil, fmt.Errorf("SSRF blocked: private IP %s is not permitted", ip.IP)
 		}
 	}
@@ -127,7 +131,10 @@ func dialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 func validateHost(host string) error {
 	lowerHost := strings.ToLower(host)
 	if lowerHost == "localhost" || lowerHost == "127.0.0.1" || lowerHost == "::1" {
-		return fmt.Errorf("localhost addresses are not permitted")
+		if os.Getenv("ALLOW_LOCALHOST_SSRF") != "true" {
+			return fmt.Errorf("localhost addresses are not permitted")
+		}
+		return nil
 	}
 	if strings.HasSuffix(lowerHost, ".local") || strings.HasSuffix(lowerHost, ".internal") {
 		return fmt.Errorf("internal DNS names are not permitted")

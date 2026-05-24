@@ -59,11 +59,12 @@ type CrawlResult struct {
 
 // PageResult holds the outcome of fetching a single page.
 type PageResult struct {
-	URL     string
-	Content []byte
-	Size    int64
-	Status  int
-	Err     error
+	URL        string
+	Content    []byte
+	Size       int64
+	Status     int
+	Err        error
+	ParsedDate *time.Time
 }
 
 // =============================================================================
@@ -101,6 +102,7 @@ func (s *SitemapIngester) CrawlSitemap(ctx context.Context, sitemapURL string) (
 	}
 
 	var urls []string
+	var urlModMap map[string]string
 
 	switch strings.ToLower(rootName) {
 	case "sitemapindex":
@@ -133,10 +135,14 @@ func (s *SitemapIngester) CrawlSitemap(ctx context.Context, sitemapURL string) (
 		if err := xml.Unmarshal(body, &set); err != nil {
 			return nil, fmt.Errorf("unmarshal urlset %s: %w", sitemapURL, err)
 		}
+		urlModMap = make(map[string]string, len(set.URLs))
 		for _, entry := range set.URLs {
 			u := strings.TrimSpace(entry.Loc)
 			if u != "" {
 				urls = append(urls, u)
+				if entry.LastMod != "" {
+					urlModMap[u] = entry.LastMod
+				}
 			}
 		}
 
@@ -151,10 +157,61 @@ func (s *SitemapIngester) CrawlSitemap(ctx context.Context, sitemapURL string) (
 			// Partial failures are recorded per-PageResult; only context errors propagate here
 			return nil, err
 		}
+
+		// Populate ParsedDate from sitemap <lastmod> entries
+		for i, p := range pageResults {
+			if lastMod, ok := urlModMap[p.URL]; ok && lastMod != "" {
+				parsed, err := parseSitemapDate(lastMod)
+				if err == nil {
+					pageResults[i].ParsedDate = &parsed
+				}
+			}
+		}
+
 		result.URLs = append(result.URLs, pageResults...)
 	}
 
 	return result, nil
+}
+
+// =============================================================================
+// Date filtering
+// =============================================================================
+
+// FilterPageResults filters pages by date range, keeping pages where:
+// - date is within range, OR
+// - date is nil (not extractable — include anyway)
+// - no date range is configured (keep all)
+func FilterPageResults(pages []PageResult, dr DateRangeConfig) []PageResult {
+	if dr.StartDate == nil && dr.EndDate == nil {
+		return pages
+	}
+	filtered := make([]PageResult, 0, len(pages))
+	for _, p := range pages {
+		if dr.IsInRange(p.ParsedDate) {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
+}
+
+// parseSitemapDate parses a W3C Datetime format string commonly found in
+// sitemap <lastmod> elements. Supports ISO 8601 with/without timezone and
+// date-only formats.
+func parseSitemapDate(s string) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	formats := []string{
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05",
+		"2006-01-02",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t.UTC(), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unrecognised sitemap date: %q", s)
 }
 
 // =============================================================================
