@@ -33,6 +33,7 @@ import (
 	"github.com/ff3300/aleph-v2/internal/diagnostic"
 	"github.com/ff3300/aleph-v2/internal/health"
 	"github.com/ff3300/aleph-v2/internal/ingestion"
+	"github.com/ff3300/aleph-v2/internal/ingestion/manifest"
 	"github.com/ff3300/aleph-v2/internal/llm"
 	"github.com/ff3300/aleph-v2/internal/mcp"
 	"github.com/ff3300/aleph-v2/internal/memory"
@@ -281,6 +282,7 @@ func (a *AlephApp) Serve(port int) error {
 	authHandler := handler.NewAuthHandler(a.metaRepo)
 	sessionHandler := handler.NewSessionHandler(a.metaRepo, a.cfg.JWTSecret).WithRevocationStore(authInterceptor.RevocationStore())
 	ingestionHandler := handler.NewIngestionHandler(projectsRoot, a.eng, a.metaRepo)
+	discoveryHandler := handler.NewDiscoveryHandler(a.db, projectsRoot)
 	ingestionHealthHandler := ingestion.NewHealthHandler(a.db.DB())
 	sandboxManager := sandbox.NewContainerSandbox(a.logger, nil, a.metaRepo, sandbox.DefaultContainerConfig(), nil)
 	sandboxHandler := handler.NewSandboxServiceHandler(sandboxManager, a.logger)
@@ -370,6 +372,11 @@ func (a *AlephApp) Serve(port int) error {
 		go a.setupDemoData(projectsRoot)
 	}
 
+	// ── Manifest Engine Sidecar (auto-discovery, ogni 24h) ───────────────
+	if a.db != nil {
+		go a.manifestSidecar(projectsRoot)
+	}
+
 	// ── Routes ───────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 	routes.RegisterRoutes(mux, routes.RegisterConfig{
@@ -391,6 +398,7 @@ func (a *AlephApp) Serve(port int) error {
 		AuthHandler:         authHandler,
 		SessionHandler:      sessionHandler,
 		IngestionHandler:    ingestionHandler,
+		DiscoveryHandler:    discoveryHandler,
 		SandboxHandler:      sandboxHandler,
 		RegistryHandler:     registryHandler,
 		ToolExecHandler:     toolExecHandler,
@@ -749,4 +757,84 @@ func (a *AlephApp) checkSidecarOnce(
 	}
 
 	return true
+}
+
+func (a *AlephApp) manifestSidecar(projectsRoot string) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("manifestSidecar panicked, restarting", "recover", r)
+			time.Sleep(60 * time.Second)
+			go a.manifestSidecar(projectsRoot)
+		}
+	}()
+
+	time.Sleep(5 * time.Minute)
+
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+
+	runDiscovery := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		cfg := manifest.DefaultDomainConfig()
+		scanner := manifest.NewScanner(cfg)
+		classifier := manifest.NewClassifier(cfg)
+		inferrer := manifest.NewEntityInferrer(cfg)
+		discoverer := manifest.NewRelationDiscoverer(cfg)
+		suggester := manifest.NewMetricSuggester(cfg)
+		builder := manifest.NewGraphManifestBuilder()
+
+		engine := manifest.NewManifestEngine(scanner, classifier, inferrer, discoverer, suggester, builder)
+
+		result, err := engine.Discover(ctx, a.db)
+		if err != nil {
+			slog.Error("manifest sidecar: discovery failed", "error", err)
+			return
+		}
+
+		slog.Info("manifest sidecar: discovery complete",
+			"entities", len(result.Entities),
+			"relations", len(result.Relations),
+			"metrics", len(result.Metrics),
+		)
+
+		// Save manifest to disk
+		dir := filepath.Join(projectsRoot, "_system", "manifests")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			slog.Error("manifest sidecar: cannot create dir", "dir", dir, "error", err)
+			return
+		}
+		path := filepath.Join(dir, "latest.json")
+		f, err := os.Create(path)
+		if err != nil {
+			slog.Error("manifest sidecar: cannot create file", "path", path, "error", err)
+			return
+		}
+		enc := json.NewEncoder(f)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(result.Graph); err != nil {
+			f.Close()
+			slog.Error("manifest sidecar: json encode failed", "error", err)
+			return
+		}
+		f.Close()
+		slog.Info("manifest sidecar: saved manifest", "path", path)
+		if err := ingestion.RegisterCrossReferenceViews(a.db.DB()); err != nil {
+			slog.Warn("manifest sidecar: cross-ref views failed", "error", err)
+		}
+	}
+
+	// Run immediately on start
+	runDiscovery()
+
+	for {
+		select {
+		case <-a.ctx.Done():
+			slog.Info("manifest sidecar stopped")
+			return
+		case <-ticker.C:
+			runDiscovery()
+		}
+	}
 }
