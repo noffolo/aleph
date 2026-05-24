@@ -138,8 +138,10 @@ func setupTestDuckDB(t *testing.T) *sql.DB {
 func TestRunElectionFullPipeline(t *testing.T) {
 	var callCount atomic.Int64
 
-	getentiBody := `{"intestazione":{"te":"TE01"},"enti":{"ente":[{"cod":"058091","desc":"ROMA"},{"cod":"015146","desc":"MILANO"}]}}`
-	scrutiniBody := `{"intestazione":{"cod":"058091"},"liste":{"lista":[{"desc":"PARTITO DEMOCRATICO","voti":50000,"perc":30.5,"seggi":10}]},"datiGenerali":{"elettori":200000,"votanti":165000}}`
+	// 10-digit ISTAT codes: RRRPPPCCCC (region 3 + province 3 + comune 4)
+	// Roma (RM 058, comune 091) → "0120580910", Milano (MI 015, comune 146) → "0030151460"
+	getentiBody := `{"intestazione":{"te":"TE01"},"enti":{"ente":[{"cod":"0120580910","desc":"ROMA"},{"cod":"0030151460","desc":"MILANO"}]}}`
+	scrutiniBody := `{"intestazione":{"cod":"0120580910"},"liste":{"lista":[{"desc":"PARTITO DEMOCRATICO","voti":50000,"perc":30.5,"seggi":10}]},"datiGenerali":{"elettori":200000,"votanti":165000}}`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount.Add(1)

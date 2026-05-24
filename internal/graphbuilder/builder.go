@@ -3,6 +3,7 @@ package graphbuilder
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/ff3300/aleph-v2/internal/gnn"
@@ -84,7 +85,7 @@ func (b *PoliticalGraphBuilder) buildPartyNodes() error {
 		b.Graph.AddNode(&gnn.WorkflowNode{ID: id, Type: "party"})
 	}
 
-	rows2, err := b.db.Query(`SELECT DISTINCT descrizione FROM election_results_2022_camera WHERE descrizione != ''`)
+	rows2, err := b.db.Query(`SELECT DISTINCT desc_lis FROM election_results_2022_camera WHERE desc_lis != ''`)
 	if err != nil {
 		return fmt.Errorf("query election_results_2022_camera for distinct parties: %w", err)
 	}
@@ -103,30 +104,32 @@ func (b *PoliticalGraphBuilder) buildPartyNodes() error {
 func (b *PoliticalGraphBuilder) buildPersonNodes() error {
 	rows, err := b.db.Query(`SELECT DISTINCT name FROM pep_entities WHERE name != ''`)
 	if err != nil {
-		return fmt.Errorf("query pep_entities for distinct persons: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			return fmt.Errorf("scan pep_entities person name: %w", err)
+		slog.Warn("skipping pep_entities (table not found)", "error", err)
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err != nil {
+				return fmt.Errorf("scan pep_entities person name: %w", err)
+			}
+			id := b.getOrCreateID(name, "person")
+			b.Graph.AddNode(&gnn.WorkflowNode{ID: id, Type: "person"})
 		}
-		id := b.getOrCreateID(name, "person")
-		b.Graph.AddNode(&gnn.WorkflowNode{ID: id, Type: "person"})
 	}
 
 	rows2, err := b.db.Query(`SELECT DISTINCT person_name FROM opdm_memberships WHERE person_name != ''`)
 	if err != nil {
-		return fmt.Errorf("query opdm_memberships for distinct persons: %w", err)
-	}
-	defer rows2.Close()
-	for rows2.Next() {
-		var name string
-		if err := rows2.Scan(&name); err != nil {
-			return fmt.Errorf("scan opdm_memberships person name: %w", err)
+		slog.Warn("skipping opdm_memberships (table not found)", "error", err)
+	} else {
+		defer rows2.Close()
+		for rows2.Next() {
+			var name string
+			if err := rows2.Scan(&name); err != nil {
+				return fmt.Errorf("scan opdm_memberships person name: %w", err)
+			}
+			id := b.getOrCreateID(name, "person")
+			b.Graph.AddNode(&gnn.WorkflowNode{ID: id, Type: "person"})
 		}
-		id := b.getOrCreateID(name, "person")
-		b.Graph.AddNode(&gnn.WorkflowNode{ID: id, Type: "person"})
 	}
 	return nil
 }
@@ -161,7 +164,7 @@ func (b *PoliticalGraphBuilder) buildElectionNodes() error {
 }
 
 func (b *PoliticalGraphBuilder) buildPartyElectionEdges() error {
-	rows, err := b.db.Query(`SELECT descrizione, perc FROM election_results_2022_camera WHERE perc > 0`)
+	rows, err := b.db.Query(`SELECT desc_lis, TRY_CAST(perc AS DOUBLE) FROM election_results_2022_camera WHERE TRY_CAST(perc AS DOUBLE) > 0`)
 	if err != nil {
 		return fmt.Errorf("query election_results_2022_camera for edges: %w", err)
 	}
@@ -209,32 +212,34 @@ func (b *PoliticalGraphBuilder) buildDonorPartyEdges() error {
 func (b *PoliticalGraphBuilder) buildPersonPartyEdges() error {
 	rows, err := b.db.Query(`SELECT DISTINCT name, party FROM pep_entities WHERE party != '' AND name != ''`)
 	if err != nil {
-		return fmt.Errorf("query pep_entities for person-party edges: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var person, party string
-		if err := rows.Scan(&person, &party); err != nil {
-			return fmt.Errorf("scan pep_entities person-party edge: %w", err)
+		slog.Warn("skipping pep_entities person-party edges (table not found)", "error", err)
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			var person, party string
+			if err := rows.Scan(&person, &party); err != nil {
+				return fmt.Errorf("scan pep_entities person-party edge: %w", err)
+			}
+			personID := b.getOrCreateID(person, "person")
+			partyID := b.getOrCreateID(party, "party")
+			b.Graph.AddEdge(gnn.Edge{Source: personID, Target: partyID, Weight: 1.0})
 		}
-		personID := b.getOrCreateID(person, "person")
-		partyID := b.getOrCreateID(party, "party")
-		b.Graph.AddEdge(gnn.Edge{Source: personID, Target: partyID, Weight: 1.0})
 	}
 
 	rows2, err := b.db.Query(`SELECT DISTINCT person_name, org_name FROM opdm_memberships WHERE person_name != '' AND org_name != ''`)
 	if err != nil {
-		return fmt.Errorf("query opdm_memberships for person-party edges: %w", err)
-	}
-	defer rows2.Close()
-	for rows2.Next() {
-		var person, org string
-		if err := rows2.Scan(&person, &org); err != nil {
-			return fmt.Errorf("scan opdm_memberships person-party edge: %w", err)
+		slog.Warn("skipping opdm_memberships person-party edges (table not found)", "error", err)
+	} else {
+		defer rows2.Close()
+		for rows2.Next() {
+			var person, org string
+			if err := rows2.Scan(&person, &org); err != nil {
+				return fmt.Errorf("scan opdm_memberships person-party edge: %w", err)
+			}
+			personID := b.getOrCreateID(person, "person")
+			partyID := b.getOrCreateID(org, "party")
+			b.Graph.AddEdge(gnn.Edge{Source: personID, Target: partyID, Weight: 0.8})
 		}
-		personID := b.getOrCreateID(person, "person")
-		partyID := b.getOrCreateID(org, "party")
-		b.Graph.AddEdge(gnn.Edge{Source: personID, Target: partyID, Weight: 0.8})
 	}
 	return nil
 }

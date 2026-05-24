@@ -166,11 +166,11 @@ func (b *PoliticalGraphBuilder) analyzeDonorAnomalies() ([]DonorAnomaly, error) 
 func (b *PoliticalGraphBuilder) analyzeVoteFundingRatio() ([]VoteFundingRatio, error) {
 	rows, err := b.db.Query(`
 		SELECT
-			LOWER(TRIM(descrizione)) as party,
-			COALESCE(SUM(voti_validi), 0) as total_votes,
-			COALESCE(SUM(perc), 0) as total_perc
-		FROM election_results_2022_camera
-		GROUP BY LOWER(TRIM(descrizione))`)
+		LOWER(TRIM(desc_lis)) as party,
+		COALESCE(SUM(TRY_CAST(voti AS DOUBLE)), 0) as total_votes,
+		COALESCE(SUM(TRY_CAST(perc AS DOUBLE)), 0) as total_perc
+	FROM election_results_2022_camera
+	GROUP BY LOWER(TRIM(desc_lis))`)
 	if err != nil {
 		return nil, err
 	}

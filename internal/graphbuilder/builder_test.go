@@ -27,7 +27,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 	require.NoError(t, err)
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS election_results_2022_camera (
-		codice TEXT, descrizione TEXT, voti_validi REAL, perc REAL
+		codice TEXT, desc_lis TEXT, voti REAL, perc REAL
 	)`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO election_results_2022_camera VALUES ('001', 'PARTITO DEMOCRATICO', 5000000, 19.0)`)
@@ -129,7 +129,7 @@ func TestBuildGraphEdgeCases(t *testing.T) {
 
 		_, err = db.Exec(`CREATE TABLE IF NOT EXISTS party_funding (donation_amount REAL, donation_year INTEGER, recipient_party TEXT, donor_type TEXT, donor_name TEXT)`)
 		require.NoError(t, err)
-		_, err = db.Exec(`CREATE TABLE IF NOT EXISTS election_results_2022_camera (codice TEXT, descrizione TEXT, voti_validi REAL, perc REAL)`)
+		_, err = db.Exec(`CREATE TABLE IF NOT EXISTS election_results_2022_camera (codice TEXT, desc_lis TEXT, voti REAL, perc REAL)`)
 		require.NoError(t, err)
 		_, err = db.Exec(`CREATE TABLE IF NOT EXISTS pep_entities (id TEXT, name TEXT, country TEXT, position TEXT, party TEXT)`)
 		require.NoError(t, err)
