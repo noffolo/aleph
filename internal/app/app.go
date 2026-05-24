@@ -823,6 +823,9 @@ func (a *AlephApp) manifestSidecar(projectsRoot string) {
 		if err := ingestion.RegisterCrossReferenceViews(a.db.DB()); err != nil {
 			slog.Warn("manifest sidecar: cross-ref views failed", "error", err)
 		}
+		if err := ingestion.RegisterMicrotargetingViews(a.db.DB()); err != nil {
+			slog.Warn("manifest sidecar: microtargeting views failed", "error", err)
+		}
 	}
 
 	// Run immediately on start
