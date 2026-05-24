@@ -6,17 +6,7 @@ venv/
 .aleph/
 /aleph
 
-# Compiled binaries
-analyze-political
-build-graph
-export-data
-export_data/
-ingest-elections
-aleph-server
-aleph-server-new
-main
-handler.test
-integration.test
+# Test artifacts + binaries
 coverage.out
 coverage/
 cov*.out
@@ -42,8 +32,24 @@ security-scan
 # AI knowledge graph cache
 graphify-out/
 
-# Command stubs
-cmd/
+# Command stubs — track Go sources, ignore compiled binaries
+cmd/*/
+!/cmd/*/*.go
+
+# Compiled binaries
+aleph-server
+aleph-server-new
+aleph-v2
+main
+discover
+analyze-political
+build-graph
+export-data
+ingest-elections
+crossref-donors
+normalize-names
+graphify-out/
+security-scan
 
 # Python cache
 __pycache__/
