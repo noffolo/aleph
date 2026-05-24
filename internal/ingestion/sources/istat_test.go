@@ -2,8 +2,10 @@ package sources
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	_ "github.com/marcboeker/go-duckdb"
@@ -17,6 +19,7 @@ func TestISTATTableCreation(t *testing.T) {
 
 	require.NoError(t, ensureISTATPopulationTable(db))
 	require.NoError(t, ensureISTATIncomeTable(db))
+	require.NoError(t, ensureISTATEmploymentTable(db))
 
 	var tables []string
 	rows, err := db.Query("SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'istat_%' ORDER BY table_name")
@@ -27,7 +30,7 @@ func TestISTATTableCreation(t *testing.T) {
 		require.NoError(t, rows.Scan(&name))
 		tables = append(tables, name)
 	}
-	assert.Equal(t, []string{"istat_income", "istat_population"}, tables)
+	assert.Equal(t, []string{"istat_employment", "istat_income", "istat_population"}, tables)
 }
 
 func TestISTATPopulationParsing(t *testing.T) {
@@ -178,4 +181,124 @@ func TestISTATDefaultConfig(t *testing.T) {
 	assert.Equal(t, 2011, cfg.StartYear)
 	assert.Equal(t, 10, cfg.NumObservations)
 	assert.GreaterOrEqual(t, cfg.EndYear, 2024)
+}
+
+func TestISTATEmploymentTableCreation(t *testing.T) {
+	db := setupTestDuckDB(t)
+	defer db.Close()
+
+	require.NoError(t, ensureISTATEmploymentTable(db))
+
+	var tableExists int
+	require.NoError(t, db.QueryRow(
+		"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'istat_employment'",
+	).Scan(&tableExists))
+	assert.Equal(t, 1, tableExists)
+}
+
+func TestISTATEmploymentParsing(t *testing.T) {
+	db := setupTestDuckDB(t)
+	defer db.Close()
+
+	// Create a temp JSONL file with sample employment data
+	f, err := os.CreateTemp("", "istat-employment-*.jsonl")
+	require.NoError(t, err)
+	defer os.Remove(f.Name())
+
+	samples := []employmentJSONLine{
+		{ComuneISTAT: "058091", ComuneNome: "Roma", Anno: 2022, TassoOccupazione: 65.5, TassoDisoccupazione: 8.2, TassoInattivita: 26.3, AddettiTotali: 850000, ULTotale: 42000},
+		{ComuneISTAT: "001001", ComuneNome: "Agliè", Anno: 2022, TassoOccupazione: 62.1, TassoDisoccupazione: 6.5, TassoInattivita: 31.4, AddettiTotali: 340, ULTotale: 25},
+		{ComuneISTAT: "015146", ComuneNome: "Milano", Anno: 2022, TassoOccupazione: 70.3, TassoDisoccupazione: 5.1, TassoInattivita: 24.6, AddettiTotali: 920000, ULTotale: 55000},
+	}
+	enc := json.NewEncoder(f)
+	for _, s := range samples {
+		require.NoError(t, enc.Encode(s))
+	}
+	f.Close()
+
+	client := NewRateLimitedClient(RateLimitConfig{RequestsPerSecond: 100, Burst: 100})
+	client.client = &http.Client{}
+
+	cfg := ISTATConfig{
+		BaseURL:              "https://esploradati.istat.it/SDMXWS/rest",
+		StartYear:            2011,
+		EndYear:              2022,
+		NumObservations:      10,
+		EmploymentJSONLPath:  f.Name(),
+	}
+
+	err = RunISTATEmployment(context.Background(), client, db, cfg)
+	require.NoError(t, err)
+
+	var count int
+	db.QueryRow("SELECT COUNT(*) FROM istat_employment").Scan(&count)
+	assert.Equal(t, 3, count)
+
+	var tassoOcc float64
+	var addetti int
+	db.QueryRow("SELECT tasso_occupazione, addetti_totali FROM istat_employment WHERE comune_istat = '058091' AND year = 2022").Scan(&tassoOcc, &addetti)
+	assert.InDelta(t, 65.5, tassoOcc, 0.01)
+	assert.Equal(t, 850000, addetti)
+
+	db.QueryRow("SELECT tasso_occupazione, addetti_totali FROM istat_employment WHERE comune_istat = '015146' AND year = 2022").Scan(&tassoOcc, &addetti)
+	assert.InDelta(t, 70.3, tassoOcc, 0.01)
+	assert.Equal(t, 920000, addetti)
+}
+
+func TestISTATEmploymentEmptyFile(t *testing.T) {
+	db := setupTestDuckDB(t)
+	defer db.Close()
+
+	// Empty JSONL path → graceful skip
+	client := NewRateLimitedClient(RateLimitConfig{RequestsPerSecond: 100, Burst: 100})
+	client.client = &http.Client{}
+
+	cfg := ISTATConfig{
+		BaseURL:             "https://esploradati.istat.it/SDMXWS/rest",
+		StartYear:           2011,
+		EndYear:             2022,
+		NumObservations:     10,
+		EmploymentJSONLPath: "",
+	}
+
+	err := RunISTATEmployment(context.Background(), client, db, cfg)
+	require.NoError(t, err)
+
+	var count int
+	db.QueryRow("SELECT COUNT(*) FROM istat_employment").Scan(&count)
+	assert.Equal(t, 0, count)
+}
+
+func TestISTATEmploymentInvalidJSONL(t *testing.T) {
+	db := setupTestDuckDB(t)
+	defer db.Close()
+
+	f, err := os.CreateTemp("", "istat-employment-bad-*.jsonl")
+	require.NoError(t, err)
+	defer os.Remove(f.Name())
+
+	// Write a mix of valid and invalid lines
+	f.WriteString("not valid json\n")
+	f.WriteString(`{"comune_istat":"058091","comune_nome":"Roma","anno":2022,"tasso_occupazione":65.5,"tasso_disoccupazione":8.2,"tasso_inattivita":26.3,"addetti_totali":850000,"ul_totali":42000}` + "\n")
+	f.WriteString("\n") // empty line, skipped
+	f.WriteString("[this,is,not,an,object]\n")
+	f.Close()
+
+	client := NewRateLimitedClient(RateLimitConfig{RequestsPerSecond: 100, Burst: 100})
+	client.client = &http.Client{}
+
+	cfg := ISTATConfig{
+		BaseURL:             "https://esploradati.istat.it/SDMXWS/rest",
+		StartYear:           2011,
+		EndYear:             2022,
+		NumObservations:     10,
+		EmploymentJSONLPath: f.Name(),
+	}
+
+	err = RunISTATEmployment(context.Background(), client, db, cfg)
+	require.NoError(t, err)
+
+	var count int
+	db.QueryRow("SELECT COUNT(*) FROM istat_employment").Scan(&count)
+	assert.Equal(t, 1, count) // only one valid row inserted
 }
