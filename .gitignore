@@ -51,6 +51,12 @@ normalize-names
 graphify-out/
 security-scan
 
+# Graphify knowledge graph cache
+.graphify/
+
+# Graphify export data
+export_data/
+
 # Python cache
 __pycache__/
 *.pyc
