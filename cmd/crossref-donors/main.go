@@ -51,6 +51,9 @@ func stripPunct(s string) string {
 func matchTypeForNames(donorNome, candNome string) string {
 	dn := strings.TrimSpace(donorNome)
 	cn := strings.TrimSpace(candNome)
+	if dn == "" {
+		return "cognome"
+	}
 	if dn == cn {
 		return "exact"
 	}
@@ -76,7 +79,7 @@ func CrossRefDonors(db *sql.DB) ([]DonorLink, error) {
 
 	rows, err := db.Query(`SELECT donor_name, recipient_party, donation_amount, donation_year
 	FROM party_funding
-	WHERE donor_type = 'Persona Fisica'`)
+	WHERE donor_type IN ('Parlamentare o membro del Governo', 'Persona')`)
 	if err != nil {
 		return nil, fmt.Errorf("query party_funding: %w", err)
 	}
