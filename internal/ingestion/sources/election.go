@@ -419,14 +419,12 @@ func (s *ElectionSource) Validate() error {
 
 // scrutiniParty holds a single party's results in a scrutini response.
 type scrutiniParty struct {
-	Desc string  `json:"desc"`
-	Voti int64   `json:"voti"`
-	Perc float64 `json:"-"`
-	Seggi int    `json:"seggi"`
-	DescLis string  `json:"desc_lis,omitempty"`
-	VotiRaw float64 `json:"voti,omitempty"`
-	// percRaw handles Italian locale (comma decimal) and standard float formats
-	percRaw percString `json:"perc"`
+	Desc    string    `json:"desc"`
+	Voti    int64     `json:"voti"`
+	Perc    float64   `json:"-"`
+	Seggi   int       `json:"seggi"`
+	DescLis string    `json:"desc_lis,omitempty"`
+	PercRaw percString `json:"perc"`
 }
 
 // percString handles JSON unmarshaling of percentage values that may be
@@ -480,7 +478,7 @@ func extractParties(body []byte) ([]scrutiniParty, error) {
 			if flat.Liste[i].Desc == "" && flat.Liste[i].DescLis != "" {
 				flat.Liste[i].Desc = flat.Liste[i].DescLis
 			}
-			flat.Liste[i].Perc = float64(flat.Liste[i].percRaw)
+			flat.Liste[i].Perc = float64(flat.Liste[i].PercRaw)
 		}
 		return flat.Liste, nil
 	}
@@ -491,7 +489,7 @@ func extractParties(body []byte) ([]scrutiniParty, error) {
 		return nil, fmt.Errorf("decode scrutini response: %w", err)
 	}
 	for i := range nested.Liste.Lista {
-		nested.Liste.Lista[i].Perc = float64(nested.Liste.Lista[i].percRaw)
+		nested.Liste.Lista[i].Perc = float64(nested.Liste.Lista[i].PercRaw)
 	}
 	return nested.Liste.Lista, nil
 }
